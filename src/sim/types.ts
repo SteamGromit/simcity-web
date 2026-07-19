@@ -73,6 +73,47 @@ export interface BudgetReport {
   net: number;
 }
 
+export type OrdinanceId = 'cleanAir' | 'freeBus' | 'fireCode' | 'eduGrant';
+
+export interface Ordinance {
+  id: OrdinanceId;
+  label: string;
+  blurb: string;
+  /** Monthly cost while enacted. */
+  cost: number;
+}
+
+export const ORDINANCES: Ordinance[] = [
+  {
+    id: 'cleanAir',
+    label: 'Clean Air Act',
+    blurb: 'Scrubbers and emission checks: industry and traffic pollute 30% less.',
+    cost: 100,
+  },
+  {
+    id: 'freeBus',
+    label: 'Free Bus Service',
+    blurb: 'Fare-free transit: bus-served commutes put only a quarter of the cars on the road.',
+    cost: 150,
+  },
+  {
+    id: 'fireCode',
+    label: 'Fire Safety Code',
+    blurb: 'Inspections and sprinklers: buildings are half as likely to catch fire.',
+    cost: 80,
+  },
+  {
+    id: 'eduGrant',
+    label: 'Education Grant',
+    blurb: 'Extra school funding: school coverage counts 25% stronger across its reach.',
+    cost: 120,
+  },
+];
+
+export function defaultOrdinances(): Record<OrdinanceId, boolean> {
+  return { cleanAir: false, freeBus: false, fireCode: false, eduGrant: false };
+}
+
 export interface CityState {
   version: 1;
   seed: number;
@@ -85,6 +126,8 @@ export interface CityState {
   population: number;
   jobs: number;
   lastBudget: BudgetReport;
+  /** Enacted city policies; each charges monthly and tweaks the sim. */
+  ordinances: Record<OrdinanceId, boolean>;
   /** Event messages (fires, etc.) queued for the UI; newest last, capped. */
   notices: string[];
   /** Monthly samples for the charts panel, newest last, capped at HISTORY_MAX. */

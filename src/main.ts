@@ -10,6 +10,7 @@ import { buildHud } from './ui/hud';
 import { buildQuery } from './ui/query';
 import { buildCharts } from './ui/charts';
 import { buildMinimap } from './ui/minimap';
+import { buildCityHall } from './ui/cityhall';
 import { buildHelp, buildTipBar } from './ui/help';
 import { adviseTips } from './sim/tips';
 import { ambientLevel, createSoundPlayer, soundFor, UI_SOUNDS } from './ui/sound';
@@ -105,12 +106,14 @@ const minimap = buildMinimap(uiRoot, (wx, wy) => {
   renderer.camera.x = wx - canvas.clientWidth / 2 / renderer.camera.zoom;
   renderer.camera.y = wy - canvas.clientHeight / 2 / renderer.camera.zoom;
 });
+const cityHall = buildCityHall(uiRoot, () => city, () => sound.play(UI_SOUNDS.select));
 const hud = buildHud(
   uiRoot,
   () => city,
   {
     setSpeed,
     toggleCharts: () => charts.toggle(),
+    toggleCityHall: () => cityHall.toggle(),
     save() {
       localStorage.setItem(SAVE_KEY, serialize(city));
       toast('City saved', 'info');
@@ -129,6 +132,7 @@ const hud = buildHud(
       renderer.reseed(city.seed);
       minimap.invalidate();
       hud.syncTaxes(city);
+      cityHall.syncBoxes();
       toast('City loaded', 'info');
       sound.play(UI_SOUNDS.info);
       advisoryForUnprotectedCity();
@@ -379,6 +383,7 @@ function frame(now: number) {
   }
   renderer.draw(city, view);
   hud.update(city);
+  cityHall.update(city, now);
   charts.update(city);
   minimap.update(city, renderer.camera, canvas);
   requestAnimationFrame(frame);

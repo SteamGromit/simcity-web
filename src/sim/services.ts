@@ -41,7 +41,10 @@ export function updateCoverage(city: CityState): void {
     for (const [nx, ny] of tilesWithin(x, y, service.radius)) {
       const d = Math.max(Math.abs(nx - x), Math.abs(ny - y));
       // R+1 denominator keeps the rim ring covered (same convention as parks)
-      const cov = 1 - d / (service.radius + 1);
+      let cov = 1 - d / (service.radius + 1);
+      if (service.field === 'schoolCov' && city.ordinances.eduGrant) {
+        cov = Math.min(1, cov * 1.25); // Education Grant stretches reach
+      }
       const t = city.tiles[idx(nx, ny)];
       if (cov > t[service.field]) t[service.field] = cov;
     }
@@ -59,7 +62,8 @@ export function fireRisk(city: CityState, rand: () => number): void {
   for (let i = 0; i < city.tiles.length; i++) {
     const t = city.tiles[i];
     if (!isBuilding(t) || t.stage === 0 || t.abandoned || t.fireCov > 0 || t.burning > 0) continue;
-    if (rand() < FIRE_RISK) {
+    const risk = city.ordinances.fireCode ? FIRE_RISK / 2 : FIRE_RISK;
+    if (rand() < risk) {
       t.burning = FIRE_BURN_TICKS;
       const x = i % GRID;
       const y = (i / GRID) | 0;

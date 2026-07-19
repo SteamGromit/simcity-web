@@ -175,6 +175,68 @@ body {
   display: none !important;
 }
 
+/* ---- city hall ---- */
+#cityhall-panel {
+  position: fixed;
+  top: 70px;
+  left: 146px;
+  width: 270px;
+  max-height: calc(100vh - 90px);
+  overflow-y: auto;
+  padding: 10px 12px;
+}
+
+#cityhall-panel h3 {
+  font-size: 13px;
+  margin-bottom: 6px;
+  color: #fff;
+}
+
+#cityhall-panel h4 {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7d8fa5;
+  margin: 8px 0 4px;
+}
+
+#cityhall-panel ul {
+  list-style: none;
+}
+
+#cityhall-panel li {
+  margin-bottom: 5px;
+  line-height: 1.3;
+  padding-left: 18px;
+  position: relative;
+}
+
+#cityhall-panel li::before {
+  content: '💡';
+  position: absolute;
+  left: 0;
+  font-size: 11px;
+}
+
+#cityhall-panel li.quiet::before {
+  content: '✓';
+  color: #4dc464;
+}
+
+#cityhall-panel .ordinance {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 5px;
+  cursor: pointer;
+}
+
+#cityhall-panel .ordinance .cost {
+  margin-left: auto;
+  color: #9fb2c8;
+  font-size: 11px;
+}
+
 /* ---- help ---- */
 #help-btn {
   position: fixed;

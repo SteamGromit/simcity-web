@@ -4,6 +4,20 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.13.0] — 2026-07-19 · City Hall
+
+### Added
+- **City Hall panel** (HUD button): an advisor board listing *every*
+  active advisor warning (the 💡 tip bar only shows the top one), plus
+  the city's ordinance book.
+- **Ordinances** — monthly-cost policies with real sim hooks:
+  - *Clean Air Act* (§100): industry and traffic pollute 30% less.
+  - *Free Bus Service* (§150): bus-served commutes put only a quarter
+    of the cars on the road.
+  - *Fire Safety Code* (§80): buildings half as likely to ignite.
+  - *Education Grant* (§120): school coverage counts 25% stronger.
+  Enacted ordinances persist in saves; legacy saves load with all off.
+
 ## [0.12.0] — 2026-07-19 · Congestion & buses
 
 ### Added

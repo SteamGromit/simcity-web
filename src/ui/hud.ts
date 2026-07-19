@@ -7,6 +7,7 @@ export interface HudActions {
   load(): void;
   newCity(): void;
   toggleCharts(): void;
+  toggleCityHall(): void;
 }
 
 const SPEED_LABELS = ['⏸', '▶', '▶▶', '▶▶▶'];
@@ -22,6 +23,7 @@ export function buildHud(root: HTMLElement, city: () => CityState, actions: HudA
     <canvas id="rci" width="66" height="44"></canvas>
     <span class="speed-group" id="speeds"></span>
     <button id="budget-btn">Budget</button>
+    <button id="cityhall-btn">City Hall</button>
     <button id="charts-btn">Charts</button>
     <button id="save-btn">Save</button>
     <button id="load-btn">Load</button>
@@ -53,6 +55,7 @@ export function buildHud(root: HTMLElement, city: () => CityState, actions: HudA
   showActiveSpeed(1);
 
   (el.querySelector('#charts-btn') as HTMLElement).addEventListener('click', actions.toggleCharts);
+  (el.querySelector('#cityhall-btn') as HTMLElement).addEventListener('click', actions.toggleCityHall);
   (el.querySelector('#save-btn') as HTMLElement).addEventListener('click', actions.save);
   (el.querySelector('#load-btn') as HTMLElement).addEventListener('click', actions.load);
   (el.querySelector('#new-btn') as HTMLElement).addEventListener('click', actions.newCity);

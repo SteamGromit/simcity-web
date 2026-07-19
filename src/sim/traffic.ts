@@ -197,7 +197,8 @@ export function updateTraffic(city: CityState): void {
     }
     const arrival = city.tiles[path[path.length - 1]];
     const rides = t.busCov > 0 && arrival.busCov > 0;
-    const share = rides ? BUS_TRAFFIC_SHARE : 1;
+    const busShare = city.ordinances.freeBus ? BUS_TRAFFIC_SHARE / 2 : BUS_TRAFFIC_SHARE;
+    const share = rides ? busShare : 1;
     for (const p of path) city.tiles[p].traffic += share;
   }
 }

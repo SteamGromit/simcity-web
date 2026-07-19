@@ -6,16 +6,16 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Backlog (in order)
 
-1. **Ordinances; advisors** — city policies with budget/sim effects; advisor
-   panel surfacing problems (builds on the tips advisor from v0.8).
-2. **Water utility** — pumps + pipes as a second network layer.
-3. **Day/night cycle** — visual layer; building windows light up.
-4. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
+1. **Water utility** — pumps + pipes as a second network layer.
+2. **Day/night cycle** — visual layer; building windows light up.
+3. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
    deferred until single-city play is deep enough).
-5. **Modding hooks** — data-driven building/balance definitions.
+4. **Modding hooks** — data-driven building/balance definitions.
 
 ## Done
 
+- **Ordinances + advisors** — shipped v0.13.0 (City Hall panel: full
+  advisor list + 4 ordinances with sim hooks).
 - **Congestion + buses** — shipped v0.12.0 (capacity-based route costs,
   rerouting, bus stops halving covered commutes; subway not built —
   re-add if wanted).

@@ -12,6 +12,7 @@ import {
   CityState,
   COSTS,
   DEFAULT_TAX,
+  defaultOrdinances,
   Density,
   DENSITY_COST_MULT,
   GRID,
@@ -120,6 +121,7 @@ export function newCity(seed: number): CityState {
     population: 0,
     jobs: 0,
     lastBudget: { rIncome: 0, cIncome: 0, iIncome: 0, expenses: 0, net: 0 },
+    ordinances: defaultOrdinances(),
     notices: [],
     history: { pop: [], funds: [] },
   };
