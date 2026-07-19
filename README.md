@@ -37,7 +37,10 @@ production bundle.
 
 ## How to play
 
-New maps come with lakes, forests, and **rolling hills**. Before you build
+New maps come with lakes, forests, **rolling hills**, and a guaranteed
+snowcapped **mountain**; about one map in four rolls a **desert** — one
+oasis, no lakes, tinder-dry air — where the water utility is a matter of
+survival. Before you build
 anything, the **terrain tools** (Water / Forest / Level Land / Raise /
 Lower) are free — sculpt the geography to taste; once the city is founded
 they cost money. Nothing can be built on water or forest, but living near
