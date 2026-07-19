@@ -7,6 +7,7 @@ import { updatePollution } from './pollution';
 import { updatePower } from './power';
 import { updateWater } from './water';
 import { pandemicMonthly, rollForDisaster, updateDisasters } from './disasters';
+import { defaultWeather, updateWeatherMonthly } from './weather';
 import { fireRisk, updateCoverage, updateFires } from './services';
 import { updateTraffic } from './traffic';
 import {
@@ -126,6 +127,7 @@ export function newCity(seed: number): CityState {
     lastBudget: { rIncome: 0, cIncome: 0, iIncome: 0, expenses: 0, net: 0 },
     ordinances: defaultOrdinances(),
     disasters: defaultDisasters(),
+    weather: defaultWeather(),
     notices: [],
     history: { pop: [], funds: [] },
   };
@@ -316,6 +318,7 @@ export function simTick(city: CityState, rand: () => number): void {
     fireRisk(city, rand);
     pandemicMonthly(city, rand);
     rollForDisaster(city, rand);
+    updateWeatherMonthly(city, rand);
     collectBudget(city);
     updateDemand(city); // demand reflects the month's new totals right away
     if (city.notices.length > 8) city.notices.splice(0, city.notices.length - 8);

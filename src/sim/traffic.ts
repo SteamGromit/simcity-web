@@ -55,9 +55,9 @@ function developed(city: CityState, x: number, y: number, zones: Zone[]): boolea
 
 /** Cost of driving onto a road tile: 1 plus a quadratic congestion penalty
  * fed by the previous update's traffic volumes. */
-function tileCost(t: { traffic: number }): number {
+function tileCost(t: { traffic: number }, snow: number): number {
   const congestion = Math.min(1, t.traffic / (ROAD_CAPACITY * 2));
-  return 1 + CONGESTION_MAX_EXTRA * congestion * congestion;
+  return 1 + snow + CONGESTION_MAX_EXTRA * congestion * congestion;
 }
 
 /** Binary min-heap of tile indices keyed by an external cost array. */
@@ -104,6 +104,7 @@ class Heap {
  * any developed tile of `zones`. With empty roads every tile costs 1, so
  * values equal plain BFS distances. */
 function roadDistanceTo(city: CityState, zones: Zone[]): Float64Array {
+  const snow = city.weather.kind === 'snow' ? 0.5 : 0; // unplowed tiles drag
   const dist = new Float64Array(GRID * GRID).fill(Infinity);
   const heap = new Heap(dist);
   for (let i = 0; i < city.tiles.length; i++) {
@@ -129,7 +130,7 @@ function roadDistanceTo(city: CityState, zones: Zone[]): Float64Array {
       const ni = idx(nx, ny);
       if (city.tiles[ni].zone !== Zone.Road || settled[ni]) continue;
       if (!climbable(city, ni, i)) continue;
-      const nd = dist[i] + tileCost(city.tiles[ni]);
+      const nd = dist[i] + tileCost(city.tiles[ni], snow);
       if (nd < dist[ni]) {
         dist[ni] = nd;
         heap.push(ni);

@@ -155,6 +155,8 @@ export interface CityState {
   ordinances: Record<OrdinanceId, boolean>;
   /** Active disasters (spawned randomly or summoned from City Hall). */
   disasters: Disasters;
+  /** Current weather; visual plus light sim effects (fire, traffic). */
+  weather: import('./weather').Weather;
   /** Event messages (fires, etc.) queued for the UI; newest last, capped. */
   notices: string[];
   /** Monthly samples for the charts panel, newest last, capped at HISTORY_MAX. */

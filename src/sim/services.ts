@@ -62,7 +62,8 @@ export function fireRisk(city: CityState, rand: () => number): void {
   for (let i = 0; i < city.tiles.length; i++) {
     const t = city.tiles[i];
     if (!isBuilding(t) || t.stage === 0 || t.abandoned || t.fireCov > 0 || t.burning > 0) continue;
-    const risk = city.ordinances.fireCode ? FIRE_RISK / 2 : FIRE_RISK;
+    let risk = city.ordinances.fireCode ? FIRE_RISK / 2 : FIRE_RISK;
+    if (city.weather.kind === 'rain' || city.weather.kind === 'snow') risk /= 2; // wet roofs
     if (rand() < risk) {
       t.burning = FIRE_BURN_TICKS;
       const x = i % GRID;

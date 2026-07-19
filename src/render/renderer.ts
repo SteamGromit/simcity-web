@@ -173,28 +173,14 @@ export class Renderer {
       }
     }
 
-    if (city.disasters.hurricaneTicks > 0) {
-      // driving rain in screen space
+    const storm = city.disasters.hurricaneTicks > 0;
+    if (storm || city.weather.kind === 'rain') this.drawRain(now, storm ? 1 : 0.45);
+    else if (city.weather.kind === 'snow') this.drawSnow(now);
+    else if (city.weather.kind === 'cloudy') {
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.fillStyle = 'rgba(40, 55, 80, 0.18)';
+      ctx.fillStyle = 'rgba(120, 130, 150, 0.10)';
       ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-      ctx.strokeStyle = 'rgba(180, 200, 230, 0.35)';
-      ctx.lineWidth = 1;
-      const shift = (now / 3) % 40;
-      ctx.beginPath();
-      for (let rx = -40; rx < this.canvas.width + 40; rx += 17) {
-        const jitter = ((rx * 7919) % 23) - 11;
-        ctx.moveTo(rx + shift + jitter, ((rx * 31) % 40) - 40 + ((now / 4) % 40));
-        ctx.lineTo(rx + shift + jitter - 6, ((rx * 31) % 40) - 20 + ((now / 4) % 40));
-      }
-      for (let ry = 0; ry < this.canvas.height; ry += 34) {
-        for (let rx = ((ry * 13) % 29) - 29; rx < this.canvas.width; rx += 29) {
-          ctx.moveTo(rx + shift, ry + ((now / 4) % 34));
-          ctx.lineTo(rx + shift - 6, ry + 14 + ((now / 4) % 34));
-        }
-      }
-      ctx.stroke();
       ctx.restore();
     }
 
@@ -222,6 +208,47 @@ export class Renderer {
         2,
       );
     }
+  }
+
+  /** Screen-space driving rain; intensity 1 = full hurricane. */
+  private drawRain(now: number, intensity: number) {
+    const { ctx } = this;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = `rgba(40, 55, 80, ${0.18 * intensity})`;
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    ctx.strokeStyle = `rgba(180, 200, 230, ${0.35 * intensity})`;
+    ctx.lineWidth = 1;
+    const shift = (now / 3) % 40;
+    const step = intensity >= 1 ? 17 : 31;
+    ctx.beginPath();
+    for (let ry = 0; ry < this.canvas.height; ry += 34) {
+      for (let rx = ((ry * 13) % 29) - 29; rx < this.canvas.width; rx += step) {
+        ctx.moveTo(rx + shift, ry + ((now / 4) % 34));
+        ctx.lineTo(rx + shift - 6, ry + 14 + ((now / 4) % 34));
+      }
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /** Screen-space drifting snowfall with a faint ground whitening. */
+  private drawSnow(now: number) {
+    const { ctx } = this;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = 'rgba(235, 240, 250, 0.08)';
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    ctx.fillStyle = 'rgba(250, 252, 255, 0.8)';
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+    for (let k = 0; k < 160; k++) {
+      const seed = k * 2654435761;
+      const x = (seed % w) + Math.sin(now / 900 + k) * 14;
+      const y = (((seed >> 8) % h) + now * (0.02 + (k % 5) * 0.006)) % h;
+      ctx.fillRect(((x % w) + w) % w, y, 2, 2);
+    }
+    ctx.restore();
   }
 
   /** Direction across each edge of TileGeom.corners: [k] → [k+1] borders these. */
