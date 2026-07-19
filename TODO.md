@@ -6,21 +6,23 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Backlog (in order)
 
-1. **Disasters** — tornados, hurricanes, pandemics (fire framework exists
-   to build on). *(user-requested 2026-07-19)*
-2. **Weather** — rain/snow/etc., visual layer at minimum, maybe sim
+
+1. **Weather** — rain/snow/etc., visual layer at minimum, maybe sim
    effects. *(user-requested 2026-07-19)*
-3. **Terrain: mountains + desert** — taller peaks and a desert biome /
+2. **Terrain: mountains + desert** — taller peaks and a desert biome /
    map style. *(user-requested 2026-07-19)*
-4. **Skins/styles** — selectable overall appearance, e.g. 'Springfield'
+3. **Skins/styles** — selectable overall appearance, e.g. 'Springfield'
    cartoon style, 'NYC' architecture; more later, eventually user-made.
    *(user-requested 2026-07-19)*
-5. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
+4. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
    deferred until single-city play is deep enough).
-6. **Modding hooks** — data-driven building/balance definitions; folds in
+5. **Modding hooks** — data-driven building/balance definitions; folds in
    user-made skins from the skins item.
 
 ## Done
+
+- **Disasters** — shipped v0.17.0 (tornado, hurricane, pandemic; random
+  strikes + City Hall summons).
 
 - **Control room** — shipped v0.16.0 (tool shortcuts, collapsible toolbar
   groups, draggable panels, adjustable road line tool).

@@ -1,4 +1,4 @@
-import { CityState, ORDINANCES } from '../sim/types';
+import { CityState, DisasterKind, ORDINANCES } from '../sim/types';
 import { adviseTips } from '../sim/tips';
 
 /** City Hall: the advisor board (every active tip) and ordinance toggles. */
@@ -6,6 +6,7 @@ export function buildCityHall(
   root: HTMLElement,
   city: () => CityState,
   onToggle: () => void,
+  onDisaster: (kind: DisasterKind) => void,
 ) {
   const panel = document.createElement('div');
   panel.id = 'cityhall-panel';
@@ -16,6 +17,8 @@ export function buildCityHall(
     <ul id="advisor-list"></ul>
     <h4>Ordinances · monthly cost</h4>
     <div id="ordinance-list"></div>
+    <h4>Disasters · tempt fate</h4>
+    <div id="disaster-list"></div>
   `;
   root.appendChild(panel);
 
@@ -39,6 +42,16 @@ export function buildCityHall(
     cost.textContent = `§${o.cost}`;
     row.append(box, text, cost);
     ordinanceList.appendChild(row);
+  }
+
+  const disasterList = panel.querySelector('#disaster-list') as HTMLElement;
+  for (const kind of ['tornado', 'hurricane', 'pandemic'] as DisasterKind[]) {
+    const btn = document.createElement('button');
+    btn.textContent = { tornado: '🌪 Tornado', hurricane: '🌀 Hurricane', pandemic: '🦠 Pandemic' }[
+      kind
+    ];
+    btn.addEventListener('click', () => onDisaster(kind));
+    disasterList.appendChild(btn);
   }
 
   let lastTipRender = 0;

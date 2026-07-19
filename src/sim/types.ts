@@ -120,6 +120,25 @@ export function defaultOrdinances(): Record<OrdinanceId, boolean> {
   return { cleanAir: false, freeBus: false, fireCode: false, eduGrant: false };
 }
 
+export type DisasterKind = 'tornado' | 'hurricane' | 'pandemic';
+
+export interface Disasters {
+  /** Wandering funnel; null when the skies are clear. */
+  tornado: { x: number; y: number; ticksLeft: number } | null;
+  /** City-wide storm; 0 = none. */
+  hurricaneTicks: number;
+  /** Demand-sapping outbreak; 0 = none. Hospitals soften it. */
+  pandemicMonths: number;
+}
+
+export function defaultDisasters(): Disasters {
+  return { tornado: null, hurricaneTicks: 0, pandemicMonths: 0 };
+}
+
+export const TORNADO_TICKS = 48;
+export const HURRICANE_TICKS = 64;
+export const PANDEMIC_MONTHS = 6;
+
 export interface CityState {
   version: 1;
   seed: number;
@@ -134,6 +153,8 @@ export interface CityState {
   lastBudget: BudgetReport;
   /** Enacted city policies; each charges monthly and tweaks the sim. */
   ordinances: Record<OrdinanceId, boolean>;
+  /** Active disasters (spawned randomly or summoned from City Hall). */
+  disasters: Disasters;
   /** Event messages (fires, etc.) queued for the UI; newest last, capped. */
   notices: string[];
   /** Monthly samples for the charts panel, newest last, capped at HISTORY_MAX. */

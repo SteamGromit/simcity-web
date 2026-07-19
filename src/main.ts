@@ -1,6 +1,7 @@
 import './ui/style.css';
 import { applyTool, canApply, mulberry32, newCity, simTick } from './sim/city';
 import { roadLine } from './sim/grid';
+import { spawnDisaster } from './sim/disasters';
 import { idx } from './sim/grid';
 import { deserialize, serialize } from './sim/save';
 import { CityState, Density, Zone } from './sim/types';
@@ -109,7 +110,15 @@ const minimap = buildMinimap(uiRoot, (wx, wy) => {
   renderer.camera.x = wx - canvas.clientWidth / 2 / renderer.camera.zoom;
   renderer.camera.y = wy - canvas.clientHeight / 2 / renderer.camera.zoom;
 });
-const cityHall = buildCityHall(uiRoot, () => city, () => sound.play(UI_SOUNDS.select));
+const cityHall = buildCityHall(
+  uiRoot,
+  () => city,
+  () => sound.play(UI_SOUNDS.select),
+  (kind) => {
+    spawnDisaster(city, kind, rand);
+    sound.play(UI_SOUNDS.alarm);
+  },
+);
 const hud = buildHud(
   uiRoot,
   () => city,

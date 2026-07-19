@@ -159,6 +159,45 @@ export class Renderer {
       ctx.restore();
     }
 
+    if (city.disasters.tornado) {
+      const tor = city.disasters.tornado;
+      const g = tileGeom(tor.x, tor.y, city.tiles[idx(tor.x, tor.y)].elevation);
+      // swirling stacked funnel
+      for (let k = 0; k < 6; k++) {
+        const rr = 4 + k * 3.2;
+        const wob = Math.sin(now / 90 + k * 1.7) * 3;
+        ctx.fillStyle = `rgba(120, 118, 125, ${0.55 - k * 0.06})`;
+        ctx.beginPath();
+        ctx.ellipse(g.cx + wob, g.cy - 6 - k * 7, rr, rr * 0.45, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    if (city.disasters.hurricaneTicks > 0) {
+      // driving rain in screen space
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = 'rgba(40, 55, 80, 0.18)';
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      ctx.strokeStyle = 'rgba(180, 200, 230, 0.35)';
+      ctx.lineWidth = 1;
+      const shift = (now / 3) % 40;
+      ctx.beginPath();
+      for (let rx = -40; rx < this.canvas.width + 40; rx += 17) {
+        const jitter = ((rx * 7919) % 23) - 11;
+        ctx.moveTo(rx + shift + jitter, ((rx * 31) % 40) - 40 + ((now / 4) % 40));
+        ctx.lineTo(rx + shift + jitter - 6, ((rx * 31) % 40) - 20 + ((now / 4) % 40));
+      }
+      for (let ry = 0; ry < this.canvas.height; ry += 34) {
+        for (let rx = ((ry * 13) % 29) - 29; rx < this.canvas.width; rx += 29) {
+          ctx.moveTo(rx + shift, ry + ((now / 4) % 34));
+          ctx.lineTo(rx + shift - 6, ry + 14 + ((now / 4) % 34));
+        }
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
     const elevOf = (x: number, y: number) => city.tiles[idx(x, y)].elevation;
     if (view.rect) {
       const { x0, y0, x1, y1 } = view.rect;

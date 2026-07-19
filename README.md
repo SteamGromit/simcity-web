@@ -77,6 +77,12 @@ unlocks the tallest towers (industry skips the school and hospital
 requirements). Stations need power, cover a radius (see the coverage data
 views), and charge monthly upkeep.
 
+**Disasters** strike once your city is big enough to matter: tornados
+carve wandering paths of rubble (and fires), hurricanes lash the whole
+map with storm surge along the waterfront, and pandemics empty homes that
+lack hospital coverage. Feeling reckless? City Hall has a
+"tempt fate" panel.
+
 Buildings with no fire coverage can **catch fire — and fires spread** to
 neighboring buildings, covered or not (coverage resists the jump and fights
 the blaze). Watch for the flames and the advisor warning; if the fire
