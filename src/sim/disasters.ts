@@ -91,6 +91,13 @@ export function updateDisasters(city: CityState, rand: () => number): void {
   }
 }
 
+/** Monthly cleanup: crews carry off one step of debris per month. */
+export function rubbleMonthly(city: CityState): void {
+  for (const t of city.tiles) {
+    if (t.rubble > 0) t.rubble -= 1;
+  }
+}
+
 /** Monthly pandemic toll: demand craters and uncovered homes empty out. */
 export function pandemicMonthly(city: CityState, rand: () => number): void {
   if (city.disasters.pandemicMonths <= 0) return;

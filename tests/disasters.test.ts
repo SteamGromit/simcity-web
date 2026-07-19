@@ -1,6 +1,14 @@
 import { describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
-import { HURRICANE_TICKS, PANDEMIC_MONTHS, RUBBLE_MONTHS, TORNADO_TICKS, Zone } from '../src/sim/types';
+import {
+  HURRICANE_TICKS,
+  PANDEMIC_MONTHS,
+  RUBBLE_MONTHS,
+  TICKS_PER_MONTH,
+  TORNADO_TICKS,
+  Zone,
+} from '../src/sim/types';
+import { applyTool, simTick } from '../src/sim/city';
 import { pandemicMonthly, spawnDisaster, updateDisasters } from '../src/sim/disasters';
 import { deserialize, serialize } from '../src/sim/save';
 import { adviseTips } from '../src/sim/tips';
@@ -125,6 +133,26 @@ describe('rubble', () => {
     pandemicMonthly(city, always);
     expect(city.tiles[idx(10, 10)].abandoned).toBe(true);
     expect(city.tiles[idx(10, 10)].rubble).toBe(0);
+  });
+
+  test('rubble decays one step per month', () => {
+    const city = makeCity();
+    city.tiles[idx(3, 3)].rubble = 2;
+    for (let i = 0; i < TICKS_PER_MONTH; i++) simTick(city, never);
+    expect(city.tiles[idx(3, 3)].rubble).toBe(1);
+    for (let i = 0; i < TICKS_PER_MONTH; i++) simTick(city, never);
+    expect(city.tiles[idx(3, 3)].rubble).toBe(0);
+  });
+
+  test('bulldozing a wrecked lot clears the rubble', () => {
+    const city = makeCity();
+    city.funds = 100;
+    zone(city, 10, 10, Zone.Residential, 1);
+    city.tiles[idx(10, 10)].rubble = 3;
+    const res = applyTool(city, 'bulldoze', 10, 10);
+    expect(res.ok).toBe(true);
+    expect(city.tiles[idx(10, 10)].rubble).toBe(0);
+    expect(city.tiles[idx(10, 10)].zone).toBe(Zone.None);
   });
 });
 
