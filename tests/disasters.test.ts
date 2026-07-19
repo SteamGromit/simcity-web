@@ -154,6 +154,25 @@ describe('rubble', () => {
     expect(city.tiles[idx(10, 10)].rubble).toBe(0);
     expect(city.tiles[idx(10, 10)].zone).toBe(Zone.None);
   });
+
+  test('rubble survives a save round-trip', () => {
+    const city = makeCity();
+    city.tiles[idx(7, 7)].rubble = 2;
+    const revived = deserialize(serialize(city))!;
+    expect(revived.tiles[idx(7, 7)].rubble).toBe(2);
+  });
+
+  test('crafted saves cannot smuggle bogus rubble', () => {
+    const city = makeCity();
+    const raw = JSON.parse(serialize(city));
+    raw.tiles[0].rubble = 999;
+    raw.tiles[1].rubble = -5;
+    raw.tiles[2].rubble = 'soon';
+    const revived = deserialize(JSON.stringify(raw))!;
+    expect(revived.tiles[0].rubble).toBe(RUBBLE_MONTHS);
+    expect(revived.tiles[1].rubble).toBe(0);
+    expect(revived.tiles[2].rubble).toBe(0);
+  });
 });
 
 describe('integration', () => {
