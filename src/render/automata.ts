@@ -1,6 +1,6 @@
 import { idx, neighbors4 } from '../sim/grid';
 import { CityState, GRID, Zone } from '../sim/types';
-import { TILE_H, TILE_W, isoToScreen, tileDepth } from './iso';
+import { ELEV_PX, TILE_H, TILE_W, isoToScreen, tileDepth } from './iso';
 
 const HW = TILE_W / 2;
 const HH = TILE_H / 2;
@@ -30,8 +30,13 @@ interface Ped {
   color: string;
 }
 
+/** Elevations of the last-stepped city, so actors ride their tile's height. */
+let elevs: { elevation: number }[] | null = null;
+
 function center(i: number): { sx: number; sy: number } {
-  return isoToScreen((i % GRID) + 0.5, ((i / GRID) | 0) + 0.5);
+  const p = isoToScreen((i % GRID) + 0.5, ((i / GRID) | 0) + 0.5);
+  if (elevs) p.sy -= elevs[i].elevation * ELEV_PX;
+  return p;
 }
 
 /**
@@ -58,6 +63,7 @@ export class Automata {
   }
 
   step(city: CityState, now: number): void {
+    elevs = city.tiles;
     const dt = Math.min(0.1, this.lastTime === 0 ? 0.016 : (now - this.lastTime) / 1000);
     this.lastTime = now;
 

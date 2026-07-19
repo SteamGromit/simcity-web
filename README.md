@@ -36,10 +36,16 @@ production bundle.
 
 ## How to play
 
-New maps come with lakes and forests. Before you build anything, the
-**terrain tools** (Water / Forest / Level Land) are free — sculpt the
-geography to taste; once the city is founded they cost money. Nothing can
-be built on water or forest, but living near them raises land value.
+New maps come with lakes, forests, and **rolling hills**. Before you build
+anything, the **terrain tools** (Water / Forest / Level Land / Raise /
+Lower) are free — sculpt the geography to taste; once the city is founded
+they cost money. Nothing can be built on water or forest, but living near
+them (or up on a hillside with a view) raises land value.
+
+Roads climb hills one level at a time — a two-level **cliff** stops them
+cold, so grade your routes or go around. The Road tool also builds
+**bridges** straight over water (§50 a tile). Power lines don't mind
+cliffs.
 
 Start with a **coal plant**, draw a **road**, then zone **residential /
 commercial / industrial** beside the road (within 2 tiles). Buildings need

@@ -69,7 +69,7 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, city: CityState, over
     for (let x = 0; x < GRID; x++) {
       const fill = tint(city, y * GRID + x, overlay);
       if (!fill) continue;
-      fillTile(ctx, tileGeom(x, y), fill);
+      fillTile(ctx, tileGeom(x, y, city.tiles[y * GRID + x].elevation), fill);
     }
   }
 }

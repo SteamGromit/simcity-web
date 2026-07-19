@@ -24,6 +24,8 @@ const TOOL_SOUNDS: Record<ToolId, SoundSpec> = {
   terraWater: { wave: 'noise', freq: 0, dur: 0.18, vol: 0.35 },
   terraForest: { wave: 'noise', freq: 0, dur: 0.13, vol: 0.25 },
   terraGrass: { wave: 'noise', freq: 0, dur: 0.1, vol: 0.2 },
+  terraRaise: { wave: 'noise', freq: 0, dur: 0.16, vol: 0.3 },
+  terraLower: { wave: 'noise', freq: 0, dur: 0.16, vol: 0.3 },
   bulldoze: { wave: 'noise', freq: 0, dur: 0.14, vol: 0.45 },
 };
 

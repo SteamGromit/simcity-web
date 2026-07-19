@@ -8,6 +8,7 @@ import { updatePower } from './power';
 import { fireRisk, updateCoverage, updateFires } from './services';
 import { updateTraffic } from './traffic';
 import {
+  BRIDGE_COST,
   CityState,
   COSTS,
   DEFAULT_TAX,
@@ -15,6 +16,7 @@ import {
   DENSITY_COST_MULT,
   GRID,
   HISTORY_MAX,
+  MAX_ELEV,
   START_FUNDS,
   Terrain,
   TICKS_PER_MONTH,
@@ -51,8 +53,50 @@ function growBlob(
   }
 }
 
+/** Raise an organic blob of land by one level; returns the raised tiles. */
+function raiseBlob(
+  tiles: CityState['tiles'],
+  rand: () => number,
+  size: number,
+  start?: [number, number],
+): number[] {
+  const frontier: [number, number][] = [
+    start ?? [4 + Math.floor(rand() * (GRID - 8)), 4 + Math.floor(rand() * (GRID - 8))],
+  ];
+  const raised = new Set<number>();
+  let guard = size * 20;
+  while (raised.size < size && frontier.length > 0 && guard-- > 0) {
+    const k = Math.floor(rand() * frontier.length);
+    const [x, y] = frontier.splice(k, 1)[0];
+    if (!inBounds(x, y) || raised.has(idx(x, y))) continue;
+    const t = tiles[idx(x, y)];
+    t.elevation = Math.min(MAX_ELEV, t.elevation + 1);
+    raised.add(idx(x, y));
+    for (const [nx, ny] of neighbors4(x, y)) {
+      if (rand() < 0.8) frontier.push([nx, ny]);
+    }
+  }
+  return [...raised];
+}
+
 function generateTerrain(tiles: CityState['tiles'], seed: number): void {
   const rand = mulberry32(seed ^ 0x7e44a1);
+  // rolling hills first: broad base blobs with smaller caps stacked on top
+  const hills = 2 + Math.floor(rand() * 3);
+  for (let i = 0; i < hills; i++) {
+    const base = raiseBlob(tiles, rand, 80 + Math.floor(rand() * 120));
+    if (base.length === 0) continue;
+    // stack a smaller cap on the base, and sometimes a peak on the cap
+    const capAt = base[Math.floor(rand() * base.length)];
+    const cap = raiseBlob(tiles, rand, 20 + Math.floor(rand() * 40), [
+      capAt % GRID,
+      (capAt / GRID) | 0,
+    ]);
+    if (cap.length > 0 && rand() < 0.6) {
+      const peakAt = cap[Math.floor(rand() * cap.length)];
+      raiseBlob(tiles, rand, 6 + Math.floor(rand() * 12), [peakAt % GRID, (peakAt / GRID) | 0]);
+    }
+  }
   growBlob(tiles, rand, Terrain.Water, 70 + Math.floor(rand() * 90));
   if (rand() < 0.5) growBlob(tiles, rand, Terrain.Water, 40 + Math.floor(rand() * 50));
   const forests = 3 + Math.floor(rand() * 3);
@@ -140,7 +184,10 @@ function effectiveCost(
   density: Density,
   t: { zone: Zone; terrain: Terrain },
 ): number {
-  if (TERRAIN_TOOLS.includes(tool)) return isPristine(city) ? 0 : toolCost(tool, density);
+  if (TERRAIN_TOOLS.includes(tool) || tool === 'terraRaise' || tool === 'terraLower') {
+    return isPristine(city) ? 0 : toolCost(tool, density);
+  }
+  if (tool === 'road' && t.terrain === Terrain.Water) return BRIDGE_COST;
   // leveling bare forest/water is terrain work, priced like the Level Land tool
   if (isBareTerrainDoze(tool, t)) return isPristine(city) ? 0 : COSTS.terraGrass;
   return toolCost(tool, density);
@@ -163,7 +210,18 @@ function validateTool(
     if (t.zone !== Zone.None) return 'tile occupied';
     return t.terrain === TOOL_TERRAIN[tool] ? 'no change' : null;
   }
-  if (t.terrain !== Terrain.Grass) return 'cannot build on water or forest';
+  if (tool === 'terraRaise' || tool === 'terraLower') {
+    if (t.zone !== Zone.None) return 'tile occupied';
+    if (tool === 'terraRaise' && t.elevation >= MAX_ELEV) return 'no change';
+    if (tool === 'terraLower' && t.elevation <= 0) return 'no change';
+    return null;
+  }
+  if (t.terrain !== Terrain.Grass) {
+    // the road tool bridges water; everything else needs dry, clear land
+    if (!(tool === 'road' && t.terrain === Terrain.Water)) {
+      return 'cannot build on water or forest';
+    }
+  }
   if (tool === 'line' && t.zone === Zone.Road) return t.wire ? 'tile occupied' : null;
   return t.zone === Zone.None ? null : 'tile occupied';
 }
@@ -194,10 +252,14 @@ export function applyTool(
   if (tool === 'bulldoze') {
     // razing a structure keeps the ground; dozing bare forest/water clears it
     const keepTerrain = t.zone !== Zone.None ? t.terrain : Terrain.Grass;
+    const keepElev = t.elevation;
     city.tiles[idx(x, y)] = blankTile();
     city.tiles[idx(x, y)].terrain = keepTerrain;
+    city.tiles[idx(x, y)].elevation = keepElev;
   } else if (TERRAIN_TOOLS.includes(tool)) {
     t.terrain = TOOL_TERRAIN[tool]!;
+  } else if (tool === 'terraRaise' || tool === 'terraLower') {
+    t.elevation += tool === 'terraRaise' ? 1 : -1;
   } else if (tool === 'line' && t.zone === Zone.Road) {
     t.wire = true;
   } else {

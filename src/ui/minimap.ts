@@ -69,6 +69,10 @@ export function buildMinimap(
                   ? '#1e3d24'
                   : ZONE_COLORS[t.zone];
             rctx.fillRect(x * SCALE, y * SCALE, SCALE, SCALE);
+            if (t.elevation > 0) {
+              rctx.fillStyle = `rgba(255,250,230,${0.09 * t.elevation})`; // highlands
+              rctx.fillRect(x * SCALE, y * SCALE, SCALE, SCALE);
+            }
             if (t.stage >= 4) {
               rctx.fillStyle = 'rgba(255,255,255,0.35)'; // downtown glints
               rctx.fillRect(x * SCALE, y * SCALE, 1, 1);

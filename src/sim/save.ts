@@ -3,6 +3,7 @@ import {
   CityState,
   FIRE_BURN_TICKS,
   GRID,
+  MAX_ELEV,
   HISTORY_MAX,
   MAX_STAGE_BY_DENSITY,
   Terrain,
@@ -34,8 +35,12 @@ function reviveTile(raw: unknown): Tile {
   if (typeof r.stage === 'number' && Number.isInteger(r.stage) && r.stage >= 1 && r.stage <= 7) {
     t.stage = Math.min(r.stage, MAX_STAGE_BY_DENSITY[t.density]) as Tile['stage'];
   }
-  // structures require grass — a crafted save can't claim waterfront under a tower
-  if (t.zone !== Zone.None && t.terrain !== Terrain.Grass) t.terrain = Terrain.Grass;
+  t.elevation = Math.min(MAX_ELEV, Math.max(0, Math.floor(finite(r.elevation, 0))));
+  // structures require grass (roads may bridge water) — a crafted save
+  // can't claim waterfront under a tower
+  if (t.zone !== Zone.None && t.terrain !== Terrain.Grass) {
+    if (!(t.zone === Zone.Road && t.terrain === Terrain.Water)) t.terrain = Terrain.Grass;
+  }
   t.powered = r.powered === true;
   t.abandoned = r.abandoned === true;
   t.wire = r.wire === true;

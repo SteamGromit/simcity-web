@@ -1,5 +1,7 @@
 export const TILE_W = 64;
 export const TILE_H = 32;
+/** Screen pixels of lift per elevation level. */
+export const ELEV_PX = 10;
 
 /**
  * The projection: rotate grid coordinates by the view angle, then apply the
@@ -67,8 +69,10 @@ export interface TileGeom {
   corners: [number, number][];
 }
 
-/** Projected geometry for tile (x,y) under the current view angle. */
-export function tileGeom(x: number, y: number): TileGeom {
+/** Projected geometry for tile (x,y) under the current view angle,
+ * lifted by its elevation (whole tile sits at one level). */
+export function tileGeom(x: number, y: number, elev = 0): TileGeom {
+  const dy = elev * ELEV_PX;
   const c = isoToScreen(x + 0.5, y + 0.5);
   const p0 = isoToScreen(x, y);
   const p1 = isoToScreen(x + 1, y);
@@ -76,12 +80,12 @@ export function tileGeom(x: number, y: number): TileGeom {
   const p3 = isoToScreen(x, y + 1);
   return {
     cx: c.sx,
-    cy: c.sy,
+    cy: c.sy - dy,
     corners: [
-      [p0.sx, p0.sy],
-      [p1.sx, p1.sy],
-      [p2.sx, p2.sy],
-      [p3.sx, p3.sy],
+      [p0.sx, p0.sy - dy],
+      [p1.sx, p1.sy - dy],
+      [p2.sx, p2.sy - dy],
+      [p3.sx, p3.sy - dy],
     ],
   };
 }

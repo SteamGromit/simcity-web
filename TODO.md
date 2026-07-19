@@ -6,20 +6,20 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Backlog (in order)
 
-1. **Terrain elevation + bridges** — raise/lower land, slopes, cliffs;
-   bridges over water. (Remainder of terrain roadmap item.)
-2. **Congestion-aware pathfinding; mass transit** — commute cost rises with
+1. **Congestion-aware pathfinding; mass transit** — commute cost rises with
    load; bus/subway to relieve it.
-3. **Ordinances; advisors** — city policies with budget/sim effects; advisor
+2. **Ordinances; advisors** — city policies with budget/sim effects; advisor
    panel surfacing problems (builds on the tips advisor from v0.8).
-4. **Water utility** — pumps + pipes as a second network layer.
-5. **Day/night cycle** — visual layer; building windows light up.
-6. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
+3. **Water utility** — pumps + pipes as a second network layer.
+4. **Day/night cycle** — visual layer; building windows light up.
+5. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
    deferred until single-city play is deep enough).
-7. **Modding hooks** — data-driven building/balance definitions.
+6. **Modding hooks** — data-driven building/balance definitions.
 
 ## Done
 
+- **Terrain elevation + bridges** — shipped v0.11.0 (hills 0–3 with cliffs,
+  raise/lower tools, roads climb 1 level max, bridges over water).
 - **Health services + spreading fires** — shipped v0.10.0 (hospital as 4th
   service gating stage 5+; fires ignite, spread, and are fought by fire
   coverage; meteor/tornado disasters still unbuilt — re-add if wanted).

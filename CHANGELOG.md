@@ -4,6 +4,23 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.11.0] — 2026-07-19 · Elevation & bridges
+
+### Added
+- **Terrain elevation** (levels 0–3): new maps generate rolling hills with
+  stacked plateaus; cliffs render as earthen faces and tiles lift with
+  height in every view rotation. Cars, overlays, hover, picking, and the
+  minimap (lightened highlands) all understand elevation.
+- **Raise Land / Lower Land tools** (§20, rectangle-draggable, free while
+  the map is pristine like the other terrain tools). Terraforming under
+  any structure is blocked; bulldozing keeps the ground height.
+- **Cliffs matter:** roads, zone road-access, and commutes only climb one
+  level per tile — a 2-level cliff severs the network. Power lines climb
+  freely. Hillside tiles earn a small land-value view bonus.
+- **Bridges:** the Road tool now builds over water (§50/tile) — deck,
+  pylons, and lane markings render over the waves, traffic and wires
+  cross, and bulldozing returns open water.
+
 ## [0.10.0] — 2026-07-19 · Health & spreading fires
 
 ### Added

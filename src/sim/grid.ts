@@ -38,6 +38,7 @@ export function blankTile(): Tile {
   return {
     zone: Zone.None,
     terrain: Terrain.Grass,
+    elevation: 0,
     stage: 0,
     density: 1,
     powered: false,
