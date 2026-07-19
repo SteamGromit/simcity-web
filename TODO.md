@@ -6,9 +6,29 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Backlog (in order)
 
-1. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
+1. **Keyboard shortcuts for tools** — B bulldoze, R road, 1/2/3 zones, etc.;
+   shown on the buttons and in help. *(user-requested 2026-07-19)*
+2. **Collapsible toolbar categories** — click a section header to fold its
+   tools away; state persists. *(user-requested 2026-07-19)*
+3. **Movable panels** — drag the control/info panels (toolbar, budget,
+   charts, City Hall, help) by their title bars; positions persist.
+   *(user-requested 2026-07-19)*
+4. **Road line tool** — click-drag previews a full road line that adjusts
+   with the cursor before committing on release (4-connected stairstep for
+   diagonals). *(user-requested 2026-07-19)*
+5. **Disasters** — tornados, hurricanes, pandemics (fire framework exists
+   to build on). *(user-requested 2026-07-19)*
+6. **Weather** — rain/snow/etc., visual layer at minimum, maybe sim
+   effects. *(user-requested 2026-07-19)*
+7. **Terrain: mountains + desert** — taller peaks and a desert biome /
+   map style. *(user-requested 2026-07-19)*
+8. **Skins/styles** — selectable overall appearance, e.g. 'Springfield'
+   cartoon style, 'NYC' architecture; more later, eventually user-made.
+   *(user-requested 2026-07-19)*
+9. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
    deferred until single-city play is deep enough).
-2. **Modding hooks** — data-driven building/balance definitions.
+10. **Modding hooks** — data-driven building/balance definitions; folds in
+    user-made skins from item 8.
 
 ## Done
 
