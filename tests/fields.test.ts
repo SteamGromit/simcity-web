@@ -24,6 +24,18 @@ describe('updatePollution', () => {
     expect(city.tiles[idx(10, 10)].pollution).toBe(0);
   });
 
+  test('a busy road corridor smogs but never saturates its neighbors', () => {
+    const city = makeCity();
+    for (let x = 10; x <= 25; x++) {
+      zone(city, x, 10, Zone.Road);
+      city.tiles[idx(x, 10)].traffic = 25;
+    }
+    updatePollution(city);
+    const beside = city.tiles[idx(17, 11)].pollution;
+    expect(beside).toBeGreaterThan(0.05); // traffic still pollutes...
+    expect(beside).toBeLessThan(0.5); // ...but stacked plumes can't zero out land value
+  });
+
   test('power plants pollute heavily', () => {
     const city = makeCity();
     zone(city, 10, 10, Zone.PowerPlant);
