@@ -86,4 +86,14 @@ describe('updateLandValue', () => {
     updateLandValue(city);
     expect(city.tiles[idx(5, 5)].landValue).toBeLessThan(city.tiles[idx(8, 8)].landValue);
   });
+
+  test('short commutes carry no land value penalty at all', () => {
+    const city = makeCity();
+    zone(city, 5, 5, Zone.Residential, 1);
+    city.tiles[idx(5, 5)].commute = 6;
+    zone(city, 8, 8, Zone.Residential, 1);
+    city.tiles[idx(8, 8)].commute = 1;
+    updateLandValue(city);
+    expect(city.tiles[idx(5, 5)].landValue).toBe(city.tiles[idx(8, 8)].landValue);
+  });
 });

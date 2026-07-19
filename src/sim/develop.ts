@@ -6,7 +6,7 @@ const GROW_SCALE = 0.6;
 const DECAY_CHANCE = 0.35;
 const DEMAND_COLLAPSE = -0.3;
 /** Land value required to reach each stage (R and C only). */
-const LV_GATES = [0, 0, 0.35, 0.55, 0.6, 0.65, 0.7, 0.75];
+const LV_GATES = [0, 0, 0.35, 0.5, 0.55, 0.62, 0.68, 0.75];
 /** Coverage floor for high-density stages (4+). */
 const HIGH_STAGE_COV = 0.2;
 

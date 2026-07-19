@@ -49,7 +49,7 @@ describe('density stage caps', () => {
 
   test('stage 4 and up demand higher land value', () => {
     const city = primeTile(3);
-    city.tiles[idx(5, 5)].landValue = 0.58; // clears stage 3 gate (0.55), not stage 4 (0.6)
+    city.tiles[idx(5, 5)].landValue = 0.52; // clears stage 3 gate (0.5), not stage 4 (0.55)
     expect(growFully(city)).toBe(3);
   });
 
