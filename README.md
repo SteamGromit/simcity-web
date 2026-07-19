@@ -1,0 +1,67 @@
+# SimCity Web
+
+A browser city-building game inspired by **SimCity 4**, built with TypeScript
+and Canvas 2D. No frameworks, no art assets — every building is drawn
+procedurally.
+
+![Screenshot](docs/media/screenshot.png)
+
+## The defining feature
+
+Like SimCity 4, this is a city *simulation*, not a city painter. You never
+place buildings. You zone land, lay roads, and provide power; the simulation
+decides what happens next:
+
+- **RCI demand** — residents chase jobs, commerce chases customers, industry
+  chases an external market. The demand bars in the HUD show what the city
+  wants.
+- **Desirability** — each tile weighs land value, pollution, and commute time.
+  Nice tiles grow tall; tiles beside the coal plant stay shacks.
+- **Decay and gentrification** — cut the power or tank the economy and
+  buildings abandon (boarded-up grey shells). Fix the problem and they
+  redevelop on their own.
+
+## Run it
+
+```sh
+npm install
+npm run dev      # open the printed localhost URL
+```
+
+`npm test` runs the simulation's unit suite; `npm run build` makes a
+production bundle.
+
+## How to play
+
+Start with a **coal plant**, draw a **road**, then zone **residential /
+commercial / industrial** beside the road (within 2 tiles). Buildings need
+both road access and power to develop.
+
+Power conducts through adjacent zones and buildings but **not across roads or
+empty land** — use power lines to bridge gaps. The Power data view shows what's
+connected.
+
+Keep industry (and the coal plant) away from homes: pollution wrecks
+residential land value. Parks raise it.
+
+Watch the budget — roads and plants cost upkeep monthly; taxes above 9%
+suppress demand.
+
+| Control | Action |
+| --- | --- |
+| Left click / drag | apply selected tool |
+| Query tool | inspect any tile |
+| Middle-drag or Space+drag | pan (arrow keys work too) |
+| Mouse wheel | zoom |
+| Esc | deselect tool |
+| ⏸ ▶ ▶▶ ▶▶▶ | pause / normal / fast / cheetah |
+
+Save/Load keeps one city in your browser's localStorage.
+
+## Design docs
+
+- Spec: `docs/superpowers/specs/2026-07-18-simcity-web-design.md`
+- Plan: `docs/superpowers/plans/2026-07-18-simcity-v1.md`
+
+The spec's roadmap lists what's next: civic services, density levels, terrain
+and water, congestion-aware traffic, and eventually SC4's region play.
