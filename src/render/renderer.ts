@@ -5,6 +5,7 @@ import { Automata } from './automata';
 import { drawBuilding, drawFire, drawPole, fillPoly, fillTile, strokeTile, tree } from './buildings';
 import { ELEV_PX, TileGeom, isoToScreen, screenToIso, setViewAngle, tileDepth, tileGeom } from './iso';
 import { OverlayId, drawOverlay } from './overlays';
+import { nightFactor, nightTint } from './daynight';
 
 export interface ViewState {
   hover: { x: number; y: number } | null;
@@ -27,6 +28,8 @@ export class Renderer {
   private orderDirty = true;
   /** city from the latest draw; pick() needs elevations between frames */
   private lastCity: CityState | null = null;
+  /** current 0..1 darkness, refreshed each draw */
+  private night = 0;
 
   constructor(private canvas: HTMLCanvasElement, seed: number) {
     this.ctx = canvas.getContext('2d')!;
@@ -108,6 +111,7 @@ export class Renderer {
     setViewAngle(this.angle);
     if (this.orderDirty) this.rebuildOrder();
     const now = performance.now();
+    this.night = nightFactor(now);
     this.automata.step(city, now);
 
     const dpr = window.devicePixelRatio || 1;
@@ -135,13 +139,23 @@ export class Renderer {
       this.drawCliffs(geom, city, x, y);
       this.drawGround(geom, city, x, y);
       if (t.zone !== Zone.None && t.zone !== Zone.Road) {
-        drawBuilding(ctx, geom, t.zone, t.stage, t.abandoned, t.powered, this.variants[i]);
+        drawBuilding(ctx, geom, t.zone, t.stage, t.abandoned, t.powered, this.variants[i], this.night);
       }
       if (t.burning > 0) drawFire(ctx, geom, now, this.variants[i]);
       this.automata.drawTile(ctx, i);
     }
 
     if (view.overlay) drawOverlay(ctx, city, view.overlay);
+
+    if (this.night > 0.02) {
+      // night wash in screen space; the cursor is drawn above it so it
+      // stays readable after dark
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = nightTint(this.night);
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      ctx.restore();
+    }
 
     const elevOf = (x: number, y: number) => city.tiles[idx(x, y)].elevation;
     if (view.rect) {
@@ -212,6 +226,13 @@ export class Renderer {
       }
       this.drawRoadLinks(geom, city, x, y);
       if (t.wire) drawPole(this.ctx, geom.cx, geom.cy);
+      if (this.night > 0.3) {
+        // streetlight pool
+        this.ctx.fillStyle = `rgba(255, 214, 130, ${(0.22 * this.night).toFixed(3)})`;
+        this.ctx.beginPath();
+        this.ctx.arc(geom.cx, geom.cy, 7, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
       return;
     }
     const v = this.variants[i];

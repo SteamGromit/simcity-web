@@ -6,13 +6,14 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Backlog (in order)
 
-1. **Day/night cycle** — visual layer; building windows light up.
-2. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
+1. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
    deferred until single-city play is deep enough).
-3. **Modding hooks** — data-driven building/balance definitions.
+2. **Modding hooks** — data-driven building/balance definitions.
 
 ## Done
 
+- **Day/night cycle** — shipped v0.15.0 (90s visual cycle, night wash,
+  glowing windows, streetlights).
 - **Water utility** — shipped v0.14.0 (powered lakeside pumps, pipes +
   road mains, watered flag gates stage 3+).
 - **Ordinances + advisors** — shipped v0.13.0 (City Hall panel: full

@@ -22,7 +22,8 @@ decides what happens next:
   redevelop on their own.
 - **A living city** — zone at low, medium, or high density and watch shacks
   become towers as land value, services, and schools allow; cars roam the
-  busy roads and citizens stroll outside their buildings.
+  busy roads, citizens stroll outside their buildings, and day fades into
+  night with glowing windows and streetlights.
 
 ## Run it
 

@@ -4,6 +4,15 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.15.0] — 2026-07-19 · Day & night
+
+### Added
+- A gentle **day/night cycle** (90 seconds per day, purely visual, keeps
+  rolling while paused like the automata): a deep-blue night wash rolls
+  over the map, occupied building windows glow warmer and brighter after
+  dark, and streetlights pool warm light along the roads. The cursor and
+  UI stay bright above the night layer.
+
 ## [0.14.0] — 2026-07-19 · Water utility
 
 ### Added
