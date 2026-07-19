@@ -235,8 +235,8 @@ window.addEventListener('resize', () => renderer.resize());
 // Debug handle for automated playtests (harmless in normal play).
 (window as unknown as Record<string, unknown>).__sim = {
   city: () => city,
-  applyTool: (tool: Parameters<typeof applyTool>[1], x: number, y: number) =>
-    applyTool(city, tool, x, y),
+  applyTool: (tool: Parameters<typeof applyTool>[1], x: number, y: number, density?: Density) =>
+    applyTool(city, tool, x, y, density ?? 1),
   tick: (n: number) => {
     for (let i = 0; i < n; i++) simTick(city, rand);
   },
