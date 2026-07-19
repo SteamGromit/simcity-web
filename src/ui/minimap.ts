@@ -64,13 +64,20 @@ export function buildMinimap(
         for (let y = 0; y < GRID; y++) {
           for (let x = 0; x < GRID; x++) {
             const t = city.tiles[y * GRID + x];
+            const bare = t.zone === Zone.None && t.terrain === Terrain.Grass;
             rctx.fillStyle = t.abandoned
               ? '#4a4038'
               : t.zone === Zone.None && t.terrain === Terrain.Water
                 ? '#2e5f8a'
                 : t.zone === Zone.None && t.terrain === Terrain.Forest
                   ? '#1e3d24'
-                  : ZONE_COLORS[t.zone];
+                  : bare && t.elevation >= 5
+                    ? '#dfe5ec'
+                    : bare && t.elevation === 4
+                      ? '#6f665c'
+                      : bare && city.biome === 'desert'
+                        ? '#b3a05e'
+                        : ZONE_COLORS[t.zone];
             rctx.fillRect(x * SCALE, y * SCALE, SCALE, SCALE);
             if (t.elevation > 0) {
               rctx.fillStyle = `rgba(255,250,230,${0.09 * t.elevation})`; // highlands

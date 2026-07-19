@@ -4,6 +4,18 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.19.0] — 2026-07-19 · Mountains & desert
+
+### Added
+- **Mountains**: the elevation ceiling rises to 5 — level 4 renders as
+  bare rock, level 5 wears a snowcap — and every new map guarantees at
+  least one true peak (stacked from the highest point so summits always
+  top out). Raise Land can sculpt your own.
+- **Desert biome** (~1 map in 4, rolled by seed): sandy ground on the map
+  and minimap, one precious oasis and a scrub patch instead of lakes and
+  woods — water pumps become the whole ballgame — and dry air makes
+  fires ignite 50% more readily. Biome persists in saves.
+
 ## [0.18.0] — 2026-07-19 · Weather
 
 ### Added

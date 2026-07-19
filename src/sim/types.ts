@@ -139,9 +139,13 @@ export const TORNADO_TICKS = 48;
 export const HURRICANE_TICKS = 64;
 export const PANDEMIC_MONTHS = 6;
 
+export type Biome = 'temperate' | 'desert';
+
 export interface CityState {
   version: 1;
   seed: number;
+  /** Map flavor rolled at generation: ground palette, vegetation, dryness. */
+  biome: Biome;
   tiles: Tile[]; // GRID * GRID, row-major
   funds: number;
   tick: number;
@@ -222,8 +226,9 @@ export const COSTS: Record<ToolId, number> = {
   bulldoze: 1,
 };
 
-/** Highest ground level; cliffs form where neighbors differ. */
-export const MAX_ELEV = 3;
+/** Highest ground level; cliffs form where neighbors differ.
+ * 4 renders rocky, 5 wears a snowcap. */
+export const MAX_ELEV = 5;
 /** Flat cost for a road tile laid over water. */
 export const BRIDGE_COST = 50;
 
