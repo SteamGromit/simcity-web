@@ -36,6 +36,11 @@ production bundle.
 
 ## How to play
 
+New maps come with lakes and forests. Before you build anything, the
+**terrain tools** (Water / Forest / Level Land) are free — sculpt the
+geography to taste; once the city is founded they cost money. Nothing can
+be built on water or forest, but living near them raises land value.
+
 Start with a **coal plant**, draw a **road**, then zone **residential /
 commercial / industrial** beside the road (within 2 tiles). Buildings need
 both road access and power to develop.
