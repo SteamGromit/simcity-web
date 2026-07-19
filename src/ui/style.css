@@ -118,6 +118,54 @@ body {
   color: #7d8fa5;
 }
 
+#toolbar .section.collapsible {
+  cursor: pointer;
+  user-select: none;
+}
+
+#toolbar .section.collapsible:hover {
+  color: #aabfec;
+}
+
+#toolbar .section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+#toolbar button .meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+#toolbar button .key {
+  font-size: 9px;
+  color: #8ea0b8;
+  border: 1px solid #465870;
+  border-radius: 3px;
+  padding: 0 3px;
+  line-height: 1.4;
+}
+
+.drag-grip {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7d8fa5;
+  cursor: move;
+  user-select: none;
+  padding-bottom: 2px;
+  border-bottom: 1px solid #3b4a5e;
+  margin-bottom: 4px;
+}
+
+.draggable {
+  cursor: move;
+  user-select: none;
+}
+
 /* ---- floating panels ---- */
 #budget-panel {
   position: fixed;
