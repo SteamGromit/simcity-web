@@ -13,6 +13,7 @@ import {
   tree,
 } from './buildings';
 import { ELEV_PX, TileGeom, isoToScreen, screenToIso, setViewAngle, tileDepth, tileGeom } from './iso';
+import { DisasterFx } from './disasterfx';
 import { OverlayId, drawOverlay } from './overlays';
 import { nightFactor, nightTint } from './daynight';
 import { getSkin } from './skins';
@@ -41,6 +42,7 @@ export class Renderer {
   private ctx: CanvasRenderingContext2D;
   private variants: Float32Array;
   private automata = new Automata();
+  private disasterFx = new DisasterFx();
   /** tile paint order for the current angle, ascending depth */
   private order: Uint16Array;
   private orderDirty = true;
@@ -131,6 +133,7 @@ export class Renderer {
     const now = performance.now();
     this.night = nightFactor(now);
     this.automata.step(city, now, AUTOMATA_SCALE[this.simSpeed]);
+    this.disasterFx.step(city, now, AUTOMATA_SCALE[this.simSpeed]);
 
     const dpr = window.devicePixelRatio || 1;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -189,6 +192,7 @@ export class Renderer {
         ctx.fill();
       }
     }
+    this.disasterFx.drawWorld(ctx, city, now);
 
     const storm = city.disasters.hurricaneTicks > 0;
     const fx = getWeatherFx(); // hurricane rain always shows — it's a disaster cue
@@ -201,6 +205,8 @@ export class Renderer {
       ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
       ctx.restore();
     }
+    // storm washes go before the cursor layers so the cursor stays readable
+    this.disasterFx.drawScreen(ctx, city, now);
 
     const elevOf = (x: number, y: number) => city.tiles[idx(x, y)].elevation;
     if (view.rect) {
