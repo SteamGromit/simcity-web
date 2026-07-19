@@ -127,8 +127,17 @@ function box(
   return faces;
 }
 
-function windows(ctx: CanvasRenderingContext2D, faces: Face[], h: number, litUp: boolean) {
-  ctx.strokeStyle = litUp ? 'rgba(255,240,160,0.55)' : 'rgba(20,20,30,0.45)';
+function windows(
+  ctx: CanvasRenderingContext2D,
+  faces: Face[],
+  h: number,
+  litUp: boolean,
+  night = 0,
+) {
+  // occupied windows glow warmer and brighter after dark
+  ctx.strokeStyle = litUp
+    ? `rgba(255, ${Math.round(240 - 30 * night)}, ${Math.round(160 - 60 * night)}, ${0.55 + 0.4 * night})`
+    : 'rgba(20,20,30,0.45)';
   ctx.lineWidth = 1.5;
   for (const face of faces) {
     const ax = face.a[0] + (face.b[0] - face.a[0]) * 0.12;
@@ -203,6 +212,7 @@ export function drawBuilding(
   abandoned: boolean,
   powered: boolean,
   variant: number, // 0..1 stable per tile
+  night = 0, // 0 day .. 1 midnight, brightens lit windows
 ) {
   const { cx, cy } = geom;
 
@@ -329,7 +339,7 @@ export function drawBuilding(
     lit = 32;
   }
   const faces = box(ctx, geom, f, h, hue, sat, lit);
-  if (stage >= 2 && zone !== Zone.Industrial) windows(ctx, faces, h, !abandoned);
+  if (stage >= 2 && zone !== Zone.Industrial) windows(ctx, faces, h, !abandoned, night);
   if (zone === Zone.Industrial && stage >= 2 && !abandoned) smokestack(ctx, cx + 8, cy - 8, h + 8);
 
   if (abandoned) {
