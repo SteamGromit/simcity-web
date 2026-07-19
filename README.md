@@ -57,7 +57,9 @@ above 9% suppress demand.
 
 | Control | Action |
 | --- | --- |
-| Left click / drag | apply selected tool |
+| Left click / drag | apply tool (zones, parks, bulldoze drag out a rectangle; roads paint) |
+| Minimap click | jump the camera |
+| Charts button | population and funds history |
 | Query tool | inspect any tile |
 | Middle-drag or Space+drag | pan (arrow keys work too) |
 | Mouse wheel | zoom |
