@@ -15,7 +15,10 @@ function desirability(t: Tile): number {
   const services = (t.fireCov + t.policeCov + t.schoolCov) / 3;
   switch (t.zone) {
     case Zone.Residential:
-      return 0.7 * t.landValue + 0.3 * jobAccess + 0.12 * services + 0.06 * t.healthCov;
+      return (
+        0.7 * t.landValue + 0.3 * jobAccess + 0.12 * services + 0.06 * t.healthCov +
+        0.04 * t.busCov
+      );
     case Zone.Commercial:
       return 0.5 * t.landValue + 0.5 * jobAccess + 0.12 * services;
     case Zone.Industrial:

@@ -225,6 +225,21 @@ export function drawBuilding(
     return;
   }
 
+  if (zone === Zone.BusStop) {
+    // small teal shelter with a stop-sign post
+    box(ctx, geom, 0.45, 7, 178, 40, 42);
+    ctx.strokeStyle = '#cfd6d4';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx + 10, cy + 2);
+    ctx.lineTo(cx + 10, cy - 14);
+    ctx.stroke();
+    ctx.fillStyle = '#2fa38f';
+    ctx.fillRect(cx + 10, cy - 14, 6, 5);
+    if (!powered) drawNoPowerBolt(ctx, cx, cy - 18);
+    return;
+  }
+
   if (
     zone === Zone.FireStation ||
     zone === Zone.PoliceStation ||

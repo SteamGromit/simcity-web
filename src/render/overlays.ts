@@ -1,4 +1,4 @@
-import { CityState, Zone } from '../sim/types';
+import { CityState, ROAD_CAPACITY, Zone } from '../sim/types';
 import { GRID } from '../sim/types';
 import { fillTile } from './buildings';
 import { tileGeom } from './iso';
@@ -46,7 +46,7 @@ function tint(city: CityState, i: number, overlay: OverlayId): string | null {
     }
     case 'traffic': {
       if (t.zone !== Zone.Road) return null;
-      const v = Math.min(1, t.traffic / 20);
+      const v = Math.min(1, t.traffic / (ROAD_CAPACITY * 2));
       return `hsl(${120 - 120 * v} 80% 45% / 0.6)`;
     }
     case 'fire':

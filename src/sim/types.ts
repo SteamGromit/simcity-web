@@ -13,6 +13,7 @@ export enum Zone {
   PoliceStation,
   School,
   Hospital,
+  BusStop,
 }
 
 export type Stage = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -42,6 +43,7 @@ export interface Tile {
   policeCov: number;
   schoolCov: number;
   healthCov: number;
+  busCov: number;
   /** Ticks of fire left on this tile; 0 = not burning. */
   burning: number;
   // computed fields, refreshed by the sim
@@ -115,6 +117,7 @@ export type ToolId =
   | 'police'
   | 'school'
   | 'hospital'
+  | 'bus'
   | 'terraWater'
   | 'terraForest'
   | 'terraGrass'
@@ -134,6 +137,7 @@ export const COSTS: Record<ToolId, number> = {
   police: 500,
   school: 400,
   hospital: 600,
+  bus: 150,
   terraWater: 25,
   terraForest: 10,
   terraGrass: 5,
@@ -147,10 +151,17 @@ export const MAX_ELEV = 3;
 /** Flat cost for a road tile laid over water. */
 export const BRIDGE_COST = 50;
 
+/** Commuter volume a road tile carries comfortably; beyond it, congestion. */
+export const ROAD_CAPACITY = 12;
+/** Extra route cost (on a base of 1) for a fully jammed tile. */
+export const CONGESTION_MAX_EXTRA = 3;
+/** Traffic a bus-served trip adds to each road tile (vs 1 for car trips). */
+export const BUS_TRAFFIC_SHARE = 0.5;
+
 /** Coverage radii (Chebyshev tiles) per service. */
-export const SERVICE_RADII = { fire: 8, police: 8, school: 10, health: 10 };
+export const SERVICE_RADII = { fire: 8, police: 8, school: 10, health: 10, bus: 5 };
 /** Monthly upkeep per service building. */
-export const SERVICE_UPKEEP = { fire: 50, police: 50, school: 40, health: 60 };
+export const SERVICE_UPKEEP = { fire: 50, police: 50, school: 40, health: 60, bus: 15 };
 /** Monthly ignition probability for a developed tile with zero fire coverage. */
 export const FIRE_RISK = 0.004;
 /** Ticks a fire burns before the building is destroyed. */

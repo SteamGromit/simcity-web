@@ -148,6 +148,7 @@ const TOOL_ZONE: Partial<Record<ToolId, Zone>> = {
   police: Zone.PoliceStation,
   school: Zone.School,
   hospital: Zone.Hospital,
+  bus: Zone.BusStop,
 };
 
 export const ZONE_TOOLS: ToolId[] = ['zoneR', 'zoneC', 'zoneI'];

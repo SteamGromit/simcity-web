@@ -18,6 +18,7 @@ const TOOLS: { id: ToolId | 'query'; label: string }[] = [
   { id: 'police', label: 'Police Station' },
   { id: 'school', label: 'School' },
   { id: 'hospital', label: 'Hospital' },
+  { id: 'bus', label: 'Bus Stop' },
   { id: 'terraWater', label: 'Water' },
   { id: 'terraForest', label: 'Forest' },
   { id: 'terraGrass', label: 'Level Land' },

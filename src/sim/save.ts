@@ -27,7 +27,7 @@ function reviveTile(raw: unknown): Tile {
   const t = blankTile();
   if (!raw || typeof raw !== 'object') return t;
   const r = raw as Record<string, unknown>;
-  if (typeof r.zone === 'number' && r.zone >= Zone.None && r.zone <= Zone.Hospital) {
+  if (typeof r.zone === 'number' && r.zone >= Zone.None && r.zone <= Zone.BusStop) {
     t.zone = r.zone;
   }
   if (r.terrain === Terrain.Water || r.terrain === Terrain.Forest) t.terrain = r.terrain;
@@ -48,6 +48,7 @@ function reviveTile(raw: unknown): Tile {
   t.policeCov = finite(r.policeCov, 0);
   t.schoolCov = finite(r.schoolCov, 0);
   t.healthCov = finite(r.healthCov, 0);
+  t.busCov = finite(r.busCov, 0);
   t.burning = Math.min(FIRE_BURN_TICKS, Math.max(0, Math.floor(finite(r.burning, 0))));
   t.pollution = finite(r.pollution, 0);
   t.landValue = finite(r.landValue, 0.3);

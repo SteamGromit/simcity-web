@@ -47,6 +47,9 @@ export function buildHelp(root: HTMLElement) {
           <li><b>Density</b> (Low/Med/High) caps how tall a zone can build.</li>
           <li><b>Fire, Police, School</b> coverage keeps buildings safe and
               desirable; a <b>Hospital</b> is needed for the tallest stages.</li>
+          <li><b>Traffic congests:</b> jammed roads stretch commutes.
+              Add parallel routes, or <b>Bus Stops</b> at both ends of a
+              commute to take cars off the road.</li>
           <li><b>Fires spread!</b> Uncovered buildings can ignite; flames jump
               to neighbors. Fire coverage fights them — or bulldoze a
               firebreak.</li>
