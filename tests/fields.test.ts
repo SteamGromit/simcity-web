@@ -24,6 +24,18 @@ describe('updatePollution', () => {
     expect(city.tiles[idx(10, 10)].pollution).toBe(0);
   });
 
+  test('a busy road corridor smogs but never saturates its neighbors', () => {
+    const city = makeCity();
+    for (let x = 10; x <= 25; x++) {
+      zone(city, x, 10, Zone.Road);
+      city.tiles[idx(x, 10)].traffic = 25;
+    }
+    updatePollution(city);
+    const beside = city.tiles[idx(17, 11)].pollution;
+    expect(beside).toBeGreaterThan(0.05); // traffic still pollutes...
+    expect(beside).toBeLessThan(0.5); // ...but stacked plumes can't zero out land value
+  });
+
   test('power plants pollute heavily', () => {
     const city = makeCity();
     zone(city, 10, 10, Zone.PowerPlant);
@@ -53,6 +65,18 @@ describe('updateLandValue', () => {
     expect(polluted).toBeLessThan(clean);
   });
 
+  test('service coverage lifts land value', () => {
+    const city = makeCity();
+    zone(city, 5, 5, Zone.Residential, 1);
+    zone(city, 8, 8, Zone.Residential, 1);
+    const covered = city.tiles[idx(5, 5)];
+    covered.fireCov = 1;
+    covered.policeCov = 1;
+    covered.schoolCov = 1;
+    updateLandValue(city);
+    expect(covered.landValue).toBeCloseTo(city.tiles[idx(8, 8)].landValue + 0.12, 5);
+  });
+
   test('long commutes drag residential land value down', () => {
     const city = makeCity();
     zone(city, 5, 5, Zone.Residential, 1);
@@ -61,5 +85,15 @@ describe('updateLandValue', () => {
     city.tiles[idx(8, 8)].commute = 2;
     updateLandValue(city);
     expect(city.tiles[idx(5, 5)].landValue).toBeLessThan(city.tiles[idx(8, 8)].landValue);
+  });
+
+  test('short commutes carry no land value penalty at all', () => {
+    const city = makeCity();
+    zone(city, 5, 5, Zone.Residential, 1);
+    city.tiles[idx(5, 5)].commute = 6;
+    zone(city, 8, 8, Zone.Residential, 1);
+    city.tiles[idx(8, 8)].commute = 1;
+    updateLandValue(city);
+    expect(city.tiles[idx(5, 5)].landValue).toBe(city.tiles[idx(8, 8)].landValue);
   });
 });

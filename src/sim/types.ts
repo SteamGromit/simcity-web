@@ -14,11 +14,14 @@ export enum Zone {
   School,
 }
 
-export type Stage = 0 | 1 | 2 | 3;
+export type Stage = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
+export type Density = 1 | 2 | 3;
 
 export interface Tile {
   zone: Zone;
   stage: Stage;
+  /** Zoned density (R/C/I): caps development at stage 3 / 5 / 7. */
+  density: Density;
   powered: boolean;
   abandoned: boolean;
   /** Power line strung over a road tile (lines elsewhere use Zone.PowerLine). */
@@ -70,12 +73,17 @@ export interface CityState {
   notices: string[];
 }
 
-/** Residential population capacity by development stage. */
-export const R_POP = [0, 8, 24, 60];
+/** Residential population capacity by development stage (0–7). */
+export const R_POP = [0, 8, 24, 60, 120, 240, 420, 700];
 /** Commercial job capacity by development stage. */
-export const C_JOBS = [0, 6, 18, 45];
+export const C_JOBS = [0, 6, 18, 45, 90, 180, 320, 550];
 /** Industrial job capacity by development stage. */
-export const I_JOBS = [0, 10, 30, 75];
+export const I_JOBS = [0, 10, 30, 75, 140, 260, 420, 650];
+
+/** Max development stage a zone of each density can reach. */
+export const MAX_STAGE_BY_DENSITY = [0, 3, 5, 7];
+/** Zone construction cost multiplier by density. */
+export const DENSITY_COST_MULT = [0, 1, 2, 4];
 
 export type ToolId =
   | 'road'

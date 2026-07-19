@@ -4,11 +4,11 @@ import { TILE_H, TILE_W } from './iso';
 const HW = TILE_W / 2; // 32
 const HH = TILE_H / 2; // 16
 
-/** Heights (px) by zone and stage 1..3. */
+/** Heights (px) by zone and stage 1..7. */
 const HEIGHTS: Partial<Record<Zone, number[]>> = {
-  [Zone.Residential]: [0, 14, 26, 44],
-  [Zone.Commercial]: [0, 16, 34, 58],
-  [Zone.Industrial]: [0, 12, 22, 36],
+  [Zone.Residential]: [0, 14, 26, 44, 60, 78, 96, 116],
+  [Zone.Commercial]: [0, 16, 34, 58, 76, 96, 118, 142],
+  [Zone.Industrial]: [0, 12, 22, 36, 48, 62, 78, 95],
 };
 
 /** Base wall colors [h, s, l] by zone and stage. */
@@ -18,18 +18,30 @@ const PALETTES: Partial<Record<Zone, [number, number, number][]>> = {
     [95, 30, 62], // small house, pale green
     [150, 25, 55], // rowhouse teal-green
     [205, 30, 52], // apartment slate-blue
+    [212, 33, 49], // mid-rise
+    [218, 36, 46], // block tower
+    [224, 39, 43], // high-rise
+    [230, 42, 40], // residential tower
   ],
   [Zone.Commercial]: [
     [0, 0, 0],
     [190, 35, 60], // shop
     [195, 45, 55], // office, glassy cyan
     [210, 40, 48], // tower
+    [206, 46, 50], // glass mid-rise
+    [211, 50, 46], // office slab
+    [216, 53, 44], // corporate tower
+    [221, 56, 42], // skyscraper
   ],
   [Zone.Industrial]: [
     [0, 0, 0],
     [35, 35, 55], // shed, ochre
     [25, 30, 48], // works, rust
     [20, 25, 42], // factory
+    [18, 23, 40], // heavy works
+    [15, 21, 38], // refinery block
+    [12, 19, 36], // industrial complex
+    [10, 17, 34], // mega-plant
   ],
 };
 
@@ -214,7 +226,8 @@ export function drawBuilding(
   }
 
   const h = (HEIGHTS[zone]?.[stage] ?? 12) * (0.92 + variant * 0.16);
-  const f = 0.55 + stage * 0.1;
+  // Footprint must stay under 1.0 to preserve the renderer's painter's-order invariant.
+  const f = Math.min(0.85, 0.55 + stage * 0.05);
   let [hue, sat, lit] = PALETTES[zone]?.[stage] ?? [0, 0, 50];
   hue += Math.floor(variant * 24) - 12;
 

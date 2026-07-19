@@ -18,7 +18,10 @@ function reviveTile(raw: unknown): Tile {
   if (!raw || typeof raw !== 'object') return t;
   const r = raw as Record<string, unknown>;
   if (typeof r.zone === 'number' && r.zone >= Zone.None && r.zone <= Zone.School) t.zone = r.zone;
-  if (r.stage === 1 || r.stage === 2 || r.stage === 3) t.stage = r.stage;
+  if (typeof r.stage === 'number' && Number.isInteger(r.stage) && r.stage >= 1 && r.stage <= 7) {
+    t.stage = r.stage as Tile['stage'];
+  }
+  if (r.density === 2 || r.density === 3) t.density = r.density;
   t.powered = r.powered === true;
   t.abandoned = r.abandoned === true;
   t.wire = r.wire === true;

@@ -2,7 +2,7 @@ import './ui/style.css';
 import { applyTool, canApply, mulberry32, newCity, simTick } from './sim/city';
 import { idx } from './sim/grid';
 import { deserialize, serialize } from './sim/save';
-import { CityState, Zone } from './sim/types';
+import { CityState, Density, Zone } from './sim/types';
 import { Renderer, ViewState } from './render/renderer';
 import { OverlayId } from './render/overlays';
 import { ActiveTool, buildToolbar } from './ui/toolbar';
@@ -29,6 +29,7 @@ const renderer = new Renderer(canvas, city.seed);
 
 const view: ViewState = { hover: null, hoverValid: true, overlay: null };
 let activeTool: ActiveTool = null;
+let activeDensity: Density = 1;
 
 // --- toast ---
 const toastEl = document.createElement('div');
@@ -74,6 +75,9 @@ const toolbar = buildToolbar(
   },
   (overlay: OverlayId | null) => {
     view.overlay = overlay;
+  },
+  (density: Density) => {
+    activeDensity = density;
   },
 );
 const hud = buildHud(
@@ -127,7 +131,7 @@ advisoryForUnprotectedCity();
 // --- input ---
 function toolAllowed(tool: ActiveTool, x: number, y: number): boolean {
   if (!tool || tool === 'query') return true;
-  return canApply(city, tool, x, y);
+  return canApply(city, tool, x, y, activeDensity);
 }
 
 let painting = false;
@@ -138,7 +142,7 @@ let panStart = { x: 0, y: 0, camX: 0, camY: 0 };
 
 function paintAt(x: number, y: number, firstClick: boolean) {
   if (!activeTool || activeTool === 'query') return;
-  const res = applyTool(city, activeTool, x, y);
+  const res = applyTool(city, activeTool, x, y, activeDensity);
   if (!res.ok && firstClick && res.err !== 'tile occupied' && res.err !== 'nothing to bulldoze') {
     toast(res.err!);
   }
@@ -231,8 +235,8 @@ window.addEventListener('resize', () => renderer.resize());
 // Debug handle for automated playtests (harmless in normal play).
 (window as unknown as Record<string, unknown>).__sim = {
   city: () => city,
-  applyTool: (tool: Parameters<typeof applyTool>[1], x: number, y: number) =>
-    applyTool(city, tool, x, y),
+  applyTool: (tool: Parameters<typeof applyTool>[1], x: number, y: number, density?: Density) =>
+    applyTool(city, tool, x, y, density ?? 1),
   tick: (n: number) => {
     for (let i = 0; i < n; i++) simTick(city, rand);
   },

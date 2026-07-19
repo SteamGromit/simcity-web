@@ -8,7 +8,9 @@ function emission(city: CityState, i: number): number {
   if (t.zone === Zone.PowerPlant) return 1.0;
   if (t.abandoned && t.stage > 0) return 0.1;
   if (t.zone === Zone.Industrial && t.stage > 0) return 0.3 + 0.15 * t.stage;
-  if (t.zone === Zone.Road && t.traffic > 0) return Math.min(0.3, t.traffic * 0.02);
+  // Roads are line sources — plumes from adjacent tiles stack, so the
+  // per-tile cap must stay small or busy corridors saturate to 1.0.
+  if (t.zone === Zone.Road && t.traffic > 0) return Math.min(0.06, t.traffic * 0.005);
   return 0;
 }
 

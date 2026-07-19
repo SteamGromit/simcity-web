@@ -11,6 +11,8 @@ import {
   CityState,
   COSTS,
   DEFAULT_TAX,
+  Density,
+  DENSITY_COST_MULT,
   GRID,
   START_FUNDS,
   TICKS_PER_MONTH,
@@ -62,9 +64,23 @@ const TOOL_ZONE: Partial<Record<ToolId, Zone>> = {
   school: Zone.School,
 };
 
-function validateTool(city: CityState, tool: ToolId, x: number, y: number): string | null {
+const ZONE_TOOLS: ToolId[] = ['zoneR', 'zoneC', 'zoneI'];
+
+/** Zone tools cost more at higher density; everything else has a flat cost. */
+export function toolCost(tool: ToolId, density: Density): number {
+  const mult = ZONE_TOOLS.includes(tool) ? DENSITY_COST_MULT[density] : 1;
+  return COSTS[tool] * mult;
+}
+
+function validateTool(
+  city: CityState,
+  tool: ToolId,
+  x: number,
+  y: number,
+  density: Density,
+): string | null {
   if (!inBounds(x, y)) return 'out of bounds';
-  if (city.funds < COSTS[tool]) return 'not enough funds';
+  if (city.funds < toolCost(tool, density)) return 'not enough funds';
   const t = city.tiles[idx(x, y)];
   if (tool === 'bulldoze') return t.zone === Zone.None ? 'nothing to bulldoze' : null;
   if (tool === 'line' && t.zone === Zone.Road) return t.wire ? 'tile occupied' : null;
@@ -72,8 +88,14 @@ function validateTool(city: CityState, tool: ToolId, x: number, y: number): stri
 }
 
 /** Would applyTool succeed here? (Used for hover feedback.) */
-export function canApply(city: CityState, tool: ToolId, x: number, y: number): boolean {
-  return validateTool(city, tool, x, y) === null;
+export function canApply(
+  city: CityState,
+  tool: ToolId,
+  x: number,
+  y: number,
+  density: Density = 1,
+): boolean {
+  return validateTool(city, tool, x, y, density) === null;
 }
 
 export function applyTool(
@@ -81,8 +103,9 @@ export function applyTool(
   tool: ToolId,
   x: number,
   y: number,
+  density: Density = 1,
 ): { ok: boolean; err?: string } {
-  const err = validateTool(city, tool, x, y);
+  const err = validateTool(city, tool, x, y, density);
   if (err) return { ok: false, err };
 
   const t = city.tiles[idx(x, y)];
@@ -94,8 +117,9 @@ export function applyTool(
     t.zone = TOOL_ZONE[tool]!;
     t.stage = 0;
     t.abandoned = false;
+    if (ZONE_TOOLS.includes(tool)) t.density = density;
   }
-  city.funds -= COSTS[tool];
+  city.funds -= toolCost(tool, density);
   return { ok: true };
 }
 

@@ -27,6 +27,7 @@ export function buildQuery(root: HTMLElement) {
       const rows: [string, string][] = [['Tile', `${x}, ${y}`]];
       rows.push(['Type', ZONE_NAMES[t.zone] + (t.abandoned ? ' (abandoned)' : '')]);
       if (t.zone === Zone.Residential || t.zone === Zone.Commercial || t.zone === Zone.Industrial) {
+        rows.push(['Density', ['', 'Low', 'Medium', 'High'][t.density]]);
         rows.push(['Stage', t.stage === 0 ? 'undeveloped' : String(t.stage)]);
         rows.push(['Powered', t.powered ? 'yes' : 'no']);
         rows.push(['Commute', Number.isFinite(t.commute) ? String(t.commute) : '—']);

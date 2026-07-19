@@ -32,9 +32,10 @@ describe('developTile', () => {
   test('buildings grow a stage at a time when land value allows', () => {
     const city = setup(Zone.Residential, 1);
     city.demand.r = 0.8;
+    city.tiles[idx(5, 5)].landValue = 0.45;
     developTile(city, 5, 5, always);
     expect(city.tiles[idx(5, 5)].stage).toBe(2);
-    developTile(city, 5, 5, always); // LV 0.5 < 0.55 gate for stage 3
+    developTile(city, 5, 5, always); // LV 0.45 < 0.5 gate for stage 3
     expect(city.tiles[idx(5, 5)].stage).toBe(2);
     city.tiles[idx(5, 5)].landValue = 0.7;
     developTile(city, 5, 5, always);
