@@ -6,18 +6,19 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Backlog (in order)
 
-1. **Congestion-aware pathfinding; mass transit** — commute cost rises with
-   load; bus/subway to relieve it.
-2. **Ordinances; advisors** — city policies with budget/sim effects; advisor
+1. **Ordinances; advisors** — city policies with budget/sim effects; advisor
    panel surfacing problems (builds on the tips advisor from v0.8).
-3. **Water utility** — pumps + pipes as a second network layer.
-4. **Day/night cycle** — visual layer; building windows light up.
-5. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
+2. **Water utility** — pumps + pipes as a second network layer.
+3. **Day/night cycle** — visual layer; building windows light up.
+4. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
    deferred until single-city play is deep enough).
-6. **Modding hooks** — data-driven building/balance definitions.
+5. **Modding hooks** — data-driven building/balance definitions.
 
 ## Done
 
+- **Congestion + buses** — shipped v0.12.0 (capacity-based route costs,
+  rerouting, bus stops halving covered commutes; subway not built —
+  re-add if wanted).
 - **Terrain elevation + bridges** — shipped v0.11.0 (hills 0–3 with cliffs,
   raise/lower tools, roads climb 1 level max, bridges over water).
 - **Health services + spreading fires** — shipped v0.10.0 (hospital as 4th

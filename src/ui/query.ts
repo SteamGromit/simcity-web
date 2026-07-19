@@ -1,5 +1,5 @@
 import { idx } from '../sim/grid';
-import { CityState, Terrain, Zone } from '../sim/types';
+import { CityState, ROAD_CAPACITY, Terrain, Zone } from '../sim/types';
 
 const ZONE_NAMES: Record<Zone, string> = {
   [Zone.None]: 'Empty land',
@@ -14,6 +14,7 @@ const ZONE_NAMES: Record<Zone, string> = {
   [Zone.PoliceStation]: 'Police Station',
   [Zone.School]: 'School',
   [Zone.Hospital]: 'Hospital',
+  [Zone.BusStop]: 'Bus Stop',
 };
 
 export function buildQuery(root: HTMLElement) {
@@ -44,9 +45,11 @@ export function buildQuery(root: HTMLElement) {
         rows.push(['Police cover', `${Math.round(t.policeCov * 100)}%`]);
         rows.push(['School cover', `${Math.round(t.schoolCov * 100)}%`]);
         rows.push(['Health cover', `${Math.round(t.healthCov * 100)}%`]);
+        rows.push(['Bus access', t.busCov > 0 ? 'yes' : 'no']);
       }
       if (t.zone === Zone.Road) {
-        rows.push(['Traffic', String(t.traffic)]);
+        rows.push(['Traffic', String(Math.round(t.traffic))]);
+        rows.push(['Congestion', `${Math.round(Math.min(1, t.traffic / (ROAD_CAPACITY * 2)) * 100)}%`]);
         if (t.wire) rows.push(['Power line', 'overhead']);
       }
       if (
@@ -54,6 +57,7 @@ export function buildQuery(root: HTMLElement) {
         t.zone === Zone.PoliceStation ||
         t.zone === Zone.School ||
         t.zone === Zone.Hospital ||
+        t.zone === Zone.BusStop ||
         t.zone === Zone.PowerPlant
       ) {
         rows.push(['Powered', t.powered ? 'yes' : 'no']);

@@ -10,13 +10,14 @@ import {
   Zone,
 } from './types';
 
-type CovField = 'fireCov' | 'policeCov' | 'schoolCov' | 'healthCov';
+type CovField = 'fireCov' | 'policeCov' | 'schoolCov' | 'healthCov' | 'busCov';
 
 const SERVICES: { zone: Zone; radius: number; field: CovField }[] = [
   { zone: Zone.FireStation, radius: SERVICE_RADII.fire, field: 'fireCov' },
   { zone: Zone.PoliceStation, radius: SERVICE_RADII.police, field: 'policeCov' },
   { zone: Zone.School, radius: SERVICE_RADII.school, field: 'schoolCov' },
   { zone: Zone.Hospital, radius: SERVICE_RADII.health, field: 'healthCov' },
+  { zone: Zone.BusStop, radius: SERVICE_RADII.bus, field: 'busCov' },
 ];
 
 /**
@@ -29,6 +30,7 @@ export function updateCoverage(city: CityState): void {
     t.policeCov = 0;
     t.schoolCov = 0;
     t.healthCov = 0;
+    t.busCov = 0;
   }
   for (let i = 0; i < city.tiles.length; i++) {
     const station = city.tiles[i];

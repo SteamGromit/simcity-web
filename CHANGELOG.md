@@ -4,6 +4,20 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.12.0] — 2026-07-19 · Congestion & buses
+
+### Added
+- **Congestion-aware routing:** road tiles have a capacity; busy tiles cost
+  more to drive through (quadratic penalty, up to 4× when jammed), so
+  commutes lengthen on clogged arteries and commuters route around them.
+  Development, land value, and pollution all feel it. The Traffic data
+  view and the query tool now read congestion, and the advisor warns when
+  the network jams.
+- **Bus stops** (§150, §15/mo, radius 5): when both ends of a commute have
+  a powered stop in reach, half the cars stay off the road. Transit access
+  also nudges residential desirability. Subway deferred — re-add to
+  TODO.md if wanted.
+
 ## [0.11.0] — 2026-07-19 · Elevation & bridges
 
 ### Added

@@ -1,4 +1,4 @@
-import { CityState, GRID, Zone } from './types';
+import { CityState, GRID, ROAD_CAPACITY, Zone } from './types';
 import { roadAccess } from './traffic';
 
 export type TipId =
@@ -9,6 +9,7 @@ export type TipId =
   | 'no-road-access'
   | 'no-fire-coverage'
   | 'no-health'
+  | 'congestion'
   | 'deficit'
   | 'high-taxes'
   | 'pollution'
@@ -24,6 +25,8 @@ const TIP_TEXT: Record<TipId, string> = {
     'A fire is raging! It spreads to neighbors — fire coverage fights it; bulldoze a firebreak.',
   'no-health':
     'Tall buildings need a Hospital in reach to keep growing — build one near your towers.',
+  congestion:
+    'Roads are jamming and commutes are suffering — add parallel routes or Bus Stops.',
   welcome:
     'Welcome! Lay a Road, zone Residential beside it, and build a Coal Plant. Press ? for help.',
   'no-power-plant': 'Your zones have no electricity — build a Coal Plant to get things growing.',
@@ -58,11 +61,13 @@ export function adviseTips(city: CityState): Tip[] {
   let pollutedHomes = 0;
   let abandonedCount = 0;
   let burningCount = 0;
+  let jammedRoads = 0;
 
   for (let i = 0; i < city.tiles.length; i++) {
     const t = city.tiles[i];
     if (t.zone !== Zone.None) builtAnything = true;
     if (t.zone === Zone.PowerPlant) hasPlant = true;
+    if (t.zone === Zone.Road && t.traffic > ROAD_CAPACITY) jammedRoads++;
     if (!isRci(t.zone)) continue;
     zonedTiles++;
     if (t.burning > 0) burningCount++;
@@ -89,6 +94,7 @@ export function adviseTips(city: CityState): Tip[] {
   if (roadlessZones > 0) add('no-road-access');
   if (uncoveredBuildings > 0) add('no-fire-coverage');
   if (unhealthyTowers > 0) add('no-health');
+  if (jammedRoads >= 5) add('congestion');
   if (city.lastBudget.net < 0) add('deficit');
   if (city.taxes.r > 0.12 || city.taxes.c > 0.12 || city.taxes.i > 0.12) add('high-taxes');
   if (pollutedHomes > 0) add('pollution');

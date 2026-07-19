@@ -1,5 +1,12 @@
 import { idx, inBounds, neighbors4 } from './grid';
-import { CityState, GRID, Zone } from './types';
+import {
+  BUS_TRAFFIC_SHARE,
+  CityState,
+  CONGESTION_MAX_EXTRA,
+  GRID,
+  ROAD_CAPACITY,
+  Zone,
+} from './types';
 
 /** Vehicles and walkers manage one level per tile; ≥2 is an impassable cliff. */
 function climbable(city: CityState, a: number, b: number): boolean {
@@ -46,10 +53,59 @@ function developed(city: CityState, x: number, y: number, zones: Zone[]): boolea
   return zones.includes(t.zone) && t.stage > 0 && !t.abandoned;
 }
 
-/** BFS over road tiles from roads adjacent to any developed tile of `zones`. */
+/** Cost of driving onto a road tile: 1 plus a quadratic congestion penalty
+ * fed by the previous update's traffic volumes. */
+function tileCost(t: { traffic: number }): number {
+  const congestion = Math.min(1, t.traffic / (ROAD_CAPACITY * 2));
+  return 1 + CONGESTION_MAX_EXTRA * congestion * congestion;
+}
+
+/** Binary min-heap of tile indices keyed by an external cost array. */
+class Heap {
+  private items: number[] = [];
+  constructor(private cost: Float64Array) {}
+  get size() {
+    return this.items.length;
+  }
+  push(i: number) {
+    const a = this.items;
+    a.push(i);
+    let k = a.length - 1;
+    while (k > 0) {
+      const p = (k - 1) >> 1;
+      if (this.cost[a[p]] <= this.cost[a[k]]) break;
+      [a[p], a[k]] = [a[k], a[p]];
+      k = p;
+    }
+  }
+  pop(): number {
+    const a = this.items;
+    const top = a[0];
+    const last = a.pop()!;
+    if (a.length > 0) {
+      a[0] = last;
+      let k = 0;
+      for (;;) {
+        const l = 2 * k + 1;
+        const r = l + 1;
+        let m = k;
+        if (l < a.length && this.cost[a[l]] < this.cost[a[m]]) m = l;
+        if (r < a.length && this.cost[a[r]] < this.cost[a[m]]) m = r;
+        if (m === k) break;
+        [a[m], a[k]] = [a[k], a[m]];
+        k = m;
+      }
+    }
+    return top;
+  }
+}
+
+/** Congestion-aware Dijkstra over road tiles, seeded at roads adjacent to
+ * any developed tile of `zones`. With empty roads every tile costs 1, so
+ * values equal plain BFS distances. */
 function roadDistanceTo(city: CityState, zones: Zone[]): Float64Array {
   const dist = new Float64Array(GRID * GRID).fill(Infinity);
-  const queue: number[] = [];
+  const heap = new Heap(dist);
   for (let i = 0; i < city.tiles.length; i++) {
     if (city.tiles[i].zone !== Zone.Road) continue;
     const x = i % GRID;
@@ -59,19 +115,25 @@ function roadDistanceTo(city: CityState, zones: Zone[]): Float64Array {
     );
     if (seeds) {
       dist[i] = 0;
-      queue.push(i);
+      heap.push(i);
     }
   }
-  for (let head = 0; head < queue.length; head++) {
-    const i = queue[head];
+  const settled = new Uint8Array(GRID * GRID);
+  while (heap.size > 0) {
+    const i = heap.pop();
+    if (settled[i]) continue;
+    settled[i] = 1;
     const x = i % GRID;
     const y = (i / GRID) | 0;
     for (const [nx, ny] of neighbors4(x, y)) {
       const ni = idx(nx, ny);
-      if (city.tiles[ni].zone !== Zone.Road || dist[ni] !== Infinity) continue;
+      if (city.tiles[ni].zone !== Zone.Road || settled[ni]) continue;
       if (!climbable(city, ni, i)) continue;
-      dist[ni] = dist[i] + 1;
-      queue.push(ni);
+      const nd = dist[i] + tileCost(city.tiles[ni]);
+      if (nd < dist[ni]) {
+        dist[ni] = nd;
+        heap.push(ni);
+      }
     }
   }
   return dist;
@@ -107,14 +169,17 @@ export function updateTraffic(city: CityState): void {
     t.commute = field[accessIdx[i]];
   }
 
-  // Traffic: walk each developed residence's access road down the jobDist gradient.
+  // Traffic: walk each developed residence's access road down the jobDist
+  // gradient, collecting the route; if both trip ends have bus coverage,
+  // the bus carries part of the load and fewer cars hit the road.
   for (let i = 0; i < city.tiles.length; i++) {
     const t = city.tiles[i];
     if (t.zone !== Zone.Residential || t.stage === 0 || t.abandoned) continue;
     if (!Number.isFinite(t.commute) || accessIdx[i] === -1) continue;
     let cur = accessIdx[i];
+    const path: number[] = [];
     for (let step = 0; step < MAX_WALK; step++) {
-      city.tiles[cur].traffic += 1;
+      path.push(cur);
       if (jobDist[cur] === 0) break;
       const cx = cur % GRID;
       const cy = (cur / GRID) | 0;
@@ -130,5 +195,9 @@ export function updateTraffic(city: CityState): void {
       if (next === -1) break;
       cur = next;
     }
+    const arrival = city.tiles[path[path.length - 1]];
+    const rides = t.busCov > 0 && arrival.busCov > 0;
+    const share = rides ? BUS_TRAFFIC_SHARE : 1;
+    for (const p of path) city.tiles[p].traffic += share;
   }
 }
