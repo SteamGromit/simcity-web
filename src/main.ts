@@ -46,6 +46,8 @@ const RECT_TOOLS = new Set([
   'terraWater',
   'terraForest',
   'terraGrass',
+  'terraRaise',
+  'terraLower',
 ]);
 
 // --- toast ---

@@ -28,9 +28,12 @@ export function buildQuery(root: HTMLElement) {
       const rows: [string, string][] = [['Tile', `${x}, ${y}`]];
       if (t.zone === Zone.None && t.terrain !== Terrain.Grass) {
         rows.push(['Type', t.terrain === Terrain.Water ? 'Water' : 'Forest']);
+      } else if (t.zone === Zone.Road && t.terrain === Terrain.Water) {
+        rows.push(['Type', 'Bridge']);
       } else {
         rows.push(['Type', ZONE_NAMES[t.zone] + (t.abandoned ? ' (abandoned)' : '')]);
       }
+      if (t.elevation > 0) rows.push(['Elevation', String(t.elevation)]);
       if (t.zone === Zone.Residential || t.zone === Zone.Commercial || t.zone === Zone.Industrial) {
         if (t.burning > 0) rows.push(['Status', '🔥 ON FIRE']);
         rows.push(['Density', ['', 'Low', 'Medium', 'High'][t.density]]);

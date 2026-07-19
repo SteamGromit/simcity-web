@@ -32,12 +32,13 @@ describe('terrain generation', () => {
 });
 
 describe('terrain rules', () => {
-  test('nothing can be built on water or forest', () => {
+  test('nothing can be built on water or forest (roads may bridge water)', () => {
     const city = makeCity();
     city.tiles[idx(5, 5)].terrain = Terrain.Water;
     city.tiles[idx(6, 5)].terrain = Terrain.Forest;
     city.funds = 1000;
-    expect(applyTool(city, 'road', 5, 5).ok).toBe(false);
+    expect(applyTool(city, 'road', 5, 5).ok).toBe(true); // bridge (see elevation.test)
+    expect(applyTool(city, 'road', 6, 5).ok).toBe(false); // no roads through woods
     expect(applyTool(city, 'zoneR', 6, 5).ok).toBe(false);
     expect(applyTool(city, 'plant', 5, 5).ok).toBe(false);
     expect(applyTool(city, 'road', 7, 5).ok).toBe(true); // grass is fine

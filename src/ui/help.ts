@@ -39,6 +39,9 @@ export function buildHelp(root: HTMLElement) {
         <ul>
           <li>Zones develop only when <b>powered</b> and near a
               <b>road</b> that reaches jobs (R) or workers (C/I).</li>
+          <li><b>Hills:</b> roads climb one level at a time — a 2-level
+              cliff blocks them. Raise/Lower Land sculpts the terrain;
+              the <b>Road</b> tool builds <b>bridges</b> over water.</li>
           <li><b>Land value</b> rises near parks and water, falls with
               pollution and long commutes — it caps building stages.</li>
           <li><b>Density</b> (Low/Med/High) caps how tall a zone can build.</li>

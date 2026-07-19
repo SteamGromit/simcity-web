@@ -46,7 +46,7 @@ function hsl(h: number, s: number, l: number): string {
   return `hsl(${h} ${s}% ${l}%)`;
 }
 
-function fillPoly(ctx: CanvasRenderingContext2D, pts: [number, number][], fill: string) {
+export function fillPoly(ctx: CanvasRenderingContext2D, pts: [number, number][], fill: string) {
   ctx.beginPath();
   ctx.moveTo(pts[0][0], pts[0][1]);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);

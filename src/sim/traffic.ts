@@ -1,6 +1,11 @@
 import { idx, inBounds, neighbors4 } from './grid';
 import { CityState, GRID, Zone } from './types';
 
+/** Vehicles and walkers manage one level per tile; ≥2 is an impassable cliff. */
+function climbable(city: CityState, a: number, b: number): boolean {
+  return Math.abs(city.tiles[a].elevation - city.tiles[b].elevation) <= 1;
+}
+
 const ACCESS_RADIUS = 2;
 const MAX_WALK = 64;
 
@@ -23,6 +28,7 @@ export function roadAccess(
         const nx = x + dx;
         const ny = y + dy;
         if (!inBounds(nx, ny) || city.tiles[idx(nx, ny)].zone !== Zone.Road) continue;
+        if (!climbable(city, idx(nx, ny), idx(x, y))) continue;
         const manhattan = Math.abs(dx) + Math.abs(dy);
         if (manhattan < bestManhattan) {
           bestManhattan = manhattan;
@@ -48,7 +54,10 @@ function roadDistanceTo(city: CityState, zones: Zone[]): Float64Array {
     if (city.tiles[i].zone !== Zone.Road) continue;
     const x = i % GRID;
     const y = (i / GRID) | 0;
-    if (neighbors4(x, y).some(([nx, ny]) => developed(city, nx, ny, zones))) {
+    const seeds = neighbors4(x, y).some(
+      ([nx, ny]) => developed(city, nx, ny, zones) && climbable(city, idx(nx, ny), i),
+    );
+    if (seeds) {
       dist[i] = 0;
       queue.push(i);
     }
@@ -60,6 +69,7 @@ function roadDistanceTo(city: CityState, zones: Zone[]): Float64Array {
     for (const [nx, ny] of neighbors4(x, y)) {
       const ni = idx(nx, ny);
       if (city.tiles[ni].zone !== Zone.Road || dist[ni] !== Infinity) continue;
+      if (!climbable(city, ni, i)) continue;
       dist[ni] = dist[i] + 1;
       queue.push(ni);
     }
@@ -112,7 +122,7 @@ export function updateTraffic(city: CityState): void {
       let best = jobDist[cur];
       for (const [nx, ny] of neighbors4(cx, cy)) {
         const ni = idx(nx, ny);
-        if (city.tiles[ni].zone === Zone.Road && jobDist[ni] < best) {
+        if (city.tiles[ni].zone === Zone.Road && jobDist[ni] < best && climbable(city, ni, cur)) {
           best = jobDist[ni];
           next = ni;
         }

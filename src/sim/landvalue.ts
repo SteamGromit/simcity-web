@@ -42,7 +42,8 @@ export function updateLandValue(city: CityState): void {
         ? Math.min(0.25, Math.max(0, t.commute - 8) / 40)
         : 0.15;
     const serviceBonus = 0.12 * ((t.fireCov + t.policeCov + t.schoolCov) / 3);
-    const v = BASE + parkBonus[i] + serviceBonus - 0.5 * t.pollution - commutePenalty;
+    const viewBonus = 0.03 * t.elevation; // hillside views
+    const v = BASE + parkBonus[i] + serviceBonus + viewBonus - 0.5 * t.pollution - commutePenalty;
     t.landValue = Math.max(0, Math.min(1, v));
   }
 }

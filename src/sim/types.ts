@@ -26,8 +26,10 @@ export enum Terrain {
 
 export interface Tile {
   zone: Zone;
-  /** Natural ground cover; structures require Grass. */
+  /** Natural ground cover; structures require Grass (roads may bridge Water). */
   terrain: Terrain;
+  /** Ground height 0..MAX_ELEV; the whole tile sits at one level. */
+  elevation: number;
   stage: Stage;
   /** Zoned density (R/C/I): caps development at stage 3 / 5 / 7. */
   density: Density;
@@ -116,6 +118,8 @@ export type ToolId =
   | 'terraWater'
   | 'terraForest'
   | 'terraGrass'
+  | 'terraRaise'
+  | 'terraLower'
   | 'bulldoze';
 
 export const COSTS: Record<ToolId, number> = {
@@ -133,8 +137,15 @@ export const COSTS: Record<ToolId, number> = {
   terraWater: 25,
   terraForest: 10,
   terraGrass: 5,
+  terraRaise: 20,
+  terraLower: 20,
   bulldoze: 1,
 };
+
+/** Highest ground level; cliffs form where neighbors differ. */
+export const MAX_ELEV = 3;
+/** Flat cost for a road tile laid over water. */
+export const BRIDGE_COST = 50;
 
 /** Coverage radii (Chebyshev tiles) per service. */
 export const SERVICE_RADII = { fire: 8, police: 8, school: 10, health: 10 };

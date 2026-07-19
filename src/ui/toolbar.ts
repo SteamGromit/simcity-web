@@ -21,6 +21,8 @@ const TOOLS: { id: ToolId | 'query'; label: string }[] = [
   { id: 'terraWater', label: 'Water' },
   { id: 'terraForest', label: 'Forest' },
   { id: 'terraGrass', label: 'Level Land' },
+  { id: 'terraRaise', label: 'Raise Land' },
+  { id: 'terraLower', label: 'Lower Land' },
 ];
 
 export function buildToolbar(
