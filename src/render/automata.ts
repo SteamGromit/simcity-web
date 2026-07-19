@@ -53,6 +53,8 @@ export class Automata {
   /** cars/peds bucketed by the tile they should be drawn with, rebuilt per frame */
   private carBuckets = new Map<number, Car[]>();
   private pedBuckets = new Map<number, Ped[]>();
+  /** Pandemic flag from the last step; thins targets and masks the peds. */
+  private pandemic = false;
 
   carCount(): number {
     return this.cars.length;
@@ -87,6 +89,7 @@ export class Automata {
       }
     }
 
+    this.pandemic = city.disasters.pandemicMonths > 0;
     this.stepCars(city, dt, this.busy);
     this.stepPeds(city, dt, this.lots);
     this.bucket();
@@ -97,7 +100,8 @@ export class Automata {
     this.cars = this.cars.filter(
       (c) => city.tiles[c.from].zone === Zone.Road && city.tiles[c.to].zone === Zone.Road,
     );
-    const target = Math.min(MAX_CARS, busy.length * 2);
+    let target = Math.min(MAX_CARS, busy.length * 2);
+    if (this.pandemic) target = Math.ceil(target * 0.25); // lockdown: streets go quiet
     while (this.cars.length < target && busy.length > 0) {
       const from = busy[(Math.random() * busy.length) | 0];
       if (city.tiles[from].zone !== Zone.Road) break; // stale scan; wait for rescan
@@ -154,7 +158,8 @@ export class Automata {
         (t.zone === Zone.Residential || t.zone === Zone.Commercial) && t.stage > 0 && !t.abandoned
       );
     });
-    const target = Math.min(MAX_PEDS, lots.length * 2);
+    let target = Math.min(MAX_PEDS, lots.length * 2);
+    if (this.pandemic) target = Math.ceil(target * 0.15);
     while (this.peds.length < target && lots.length > 0) {
       this.peds.push(this.spawnPed(lots));
     }
@@ -243,6 +248,10 @@ export class Automata {
         const c = center(p.tile);
         ctx.fillStyle = p.color;
         ctx.fillRect(c.sx + p.ox - 1, c.sy + p.oy - 2, 2, 3);
+        if (this.pandemic) {
+          ctx.fillStyle = '#f2f5f8'; // masked up
+          ctx.fillRect(c.sx + p.ox - 1, c.sy + p.oy - 2, 2, 1);
+        }
       }
     }
   }

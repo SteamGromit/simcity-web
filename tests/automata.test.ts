@@ -54,6 +54,21 @@ describe('Automata', () => {
     expect(positions()).not.toBe(a);
   });
 
+  test('a pandemic empties the streets', () => {
+    const city = makeCity();
+    road(city, 10, 10, 30, 10);
+    for (let x = 10; x <= 30; x++) city.tiles[idx(x, 10)].traffic = 8;
+    for (let x = 10; x <= 30; x += 2) zone(city, x, 12, Zone.Residential, 2);
+    const automata = new Automata();
+    for (let t = 0; t < 20; t++) automata.step(city, t * 100);
+    const cars = automata.carCount();
+    const peds = automata.pedCount();
+    city.disasters.pandemicMonths = 3;
+    for (let t = 20; t < 40; t++) automata.step(city, t * 100);
+    expect(automata.carCount()).toBeLessThan(cars);
+    expect(automata.pedCount()).toBeLessThan(peds);
+  });
+
   test('pedestrians appear on developed lots', () => {
     const city = makeCity();
     zone(city, 5, 5, Zone.Residential, 2);
