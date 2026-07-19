@@ -4,7 +4,7 @@ import { CityState, GRID, Zone } from './types';
 const BASE = 0.3;
 const PARK_RADIUS = 3;
 
-/** Land value = base + park proximity − pollution − commute drag, clamped 0..1. */
+/** Land value = base + parks + service coverage − pollution − commute drag, clamped 0..1. */
 export function updateLandValue(city: CityState): void {
   const parkBonus = new Float64Array(GRID * GRID);
   for (let i = 0; i < city.tiles.length; i++) {
@@ -26,7 +26,8 @@ export function updateLandValue(city: CityState): void {
       : Number.isFinite(t.commute)
         ? Math.min(0.25, t.commute / 40)
         : 0.15;
-    const v = BASE + parkBonus[i] - 0.5 * t.pollution - commutePenalty;
+    const serviceBonus = 0.12 * ((t.fireCov + t.policeCov + t.schoolCov) / 3);
+    const v = BASE + parkBonus[i] + serviceBonus - 0.5 * t.pollution - commutePenalty;
     t.landValue = Math.max(0, Math.min(1, v));
   }
 }

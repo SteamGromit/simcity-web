@@ -53,6 +53,18 @@ describe('updateLandValue', () => {
     expect(polluted).toBeLessThan(clean);
   });
 
+  test('service coverage lifts land value', () => {
+    const city = makeCity();
+    zone(city, 5, 5, Zone.Residential, 1);
+    zone(city, 8, 8, Zone.Residential, 1);
+    const covered = city.tiles[idx(5, 5)];
+    covered.fireCov = 1;
+    covered.policeCov = 1;
+    covered.schoolCov = 1;
+    updateLandValue(city);
+    expect(covered.landValue).toBeCloseTo(city.tiles[idx(8, 8)].landValue + 0.12, 5);
+  });
+
   test('long commutes drag residential land value down', () => {
     const city = makeCity();
     zone(city, 5, 5, Zone.Residential, 1);
