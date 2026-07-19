@@ -1,7 +1,7 @@
 import { CityState, Zone } from '../sim/types';
 import { GRID } from '../sim/types';
-import { diamond } from './buildings';
-import { isoToScreen } from './iso';
+import { fillTile } from './buildings';
+import { tileGeom } from './iso';
 
 export type OverlayId =
   | 'power'
@@ -65,8 +65,7 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, city: CityState, over
     for (let x = 0; x < GRID; x++) {
       const fill = tint(city, y * GRID + x, overlay);
       if (!fill) continue;
-      const { sx, sy } = isoToScreen(x, y);
-      diamond(ctx, sx, sy, fill);
+      fillTile(ctx, tileGeom(x, y), fill);
     }
   }
 }

@@ -65,6 +65,7 @@ above 9% suppress demand.
 | Charts button | population and funds history |
 | Query tool | inspect any tile |
 | Middle-drag or Space+drag | pan (arrow keys work too) |
+| Q / E (hold) | rotate the view — full 360° |
 | Mouse wheel | zoom |
 | Esc | deselect tool |
 | ⏸ ▶ ▶▶ ▶▶▶ | pause / normal / fast / cheetah |

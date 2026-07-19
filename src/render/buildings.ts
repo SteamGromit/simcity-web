@@ -1,8 +1,5 @@
 import { Stage, Zone } from '../sim/types';
-import { TILE_H, TILE_W } from './iso';
-
-const HW = TILE_W / 2; // 32
-const HH = TILE_H / 2; // 16
+import { TileGeom } from './iso';
 
 /** Heights (px) by zone and stage 1..7. */
 const HEIGHTS: Partial<Record<Zone, number[]>> = {
@@ -49,224 +46,131 @@ function hsl(h: number, s: number, l: number): string {
   return `hsl(${h} ${s}% ${l}%)`;
 }
 
-/** Fill the ground diamond whose top corner sits at (sx, sy). */
-export function diamond(ctx: CanvasRenderingContext2D, sx: number, sy: number, fill: string) {
+function fillPoly(ctx: CanvasRenderingContext2D, pts: [number, number][], fill: string) {
   ctx.beginPath();
-  ctx.moveTo(sx, sy);
-  ctx.lineTo(sx + HW, sy + HH);
-  ctx.lineTo(sx, sy + TILE_H);
-  ctx.lineTo(sx - HW, sy + HH);
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
   ctx.closePath();
   ctx.fillStyle = fill;
   ctx.fill();
 }
 
-/** Pseudo-3D box on the tile at (sx, sy): footprint fraction f, height h. */
+/** Fill the tile's ground quad. */
+export function fillTile(ctx: CanvasRenderingContext2D, geom: TileGeom, fill: string) {
+  fillPoly(ctx, geom.corners, fill);
+}
+
+export function strokeTile(
+  ctx: CanvasRenderingContext2D,
+  geom: TileGeom,
+  stroke: string,
+  width: number,
+) {
+  ctx.beginPath();
+  ctx.moveTo(geom.corners[0][0], geom.corners[0][1]);
+  for (let i = 1; i < 4; i++) ctx.lineTo(geom.corners[i][0], geom.corners[i][1]);
+  ctx.closePath();
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = width;
+  ctx.stroke();
+}
+
+interface Face {
+  a: [number, number]; // bottom corners of a visible wall
+  b: [number, number];
+  brightness: number; // 0..1 lighting factor
+}
+
+/**
+ * Pseudo-3D box rising from the tile. Footprint is the ground quad inset
+ * toward the center by fraction f. The corners run clockwise on screen at
+ * every view angle, so a wall is camera-facing exactly when its projected
+ * edge runs right-to-left (dx < 0); brightness follows the outward normal
+ * so the "sun" stays screen-left at every rotation.
+ */
 function box(
   ctx: CanvasRenderingContext2D,
-  sx: number,
-  sy: number,
+  geom: TileGeom,
   f: number,
   h: number,
   hue: number,
   sat: number,
   lit: number,
-) {
-  const cx = sx;
-  const cy = sy + HH; // diamond center
-  const top = { x: cx, y: cy - HH * f };
-  const right = { x: cx + HW * f, y: cy };
-  const bottom = { x: cx, y: cy + HH * f };
-  const left = { x: cx - HW * f, y: cy };
+): Face[] {
+  const foot: [number, number][] = geom.corners.map(([px, py]) => [
+    geom.cx + (px - geom.cx) * f,
+    geom.cy + (py - geom.cy) * f,
+  ]);
 
-  // left face (darker)
-  ctx.beginPath();
-  ctx.moveTo(left.x, left.y);
-  ctx.lineTo(bottom.x, bottom.y);
-  ctx.lineTo(bottom.x, bottom.y - h);
-  ctx.lineTo(left.x, left.y - h);
-  ctx.closePath();
-  ctx.fillStyle = hsl(hue, sat, lit * 0.62);
-  ctx.fill();
+  const faces: Face[] = [];
+  for (let i = 0; i < 4; i++) {
+    const a = foot[i];
+    const b = foot[(i + 1) % 4];
+    const dx = b[0] - a[0];
+    if (dx >= 0) continue; // back face
+    const dy = b[1] - a[1];
+    const len = Math.hypot(dx, dy) || 1;
+    const brightness = 0.62 + 0.18 * (dy / len + 1) / 2;
+    faces.push({ a, b, brightness });
+    fillPoly(
+      ctx,
+      [a, b, [b[0], b[1] - h], [a[0], a[1] - h]],
+      hsl(hue, sat, lit * brightness),
+    );
+  }
 
-  // right face (mid)
-  ctx.beginPath();
-  ctx.moveTo(bottom.x, bottom.y);
-  ctx.lineTo(right.x, right.y);
-  ctx.lineTo(right.x, right.y - h);
-  ctx.lineTo(bottom.x, bottom.y - h);
-  ctx.closePath();
-  ctx.fillStyle = hsl(hue, sat, lit * 0.8);
-  ctx.fill();
-
-  // roof
-  ctx.beginPath();
-  ctx.moveTo(top.x, top.y - h);
-  ctx.lineTo(right.x, right.y - h);
-  ctx.lineTo(bottom.x, bottom.y - h);
-  ctx.lineTo(left.x, left.y - h);
-  ctx.closePath();
-  ctx.fillStyle = hsl(hue, sat * 0.7, Math.min(90, lit * 1.12));
-  ctx.fill();
+  fillPoly(
+    ctx,
+    foot.map(([px, py]) => [px, py - h] as [number, number]),
+    hsl(hue, sat * 0.7, Math.min(90, lit * 1.12)),
+  );
+  return faces;
 }
 
-function windows(
-  ctx: CanvasRenderingContext2D,
-  sx: number,
-  sy: number,
-  f: number,
-  h: number,
-  lit: boolean,
-) {
-  const cy = sy + HH;
-  const bottom = { x: sx, y: cy + HH * f };
-  ctx.strokeStyle = lit ? 'rgba(255,240,160,0.55)' : 'rgba(20,20,30,0.45)';
+function windows(ctx: CanvasRenderingContext2D, faces: Face[], h: number, litUp: boolean) {
+  ctx.strokeStyle = litUp ? 'rgba(255,240,160,0.55)' : 'rgba(20,20,30,0.45)';
   ctx.lineWidth = 1.5;
-  for (let wy = 6; wy < h - 4; wy += 6) {
-    ctx.beginPath();
-    ctx.moveTo(bottom.x - HW * f * 0.8, bottom.y - wy - (HH * f * 0.8) / 2);
-    ctx.lineTo(bottom.x, bottom.y - wy);
-    ctx.lineTo(bottom.x + HW * f * 0.8, bottom.y - wy - (HH * f * 0.8) / 2);
-    ctx.stroke();
-  }
-}
-
-function smokestack(ctx: CanvasRenderingContext2D, sx: number, sy: number, h: number) {
-  ctx.fillStyle = '#6b625c';
-  ctx.fillRect(sx + 8, sy + HH - h - 16, 5, 16);
-  ctx.fillStyle = '#544d48';
-  ctx.fillRect(sx + 8, sy + HH - h - 16, 5, 3);
-}
-
-/** Zone tint for undeveloped zoned tiles. */
-export const ZONE_TINT: Partial<Record<Zone, string>> = {
-  [Zone.Residential]: 'rgba(60,200,80,0.30)',
-  [Zone.Commercial]: 'rgba(70,130,255,0.30)',
-  [Zone.Industrial]: 'rgba(235,200,60,0.30)',
-};
-
-export function drawBuilding(
-  ctx: CanvasRenderingContext2D,
-  sx: number,
-  sy: number,
-  zone: Zone,
-  stage: Stage,
-  abandoned: boolean,
-  powered: boolean,
-  variant: number, // 0..1 stable per tile
-) {
-  if (zone === Zone.Park) {
-    diamond(ctx, sx, sy, 'hsl(105 45% 42%)');
-    for (const [dx, tdy] of [
-      [-10, 0],
-      [8, 5],
-    ] as const) {
-      const tx = sx + dx;
-      const ty = sy + 10 + tdy;
-      ctx.fillStyle = '#5d4534';
-      ctx.fillRect(tx - 1, ty, 2, 6);
+  for (const face of faces) {
+    const ax = face.a[0] + (face.b[0] - face.a[0]) * 0.12;
+    const ay = face.a[1] + (face.b[1] - face.a[1]) * 0.12;
+    const bx = face.a[0] + (face.b[0] - face.a[0]) * 0.88;
+    const by = face.a[1] + (face.b[1] - face.a[1]) * 0.88;
+    for (let wy = 6; wy < h - 4; wy += 6) {
       ctx.beginPath();
-      ctx.arc(tx, ty - 3, 5, 0, Math.PI * 2);
-      ctx.fillStyle = 'hsl(120 45% 30%)';
-      ctx.fill();
-    }
-    return;
-  }
-
-  if (zone === Zone.PowerPlant) {
-    box(ctx, sx, sy, 0.85, 20, 15, 12, 38);
-    smokestack(ctx, sx - 16, sy, 22);
-    smokestack(ctx, sx - 4, sy, 26);
-    return;
-  }
-
-  if (zone === Zone.PowerLine) {
-    drawPole(ctx, sx, sy);
-    return;
-  }
-
-  if (zone === Zone.FireStation || zone === Zone.PoliceStation || zone === Zone.School) {
-    const style =
-      zone === Zone.FireStation
-        ? { h: 18, f: 0.8, hue: 2, sat: 62, lit: 46 }
-        : zone === Zone.PoliceStation
-          ? { h: 18, f: 0.8, hue: 215, sat: 45, lit: 44 }
-          : { h: 12, f: 0.85, hue: 45, sat: 42, lit: 56 };
-    box(ctx, sx, sy, style.f, style.h, style.hue, style.sat, style.lit);
-    // white service band across both faces
-    const cy = sy + HH;
-    const bandY = style.h * 0.45;
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(sx - HW * style.f, cy - bandY);
-    ctx.lineTo(sx, cy + HH * style.f - bandY);
-    ctx.lineTo(sx + HW * style.f, cy - bandY);
-    ctx.stroke();
-    if (zone === Zone.School) {
-      // flagpole
-      ctx.strokeStyle = '#cfc8ba';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(sx, cy - style.h - 14);
-      ctx.lineTo(sx, cy - style.h);
+      ctx.moveTo(ax, ay - wy);
+      ctx.lineTo(bx, by - wy);
       ctx.stroke();
-      ctx.fillStyle = '#d24b3f';
-      ctx.fillRect(sx, cy - style.h - 14, 7, 4);
     }
-    if (!powered) drawNoPowerBolt(ctx, sx, sy - style.h - 8);
-    return;
   }
+}
 
-  if (stage === 0) {
-    const tint = ZONE_TINT[zone];
-    if (tint) diamond(ctx, sx, sy, tint);
-    if (!powered) drawNoPowerBolt(ctx, sx, sy + 2);
-    return;
-  }
+function smokestack(ctx: CanvasRenderingContext2D, cx: number, cy: number, h: number) {
+  ctx.fillStyle = '#6b625c';
+  ctx.fillRect(cx, cy - h - 16, 5, 16);
+  ctx.fillStyle = '#544d48';
+  ctx.fillRect(cx, cy - h - 16, 5, 3);
+}
 
-  const h = (HEIGHTS[zone]?.[stage] ?? 12) * (0.92 + variant * 0.16);
-  // Footprint must stay under 1.0 to preserve the renderer's painter's-order invariant.
-  const f = Math.min(0.85, 0.55 + stage * 0.05);
-  let [hue, sat, lit] = PALETTES[zone]?.[stage] ?? [0, 0, 50];
-  hue += Math.floor(variant * 24) - 12;
-
-  if (abandoned) {
-    sat = 6;
-    lit = 32;
-  }
-  box(ctx, sx, sy, f, h, hue, sat, lit);
-  if (stage >= 2 && zone !== Zone.Industrial) windows(ctx, sx, sy, f, h, !abandoned);
-  if (zone === Zone.Industrial && stage >= 2 && !abandoned) smokestack(ctx, sx + 10, sy, h + 8);
-
-  if (abandoned) {
-    // boarded-up cross on the right face
-    ctx.strokeStyle = 'rgba(30,25,20,0.8)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(sx + 4, sy + HH - h * 0.7);
-    ctx.lineTo(sx + HW * f * 0.7, sy + HH - h * 0.2);
-    ctx.moveTo(sx + HW * f * 0.7, sy + HH - h * 0.7);
-    ctx.lineTo(sx + 4, sy + HH - h * 0.2);
-    ctx.stroke();
-  }
-
-  if (!powered && !abandoned) {
-    drawNoPowerBolt(ctx, sx, sy - h - 6);
-  }
+function tree(ctx: CanvasRenderingContext2D, tx: number, ty: number) {
+  ctx.fillStyle = '#5d4534';
+  ctx.fillRect(tx - 1, ty, 2, 6);
+  ctx.beginPath();
+  ctx.arc(tx, ty - 3, 5, 0, Math.PI * 2);
+  ctx.fillStyle = 'hsl(120 45% 30%)';
+  ctx.fill();
 }
 
 /** Utility pole glyph, used for power-line tiles and wires over roads. */
-export function drawPole(ctx: CanvasRenderingContext2D, sx: number, sy: number) {
+export function drawPole(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
   ctx.strokeStyle = '#8a7f72';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(sx, sy + TILE_H - 4);
-  ctx.lineTo(sx, sy - 6);
+  ctx.moveTo(cx, cy + 12);
+  ctx.lineTo(cx, cy - 22);
   ctx.stroke();
   ctx.beginPath();
-  ctx.moveTo(sx - 8, sy - 2);
-  ctx.lineTo(sx + 8, sy - 2);
+  ctx.moveTo(cx - 8, cy - 18);
+  ctx.lineTo(cx + 8, cy - 18);
   ctx.stroke();
 }
 
@@ -282,4 +186,112 @@ export function drawNoPowerBolt(ctx: CanvasRenderingContext2D, bx: number, by: n
   ctx.lineTo(bx + 0.5, by - 3);
   ctx.closePath();
   ctx.fill();
+}
+
+/** Zone tint for undeveloped zoned tiles. */
+export const ZONE_TINT: Partial<Record<Zone, string>> = {
+  [Zone.Residential]: 'rgba(60,200,80,0.30)',
+  [Zone.Commercial]: 'rgba(70,130,255,0.30)',
+  [Zone.Industrial]: 'rgba(235,200,60,0.30)',
+};
+
+export function drawBuilding(
+  ctx: CanvasRenderingContext2D,
+  geom: TileGeom,
+  zone: Zone,
+  stage: Stage,
+  abandoned: boolean,
+  powered: boolean,
+  variant: number, // 0..1 stable per tile
+) {
+  const { cx, cy } = geom;
+
+  if (zone === Zone.Park) {
+    fillTile(ctx, geom, 'hsl(105 45% 42%)');
+    tree(ctx, cx - 10, cy - 4);
+    tree(ctx, cx + 8, cy + 1);
+    return;
+  }
+
+  if (zone === Zone.PowerPlant) {
+    box(ctx, geom, 0.85, 20, 15, 12, 38);
+    smokestack(ctx, cx - 16, cy - 16, 22);
+    smokestack(ctx, cx - 4, cy - 16, 26);
+    return;
+  }
+
+  if (zone === Zone.PowerLine) {
+    drawPole(ctx, cx, cy);
+    return;
+  }
+
+  if (zone === Zone.FireStation || zone === Zone.PoliceStation || zone === Zone.School) {
+    const style =
+      zone === Zone.FireStation
+        ? { h: 18, f: 0.8, hue: 2, sat: 62, lit: 46 }
+        : zone === Zone.PoliceStation
+          ? { h: 18, f: 0.8, hue: 215, sat: 45, lit: 44 }
+          : { h: 12, f: 0.85, hue: 45, sat: 42, lit: 56 };
+    const faces = box(ctx, geom, style.f, style.h, style.hue, style.sat, style.lit);
+    // white service band across the visible walls
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 2;
+    const bandY = style.h * 0.45;
+    for (const face of faces) {
+      ctx.beginPath();
+      ctx.moveTo(face.a[0], face.a[1] - bandY);
+      ctx.lineTo(face.b[0], face.b[1] - bandY);
+      ctx.stroke();
+    }
+    if (zone === Zone.School) {
+      ctx.strokeStyle = '#cfc8ba';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - style.h - 14);
+      ctx.lineTo(cx, cy - style.h);
+      ctx.stroke();
+      ctx.fillStyle = '#d24b3f';
+      ctx.fillRect(cx, cy - style.h - 14, 7, 4);
+    }
+    if (!powered) drawNoPowerBolt(ctx, cx, cy - style.h - 12);
+    return;
+  }
+
+  if (stage === 0) {
+    const tint = ZONE_TINT[zone];
+    if (tint) fillTile(ctx, geom, tint);
+    if (!powered) drawNoPowerBolt(ctx, cx, cy - 4);
+    return;
+  }
+
+  const h = (HEIGHTS[zone]?.[stage] ?? 12) * (0.92 + variant * 0.16);
+  // Footprint must stay under 1.0 to preserve the painter's-order invariant.
+  const f = Math.min(0.85, 0.55 + stage * 0.05);
+  let [hue, sat, lit] = PALETTES[zone]?.[stage] ?? [0, 0, 50];
+  hue += Math.floor(variant * 24) - 12;
+
+  if (abandoned) {
+    sat = 6;
+    lit = 32;
+  }
+  const faces = box(ctx, geom, f, h, hue, sat, lit);
+  if (stage >= 2 && zone !== Zone.Industrial) windows(ctx, faces, h, !abandoned);
+  if (zone === Zone.Industrial && stage >= 2 && !abandoned) smokestack(ctx, cx + 8, cy - 8, h + 8);
+
+  if (abandoned) {
+    // boarded-up cross over the roof
+    ctx.strokeStyle = 'rgba(30,25,20,0.8)';
+    ctx.lineWidth = 2;
+    const r = 0.5 * f;
+    ctx.beginPath();
+    ctx.moveTo(cx - 14 * r, cy - h - 5 * r);
+    ctx.lineTo(cx + 14 * r, cy - h + 5 * r);
+    ctx.moveTo(cx + 14 * r, cy - h - 5 * r);
+    ctx.lineTo(cx - 14 * r, cy - h + 5 * r);
+    ctx.stroke();
+  }
+
+  if (!powered && !abandoned) {
+    drawNoPowerBolt(ctx, cx, cy - h - 12);
+  }
 }

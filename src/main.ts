@@ -241,9 +241,19 @@ canvas.addEventListener('wheel', (e) => {
   renderer.camera.y = wy - my / renderer.camera.zoom;
 });
 
+const rotateKeys = new Set<string>();
+
 window.addEventListener('keydown', (e) => {
   const pan = 60 / renderer.camera.zoom;
   switch (e.key) {
+    case 'q':
+    case 'Q':
+      rotateKeys.add('q');
+      break;
+    case 'e':
+    case 'E':
+      rotateKeys.add('e');
+      break;
     case ' ':
       spaceHeld = true;
       e.preventDefault();
@@ -270,6 +280,8 @@ window.addEventListener('keydown', (e) => {
 });
 window.addEventListener('keyup', (e) => {
   if (e.key === ' ') spaceHeld = false;
+  if (e.key === 'q' || e.key === 'Q') rotateKeys.delete('q');
+  if (e.key === 'e' || e.key === 'E') rotateKeys.delete('e');
 });
 
 window.addEventListener('resize', () => renderer.resize());
@@ -282,10 +294,17 @@ window.addEventListener('resize', () => renderer.resize());
   tick: (n: number) => {
     for (let i = 0; i < n; i++) simTick(city, rand);
   },
+  rotate: (rad: number) => renderer.rotateBy(rad),
 };
 
 // --- render loop ---
-function frame() {
+const ROTATE_SPEED = 1.4; // radians per second while Q/E held
+let lastFrameTime = 0;
+function frame(now: number) {
+  const dt = lastFrameTime === 0 ? 0.016 : Math.min(0.1, (now - lastFrameTime) / 1000);
+  lastFrameTime = now;
+  if (rotateKeys.has('q')) renderer.rotateBy(-ROTATE_SPEED * dt);
+  if (rotateKeys.has('e')) renderer.rotateBy(ROTATE_SPEED * dt);
   if (city.notices.length > 0) {
     const n = city.notices.length;
     const last = city.notices[n - 1];
