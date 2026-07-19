@@ -10,6 +10,8 @@ import { buildHud } from './ui/hud';
 import { buildQuery } from './ui/query';
 import { buildCharts } from './ui/charts';
 import { buildMinimap } from './ui/minimap';
+import { buildHelp, buildTipBar } from './ui/help';
+import { adviseTips } from './sim/tips';
 
 const SAVE_KEY = 'simcity.save';
 const SPEED_MS = [0, 250, 83, 28];
@@ -135,6 +137,11 @@ const hud = buildHud(
   },
 );
 setSpeed(1);
+
+const help = buildHelp(uiRoot);
+const tipBar = buildTipBar(uiRoot);
+tipBar.update(adviseTips(city));
+window.setInterval(() => tipBar.update(adviseTips(city)), 2000);
 
 /** Saves from before civic services existed have no fire protection — warn once. */
 function advisoryForUnprotectedCity() {
@@ -272,6 +279,12 @@ window.addEventListener('keydown', (e) => {
       view.rect = null;
       toolbar.clearTool();
       query.hide();
+      help.hide();
+      break;
+    case 'h':
+    case 'H':
+    case '?':
+      help.toggle();
       break;
     case 'ArrowUp':
       renderer.camera.y -= pan;
