@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
 import { Zone } from '../src/sim/types';
 import { updatePower } from '../src/sim/power';
-import { updateCoverage } from '../src/sim/services';
+import { fireRisk, updateCoverage } from '../src/sim/services';
 import { makeCity, zone } from './helpers';
 
 /** A powered fire station at (x,y): plant right beside it. */
@@ -53,5 +53,36 @@ describe('updateCoverage', () => {
     city.tiles[idx(30, 30)].fireCov = 0.9;
     updateCoverage(city);
     expect(city.tiles[idx(30, 30)].fireCov).toBe(0);
+  });
+});
+
+describe('fireRisk', () => {
+  const always = () => 0; // rand() < FIRE_RISK always fires
+
+  test('an uncovered building burns to the ground and leaves a notice', () => {
+    const city = makeCity();
+    zone(city, 10, 10, Zone.Residential, 2);
+    fireRisk(city, always);
+    expect(city.tiles[idx(10, 10)].stage).toBe(0);
+    expect(city.notices.length).toBe(1);
+    expect(city.notices[0]).toContain('(10, 10)');
+  });
+
+  test('any fire coverage prevents fires entirely', () => {
+    const city = makeCity();
+    zone(city, 10, 10, Zone.Residential, 2);
+    city.tiles[idx(10, 10)].fireCov = 0.1;
+    fireRisk(city, always);
+    expect(city.tiles[idx(10, 10)].stage).toBe(2);
+    expect(city.notices.length).toBe(0);
+  });
+
+  test('empty zones and abandoned shells do not burn', () => {
+    const city = makeCity();
+    zone(city, 10, 10, Zone.Residential, 0);
+    zone(city, 11, 10, Zone.Industrial, 2);
+    city.tiles[idx(11, 10)].abandoned = true;
+    fireRisk(city, always);
+    expect(city.notices.length).toBe(0);
   });
 });
