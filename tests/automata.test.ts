@@ -22,6 +22,38 @@ describe('Automata', () => {
     expect(automata.carCount()).toBe(0);
   });
 
+  test('automata pace with the simulation speed: frozen at 0, moving at 1', () => {
+    const city = makeCity();
+    road(city, 10, 10, 30, 10);
+    for (let x = 10; x <= 30; x++) city.tiles[idx(x, 10)].traffic = 8;
+    const automata = new Automata();
+    for (let t = 0; t < 20; t++) automata.step(city, t * 100, 1);
+    expect(automata.carCount()).toBeGreaterThan(0);
+
+    const positions = () => {
+      const calls: [number, number][] = [];
+      const ctx = {
+        save() {},
+        restore() {},
+        rotate() {},
+        fillRect() {},
+        fillStyle: '',
+        translate(x: number, y: number) {
+          calls.push([x, y]);
+        },
+      } as unknown as CanvasRenderingContext2D;
+      for (let i = 0; i < 64 * 64; i++) automata.drawTile(ctx, i);
+      return JSON.stringify(calls);
+    };
+
+    automata.step(city, 2100, 1);
+    const a = positions();
+    automata.step(city, 2200, 0); // paused: time passes, nothing moves
+    expect(positions()).toBe(a);
+    automata.step(city, 2300, 1); // running again
+    expect(positions()).not.toBe(a);
+  });
+
   test('pedestrians appear on developed lots', () => {
     const city = makeCity();
     zone(city, 5, 5, Zone.Residential, 2);

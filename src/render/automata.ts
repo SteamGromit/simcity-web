@@ -62,9 +62,11 @@ export class Automata {
     return this.peds.length;
   }
 
-  step(city: CityState, now: number): void {
+  step(city: CityState, now: number, timeScale = 1): void {
     elevs = city.tiles;
-    const dt = Math.min(0.1, this.lastTime === 0 ? 0.016 : (now - this.lastTime) / 1000);
+    // timeScale follows the sim speed: 0 freezes the citizens mid-stride
+    const dt =
+      Math.min(0.1, this.lastTime === 0 ? 0.016 : (now - this.lastTime) / 1000) * timeScale;
     this.lastTime = now;
 
     if (this.scanCountdown-- <= 0) {

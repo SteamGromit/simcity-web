@@ -16,6 +16,7 @@ import { buildCityHall } from './ui/cityhall';
 import { makeDraggable } from './ui/drag';
 import { TOOL_KEYS } from './ui/shortcuts';
 import { setSkin } from './render/skins';
+import { setWeatherFx } from './render/fx';
 import { buildHelp, buildTipBar } from './ui/help';
 import { adviseTips } from './sim/tips';
 import { ambientLevel, createSoundPlayer, soundFor, UI_SOUNDS } from './ui/sound';
@@ -36,6 +37,7 @@ let city: CityState = (() => {
 })();
 
 setSkin(localStorage.getItem('simcity.skin') ?? 'classic');
+setWeatherFx(localStorage.getItem('simcity.weatherfx') !== '0');
 let rand = mulberry32(city.seed + city.tick);
 const renderer = new Renderer(canvas, city.seed);
 
@@ -76,6 +78,7 @@ function toast(msg: string, kind: 'error' | 'info' = 'error') {
 // --- sim loop ---
 let timer = 0;
 function setSpeed(speed: 0 | 1 | 2 | 3) {
+  renderer.simSpeed = speed;
   window.clearInterval(timer);
   if (SPEED_MS[speed] > 0) {
     timer = window.setInterval(tickSafely, SPEED_MS[speed]);
@@ -86,6 +89,7 @@ function tickSafely() {
     simTick(city, rand);
   } catch (err) {
     window.clearInterval(timer);
+    renderer.simSpeed = 0;
     hud.showActiveSpeed(0);
     toast(`Simulation paused: ${err instanceof Error ? err.message : err}`);
   }
