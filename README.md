@@ -2,7 +2,7 @@
 
 A browser city-building game inspired by **SimCity 4**, built with TypeScript
 and Canvas 2D. No frameworks, no art assets — every building is drawn
-procedurally.
+procedurally and every sound is synthesized in the browser.
 
 ![Screenshot](docs/media/screenshot.png)
 
@@ -73,6 +73,7 @@ above 9% suppress demand.
 | Q / E (hold) | rotate the view — full 360° |
 | Mouse wheel | zoom |
 | H or ? | help panel |
+| M | mute / unmute sound |
 | Esc | deselect tool |
 | ⏸ ▶ ▶▶ ▶▶▶ | pause / normal / fast / cheetah |
 
