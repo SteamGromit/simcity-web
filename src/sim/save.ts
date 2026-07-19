@@ -1,6 +1,7 @@
 import { blankTile } from './grid';
 import {
   CityState,
+  defaultDisasters,
   defaultOrdinances,
   FIRE_BURN_TICKS,
   GRID,
@@ -70,6 +71,24 @@ function reviveOrdinances(raw: unknown): CityState['ordinances'] {
   return out;
 }
 
+function reviveDisasters(raw: unknown): CityState['disasters'] {
+  const out = defaultDisasters();
+  if (!raw || typeof raw !== 'object') return out;
+  const d = raw as Record<string, unknown>;
+  const tor = d.tornado as Record<string, unknown> | null | undefined;
+  if (tor && typeof tor === 'object') {
+    const x = Math.floor(finite(tor.x, -1));
+    const y = Math.floor(finite(tor.y, -1));
+    const ticks = Math.floor(finite(tor.ticksLeft, 0));
+    if (x >= 0 && x < GRID && y >= 0 && y < GRID && ticks > 0) {
+      out.tornado = { x, y, ticksLeft: ticks };
+    }
+  }
+  out.hurricaneTicks = Math.max(0, Math.floor(finite(d.hurricaneTicks, 0)));
+  out.pandemicMonths = Math.max(0, Math.floor(finite(d.pandemicMonths, 0)));
+  return out;
+}
+
 function reviveHistory(raw: unknown): CityState['history'] {
   const empty = { pop: [], funds: [] };
   if (!raw || typeof raw !== 'object') return empty;
@@ -119,6 +138,7 @@ export function deserialize(json: string): CityState | null {
         net: finite(budget.net, 0),
       },
       ordinances: reviveOrdinances(data.ordinances),
+      disasters: reviveDisasters(data.disasters),
       notices: Array.isArray(data.notices)
         ? data.notices.filter((n: unknown) => typeof n === 'string')
         : [],

@@ -2,6 +2,7 @@ import { CityState, GRID, ROAD_CAPACITY, Zone } from './types';
 import { roadAccess } from './traffic';
 
 export type TipId =
+  | 'disaster'
   | 'fire-burning'
   | 'welcome'
   | 'no-power-plant'
@@ -22,6 +23,8 @@ export interface Tip {
 }
 
 const TIP_TEXT: Record<TipId, string> = {
+  disaster:
+    'Disaster in progress! Ride it out, fight the fires, and rebuild when the skies clear.',
   'fire-burning':
     'A fire is raging! It spreads to neighbors — fire coverage fights it; bulldoze a firebreak.',
   'no-water':
@@ -89,6 +92,8 @@ export function adviseTips(city: CityState): Tip[] {
   const tips: Tip[] = [];
   const add = (id: TipId) => tips.push({ id, text: TIP_TEXT[id] });
 
+  const d = city.disasters;
+  if (d.tornado !== null || d.hurricaneTicks > 0 || d.pandemicMonths > 0) add('disaster');
   if (burningCount > 0) add('fire-burning');
   if (!builtAnything) {
     add('welcome');
