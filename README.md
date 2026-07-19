@@ -20,6 +20,9 @@ decides what happens next:
 - **Decay and gentrification** — cut the power or tank the economy and
   buildings abandon (boarded-up grey shells). Fix the problem and they
   redevelop on their own.
+- **A living city** — zone at low, medium, or high density and watch shacks
+  become towers as land value, services, and schools allow; cars roam the
+  busy roads and citizens stroll outside their buildings.
 
 ## Run it
 
