@@ -1,6 +1,7 @@
 import { blankTile } from './grid';
 import {
   CityState,
+  defaultOrdinances,
   FIRE_BURN_TICKS,
   GRID,
   MAX_ELEV,
@@ -57,6 +58,16 @@ function reviveTile(raw: unknown): Tile {
   return t;
 }
 
+function reviveOrdinances(raw: unknown): CityState['ordinances'] {
+  const out = defaultOrdinances();
+  if (raw && typeof raw === 'object') {
+    for (const key of Object.keys(out) as (keyof typeof out)[]) {
+      if ((raw as Record<string, unknown>)[key] === true) out[key] = true;
+    }
+  }
+  return out;
+}
+
 function reviveHistory(raw: unknown): CityState['history'] {
   const empty = { pop: [], funds: [] };
   if (!raw || typeof raw !== 'object') return empty;
@@ -105,6 +116,7 @@ export function deserialize(json: string): CityState | null {
         expenses: finite(budget.expenses, 0),
         net: finite(budget.net, 0),
       },
+      ordinances: reviveOrdinances(data.ordinances),
       notices: Array.isArray(data.notices)
         ? data.notices.filter((n: unknown) => typeof n === 'string')
         : [],

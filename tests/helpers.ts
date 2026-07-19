@@ -1,5 +1,5 @@
 import { blankTile, idx } from '../src/sim/grid';
-import { CityState, GRID, Stage, Terrain, Zone } from '../src/sim/types';
+import { CityState, defaultOrdinances, GRID, Stage, Terrain, Zone } from '../src/sim/types';
 
 /** Flatten generated terrain to grass so tests can build anywhere. */
 export function clearLand(city: CityState): void {
@@ -19,6 +19,7 @@ export function makeCity(): CityState {
     population: 0,
     jobs: 0,
     lastBudget: { rIncome: 0, cIncome: 0, iIncome: 0, expenses: 0, net: 0 },
+    ordinances: defaultOrdinances(),
     notices: [],
     history: { pop: [], funds: [] },
   };
