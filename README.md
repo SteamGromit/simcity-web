@@ -72,15 +72,20 @@ above 9% suppress demand.
 | Middle-drag or Space+drag | pan (arrow keys work too) |
 | Q / E (hold) | rotate the view — full 360° |
 | Mouse wheel | zoom |
+| H or ? | help panel |
 | Esc | deselect tool |
 | ⏸ ▶ ▶▶ ▶▶▶ | pause / normal / fast / cheetah |
 
 Save/Load keeps one city in your browser's localStorage.
 
+Stuck? Press **H** for the in-game help panel, and keep an eye on the 💡
+**advisor tip** in the bottom-left corner — it watches the city and points
+out the most pressing problem (no power, no road access, deficits, fires,
+pollution…). Dismiss a tip with × and it stays quiet unless the problem
+comes back.
+
 ## Design docs
 
 - Spec: `docs/superpowers/specs/2026-07-18-simcity-web-design.md`
 - Plan: `docs/superpowers/plans/2026-07-18-simcity-v1.md`
-
-The spec's roadmap lists what's next: civic services, density levels, terrain
-and water, congestion-aware traffic, and eventually SC4's region play.
+- Backlog: `TODO.md`

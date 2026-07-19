@@ -4,6 +4,18 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.8.0] — 2026-07-19 · Help & advisor tips
+
+### Added
+- In-game help panel (H / ? key, or the ? button): getting-started steps,
+  controls, and how the simulation decides what grows.
+- Contextual advisor tips (💡, bottom-left): a pure sim-layer advisor
+  (`sim/tips.ts`) watches the city and surfaces the most pressing problem —
+  missing power plant, unpowered zones, no road access, fire risk, deficit,
+  punishing taxes, pollution, abandonment — with a welcome tip for brand-new
+  cities. Tips are dismissible; a dismissed tip returns only if its problem
+  clears and later recurs.
+
 ## [0.7.0] — 2026-07-19 · Terrain
 
 ### Added
