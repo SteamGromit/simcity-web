@@ -3,10 +3,18 @@ import { idx } from '../src/sim/grid';
 import { GRID, START_FUNDS, Zone } from '../src/sim/types';
 import { applyTool, mulberry32, newCity, simTick } from '../src/sim/city';
 import { deserialize, serialize } from '../src/sim/save';
+import { clearLand } from './helpers';
+
+/** newCity with terrain flattened, so fixed-coordinate tool tests are stable. */
+function newFlatCity(seed: number) {
+  const city = newCity(seed);
+  clearLand(city);
+  return city;
+}
 
 describe('newCity', () => {
   test('starts with full funds and a blank grid', () => {
-    const city = newCity(7);
+    const city = newFlatCity(7);
     expect(city.funds).toBe(START_FUNDS);
     expect(city.tiles).toHaveLength(GRID * GRID);
     expect(city.taxes).toEqual({ r: 0.09, c: 0.09, i: 0.09 });
@@ -16,7 +24,7 @@ describe('newCity', () => {
 
 describe('applyTool', () => {
   test('placing a road deducts its cost', () => {
-    const city = newCity(7);
+    const city = newFlatCity(7);
     const res = applyTool(city, 'road', 5, 5);
     expect(res.ok).toBe(true);
     expect(city.tiles[idx(5, 5)].zone).toBe(Zone.Road);
@@ -24,7 +32,7 @@ describe('applyTool', () => {
   });
 
   test('zoning tools mark zones', () => {
-    const city = newCity(7);
+    const city = newFlatCity(7);
     applyTool(city, 'zoneR', 1, 1);
     applyTool(city, 'zoneC', 2, 1);
     applyTool(city, 'zoneI', 3, 1);
@@ -34,7 +42,7 @@ describe('applyTool', () => {
   });
 
   test('occupied tiles reject construction without charging', () => {
-    const city = newCity(7);
+    const city = newFlatCity(7);
     applyTool(city, 'road', 5, 5);
     const res = applyTool(city, 'zoneR', 5, 5);
     expect(res.ok).toBe(false);
@@ -42,20 +50,20 @@ describe('applyTool', () => {
   });
 
   test('out of bounds is rejected', () => {
-    const city = newCity(7);
+    const city = newFlatCity(7);
     expect(applyTool(city, 'road', -1, 5).ok).toBe(false);
     expect(applyTool(city, 'road', 5, GRID).ok).toBe(false);
   });
 
   test('broke cities cannot build', () => {
-    const city = newCity(7);
+    const city = newFlatCity(7);
     city.funds = 5;
     expect(applyTool(city, 'road', 5, 5).ok).toBe(false);
     expect(city.funds).toBe(5);
   });
 
   test('the line tool strings a wire over an existing road', () => {
-    const city = newCity(7);
+    const city = newFlatCity(7);
     applyTool(city, 'road', 5, 5);
     const res = applyTool(city, 'line', 5, 5);
     expect(res.ok).toBe(true);
@@ -67,7 +75,7 @@ describe('applyTool', () => {
   });
 
   test('bulldoze clears anything but empty land', () => {
-    const city = newCity(7);
+    const city = newFlatCity(7);
     applyTool(city, 'zoneR', 5, 5);
     city.tiles[idx(5, 5)].stage = 2;
     city.tiles[idx(5, 5)].abandoned = true;
@@ -82,7 +90,7 @@ describe('applyTool', () => {
 });
 
 function buildStarterTown(seed: number) {
-  const city = newCity(seed);
+  const city = newFlatCity(seed);
   applyTool(city, 'plant', 4, 8);
   for (let x = 5; x <= 14; x++) applyTool(city, 'road', x, 9);
   for (let x = 5; x <= 9; x++) applyTool(city, 'zoneR', x, 8);

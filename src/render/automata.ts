@@ -1,6 +1,6 @@
 import { idx, neighbors4 } from '../sim/grid';
 import { CityState, GRID, Zone } from '../sim/types';
-import { TILE_H, TILE_W, isoToScreen } from './iso';
+import { TILE_H, TILE_W, isoToScreen, tileDepth } from './iso';
 
 const HW = TILE_W / 2;
 const HH = TILE_H / 2;
@@ -190,9 +190,13 @@ export class Automata {
     this.carBuckets.clear();
     this.pedBuckets.clear();
     for (const car of this.cars) {
-      // draw with whichever endpoint paints later so the sprite is never
-      // overdrawn by the neighboring road tile's ground
-      const tile = Math.max(car.from, car.to);
+      // draw with whichever endpoint paints later (greater depth under the
+      // current view angle) so the neighboring ground never overdraws the car
+      const fx = car.from % GRID;
+      const fy = (car.from / GRID) | 0;
+      const tx = car.to % GRID;
+      const ty = (car.to / GRID) | 0;
+      const tile = tileDepth(fx, fy) >= tileDepth(tx, ty) ? car.from : car.to;
       let list = this.carBuckets.get(tile);
       if (!list) this.carBuckets.set(tile, (list = []));
       list.push(car);

@@ -1,19 +1,33 @@
 import { tilesWithin } from './grid';
-import { CityState, GRID, Zone } from './types';
+import { CityState, GRID, Terrain, Zone } from './types';
 
 const BASE = 0.3;
 const PARK_RADIUS = 3;
+const WATER_RADIUS = 2;
+const FOREST_RADIUS = 1;
 
 /** Land value = base + parks + service coverage − pollution − commute drag, clamped 0..1. */
 export function updateLandValue(city: CityState): void {
   const parkBonus = new Float64Array(GRID * GRID);
   for (let i = 0; i < city.tiles.length; i++) {
-    if (city.tiles[i].zone !== Zone.Park) continue;
+    const tile = city.tiles[i];
     const x = i % GRID;
     const y = (i / GRID) | 0;
-    for (const [nx, ny] of tilesWithin(x, y, PARK_RADIUS)) {
-      const d = Math.max(Math.abs(nx - x), Math.abs(ny - y));
-      parkBonus[ny * GRID + nx] += 0.25 * (1 - d / (PARK_RADIUS + 1));
+    if (tile.zone === Zone.Park) {
+      for (const [nx, ny] of tilesWithin(x, y, PARK_RADIUS)) {
+        const d = Math.max(Math.abs(nx - x), Math.abs(ny - y));
+        parkBonus[ny * GRID + nx] += 0.25 * (1 - d / (PARK_RADIUS + 1));
+      }
+    } else if (tile.terrain === Terrain.Water) {
+      for (const [nx, ny] of tilesWithin(x, y, WATER_RADIUS)) {
+        const d = Math.max(Math.abs(nx - x), Math.abs(ny - y));
+        parkBonus[ny * GRID + nx] += 0.08 * (1 - d / (WATER_RADIUS + 1));
+      }
+    } else if (tile.terrain === Terrain.Forest) {
+      for (const [nx, ny] of tilesWithin(x, y, FOREST_RADIUS)) {
+        const d = Math.max(Math.abs(nx - x), Math.abs(ny - y));
+        parkBonus[ny * GRID + nx] += 0.05 * (1 - d / (FOREST_RADIUS + 1));
+      }
     }
   }
 

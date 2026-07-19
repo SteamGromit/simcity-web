@@ -1,4 +1,4 @@
-import { CityState, GRID, Zone } from '../sim/types';
+import { CityState, GRID, Terrain, Zone } from '../sim/types';
 import { isoToScreen, screenToIso } from '../render/iso';
 
 const SCALE = 2; // px per tile
@@ -60,7 +60,13 @@ export function buildMinimap(
         for (let y = 0; y < GRID; y++) {
           for (let x = 0; x < GRID; x++) {
             const t = city.tiles[y * GRID + x];
-            rctx.fillStyle = t.abandoned ? '#4a4038' : ZONE_COLORS[t.zone];
+            rctx.fillStyle = t.abandoned
+              ? '#4a4038'
+              : t.zone === Zone.None && t.terrain === Terrain.Water
+                ? '#2e5f8a'
+                : t.zone === Zone.None && t.terrain === Terrain.Forest
+                  ? '#1e3d24'
+                  : ZONE_COLORS[t.zone];
             rctx.fillRect(x * SCALE, y * SCALE, SCALE, SCALE);
             if (t.stage >= 4) {
               rctx.fillStyle = 'rgba(255,255,255,0.35)'; // downtown glints

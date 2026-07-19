@@ -17,8 +17,16 @@ export enum Zone {
 export type Stage = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 export type Density = 1 | 2 | 3;
 
+export enum Terrain {
+  Grass,
+  Water,
+  Forest,
+}
+
 export interface Tile {
   zone: Zone;
+  /** Natural ground cover; structures require Grass. */
+  terrain: Terrain;
   stage: Stage;
   /** Zoned density (R/C/I): caps development at stage 3 / 5 / 7. */
   density: Density;
@@ -100,6 +108,9 @@ export type ToolId =
   | 'fire'
   | 'police'
   | 'school'
+  | 'terraWater'
+  | 'terraForest'
+  | 'terraGrass'
   | 'bulldoze';
 
 export const COSTS: Record<ToolId, number> = {
@@ -113,6 +124,9 @@ export const COSTS: Record<ToolId, number> = {
   fire: 500,
   police: 500,
   school: 400,
+  terraWater: 25,
+  terraForest: 10,
+  terraGrass: 5,
   bulldoze: 1,
 };
 

@@ -1,5 +1,5 @@
 import { idx } from '../sim/grid';
-import { CityState, Zone } from '../sim/types';
+import { CityState, Terrain, Zone } from '../sim/types';
 
 const ZONE_NAMES: Record<Zone, string> = {
   [Zone.None]: 'Empty land',
@@ -25,7 +25,11 @@ export function buildQuery(root: HTMLElement) {
     show(city: CityState, x: number, y: number, clientX: number, clientY: number) {
       const t = city.tiles[idx(x, y)];
       const rows: [string, string][] = [['Tile', `${x}, ${y}`]];
-      rows.push(['Type', ZONE_NAMES[t.zone] + (t.abandoned ? ' (abandoned)' : '')]);
+      if (t.zone === Zone.None && t.terrain !== Terrain.Grass) {
+        rows.push(['Type', t.terrain === Terrain.Water ? 'Water' : 'Forest']);
+      } else {
+        rows.push(['Type', ZONE_NAMES[t.zone] + (t.abandoned ? ' (abandoned)' : '')]);
+      }
       if (t.zone === Zone.Residential || t.zone === Zone.Commercial || t.zone === Zone.Industrial) {
         rows.push(['Density', ['', 'Low', 'Medium', 'High'][t.density]]);
         rows.push(['Stage', t.stage === 0 ? 'undeveloped' : String(t.stage)]);

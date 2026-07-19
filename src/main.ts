@@ -34,7 +34,16 @@ let activeTool: ActiveTool = null;
 let activeDensity: Density = 1;
 
 /** Tools that drag out a filled rectangle rather than painting tile by tile. */
-const RECT_TOOLS = new Set(['zoneR', 'zoneC', 'zoneI', 'park', 'bulldoze']);
+const RECT_TOOLS = new Set([
+  'zoneR',
+  'zoneC',
+  'zoneI',
+  'park',
+  'bulldoze',
+  'terraWater',
+  'terraForest',
+  'terraGrass',
+]);
 
 // --- toast ---
 const toastEl = document.createElement('div');
@@ -282,6 +291,11 @@ window.addEventListener('keyup', (e) => {
   if (e.key === ' ') spaceHeld = false;
   if (e.key === 'q' || e.key === 'Q') rotateKeys.delete('q');
   if (e.key === 'e' || e.key === 'E') rotateKeys.delete('e');
+});
+window.addEventListener('blur', () => {
+  // keyups are lost on focus change; don't leave the camera spinning
+  rotateKeys.clear();
+  spaceHeld = false;
 });
 
 window.addEventListener('resize', () => renderer.resize());

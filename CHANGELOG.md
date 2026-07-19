@@ -4,6 +4,17 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.7.0] — 2026-07-19 · Terrain
+
+### Added
+- Water and forest terrain: new maps generate lakes and woods
+  (deterministic per seed); nothing can be built on them.
+- Terrain sculpting tools (Water / Forest / Level Land, rectangle-draggable):
+  **free while the map is untouched** — SC4 God-mode style — then charged
+  once anything has developed. Bulldozing bare forest or water clears it.
+- Waterfront and forest-edge land value bonuses.
+- Terrain on the minimap and in the query tool.
+
 ## [0.6.0] — 2026-07-19 · Free view rotation
 
 ### Added

@@ -107,7 +107,7 @@ function box(
     const a = foot[i];
     const b = foot[(i + 1) % 4];
     const dx = b[0] - a[0];
-    if (dx >= 0) continue; // back face
+    if (dx >= -1e-9) continue; // back face (or edge-on sliver at axis angles)
     const dy = b[1] - a[1];
     const len = Math.hypot(dx, dy) || 1;
     const brightness = 0.62 + 0.18 * (dy / len + 1) / 2;
@@ -151,7 +151,7 @@ function smokestack(ctx: CanvasRenderingContext2D, cx: number, cy: number, h: nu
   ctx.fillRect(cx, cy - h - 16, 5, 3);
 }
 
-function tree(ctx: CanvasRenderingContext2D, tx: number, ty: number) {
+export function tree(ctx: CanvasRenderingContext2D, tx: number, ty: number) {
   ctx.fillStyle = '#5d4534';
   ctx.fillRect(tx - 1, ty, 2, 6);
   ctx.beginPath();
