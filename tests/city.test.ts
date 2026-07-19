@@ -91,6 +91,31 @@ function buildStarterTown(seed: number) {
   return city;
 }
 
+describe('simTick with services', () => {
+  test('serviced towns grow past the stage gates; unserviced towns stall', () => {
+    const serviced = buildStarterTown(11);
+    applyTool(serviced, 'fire', 9, 7);
+    applyTool(serviced, 'police', 10, 7);
+    applyTool(serviced, 'school', 11, 7);
+    const unserviced = buildStarterTown(11);
+    const randA = mulberry32(5);
+    const randB = mulberry32(5);
+    for (let i = 0; i < 600; i++) simTick(serviced, randA);
+    for (let i = 0; i < 600; i++) simTick(unserviced, randB);
+    const maxStage = (c: typeof serviced) => Math.max(...c.tiles.map((t) => t.stage));
+    expect(maxStage(serviced)).toBeGreaterThanOrEqual(2);
+    expect(maxStage(unserviced)).toBeLessThanOrEqual(1);
+  });
+
+  test('notices are capped so the queue cannot grow without bound', () => {
+    const city = buildStarterTown(3);
+    for (let i = 0; i < 20; i++) city.notices.push(`notice ${i}`);
+    const rand = mulberry32(3);
+    for (let i = 0; i < 8; i++) simTick(city, rand); // crosses a month boundary
+    expect(city.notices.length).toBeLessThanOrEqual(8);
+  });
+});
+
 describe('simTick', () => {
   test('a seeded starter town comes alive', () => {
     const city = buildStarterTown(42);

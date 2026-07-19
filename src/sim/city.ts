@@ -5,6 +5,7 @@ import { blankTile, idx, inBounds } from './grid';
 import { updateLandValue } from './landvalue';
 import { updatePollution } from './pollution';
 import { updatePower } from './power';
+import { fireRisk, updateCoverage } from './services';
 import { updateTraffic } from './traffic';
 import {
   CityState,
@@ -56,6 +57,9 @@ const TOOL_ZONE: Partial<Record<ToolId, Zone>> = {
   plant: Zone.PowerPlant,
   line: Zone.PowerLine,
   park: Zone.Park,
+  fire: Zone.FireStation,
+  police: Zone.PoliceStation,
+  school: Zone.School,
 };
 
 function validateTool(city: CityState, tool: ToolId, x: number, y: number): string | null {
@@ -105,6 +109,7 @@ export function simTick(city: CityState, rand: () => number): void {
 
   if (city.tick % FIELD_INTERVAL === 0) {
     updatePower(city);
+    updateCoverage(city);
     updateTraffic(city);
     updatePollution(city);
     updateLandValue(city);
@@ -119,7 +124,9 @@ export function simTick(city: CityState, rand: () => number): void {
 
   if (city.tick % TICKS_PER_MONTH === 0) {
     city.month += 1;
+    fireRisk(city, rand);
     collectBudget(city);
     updateDemand(city); // demand reflects the month's new totals right away
+    if (city.notices.length > 8) city.notices.splice(0, city.notices.length - 8);
   }
 }

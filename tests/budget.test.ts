@@ -40,4 +40,13 @@ describe('collectBudget', () => {
     expect(report.net).toBe(0);
     expect(city.funds).toBe(0);
   });
+
+  test('service buildings charge monthly upkeep', () => {
+    const city = makeCity();
+    zone(city, 5, 5, Zone.FireStation);
+    zone(city, 6, 5, Zone.PoliceStation);
+    zone(city, 7, 5, Zone.School);
+    const report = collectBudget(city);
+    expect(report.expenses).toBe(140); // 50 + 50 + 40
+  });
 });

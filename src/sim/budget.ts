@@ -1,5 +1,5 @@
 import { sumCapacities } from './capacity';
-import { BudgetReport, CityState, Zone } from './types';
+import { BudgetReport, CityState, SERVICE_UPKEEP, Zone } from './types';
 
 const R_YIELD = 10;
 const C_YIELD = 16;
@@ -25,6 +25,15 @@ export function collectBudget(city: CityState): BudgetReport {
         break;
       case Zone.Park:
         expenses += UPKEEP.park;
+        break;
+      case Zone.FireStation:
+        expenses += SERVICE_UPKEEP.fire;
+        break;
+      case Zone.PoliceStation:
+        expenses += SERVICE_UPKEEP.police;
+        break;
+      case Zone.School:
+        expenses += SERVICE_UPKEEP.school;
         break;
     }
   }
