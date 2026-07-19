@@ -4,6 +4,18 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.20.0] — 2026-07-19 · City styles
+
+### Added
+- **Selectable skins** (City Hall → City style, remembered like a
+  preference): **Classic** — the standard look; **Springfield** —
+  Saturday-morning cartoon with bold ink outlines, loud saturated
+  colors, squat buildings, brighter grass; **NYC** — brownstone and
+  brick, muted tones, taller silhouettes, asphalt-grey streets.
+  Everything is still drawn procedurally — a skin restyles palette,
+  outlines, and proportions live, no assets. The registry is built for
+  more skins (and eventually user-made ones via modding hooks).
+
 ## [0.19.0] — 2026-07-19 · Mountains & desert
 
 ### Added

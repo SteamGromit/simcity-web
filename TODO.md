@@ -9,15 +9,17 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 
 
-1. **Skins/styles** — selectable overall appearance, e.g. 'Springfield'
-   cartoon style, 'NYC' architecture; more later, eventually user-made.
-   *(user-requested 2026-07-19)*
-2. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
+
+1. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
    deferred until single-city play is deep enough).
-3. **Modding hooks** — data-driven building/balance definitions; folds in
+2. **Modding hooks** — data-driven building/balance definitions; folds in
    user-made skins from the skins item.
 
 ## Done
+
+- **Skins/styles** — shipped v0.20.0 (Classic / Springfield / NYC,
+  procedural restyling via render/skins.ts; user-made skins land with
+  modding hooks).
 
 - **Mountains + desert** — shipped v0.19.0 (elevation to 5 with rock/
   snowcaps, guaranteed peak per map, desert biome with oasis).
