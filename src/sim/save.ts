@@ -31,6 +31,8 @@ function reviveTile(raw: unknown): Tile {
   if (typeof r.stage === 'number' && Number.isInteger(r.stage) && r.stage >= 1 && r.stage <= 7) {
     t.stage = Math.min(r.stage, MAX_STAGE_BY_DENSITY[t.density]) as Tile['stage'];
   }
+  // structures require grass — a crafted save can't claim waterfront under a tower
+  if (t.zone !== Zone.None && t.terrain !== Terrain.Grass) t.terrain = Terrain.Grass;
   t.powered = r.powered === true;
   t.abandoned = r.abandoned === true;
   t.wire = r.wire === true;

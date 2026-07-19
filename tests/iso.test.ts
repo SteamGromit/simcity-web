@@ -6,6 +6,7 @@ import {
   projectAt,
   screenToIso,
   setViewAngle,
+  tileGeom,
   unprojectAt,
 } from '../src/render/iso';
 
@@ -59,6 +60,23 @@ describe('rotated projection', () => {
     const straight = projectAt(0, 1, 1, 0);
     expect(rotated.sx).toBeCloseTo(straight.sx, 6);
     expect(rotated.sy).toBeCloseTo(straight.sy, 6);
+  });
+
+  test('tile quads keep the same winding (signed area) at every angle', () => {
+    for (const angle of [0, 0.3, Math.PI / 4, Math.PI / 2, 2.5, Math.PI, 4.7, 6.1]) {
+      setViewAngle(angle);
+      const g = tileGeom(10, 20);
+      let area2 = 0;
+      for (let i = 0; i < 4; i++) {
+        const [x1, y1] = g.corners[i];
+        const [x2, y2] = g.corners[(i + 1) % 4];
+        area2 += x1 * y2 - x2 * y1;
+      }
+      // constant positive shoelace sum in y-down screen coords = the quad
+      // stays clockwise on screen at every angle and never degenerates
+      expect(area2).toBeCloseTo(2048, 3);
+    }
+    setViewAngle(0);
   });
 
   test('setViewAngle steers the module-level transform and 0 restores it', () => {

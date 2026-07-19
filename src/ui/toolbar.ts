@@ -40,6 +40,12 @@ export function buildToolbar(
   const costLabel = (id: ToolId | 'query') => (id === 'query' ? '' : `§${toolCost(id, density)}`);
 
   for (const { id, label } of TOOLS) {
+    if (id === 'terraWater') {
+      const section = document.createElement('div');
+      section.className = 'section';
+      section.textContent = 'Terrain · free until founded';
+      el.appendChild(section);
+    }
     const btn = document.createElement('button');
     btn.innerHTML = `<span>${label}</span><span class="cost">${costLabel(id)}</span>`;
     btn.addEventListener('click', () => {

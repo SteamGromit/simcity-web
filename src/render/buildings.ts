@@ -107,7 +107,7 @@ function box(
     const a = foot[i];
     const b = foot[(i + 1) % 4];
     const dx = b[0] - a[0];
-    if (dx >= 0) continue; // back face
+    if (dx >= -1e-9) continue; // back face (or edge-on sliver at axis angles)
     const dy = b[1] - a[1];
     const len = Math.hypot(dx, dy) || 1;
     const brightness = 0.62 + 0.18 * (dy / len + 1) / 2;

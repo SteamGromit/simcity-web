@@ -292,6 +292,11 @@ window.addEventListener('keyup', (e) => {
   if (e.key === 'q' || e.key === 'Q') rotateKeys.delete('q');
   if (e.key === 'e' || e.key === 'E') rotateKeys.delete('e');
 });
+window.addEventListener('blur', () => {
+  // keyups are lost on focus change; don't leave the camera spinning
+  rotateKeys.clear();
+  spaceHeld = false;
+});
 
 window.addEventListener('resize', () => renderer.resize());
 

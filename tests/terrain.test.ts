@@ -50,7 +50,10 @@ describe('terrain rules', () => {
     expect(city.funds).toBe(1000); // free before the city exists
     expect(city.tiles[idx(5, 5)].terrain).toBe(Terrain.Water);
 
-    city.population = 50; // city founded
+    // founding is judged by the tiles themselves, not lagging aggregates —
+    // the instant anything develops, terraforming costs money
+    zone(city, 30, 30, Zone.Residential, 1);
+    expect(city.population).toBe(0); // aggregates deliberately stale
     expect(applyTool(city, 'terraWater', 6, 5).ok).toBe(true);
     expect(city.funds).toBe(1000 - 25);
     expect(applyTool(city, 'terraForest', 7, 5).ok).toBe(true);
@@ -65,14 +68,28 @@ describe('terrain rules', () => {
     expect(applyTool(city, 'terraGrass', 6, 5).ok).toBe(false); // already grass
   });
 
-  test('bulldozing forest clears it to grass', () => {
+  test('bulldozing forest levels it to grass at terrain pricing', () => {
     const city = makeCity();
     city.funds = 100;
     city.tiles[idx(5, 5)].terrain = Terrain.Forest;
+    city.tiles[idx(6, 5)].terrain = Terrain.Forest;
     expect(applyTool(city, 'bulldoze', 5, 5).ok).toBe(true);
     expect(city.tiles[idx(5, 5)].terrain).toBe(Terrain.Grass);
-    expect(city.funds).toBe(99);
+    expect(city.funds).toBe(100); // pristine map: free, like the terrain tools
+    zone(city, 30, 30, Zone.Residential, 1); // founded
+    expect(applyTool(city, 'bulldoze', 6, 5).ok).toBe(true);
+    expect(city.funds).toBe(100 - 5); // priced like Level Land, not §1
     expect(applyTool(city, 'bulldoze', 6, 6).ok).toBe(false); // bare grass: nothing there
+  });
+
+  test('a crafted save cannot put a building on water', () => {
+    const city = makeCity();
+    zone(city, 5, 5, Zone.Residential, 3);
+    const mangled = JSON.parse(serialize(city));
+    mangled.tiles[idx(5, 5)].terrain = Terrain.Water;
+    const revived = deserialize(JSON.stringify(mangled));
+    expect(revived!.tiles[idx(5, 5)].terrain).toBe(Terrain.Grass);
+    expect(revived!.tiles[idx(5, 5)].zone).toBe(Zone.Residential);
   });
 
   test('waterfront and forest edges raise land value', () => {

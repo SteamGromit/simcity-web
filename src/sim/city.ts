@@ -114,9 +114,13 @@ const TOOL_TERRAIN: Partial<Record<ToolId, Terrain>> = {
   terraGrass: Terrain.Grass,
 };
 
-/** God-mode window: terrain sculpting is free until anything has developed. */
+/**
+ * God-mode window: terrain sculpting is free until anything has developed.
+ * Checked against the tiles themselves, not the lagging population
+ * aggregates, so the window can't be gamed between field updates.
+ */
 function isPristine(city: CityState): boolean {
-  return city.population === 0 && city.jobs === 0;
+  return city.tiles.every((t) => t.stage === 0);
 }
 
 /** Zone tools cost more at higher density; everything else has a flat cost. */
@@ -125,8 +129,19 @@ export function toolCost(tool: ToolId, density: Density): number {
   return COSTS[tool] * mult;
 }
 
-function effectiveCost(city: CityState, tool: ToolId, density: Density): number {
-  if (TERRAIN_TOOLS.includes(tool) && isPristine(city)) return 0;
+function isBareTerrainDoze(tool: ToolId, t: { zone: Zone; terrain: Terrain }): boolean {
+  return tool === 'bulldoze' && t.zone === Zone.None && t.terrain !== Terrain.Grass;
+}
+
+function effectiveCost(
+  city: CityState,
+  tool: ToolId,
+  density: Density,
+  t: { zone: Zone; terrain: Terrain },
+): number {
+  if (TERRAIN_TOOLS.includes(tool)) return isPristine(city) ? 0 : toolCost(tool, density);
+  // leveling bare forest/water is terrain work, priced like the Level Land tool
+  if (isBareTerrainDoze(tool, t)) return isPristine(city) ? 0 : COSTS.terraGrass;
   return toolCost(tool, density);
 }
 
@@ -138,8 +153,8 @@ function validateTool(
   density: Density,
 ): string | null {
   if (!inBounds(x, y)) return 'out of bounds';
-  if (city.funds < effectiveCost(city, tool, density)) return 'not enough funds';
   const t = city.tiles[idx(x, y)];
+  if (city.funds < effectiveCost(city, tool, density, t)) return 'not enough funds';
   if (tool === 'bulldoze') {
     return t.zone === Zone.None && t.terrain === Terrain.Grass ? 'nothing to bulldoze' : null;
   }
@@ -174,7 +189,7 @@ export function applyTool(
   if (err) return { ok: false, err };
 
   const t = city.tiles[idx(x, y)];
-  const cost = effectiveCost(city, tool, density);
+  const cost = effectiveCost(city, tool, density, t);
   if (tool === 'bulldoze') {
     // razing a structure keeps the ground; dozing bare forest/water clears it
     const keepTerrain = t.zone !== Zone.None ? t.terrain : Terrain.Grass;
