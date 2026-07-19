@@ -1,5 +1,6 @@
 import { Stage, Zone } from '../sim/types';
 import { TileGeom } from './iso';
+import { getSkin } from './skins';
 
 /** Heights (px) by zone and stage 1..7. */
 const HEIGHTS: Partial<Record<Zone, number[]>> = {
@@ -97,6 +98,8 @@ function box(
   sat: number,
   lit: number,
 ): Face[] {
+  const skin = getSkin();
+  [hue, sat, lit] = skin.building(hue, sat, lit);
   const foot: [number, number][] = geom.corners.map(([px, py]) => [
     geom.cx + (px - geom.cx) * f,
     geom.cy + (py - geom.cy) * f,
@@ -124,6 +127,27 @@ function box(
     foot.map(([px, py]) => [px, py - h] as [number, number]),
     hsl(hue, sat * 0.7, Math.min(90, lit * 1.12)),
   );
+
+  if (skin.outline > 0) {
+    // cartoon ink: outline every visible face and the roof
+    ctx.strokeStyle = 'rgba(25, 18, 28, 0.85)';
+    ctx.lineWidth = skin.outline;
+    for (const face of faces) {
+      ctx.beginPath();
+      ctx.moveTo(face.a[0], face.a[1]);
+      ctx.lineTo(face.b[0], face.b[1]);
+      ctx.lineTo(face.b[0], face.b[1] - h);
+      ctx.lineTo(face.a[0], face.a[1] - h);
+      ctx.closePath();
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    const roof = foot.map(([px, py]) => [px, py - h] as [number, number]);
+    ctx.moveTo(roof[0][0], roof[0][1]);
+    for (let i = 1; i < 4; i++) ctx.lineTo(roof[i][0], roof[i][1]);
+    ctx.closePath();
+    ctx.stroke();
+  }
   return faces;
 }
 
@@ -328,7 +352,7 @@ export function drawBuilding(
     return;
   }
 
-  const h = (HEIGHTS[zone]?.[stage] ?? 12) * (0.92 + variant * 0.16);
+  const h = (HEIGHTS[zone]?.[stage] ?? 12) * (0.92 + variant * 0.16) * getSkin().heightScale;
   // Footprint must stay under 1.0 to preserve the painter's-order invariant.
   const f = Math.min(0.85, 0.55 + stage * 0.05);
   let [hue, sat, lit] = PALETTES[zone]?.[stage] ?? [0, 0, 50];

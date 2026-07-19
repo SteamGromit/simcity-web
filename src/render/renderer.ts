@@ -6,6 +6,7 @@ import { drawBuilding, drawFire, drawPole, fillPoly, fillTile, strokeTile, tree 
 import { ELEV_PX, TileGeom, isoToScreen, screenToIso, setViewAngle, tileDepth, tileGeom } from './iso';
 import { OverlayId, drawOverlay } from './overlays';
 import { nightFactor, nightTint } from './daynight';
+import { getSkin } from './skins';
 
 export interface ViewState {
   hover: { x: number; y: number } | null;
@@ -296,7 +297,7 @@ export class Renderer {
         }
         fillTile(this.ctx, geom, '#4a4e55');
       } else {
-        fillTile(this.ctx, geom, '#3a3d42');
+        fillTile(this.ctx, geom, getSkin().roadFill);
       }
       this.drawRoadLinks(geom, city, x, y);
       if (t.wire) drawPole(this.ctx, geom.cx, geom.cy);
@@ -321,9 +322,11 @@ export class Renderer {
       // bare rock above the treeline
       fillTile(this.ctx, geom, `hsl(28 ${10 + v * 6}% ${42 + v * 6}%)`);
     } else if (city.biome === 'desert') {
-      fillTile(this.ctx, geom, `hsl(${42 + v * 8} ${40 + v * 8}% ${56 + v * 6}%)`);
+      const gs = Math.min(95, (40 + v * 8) * getSkin().grassSat);
+      fillTile(this.ctx, geom, `hsl(${42 + v * 8} ${gs}% ${56 + v * 6}%)`);
     } else {
-      fillTile(this.ctx, geom, `hsl(${96 + v * 10} ${30 + v * 8}% ${34 + v * 6}%)`);
+      const gs = Math.min(95, (30 + v * 8) * getSkin().grassSat);
+      fillTile(this.ctx, geom, `hsl(${96 + v * 10} ${gs}% ${34 + v * 6}%)`);
     }
     if (t.terrain === Terrain.Forest) {
       tree(this.ctx, geom.cx - 9 + v * 6, geom.cy - 3);
