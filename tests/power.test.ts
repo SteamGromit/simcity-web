@@ -1,27 +1,8 @@
 import { describe, expect, test } from 'vitest';
-import { blankTile, idx } from '../src/sim/grid';
-import { GRID, CityState, Zone } from '../src/sim/types';
+import { idx } from '../src/sim/grid';
+import { Zone } from '../src/sim/types';
 import { updatePower } from '../src/sim/power';
-
-function makeCity(): CityState {
-  return {
-    version: 1,
-    seed: 1,
-    tiles: Array.from({ length: GRID * GRID }, blankTile),
-    funds: 0,
-    tick: 0,
-    month: 0,
-    demand: { r: 0, c: 0, i: 0 },
-    taxes: { r: 0.09, c: 0.09, i: 0.09 },
-    population: 0,
-    jobs: 0,
-    lastBudget: { rIncome: 0, cIncome: 0, iIncome: 0, expenses: 0, net: 0 },
-  };
-}
-
-function zone(city: CityState, x: number, y: number, z: Zone) {
-  city.tiles[idx(x, y)].zone = z;
-}
+import { makeCity, zone } from './helpers';
 
 describe('updatePower', () => {
   test('plant powers a contiguous chain of zones', () => {
