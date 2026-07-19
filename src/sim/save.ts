@@ -134,6 +134,7 @@ export function deserialize(json: string): CityState | null {
     return {
       version: 1,
       seed: finite(data.seed, 1),
+      biome: data.biome === 'desert' ? 'desert' : 'temperate',
       tiles: data.tiles.map(reviveTile),
       funds: data.funds,
       tick: data.tick,

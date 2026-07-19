@@ -11,6 +11,7 @@ export function makeCity(): CityState {
   return {
     version: 1,
     seed: 1,
+    biome: 'temperate',
     tiles: Array.from({ length: GRID * GRID }, blankTile),
     funds: 0,
     tick: 0,

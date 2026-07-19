@@ -314,7 +314,17 @@ export class Renderer {
       fillTile(this.ctx, geom, `hsl(${205 + v * 8} ${52 + v * 6}% ${30 + v * 5}%)`);
       return;
     }
-    fillTile(this.ctx, geom, `hsl(${96 + v * 10} ${30 + v * 8}% ${34 + v * 6}%)`);
+    if (t.elevation >= 5) {
+      // snowcapped summit
+      fillTile(this.ctx, geom, `hsl(210 ${14 + v * 10}% ${82 + v * 6}%)`);
+    } else if (t.elevation === 4) {
+      // bare rock above the treeline
+      fillTile(this.ctx, geom, `hsl(28 ${10 + v * 6}% ${42 + v * 6}%)`);
+    } else if (city.biome === 'desert') {
+      fillTile(this.ctx, geom, `hsl(${42 + v * 8} ${40 + v * 8}% ${56 + v * 6}%)`);
+    } else {
+      fillTile(this.ctx, geom, `hsl(${96 + v * 10} ${30 + v * 8}% ${34 + v * 6}%)`);
+    }
     if (t.terrain === Terrain.Forest) {
       tree(this.ctx, geom.cx - 9 + v * 6, geom.cy - 3);
       tree(this.ctx, geom.cx + 5 - v * 4, geom.cy + 2 + v * 3);

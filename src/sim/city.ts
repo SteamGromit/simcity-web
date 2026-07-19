@@ -11,6 +11,7 @@ import { defaultWeather, updateWeatherMonthly } from './weather';
 import { fireRisk, updateCoverage, updateFires } from './services';
 import { updateTraffic } from './traffic';
 import {
+  Biome,
   BRIDGE_COST,
   CityState,
   COSTS,
@@ -84,38 +85,52 @@ function raiseBlob(
   return [...raised];
 }
 
-function generateTerrain(tiles: CityState['tiles'], seed: number): void {
+function generateTerrain(tiles: CityState['tiles'], seed: number): Biome {
   const rand = mulberry32(seed ^ 0x7e44a1);
-  // rolling hills first: broad base blobs with smaller caps stacked on top
+  const biome: Biome = rand() < 0.25 ? 'desert' : 'temperate';
+
+  // rolling hills first: broad base blobs with smaller caps stacked on top.
+  // The first hill is always a true mountain — stacked to the snowcap.
   const hills = 2 + Math.floor(rand() * 3);
   for (let i = 0; i < hills; i++) {
     const base = raiseBlob(tiles, rand, 80 + Math.floor(rand() * 120));
     if (base.length === 0) continue;
-    // stack a smaller cap on the base, and sometimes a peak on the cap
     const capAt = base[Math.floor(rand() * base.length)];
     const cap = raiseBlob(tiles, rand, 20 + Math.floor(rand() * 40), [
       capAt % GRID,
       (capAt / GRID) | 0,
     ]);
-    if (cap.length > 0 && rand() < 0.6) {
-      const peakAt = cap[Math.floor(rand() * cap.length)];
-      raiseBlob(tiles, rand, 6 + Math.floor(rand() * 12), [peakAt % GRID, (peakAt / GRID) | 0]);
+    const layers = i === 0 ? 3 : rand() < 0.6 ? 1 : 0;
+    let on = cap.length > 0 ? cap : base;
+    for (let k = 0; k < layers && on.length > 0; k++) {
+      // climb from the highest point so the stack always gains a level
+      const at = on.reduce((b, t) => (tiles[t].elevation > tiles[b].elevation ? t : b), on[0]);
+      on = raiseBlob(tiles, rand, Math.max(4, 14 - k * 4), [at % GRID, (at / GRID) | 0]);
     }
   }
-  growBlob(tiles, rand, Terrain.Water, 70 + Math.floor(rand() * 90));
-  if (rand() < 0.5) growBlob(tiles, rand, Terrain.Water, 40 + Math.floor(rand() * 50));
-  const forests = 3 + Math.floor(rand() * 3);
-  for (let i = 0; i < forests; i++) {
-    growBlob(tiles, rand, Terrain.Forest, 15 + Math.floor(rand() * 35));
+
+  if (biome === 'desert') {
+    // an oasis and a scrub patch — pumps and shade are precious out here
+    growBlob(tiles, rand, Terrain.Water, 18 + Math.floor(rand() * 20));
+    growBlob(tiles, rand, Terrain.Forest, 8 + Math.floor(rand() * 12));
+  } else {
+    growBlob(tiles, rand, Terrain.Water, 70 + Math.floor(rand() * 90));
+    if (rand() < 0.5) growBlob(tiles, rand, Terrain.Water, 40 + Math.floor(rand() * 50));
+    const forests = 3 + Math.floor(rand() * 3);
+    for (let i = 0; i < forests; i++) {
+      growBlob(tiles, rand, Terrain.Forest, 15 + Math.floor(rand() * 35));
+    }
   }
+  return biome;
 }
 
 export function newCity(seed: number): CityState {
   const tiles = Array.from({ length: GRID * GRID }, blankTile);
-  generateTerrain(tiles, seed);
+  const biome = generateTerrain(tiles, seed);
   return {
     version: 1,
     seed,
+    biome,
     tiles,
     funds: START_FUNDS,
     tick: 0,
