@@ -2,11 +2,13 @@ import { CityState, GRID, Zone } from './types';
 import { roadAccess } from './traffic';
 
 export type TipId =
+  | 'fire-burning'
   | 'welcome'
   | 'no-power-plant'
   | 'unpowered-zones'
   | 'no-road-access'
   | 'no-fire-coverage'
+  | 'no-health'
   | 'deficit'
   | 'high-taxes'
   | 'pollution'
@@ -18,6 +20,10 @@ export interface Tip {
 }
 
 const TIP_TEXT: Record<TipId, string> = {
+  'fire-burning':
+    'A fire is raging! It spreads to neighbors — fire coverage fights it; bulldoze a firebreak.',
+  'no-health':
+    'Tall buildings need a Hospital in reach to keep growing — build one near your towers.',
   welcome:
     'Welcome! Lay a Road, zone Residential beside it, and build a Coal Plant. Press ? for help.',
   'no-power-plant': 'Your zones have no electricity — build a Coal Plant to get things growing.',
@@ -48,8 +54,10 @@ export function adviseTips(city: CityState): Tip[] {
   let unpoweredZones = 0;
   let roadlessZones = 0;
   let uncoveredBuildings = 0;
+  let unhealthyTowers = 0;
   let pollutedHomes = 0;
   let abandonedCount = 0;
+  let burningCount = 0;
 
   for (let i = 0; i < city.tiles.length; i++) {
     const t = city.tiles[i];
@@ -57,11 +65,13 @@ export function adviseTips(city: CityState): Tip[] {
     if (t.zone === Zone.PowerPlant) hasPlant = true;
     if (!isRci(t.zone)) continue;
     zonedTiles++;
+    if (t.burning > 0) burningCount++;
     if (t.abandoned) abandonedCount++;
     if (!t.powered && t.stage === 0 && !t.abandoned) unpoweredZones++;
     if (!roadAccess(city, i % GRID, (i / GRID) | 0)) roadlessZones++;
     if (t.stage > 0 && !t.abandoned) {
       if (t.fireCov === 0) uncoveredBuildings++;
+      if (t.stage >= 4 && t.zone !== Zone.Industrial && t.healthCov === 0) unhealthyTowers++;
       if (t.zone === Zone.Residential && t.pollution > 0.5) pollutedHomes++;
     }
   }
@@ -69,6 +79,7 @@ export function adviseTips(city: CityState): Tip[] {
   const tips: Tip[] = [];
   const add = (id: TipId) => tips.push({ id, text: TIP_TEXT[id] });
 
+  if (burningCount > 0) add('fire-burning');
   if (!builtAnything) {
     add('welcome');
     return tips;
@@ -77,6 +88,7 @@ export function adviseTips(city: CityState): Tip[] {
   if (hasPlant && unpoweredZones > 0) add('unpowered-zones');
   if (roadlessZones > 0) add('no-road-access');
   if (uncoveredBuildings > 0) add('no-fire-coverage');
+  if (unhealthyTowers > 0) add('no-health');
   if (city.lastBudget.net < 0) add('deficit');
   if (city.taxes.r > 0.12 || city.taxes.c > 0.12 || city.taxes.i > 0.12) add('high-taxes');
   if (pollutedHomes > 0) add('pollution');

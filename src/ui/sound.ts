@@ -20,6 +20,7 @@ const TOOL_SOUNDS: Record<ToolId, SoundSpec> = {
   fire: { wave: 'triangle', freq: 320, freqEnd: 220, dur: 0.14, vol: 0.5 },
   police: { wave: 'triangle', freq: 290, freqEnd: 200, dur: 0.14, vol: 0.5 },
   school: { wave: 'triangle', freq: 350, freqEnd: 250, dur: 0.14, vol: 0.5 },
+  hospital: { wave: 'triangle', freq: 260, freqEnd: 180, dur: 0.14, vol: 0.5 },
   terraWater: { wave: 'noise', freq: 0, dur: 0.18, vol: 0.35 },
   terraForest: { wave: 'noise', freq: 0, dur: 0.13, vol: 0.25 },
   terraGrass: { wave: 'noise', freq: 0, dur: 0.1, vol: 0.2 },

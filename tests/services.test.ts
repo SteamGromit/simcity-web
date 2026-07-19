@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
-import { Zone } from '../src/sim/types';
+import { FIRE_BURN_TICKS, Zone } from '../src/sim/types';
 import { updatePower } from '../src/sim/power';
 import { fireRisk, updateCoverage } from '../src/sim/services';
 import { developTile } from '../src/sim/develop';
@@ -58,28 +58,30 @@ describe('updateCoverage', () => {
   });
 });
 
-describe('fireRisk', () => {
+describe('fireRisk (ignition)', () => {
   const always = () => 0; // rand() < FIRE_RISK always fires
 
-  test('an uncovered building burns to the ground and leaves a notice', () => {
+  test('an uncovered building catches fire and leaves a notice', () => {
     const city = makeCity();
     zone(city, 10, 10, Zone.Residential, 2);
     fireRisk(city, always);
-    expect(city.tiles[idx(10, 10)].stage).toBe(0);
+    const t = city.tiles[idx(10, 10)];
+    expect(t.burning).toBe(FIRE_BURN_TICKS);
+    expect(t.stage).toBe(2); // still standing while it burns
     expect(city.notices.length).toBe(1);
     expect(city.notices[0]).toContain('(10, 10)');
   });
 
-  test('any fire coverage prevents fires entirely', () => {
+  test('any fire coverage prevents ignition entirely', () => {
     const city = makeCity();
     zone(city, 10, 10, Zone.Residential, 2);
     city.tiles[idx(10, 10)].fireCov = 0.1;
     fireRisk(city, always);
-    expect(city.tiles[idx(10, 10)].stage).toBe(2);
+    expect(city.tiles[idx(10, 10)].burning).toBe(0);
     expect(city.notices.length).toBe(0);
   });
 
-  test('empty zones and abandoned shells do not burn', () => {
+  test('empty zones and abandoned shells do not ignite', () => {
     const city = makeCity();
     zone(city, 10, 10, Zone.Residential, 0);
     zone(city, 11, 10, Zone.Industrial, 2);
@@ -88,19 +90,13 @@ describe('fireRisk', () => {
     expect(city.notices.length).toBe(0);
   });
 
-  test('a burned lot is still zoned and redevelops', () => {
+  test('an already-burning building is not re-ignited', () => {
     const city = makeCity();
     zone(city, 10, 10, Zone.Residential, 2);
-    zone(city, 10, 11, Zone.Road);
-    const t = city.tiles[idx(10, 10)];
-    t.powered = true;
-    t.landValue = 0.5;
+    city.tiles[idx(10, 10)].burning = 3;
     fireRisk(city, always);
-    expect(t.stage).toBe(0);
-    expect(t.zone).toBe(Zone.Residential);
-    city.demand.r = 0.8;
-    developTile(city, 10, 10, always);
-    expect(t.stage).toBe(1);
+    expect(city.tiles[idx(10, 10)].burning).toBe(3);
+    expect(city.notices.length).toBe(0);
   });
 });
 

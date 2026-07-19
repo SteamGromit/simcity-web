@@ -1,6 +1,7 @@
 import { blankTile } from './grid';
 import {
   CityState,
+  FIRE_BURN_TICKS,
   GRID,
   HISTORY_MAX,
   MAX_STAGE_BY_DENSITY,
@@ -25,7 +26,9 @@ function reviveTile(raw: unknown): Tile {
   const t = blankTile();
   if (!raw || typeof raw !== 'object') return t;
   const r = raw as Record<string, unknown>;
-  if (typeof r.zone === 'number' && r.zone >= Zone.None && r.zone <= Zone.School) t.zone = r.zone;
+  if (typeof r.zone === 'number' && r.zone >= Zone.None && r.zone <= Zone.Hospital) {
+    t.zone = r.zone;
+  }
   if (r.terrain === Terrain.Water || r.terrain === Terrain.Forest) t.terrain = r.terrain;
   if (r.density === 2 || r.density === 3) t.density = r.density;
   if (typeof r.stage === 'number' && Number.isInteger(r.stage) && r.stage >= 1 && r.stage <= 7) {
@@ -39,6 +42,8 @@ function reviveTile(raw: unknown): Tile {
   t.fireCov = finite(r.fireCov, 0);
   t.policeCov = finite(r.policeCov, 0);
   t.schoolCov = finite(r.schoolCov, 0);
+  t.healthCov = finite(r.healthCov, 0);
+  t.burning = Math.min(FIRE_BURN_TICKS, Math.max(0, Math.floor(finite(r.burning, 0))));
   t.pollution = finite(r.pollution, 0);
   t.landValue = finite(r.landValue, 0.3);
   t.commute = r.commute === -1 ? Infinity : finite(r.commute, Infinity);

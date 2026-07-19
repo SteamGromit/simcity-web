@@ -12,6 +12,7 @@ export enum Zone {
   FireStation,
   PoliceStation,
   School,
+  Hospital,
 }
 
 export type Stage = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -38,6 +39,9 @@ export interface Tile {
   fireCov: number;
   policeCov: number;
   schoolCov: number;
+  healthCov: number;
+  /** Ticks of fire left on this tile; 0 = not burning. */
+  burning: number;
   // computed fields, refreshed by the sim
   pollution: number; // 0..1
   landValue: number; // 0..1
@@ -108,6 +112,7 @@ export type ToolId =
   | 'fire'
   | 'police'
   | 'school'
+  | 'hospital'
   | 'terraWater'
   | 'terraForest'
   | 'terraGrass'
@@ -124,6 +129,7 @@ export const COSTS: Record<ToolId, number> = {
   fire: 500,
   police: 500,
   school: 400,
+  hospital: 600,
   terraWater: 25,
   terraForest: 10,
   terraGrass: 5,
@@ -131,11 +137,17 @@ export const COSTS: Record<ToolId, number> = {
 };
 
 /** Coverage radii (Chebyshev tiles) per service. */
-export const SERVICE_RADII = { fire: 8, police: 8, school: 10 };
+export const SERVICE_RADII = { fire: 8, police: 8, school: 10, health: 10 };
 /** Monthly upkeep per service building. */
-export const SERVICE_UPKEEP = { fire: 50, police: 50, school: 40 };
-/** Monthly burn-down probability for a developed tile with zero fire coverage. */
+export const SERVICE_UPKEEP = { fire: 50, police: 50, school: 40, health: 60 };
+/** Monthly ignition probability for a developed tile with zero fire coverage. */
 export const FIRE_RISK = 0.004;
+/** Ticks a fire burns before the building is destroyed. */
+export const FIRE_BURN_TICKS = 12;
+/** Per-tick chance fire spreads to an adjacent building, scaled by 1 − fireCov. */
+export const FIRE_SPREAD = 0.25;
+/** Per-tick extinguish chance multiplier: rand < fireCov × this puts it out. */
+export const FIRE_EXTINGUISH = 0.35;
 
 export const START_FUNDS = 50_000;
 export const DEFAULT_TAX = 0.09;

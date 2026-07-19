@@ -13,6 +13,7 @@ const ZONE_NAMES: Record<Zone, string> = {
   [Zone.FireStation]: 'Fire Station',
   [Zone.PoliceStation]: 'Police Station',
   [Zone.School]: 'School',
+  [Zone.Hospital]: 'Hospital',
 };
 
 export function buildQuery(root: HTMLElement) {
@@ -31,6 +32,7 @@ export function buildQuery(root: HTMLElement) {
         rows.push(['Type', ZONE_NAMES[t.zone] + (t.abandoned ? ' (abandoned)' : '')]);
       }
       if (t.zone === Zone.Residential || t.zone === Zone.Commercial || t.zone === Zone.Industrial) {
+        if (t.burning > 0) rows.push(['Status', '🔥 ON FIRE']);
         rows.push(['Density', ['', 'Low', 'Medium', 'High'][t.density]]);
         rows.push(['Stage', t.stage === 0 ? 'undeveloped' : String(t.stage)]);
         rows.push(['Powered', t.powered ? 'yes' : 'no']);
@@ -38,6 +40,7 @@ export function buildQuery(root: HTMLElement) {
         rows.push(['Fire cover', `${Math.round(t.fireCov * 100)}%`]);
         rows.push(['Police cover', `${Math.round(t.policeCov * 100)}%`]);
         rows.push(['School cover', `${Math.round(t.schoolCov * 100)}%`]);
+        rows.push(['Health cover', `${Math.round(t.healthCov * 100)}%`]);
       }
       if (t.zone === Zone.Road) {
         rows.push(['Traffic', String(t.traffic)]);
@@ -47,6 +50,7 @@ export function buildQuery(root: HTMLElement) {
         t.zone === Zone.FireStation ||
         t.zone === Zone.PoliceStation ||
         t.zone === Zone.School ||
+        t.zone === Zone.Hospital ||
         t.zone === Zone.PowerPlant
       ) {
         rows.push(['Powered', t.powered ? 'yes' : 'no']);

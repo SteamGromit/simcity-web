@@ -225,13 +225,20 @@ export function drawBuilding(
     return;
   }
 
-  if (zone === Zone.FireStation || zone === Zone.PoliceStation || zone === Zone.School) {
+  if (
+    zone === Zone.FireStation ||
+    zone === Zone.PoliceStation ||
+    zone === Zone.School ||
+    zone === Zone.Hospital
+  ) {
     const style =
       zone === Zone.FireStation
         ? { h: 18, f: 0.8, hue: 2, sat: 62, lit: 46 }
         : zone === Zone.PoliceStation
           ? { h: 18, f: 0.8, hue: 215, sat: 45, lit: 44 }
-          : { h: 12, f: 0.85, hue: 45, sat: 42, lit: 56 };
+          : zone === Zone.Hospital
+            ? { h: 22, f: 0.82, hue: 190, sat: 12, lit: 68 }
+            : { h: 12, f: 0.85, hue: 45, sat: 42, lit: 56 };
     const faces = box(ctx, geom, style.f, style.h, style.hue, style.sat, style.lit);
     // white service band across the visible walls
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';
@@ -252,6 +259,12 @@ export function drawBuilding(
       ctx.stroke();
       ctx.fillStyle = '#d24b3f';
       ctx.fillRect(cx, cy - style.h - 14, 7, 4);
+    }
+    if (zone === Zone.Hospital) {
+      // red cross on the roof
+      ctx.fillStyle = '#d23b30';
+      ctx.fillRect(cx - 1.5, cy - style.h - 9, 3, 9);
+      ctx.fillRect(cx - 4.5, cy - style.h - 6, 9, 3);
     }
     if (!powered) drawNoPowerBolt(ctx, cx, cy - style.h - 12);
     return;
@@ -293,5 +306,31 @@ export function drawBuilding(
 
   if (!powered && !abandoned) {
     drawNoPowerBolt(ctx, cx, cy - h - 12);
+  }
+}
+
+/** Animated flames over a burning building; flicker driven by time. */
+export function drawFire(
+  ctx: CanvasRenderingContext2D,
+  geom: TileGeom,
+  timeMs: number,
+  variant: number,
+) {
+  const { cx, cy } = geom;
+  const t = timeMs / 90 + variant * 37; // per-tile phase offset
+  fillTile(ctx, geom, 'rgba(255,120,20,0.28)'); // ember glow on the ground
+  for (let k = 0; k < 3; k++) {
+    const fx = cx + (k - 1) * 7 + Math.sin(t + k * 2.1) * 2;
+    const base = cy - 2;
+    const hgt = 14 + Math.sin(t * 1.7 + k * 1.3) * 4;
+    fillPoly(
+      ctx,
+      [
+        [fx - 4, base],
+        [fx + 4, base],
+        [fx + Math.sin(t + k) * 2, base - hgt],
+      ],
+      k === 1 ? 'rgba(255,205,60,0.9)' : 'rgba(240,110,25,0.85)',
+    );
   }
 }
