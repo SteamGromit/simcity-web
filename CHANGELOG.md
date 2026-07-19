@@ -4,6 +4,23 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.17.0] — 2026-07-19 · Disasters
+
+### Added
+- **Tornado** 🌪 — a wandering funnel (animated on the map) that grinds
+  buildings down a stage at a time and ruptures gas lines: it can set
+  what it doesn't flatten on fire.
+- **Hurricane** 🌀 — driving rain over the whole map while high winds
+  batter developed tiles; blocks within two tiles of open water take
+  storm-surge damage at more than double the rate.
+- **Pandemic** 🦠 — no rubble, but residential demand craters and
+  uncovered homes empty out month after month; hospital coverage blunts
+  the toll (a full-coverage home is safe).
+- Disasters strike randomly (rarely, one at a time, only once the city
+  tops 500 residents) — or summon one yourself from City Hall's
+  "tempt fate" panel. Active disasters lead the advisor board and
+  survive save/load.
+
 ## [0.16.0] — 2026-07-19 · Control room
 
 ### Added
