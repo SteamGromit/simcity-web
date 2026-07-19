@@ -28,7 +28,10 @@ export function buildQuery(root: HTMLElement) {
         rows.push(['Powered', t.powered ? 'yes' : 'no']);
         rows.push(['Commute', Number.isFinite(t.commute) ? String(t.commute) : '—']);
       }
-      if (t.zone === Zone.Road) rows.push(['Traffic', String(t.traffic)]);
+      if (t.zone === Zone.Road) {
+        rows.push(['Traffic', String(t.traffic)]);
+        if (t.wire) rows.push(['Power line', 'overhead']);
+      }
       rows.push(['Land value', `${Math.round(t.landValue * 100)}%`]);
       rows.push(['Pollution', `${Math.round(t.pollution * 100)}%`]);
 

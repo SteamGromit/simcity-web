@@ -54,6 +54,18 @@ describe('applyTool', () => {
     expect(city.funds).toBe(5);
   });
 
+  test('the line tool strings a wire over an existing road', () => {
+    const city = newCity(7);
+    applyTool(city, 'road', 5, 5);
+    const res = applyTool(city, 'line', 5, 5);
+    expect(res.ok).toBe(true);
+    const t = city.tiles[idx(5, 5)];
+    expect(t.zone).toBe(Zone.Road); // still a road
+    expect(t.wire).toBe(true);
+    expect(city.funds).toBe(START_FUNDS - 10 - 5);
+    expect(applyTool(city, 'line', 5, 5).ok).toBe(false); // no double wiring
+  });
+
   test('bulldoze clears anything but empty land', () => {
     const city = newCity(7);
     applyTool(city, 'zoneR', 5, 5);

@@ -169,22 +169,14 @@ export function drawBuilding(
   }
 
   if (zone === Zone.PowerLine) {
-    ctx.strokeStyle = '#8a7f72';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(sx, sy + TILE_H - 4);
-    ctx.lineTo(sx, sy - 6);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(sx - 8, sy - 2);
-    ctx.lineTo(sx + 8, sy - 2);
-    ctx.stroke();
+    drawPole(ctx, sx, sy);
     return;
   }
 
   if (stage === 0) {
     const tint = ZONE_TINT[zone];
     if (tint) diamond(ctx, sx, sy, tint);
+    if (!powered) drawNoPowerBolt(ctx, sx, sy + 2);
     return;
   }
 
@@ -214,18 +206,34 @@ export function drawBuilding(
   }
 
   if (!powered && !abandoned) {
-    // no-power bolt marker
-    const bx = sx;
-    const by = sy - h - 6;
-    ctx.fillStyle = '#ffd23f';
-    ctx.beginPath();
-    ctx.moveTo(bx + 2, by - 10);
-    ctx.lineTo(bx - 3, by - 1);
-    ctx.lineTo(bx + 0.5, by - 1);
-    ctx.lineTo(bx - 2, by + 8);
-    ctx.lineTo(bx + 4, by - 3);
-    ctx.lineTo(bx + 0.5, by - 3);
-    ctx.closePath();
-    ctx.fill();
+    drawNoPowerBolt(ctx, sx, sy - h - 6);
   }
+}
+
+/** Utility pole glyph, used for power-line tiles and wires over roads. */
+export function drawPole(ctx: CanvasRenderingContext2D, sx: number, sy: number) {
+  ctx.strokeStyle = '#8a7f72';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(sx, sy + TILE_H - 4);
+  ctx.lineTo(sx, sy - 6);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(sx - 8, sy - 2);
+  ctx.lineTo(sx + 8, sy - 2);
+  ctx.stroke();
+}
+
+/** Yellow "no power" bolt centered at (bx, by). */
+export function drawNoPowerBolt(ctx: CanvasRenderingContext2D, bx: number, by: number) {
+  ctx.fillStyle = '#ffd23f';
+  ctx.beginPath();
+  ctx.moveTo(bx + 2, by - 10);
+  ctx.lineTo(bx - 3, by - 1);
+  ctx.lineTo(bx + 0.5, by - 1);
+  ctx.lineTo(bx - 2, by + 8);
+  ctx.lineTo(bx + 4, by - 3);
+  ctx.lineTo(bx + 0.5, by - 3);
+  ctx.closePath();
+  ctx.fill();
 }

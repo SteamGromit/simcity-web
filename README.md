@@ -38,8 +38,10 @@ commercial / industrial** beside the road (within 2 tiles). Buildings need
 both road access and power to develop.
 
 Power conducts through adjacent zones and buildings but **not across roads or
-empty land** — use power lines to bridge gaps. The Power data view shows what's
-connected.
+empty land** — string power lines to bridge gaps (lines can be placed on road
+tiles to cross them). Unpowered zones show a yellow ⚡ bolt; hook them up with
+a line from the plant or by zoning a connected path. The Power data view shows
+what's connected.
 
 Keep industry (and the coal plant) away from homes: pollution wrecks
 residential land value. Parks raise it.

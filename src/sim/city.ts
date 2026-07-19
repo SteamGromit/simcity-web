@@ -62,6 +62,7 @@ function validateTool(city: CityState, tool: ToolId, x: number, y: number): stri
   if (city.funds < COSTS[tool]) return 'not enough funds';
   const t = city.tiles[idx(x, y)];
   if (tool === 'bulldoze') return t.zone === Zone.None ? 'nothing to bulldoze' : null;
+  if (tool === 'line' && t.zone === Zone.Road) return t.wire ? 'tile occupied' : null;
   return t.zone === Zone.None ? null : 'tile occupied';
 }
 
@@ -79,10 +80,12 @@ export function applyTool(
   const err = validateTool(city, tool, x, y);
   if (err) return { ok: false, err };
 
+  const t = city.tiles[idx(x, y)];
   if (tool === 'bulldoze') {
     city.tiles[idx(x, y)] = blankTile();
+  } else if (tool === 'line' && t.zone === Zone.Road) {
+    t.wire = true;
   } else {
-    const t = city.tiles[idx(x, y)];
     t.zone = TOOL_ZONE[tool]!;
     t.stage = 0;
     t.abandoned = false;

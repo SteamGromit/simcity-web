@@ -21,6 +21,7 @@ function reviveTile(raw: unknown): Tile {
   if (r.stage === 1 || r.stage === 2 || r.stage === 3) t.stage = r.stage;
   t.powered = r.powered === true;
   t.abandoned = r.abandoned === true;
+  t.wire = r.wire === true;
   t.pollution = finite(r.pollution, 0);
   t.landValue = finite(r.landValue, 0.3);
   t.commute = r.commute === -1 ? Infinity : finite(r.commute, Infinity);

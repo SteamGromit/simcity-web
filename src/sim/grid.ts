@@ -40,6 +40,7 @@ export function blankTile(): Tile {
     stage: 0,
     powered: false,
     abandoned: false,
+    wire: false,
     pollution: 0,
     landValue: 0.3,
     commute: Infinity,

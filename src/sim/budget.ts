@@ -15,6 +15,7 @@ export function collectBudget(city: CityState): BudgetReport {
     switch (t.zone) {
       case Zone.Road:
         expenses += UPKEEP.road;
+        if (t.wire) expenses += UPKEEP.line;
         break;
       case Zone.PowerLine:
         expenses += UPKEEP.line;

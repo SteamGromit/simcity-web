@@ -1,7 +1,7 @@
 import { idx, inBounds } from '../sim/grid';
 import { mulberry32 } from '../sim/city';
 import { CityState, GRID, Zone } from '../sim/types';
-import { drawBuilding, diamond } from './buildings';
+import { drawBuilding, drawPole, diamond } from './buildings';
 import { TILE_H, TILE_W, isoToScreen, screenToIso } from './iso';
 import { OverlayId, drawOverlay } from './overlays';
 
@@ -107,6 +107,7 @@ export class Renderer {
     if (t.zone === Zone.Road) {
       diamond(this.ctx, sx, sy, '#3a3d42');
       this.drawRoadLinks(sx, sy, city, x, y);
+      if (t.wire) drawPole(this.ctx, sx, sy);
       return;
     }
     const v = this.variants[i];

@@ -41,6 +41,16 @@ describe('updatePower', () => {
     expect(city.tiles[idx(12, 10)].powered).toBe(false);
   });
 
+  test('a wire strung over a road carries power across it', () => {
+    const city = makeCity();
+    zone(city, 10, 10, Zone.PowerPlant);
+    zone(city, 11, 10, Zone.Road);
+    city.tiles[idx(11, 10)].wire = true;
+    zone(city, 12, 10, Zone.Residential);
+    updatePower(city);
+    expect(city.tiles[idx(12, 10)].powered).toBe(true);
+  });
+
   test('no plant means nothing is powered, and stale flags clear', () => {
     const city = makeCity();
     zone(city, 5, 5, Zone.Residential);

@@ -18,6 +18,8 @@ export interface Tile {
   stage: Stage;
   powered: boolean;
   abandoned: boolean;
+  /** Power line strung over a road tile (lines elsewhere use Zone.PowerLine). */
+  wire: boolean;
   // computed fields, refreshed by the sim
   pollution: number; // 0..1
   landValue: number; // 0..1

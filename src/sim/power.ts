@@ -1,9 +1,10 @@
 import { idx, neighbors4 } from './grid';
-import { CityState, GRID, Zone } from './types';
+import { CityState, GRID, Tile, Zone } from './types';
 
-/** Roads don't carry power; power lines exist to bridge them. */
-function conducts(zone: Zone): boolean {
-  return zone !== Zone.None && zone !== Zone.Road;
+/** Roads don't carry power unless a wire is strung over them. */
+function conducts(t: Tile): boolean {
+  if (t.wire) return true;
+  return t.zone !== Zone.None && t.zone !== Zone.Road;
 }
 
 /** Flood-fill power from every plant through 4-connected conductive tiles. */
@@ -24,7 +25,7 @@ export function updatePower(city: CityState): void {
     const y = (i / GRID) | 0;
     for (const [nx, ny] of neighbors4(x, y)) {
       const ni = idx(nx, ny);
-      if (powered[ni] || !conducts(city.tiles[ni].zone)) continue;
+      if (powered[ni] || !conducts(city.tiles[ni])) continue;
       powered[ni] = 1;
       queue.push(ni);
     }
