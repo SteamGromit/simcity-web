@@ -71,7 +71,11 @@ export interface CityState {
   lastBudget: BudgetReport;
   /** Event messages (fires, etc.) queued for the UI; newest last, capped. */
   notices: string[];
+  /** Monthly samples for the charts panel, newest last, capped at HISTORY_MAX. */
+  history: { pop: number[]; funds: number[] };
 }
+
+export const HISTORY_MAX = 240; // 20 years of monthly samples
 
 /** Residential population capacity by development stage (0–7). */
 export const R_POP = [0, 8, 24, 60, 120, 240, 420, 700];

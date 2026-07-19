@@ -35,6 +35,18 @@ function reviveTile(raw: unknown): Tile {
   return t;
 }
 
+function reviveHistory(raw: unknown): CityState['history'] {
+  const empty = { pop: [], funds: [] };
+  if (!raw || typeof raw !== 'object') return empty;
+  const h = raw as Record<string, unknown>;
+  if (!Array.isArray(h.pop) || !Array.isArray(h.funds)) return empty;
+  if (h.pop.length !== h.funds.length) return empty;
+  if (![...h.pop, ...h.funds].every((v) => typeof v === 'number' && Number.isFinite(v))) {
+    return empty;
+  }
+  return { pop: h.pop as number[], funds: h.funds as number[] };
+}
+
 /**
  * Parse a save. Returns null on corrupt or foreign data; malformed tile
  * fields degrade to blank-tile defaults so a revived city can never
@@ -72,6 +84,7 @@ export function deserialize(json: string): CityState | null {
       notices: Array.isArray(data.notices)
         ? data.notices.filter((n: unknown) => typeof n === 'string')
         : [],
+      history: reviveHistory(data.history),
     };
   } catch {
     return null;
