@@ -1,12 +1,14 @@
 import { idx } from './grid';
 import { roadAccess } from './traffic';
-import { CityState, Tile, Zone } from './types';
+import { CityState, MAX_STAGE_BY_DENSITY, Tile, Zone } from './types';
 
 const GROW_SCALE = 0.6;
 const DECAY_CHANCE = 0.35;
 const DEMAND_COLLAPSE = -0.3;
-/** Land value required to reach stage 2 / stage 3 (R and C only). */
-const LV_GATES = [0, 0, 0.35, 0.55];
+/** Land value required to reach each stage (R and C only). */
+const LV_GATES = [0, 0, 0.35, 0.55, 0.6, 0.65, 0.7, 0.75];
+/** Coverage floor for high-density stages (4+). */
+const HIGH_STAGE_COV = 0.2;
 
 function desirability(t: Tile): number {
   const jobAccess = 1 - Math.min(1, t.commute / 30);
@@ -29,6 +31,10 @@ function servicesAllow(t: Tile, next: number): boolean {
   if (next >= 3) {
     if (t.policeCov <= 0) return false;
     if (t.zone !== Zone.Industrial && t.schoolCov <= 0) return false;
+  }
+  if (next >= 4) {
+    if (t.fireCov <= HIGH_STAGE_COV || t.policeCov <= HIGH_STAGE_COV) return false;
+    if (t.zone !== Zone.Industrial && t.schoolCov <= HIGH_STAGE_COV) return false;
   }
   return true;
 }
@@ -61,7 +67,7 @@ export function developTile(city: CityState, x: number, y: number, rand: () => n
         t.stage = 1;
       } else if (t.stage === 0) {
         t.stage = 1;
-      } else if (t.stage < 3) {
+      } else if (t.stage < MAX_STAGE_BY_DENSITY[t.density]) {
         const next = t.stage + 1;
         const lvGated = t.zone !== Zone.Industrial && t.landValue < LV_GATES[next];
         if (!lvGated && servicesAllow(t, next)) t.stage = next as Tile['stage'];

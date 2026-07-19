@@ -38,6 +38,7 @@ export function blankTile(): Tile {
   return {
     zone: Zone.None,
     stage: 0,
+    density: 1,
     powered: false,
     abandoned: false,
     wire: false,
