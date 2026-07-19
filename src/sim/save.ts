@@ -1,5 +1,5 @@
 import { blankTile } from './grid';
-import { CityState, GRID, Tile, Zone } from './types';
+import { CityState, GRID, HISTORY_MAX, MAX_STAGE_BY_DENSITY, Tile, Zone } from './types';
 
 /** JSON can't hold Infinity; commute uses −1 on the wire. */
 export function serialize(city: CityState): string {
@@ -18,10 +18,10 @@ function reviveTile(raw: unknown): Tile {
   if (!raw || typeof raw !== 'object') return t;
   const r = raw as Record<string, unknown>;
   if (typeof r.zone === 'number' && r.zone >= Zone.None && r.zone <= Zone.School) t.zone = r.zone;
-  if (typeof r.stage === 'number' && Number.isInteger(r.stage) && r.stage >= 1 && r.stage <= 7) {
-    t.stage = r.stage as Tile['stage'];
-  }
   if (r.density === 2 || r.density === 3) t.density = r.density;
+  if (typeof r.stage === 'number' && Number.isInteger(r.stage) && r.stage >= 1 && r.stage <= 7) {
+    t.stage = Math.min(r.stage, MAX_STAGE_BY_DENSITY[t.density]) as Tile['stage'];
+  }
   t.powered = r.powered === true;
   t.abandoned = r.abandoned === true;
   t.wire = r.wire === true;
@@ -41,10 +41,12 @@ function reviveHistory(raw: unknown): CityState['history'] {
   const h = raw as Record<string, unknown>;
   if (!Array.isArray(h.pop) || !Array.isArray(h.funds)) return empty;
   if (h.pop.length !== h.funds.length) return empty;
-  if (![...h.pop, ...h.funds].every((v) => typeof v === 'number' && Number.isFinite(v))) {
+  const pop = h.pop.slice(-HISTORY_MAX);
+  const funds = h.funds.slice(-HISTORY_MAX);
+  if (![...pop, ...funds].every((v) => typeof v === 'number' && Number.isFinite(v))) {
     return empty;
   }
-  return { pop: h.pop as number[], funds: h.funds as number[] };
+  return { pop: pop as number[], funds: funds as number[] };
 }
 
 /**

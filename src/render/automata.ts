@@ -1,6 +1,10 @@
 import { idx, neighbors4 } from '../sim/grid';
 import { CityState, GRID, Zone } from '../sim/types';
-import { TILE_H, isoToScreen } from './iso';
+import { TILE_H, TILE_W, isoToScreen } from './iso';
+
+const HW = TILE_W / 2;
+const HH = TILE_H / 2;
+const SCAN_INTERVAL = 15; // steps between full-grid rescans
 
 const MAX_CARS = 40;
 const MAX_PEDS = 60;
@@ -39,40 +43,57 @@ export class Automata {
   private cars: Car[] = [];
   private peds: Ped[] = [];
   private lastTime = 0;
+  private scanCountdown = 0;
+  private busy: number[] = [];
+  private lots: number[] = [];
   /** cars/peds bucketed by the tile they should be drawn with, rebuilt per frame */
   private carBuckets = new Map<number, Car[]>();
   private pedBuckets = new Map<number, Ped[]>();
+
+  carCount(): number {
+    return this.cars.length;
+  }
+
+  pedCount(): number {
+    return this.peds.length;
+  }
 
   step(city: CityState, now: number): void {
     const dt = Math.min(0.1, this.lastTime === 0 ? 0.016 : (now - this.lastTime) / 1000);
     this.lastTime = now;
 
-    const roads: number[] = [];
-    const busy: number[] = [];
-    const lots: number[] = [];
-    for (let i = 0; i < city.tiles.length; i++) {
-      const t = city.tiles[i];
-      if (t.zone === Zone.Road) {
-        roads.push(i);
-        if (t.traffic > 0) busy.push(i);
-      } else if (
-        (t.zone === Zone.Residential || t.zone === Zone.Commercial) &&
-        t.stage > 0 &&
-        !t.abandoned
-      ) {
-        lots.push(i);
+    if (this.scanCountdown-- <= 0) {
+      this.scanCountdown = SCAN_INTERVAL;
+      this.busy = [];
+      this.lots = [];
+      for (let i = 0; i < city.tiles.length; i++) {
+        const t = city.tiles[i];
+        if (t.zone === Zone.Road) {
+          if (t.traffic > 0) this.busy.push(i);
+        } else if (
+          (t.zone === Zone.Residential || t.zone === Zone.Commercial) &&
+          t.stage > 0 &&
+          !t.abandoned
+        ) {
+          this.lots.push(i);
+        }
       }
     }
 
-    this.stepCars(city, dt, busy);
-    this.stepPeds(dt, lots);
+    this.stepCars(city, dt, this.busy);
+    this.stepPeds(city, dt, this.lots);
     this.bucket();
   }
 
   private stepCars(city: CityState, dt: number, busy: number[]): void {
+    // demolition check: a car whose road vanished despawns immediately
+    this.cars = this.cars.filter(
+      (c) => city.tiles[c.from].zone === Zone.Road && city.tiles[c.to].zone === Zone.Road,
+    );
     const target = Math.min(MAX_CARS, busy.length * 2);
-    while (this.cars.length < target) {
+    while (this.cars.length < target && busy.length > 0) {
       const from = busy[(Math.random() * busy.length) | 0];
+      if (city.tiles[from].zone !== Zone.Road) break; // stale scan; wait for rescan
       const next = this.nextRoad(city, from, -1);
       if (next === -1) break;
       this.cars.push({
@@ -118,7 +139,14 @@ export class Automata {
     return options[(Math.random() * options.length) | 0];
   }
 
-  private stepPeds(dt: number, lots: number[]): void {
+  private stepPeds(city: CityState, dt: number, lots: number[]): void {
+    // lots can devolve (abandonment, bulldoze) between scans
+    this.peds = this.peds.filter((p) => {
+      const t = city.tiles[p.tile];
+      return (
+        (t.zone === Zone.Residential || t.zone === Zone.Commercial) && t.stage > 0 && !t.abandoned
+      );
+    });
     const target = Math.min(MAX_PEDS, lots.length * 2);
     while (this.peds.length < target && lots.length > 0) {
       this.peds.push(this.spawnPed(lots));
@@ -134,8 +162,10 @@ export class Automata {
       }
       p.ox += p.vx * dt;
       p.oy += p.vy * dt;
-      // stay inside the tile diamond (|ox|/HW + |oy|/HH ≤ ~0.8)
-      if (Math.abs(p.ox) / 32 + Math.abs(p.oy) / 16 > 0.8) {
+      // stay in the sidewalk annulus: outside the building footprint,
+      // inside the tile diamond
+      const d = Math.abs(p.ox) / HW + Math.abs(p.oy) / HH;
+      if (d > 0.92 || d < 0.55) {
         p.vx = -p.vx;
         p.vy = -p.vy;
       }
@@ -144,10 +174,12 @@ export class Automata {
 
   private spawnPed(lots: number[]): Ped {
     const a = Math.random() * Math.PI * 2;
+    // spawn in the sidewalk annulus (see stepPeds)
+    const r = 0.6 + Math.random() * 0.28;
     return {
       tile: lots[(Math.random() * lots.length) | 0],
-      ox: (Math.random() - 0.5) * 24,
-      oy: (Math.random() - 0.5) * 10,
+      ox: Math.cos(a) * HW * r * 0.7,
+      oy: Math.sin(a) * HH * r * 0.7,
       vx: Math.cos(a) * 4,
       vy: Math.sin(a) * 2,
       ttl: 4 + Math.random() * 6,
@@ -159,7 +191,9 @@ export class Automata {
     this.carBuckets.clear();
     this.pedBuckets.clear();
     for (const car of this.cars) {
-      const tile = car.t < 0.5 ? car.from : car.to;
+      // draw with whichever endpoint paints later so the sprite is never
+      // overdrawn by the neighboring road tile's ground
+      const tile = Math.max(car.from, car.to);
       let list = this.carBuckets.get(tile);
       if (!list) this.carBuckets.set(tile, (list = []));
       list.push(car);

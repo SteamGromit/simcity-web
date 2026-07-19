@@ -1,4 +1,5 @@
 import { CityState } from '../sim/types';
+import { monthLabel } from './format';
 
 export interface HudActions {
   setSpeed(speed: 0 | 1 | 2 | 3): void;
@@ -8,7 +9,6 @@ export interface HudActions {
   toggleCharts(): void;
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const SPEED_LABELS = ['⏸', '▶', '▶▶', '▶▶▶'];
 
 export function buildHud(root: HTMLElement, city: () => CityState, actions: HudActions) {
@@ -119,7 +119,7 @@ export function buildHud(root: HTMLElement, city: () => CityState, actions: HudA
       fundsVal.textContent = c.funds.toLocaleString();
       fundsEl.classList.toggle('deficit', c.funds < 0);
       popEl.textContent = c.population.toLocaleString();
-      dateEl.textContent = `${MONTHS[c.month % 12]} ${2000 + Math.floor(c.month / 12)}`;
+      dateEl.textContent = monthLabel(c.month);
       drawRci(c);
       if (!budget.classList.contains('hidden') && renderedBudget !== c.lastBudget) {
         renderedBudget = c.lastBudget;

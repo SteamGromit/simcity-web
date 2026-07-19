@@ -110,6 +110,7 @@ const hud = buildHud(
       city = revived;
       rand = mulberry32(city.seed + city.tick);
       renderer.reseed(city.seed);
+      minimap.invalidate();
       hud.syncTaxes(city);
       toast('City loaded', 'info');
       advisoryForUnprotectedCity();
@@ -119,6 +120,7 @@ const hud = buildHud(
       city = newCity(Date.now() % 2 ** 31);
       rand = mulberry32(city.seed);
       renderer.reseed(city.seed);
+      minimap.invalidate();
       hud.syncTaxes(city);
     },
   },
@@ -164,7 +166,6 @@ function applyRect(rect: { x0: number; y0: number; x1: number; y1: number }) {
     }
   }
   if (broke) toast('Ran out of funds before finishing');
-  else if (applied === 0) toast('Nothing to build there');
 }
 
 function paintAt(x: number, y: number, firstClick: boolean) {
@@ -217,8 +218,9 @@ canvas.addEventListener('pointermove', (e) => {
   }
 });
 
-window.addEventListener('pointerup', () => {
-  if (rectAnchor && view.rect) applyRect(view.rect);
+window.addEventListener('pointerup', (e) => {
+  // releasing over UI chrome cancels the pending rectangle (Esc also works)
+  if (rectAnchor && view.rect && e.target === canvas) applyRect(view.rect);
   rectAnchor = null;
   view.rect = null;
   painting = false;

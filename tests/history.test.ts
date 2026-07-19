@@ -23,6 +23,18 @@ describe('monthly history', () => {
     expect(city.history.funds).toHaveLength(HISTORY_MAX);
   });
 
+  test('an oversized saved history is capped on revive', () => {
+    const city = newCity(1);
+    const mangled = JSON.parse(serialize(city));
+    mangled.history = {
+      pop: Array(HISTORY_MAX * 10).fill(1),
+      funds: Array(HISTORY_MAX * 10).fill(2),
+    };
+    const revived = deserialize(JSON.stringify(mangled));
+    expect(revived!.history.pop).toHaveLength(HISTORY_MAX);
+    expect(revived!.history.funds).toHaveLength(HISTORY_MAX);
+  });
+
   test('history round-trips through saves; junk history degrades to empty', () => {
     const city = newCity(1);
     const rand = mulberry32(1);

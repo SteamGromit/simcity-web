@@ -1,9 +1,9 @@
 import { CityState } from '../sim/types';
+import { monthLabel } from './format';
 
 const W = 250;
 const H = 84;
 const PAD = { l: 8, r: 8, t: 16, b: 6 };
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // Validated against the dark panel surface (dataviz six-checks, mode dark).
 const SERIES = { pop: '#5b8ff0', funds: '#34a853' };
@@ -48,8 +48,12 @@ function drawChart(
     return;
   }
 
-  const lo = Math.min(0, ...data);
-  const hi = Math.max(1, ...data);
+  let lo = 0;
+  let hi = 1;
+  for (const v of data) {
+    if (v < lo) lo = v;
+    if (v > hi) hi = v;
+  }
   const px = (i: number) => PAD.l + (i / (data.length - 1)) * (W - PAD.l - PAD.r);
   const py = (v: number) => PAD.t + (1 - (v - lo) / (hi - lo)) * (H - PAD.t - PAD.b);
 
@@ -79,7 +83,7 @@ function drawChart(
   ctx.fill();
   ctx.fillStyle = INK.primary;
   const label = `${spec.fmt(data[i])}`;
-  const when = `${MONTHS[((monthAbs % 12) + 12) % 12]} ${2000 + Math.floor(monthAbs / 12)}`;
+  const when = monthLabel(monthAbs);
   ctx.textAlign = 'right';
   ctx.fillText(label, W - PAD.r, 10);
   ctx.fillStyle = INK.muted;

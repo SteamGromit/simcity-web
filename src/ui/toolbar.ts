@@ -1,9 +1,8 @@
-import { COSTS, Density, DENSITY_COST_MULT, ToolId } from '../sim/types';
+import { Density, DENSITY_COST_MULT, ToolId } from '../sim/types';
+import { toolCost, ZONE_TOOLS } from '../sim/city';
 import { OVERLAY_LABELS, OverlayId } from '../render/overlays';
 
 export type ActiveTool = ToolId | 'query' | null;
-
-const ZONE_TOOLS: (ToolId | 'query')[] = ['zoneR', 'zoneC', 'zoneI'];
 
 const TOOLS: { id: ToolId | 'query'; label: string }[] = [
   { id: 'query', label: 'Query' },
@@ -35,11 +34,7 @@ export function buildToolbar(
   let active: ActiveTool = null;
   let density: Density = 1;
 
-  const costLabel = (id: ToolId | 'query') => {
-    if (id === 'query') return '';
-    const mult = ZONE_TOOLS.includes(id) ? DENSITY_COST_MULT[density] : 1;
-    return `§${COSTS[id] * mult}`;
-  };
+  const costLabel = (id: ToolId | 'query') => (id === 'query' ? '' : `§${toolCost(id, density)}`);
 
   for (const { id, label } of TOOLS) {
     const btn = document.createElement('button');
@@ -66,7 +61,7 @@ export function buildToolbar(
       density = d;
       for (const [dd, b] of densityButtons) b.classList.toggle('active', dd === d);
       for (const id of ZONE_TOOLS) {
-        const zb = toolButtons.get(id as string);
+        const zb = toolButtons.get(id);
         if (zb) (zb.querySelector('.cost') as HTMLElement).textContent = costLabel(id);
       }
       onDensity(d);

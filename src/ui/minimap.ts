@@ -51,6 +51,10 @@ export function buildMinimap(
 
   let frame = 0;
   return {
+    /** Force a raster repaint next frame (call after Load/New). */
+    invalidate() {
+      frame = 0;
+    },
     update(city: CityState, camera: Camera, gameCanvas: HTMLCanvasElement) {
       if (frame++ % 15 === 0) {
         for (let y = 0; y < GRID; y++) {

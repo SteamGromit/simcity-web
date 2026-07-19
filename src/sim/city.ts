@@ -66,7 +66,7 @@ const TOOL_ZONE: Partial<Record<ToolId, Zone>> = {
   school: Zone.School,
 };
 
-const ZONE_TOOLS: ToolId[] = ['zoneR', 'zoneC', 'zoneI'];
+export const ZONE_TOOLS: ToolId[] = ['zoneR', 'zoneC', 'zoneI'];
 
 /** Zone tools cost more at higher density; everything else has a flat cost. */
 export function toolCost(tool: ToolId, density: Density): number {
