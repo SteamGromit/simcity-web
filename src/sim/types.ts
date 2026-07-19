@@ -52,6 +52,8 @@ export interface Tile {
   busCov: number;
   /** Ticks of fire left on this tile; 0 = not burning. */
   burning: number;
+  /** Months of disaster debris on the lot; blocks development while > 0. */
+  rubble: number;
   // computed fields, refreshed by the sim
   pollution: number; // 0..1
   landValue: number; // 0..1
@@ -254,6 +256,8 @@ export const FIRE_BURN_TICKS = 12;
 export const FIRE_SPREAD = 0.25;
 /** Per-tick extinguish chance multiplier: rand < fireCov × this puts it out. */
 export const FIRE_EXTINGUISH = 0.35;
+/** Months a wrecked lot stays buried in debris before crews clear it. */
+export const RUBBLE_MONTHS = 4;
 
 export const START_FUNDS = 50_000;
 export const DEFAULT_TAX = 0.09;

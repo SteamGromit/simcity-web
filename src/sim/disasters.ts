@@ -6,6 +6,7 @@ import {
   GRID,
   HURRICANE_TICKS,
   PANDEMIC_MONTHS,
+  RUBBLE_MONTHS,
   Terrain,
   TORNADO_TICKS,
   Zone,
@@ -49,6 +50,7 @@ function damage(city: CityState, i: number): void {
   if (!isBuilding(t.zone) || t.stage === 0) return;
   const next = t.stage - 1;
   t.stage = next as typeof t.stage;
+  t.rubble = RUBBLE_MONTHS;
   if (next === 0) t.abandoned = false;
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
-import { HURRICANE_TICKS, PANDEMIC_MONTHS, TORNADO_TICKS, Zone } from '../src/sim/types';
+import { HURRICANE_TICKS, PANDEMIC_MONTHS, RUBBLE_MONTHS, TORNADO_TICKS, Zone } from '../src/sim/types';
 import { pandemicMonthly, spawnDisaster, updateDisasters } from '../src/sim/disasters';
 import { deserialize, serialize } from '../src/sim/save';
 import { adviseTips } from '../src/sim/tips';
@@ -89,6 +89,42 @@ describe('pandemic', () => {
     };
     expect(run(0)).toBe(true);
     expect(run(1)).toBe(false);
+  });
+});
+
+describe('rubble', () => {
+  test('tornado damage leaves rubble on the lot', () => {
+    const city = makeCity();
+    zone(city, 10, 10, Zone.Residential, 3);
+    city.disasters.tornado = { x: 10, y: 10, ticksLeft: 1 };
+    updateDisasters(city, always); // rand 0 → damage roll hits
+    expect(city.tiles[idx(10, 10)].rubble).toBe(RUBBLE_MONTHS);
+  });
+
+  test('hurricane damage leaves rubble', () => {
+    const city = makeCity();
+    zone(city, 10, 10, Zone.Commercial, 3);
+    city.disasters.hurricaneTicks = 1;
+    updateDisasters(city, always);
+    expect(city.tiles[idx(10, 10)].rubble).toBe(RUBBLE_MONTHS);
+  });
+
+  test('fresh damage re-buries a lot that was almost clear', () => {
+    const city = makeCity();
+    zone(city, 10, 10, Zone.Commercial, 3);
+    city.tiles[idx(10, 10)].rubble = 1;
+    city.disasters.hurricaneTicks = 1;
+    updateDisasters(city, always);
+    expect(city.tiles[idx(10, 10)].rubble).toBe(RUBBLE_MONTHS);
+  });
+
+  test('pandemic abandonment leaves no rubble', () => {
+    const city = makeCity();
+    zone(city, 10, 10, Zone.Residential, 3);
+    city.disasters.pandemicMonths = 1;
+    pandemicMonthly(city, always);
+    expect(city.tiles[idx(10, 10)].abandoned).toBe(true);
+    expect(city.tiles[idx(10, 10)].rubble).toBe(0);
   });
 });
 
