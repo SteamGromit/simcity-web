@@ -7,19 +7,21 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 ## Backlog (in order)
 
 
-1. **Weather** — rain/snow/etc., visual layer at minimum, maybe sim
-   effects. *(user-requested 2026-07-19)*
-2. **Terrain: mountains + desert** — taller peaks and a desert biome /
+
+1. **Terrain: mountains + desert** — taller peaks and a desert biome /
    map style. *(user-requested 2026-07-19)*
-3. **Skins/styles** — selectable overall appearance, e.g. 'Springfield'
+2. **Skins/styles** — selectable overall appearance, e.g. 'Springfield'
    cartoon style, 'NYC' architecture; more later, eventually user-made.
    *(user-requested 2026-07-19)*
-4. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
+3. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
    deferred until single-city play is deep enough).
-5. **Modding hooks** — data-driven building/balance definitions; folds in
+4. **Modding hooks** — data-driven building/balance definitions; folds in
    user-made skins from the skins item.
 
 ## Done
+
+- **Weather** — shipped v0.18.0 (seasonal clear/cloudy/rain/snow, fire +
+  traffic effects, HUD emoji).
 
 - **Disasters** — shipped v0.17.0 (tornado, hurricane, pandemic; random
   strikes + City Hall summons).

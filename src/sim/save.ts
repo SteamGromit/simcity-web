@@ -1,4 +1,5 @@
 import { blankTile } from './grid';
+import { defaultWeather, WEATHER_KINDS, WeatherKind } from './weather';
 import {
   CityState,
   defaultDisasters,
@@ -89,6 +90,17 @@ function reviveDisasters(raw: unknown): CityState['disasters'] {
   return out;
 }
 
+function reviveWeather(raw: unknown): CityState['weather'] {
+  const out = defaultWeather();
+  if (raw && typeof raw === 'object') {
+    const k = (raw as Record<string, unknown>).kind;
+    if (typeof k === 'string' && (WEATHER_KINDS as readonly string[]).includes(k)) {
+      out.kind = k as WeatherKind;
+    }
+  }
+  return out;
+}
+
 function reviveHistory(raw: unknown): CityState['history'] {
   const empty = { pop: [], funds: [] };
   if (!raw || typeof raw !== 'object') return empty;
@@ -139,6 +151,7 @@ export function deserialize(json: string): CityState | null {
       },
       ordinances: reviveOrdinances(data.ordinances),
       disasters: reviveDisasters(data.disasters),
+      weather: reviveWeather(data.weather),
       notices: Array.isArray(data.notices)
         ? data.notices.filter((n: unknown) => typeof n === 'string')
         : [],

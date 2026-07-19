@@ -1,5 +1,13 @@
 import { CityState } from '../sim/types';
+import { WeatherKind } from '../sim/weather';
 import { monthLabel } from './format';
+
+const WEATHER_EMOJI: Record<WeatherKind, string> = {
+  clear: '☀️',
+  cloudy: '⛅',
+  rain: '🌧️',
+  snow: '❄️',
+};
 
 export interface HudActions {
   setSpeed(speed: 0 | 1 | 2 | 3): void;
@@ -122,7 +130,7 @@ export function buildHud(root: HTMLElement, city: () => CityState, actions: HudA
       fundsVal.textContent = c.funds.toLocaleString();
       fundsEl.classList.toggle('deficit', c.funds < 0);
       popEl.textContent = c.population.toLocaleString();
-      dateEl.textContent = monthLabel(c.month);
+      dateEl.textContent = `${monthLabel(c.month)} ${WEATHER_EMOJI[c.weather.kind]}`;
       drawRci(c);
       if (!budget.classList.contains('hidden') && renderedBudget !== c.lastBudget) {
         renderedBudget = c.lastBudget;
