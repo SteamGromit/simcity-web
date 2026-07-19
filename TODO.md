@@ -6,14 +6,15 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Backlog (in order)
 
-1. **Water utility** — pumps + pipes as a second network layer.
-2. **Day/night cycle** — visual layer; building windows light up.
-3. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
+1. **Day/night cycle** — visual layer; building windows light up.
+2. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
    deferred until single-city play is deep enough).
-4. **Modding hooks** — data-driven building/balance definitions.
+3. **Modding hooks** — data-driven building/balance definitions.
 
 ## Done
 
+- **Water utility** — shipped v0.14.0 (powered lakeside pumps, pipes +
+  road mains, watered flag gates stage 3+).
 - **Ordinances + advisors** — shipped v0.13.0 (City Hall panel: full
   advisor list + 4 ordinances with sim hooks).
 - **Congestion + buses** — shipped v0.12.0 (capacity-based route costs,

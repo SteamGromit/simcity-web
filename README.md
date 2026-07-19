@@ -57,6 +57,11 @@ tiles to cross them). Unpowered zones show a yellow ⚡ bolt; hook them up with
 a line from the plant or by zoning a connected path. The Power data view shows
 what's connected.
 
+**Water** works the same way: build a powered **Water Pump** within two
+tiles of open water and the supply spreads through adjacent buildings;
+**Pipes** bridge gaps and cross under roads. Buildings need running water
+to grow past stage 2.
+
 Keep industry (and the coal plant) away from homes: pollution wrecks
 residential land value. Parks raise it.
 
