@@ -300,6 +300,29 @@ body {
   background: #55323c;
 }
 
+#cityhall-panel #skin-list {
+  display: flex;
+  gap: 5px;
+}
+
+#cityhall-panel #skin-list button {
+  flex: 1;
+  background: #2a3648;
+  color: #d8dee6;
+  border: 1px solid #465870;
+  border-radius: 4px;
+  padding: 4px 2px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+
+#cityhall-panel #skin-list button.active {
+  background: #4d7cc7;
+  border-color: #7aa5e8;
+  color: #fff;
+}
+
 #cityhall-panel .ordinance .cost {
   margin-left: auto;
   color: #9fb2c8;

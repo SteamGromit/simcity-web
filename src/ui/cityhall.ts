@@ -1,4 +1,5 @@
 import { CityState, DisasterKind, ORDINANCES } from '../sim/types';
+import { getSkin, setSkin, SKINS } from '../render/skins';
 import { adviseTips } from '../sim/tips';
 
 /** City Hall: the advisor board (every active tip) and ordinance toggles. */
@@ -19,6 +20,8 @@ export function buildCityHall(
     <div id="ordinance-list"></div>
     <h4>Disasters · tempt fate</h4>
     <div id="disaster-list"></div>
+    <h4>City style</h4>
+    <div id="skin-list"></div>
   `;
   root.appendChild(panel);
 
@@ -53,6 +56,25 @@ export function buildCityHall(
     btn.addEventListener('click', () => onDisaster(kind));
     disasterList.appendChild(btn);
   }
+
+  const skinList = panel.querySelector('#skin-list') as HTMLElement;
+  const skinButtons: HTMLButtonElement[] = [];
+  const syncSkins = () =>
+    SKINS.forEach((sk, i) => skinButtons[i].classList.toggle('active', getSkin().id === sk.id));
+  for (const sk of SKINS) {
+    const btn = document.createElement('button');
+    btn.textContent = sk.label;
+    btn.title = sk.blurb;
+    btn.addEventListener('click', () => {
+      setSkin(sk.id);
+      localStorage.setItem('simcity.skin', sk.id);
+      syncSkins();
+      onToggle();
+    });
+    skinButtons.push(btn);
+    skinList.appendChild(btn);
+  }
+  syncSkins();
 
   let lastTipRender = 0;
   const syncBoxes = () => {

@@ -15,6 +15,7 @@ import { buildMinimap } from './ui/minimap';
 import { buildCityHall } from './ui/cityhall';
 import { makeDraggable } from './ui/drag';
 import { TOOL_KEYS } from './ui/shortcuts';
+import { setSkin } from './render/skins';
 import { buildHelp, buildTipBar } from './ui/help';
 import { adviseTips } from './sim/tips';
 import { ambientLevel, createSoundPlayer, soundFor, UI_SOUNDS } from './ui/sound';
@@ -34,6 +35,7 @@ let city: CityState = (() => {
   return newCity(Date.now() % 2 ** 31);
 })();
 
+setSkin(localStorage.getItem('simcity.skin') ?? 'classic');
 let rand = mulberry32(city.seed + city.tick);
 const renderer = new Renderer(canvas, city.seed);
 
