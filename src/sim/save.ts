@@ -17,11 +17,14 @@ function reviveTile(raw: unknown): Tile {
   const t = blankTile();
   if (!raw || typeof raw !== 'object') return t;
   const r = raw as Record<string, unknown>;
-  if (typeof r.zone === 'number' && r.zone >= Zone.None && r.zone <= Zone.Park) t.zone = r.zone;
+  if (typeof r.zone === 'number' && r.zone >= Zone.None && r.zone <= Zone.School) t.zone = r.zone;
   if (r.stage === 1 || r.stage === 2 || r.stage === 3) t.stage = r.stage;
   t.powered = r.powered === true;
   t.abandoned = r.abandoned === true;
   t.wire = r.wire === true;
+  t.fireCov = finite(r.fireCov, 0);
+  t.policeCov = finite(r.policeCov, 0);
+  t.schoolCov = finite(r.schoolCov, 0);
   t.pollution = finite(r.pollution, 0);
   t.landValue = finite(r.landValue, 0.3);
   t.commute = r.commute === -1 ? Infinity : finite(r.commute, Infinity);
@@ -63,6 +66,9 @@ export function deserialize(json: string): CityState | null {
         expenses: finite(budget.expenses, 0),
         net: finite(budget.net, 0),
       },
+      notices: Array.isArray(data.notices)
+        ? data.notices.filter((n: unknown) => typeof n === 'string')
+        : [],
     };
   } catch {
     return null;

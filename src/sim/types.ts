@@ -9,6 +9,9 @@ export enum Zone {
   PowerPlant,
   PowerLine,
   Park,
+  FireStation,
+  PoliceStation,
+  School,
 }
 
 export type Stage = 0 | 1 | 2 | 3;
@@ -20,6 +23,10 @@ export interface Tile {
   abandoned: boolean;
   /** Power line strung over a road tile (lines elsewhere use Zone.PowerLine). */
   wire: boolean;
+  /** Service coverage 0..1 from powered stations, refreshed by the sim. */
+  fireCov: number;
+  policeCov: number;
+  schoolCov: number;
   // computed fields, refreshed by the sim
   pollution: number; // 0..1
   landValue: number; // 0..1
@@ -59,6 +66,8 @@ export interface CityState {
   population: number;
   jobs: number;
   lastBudget: BudgetReport;
+  /** Event messages (fires, etc.) queued for the UI; newest last, capped. */
+  notices: string[];
 }
 
 /** Residential population capacity by development stage. */
@@ -76,6 +85,9 @@ export type ToolId =
   | 'plant'
   | 'line'
   | 'park'
+  | 'fire'
+  | 'police'
+  | 'school'
   | 'bulldoze';
 
 export const COSTS: Record<ToolId, number> = {
@@ -86,8 +98,18 @@ export const COSTS: Record<ToolId, number> = {
   plant: 3000,
   line: 5,
   park: 50,
+  fire: 500,
+  police: 500,
+  school: 400,
   bulldoze: 1,
 };
+
+/** Coverage radii (Chebyshev tiles) per service. */
+export const SERVICE_RADII = { fire: 8, police: 8, school: 10 };
+/** Monthly upkeep per service building. */
+export const SERVICE_UPKEEP = { fire: 50, police: 50, school: 40 };
+/** Monthly burn-down probability for a developed tile with zero fire coverage. */
+export const FIRE_RISK = 0.004;
 
 export const START_FUNDS = 50_000;
 export const DEFAULT_TAX = 0.09;

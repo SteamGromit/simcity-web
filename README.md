@@ -46,8 +46,14 @@ what's connected.
 Keep industry (and the coal plant) away from homes: pollution wrecks
 residential land value. Parks raise it.
 
-Watch the budget — roads and plants cost upkeep monthly; taxes above 9%
-suppress demand.
+Growing past small buildings takes **civic services**: fire coverage unlocks
+stage 2, police + school coverage unlock stage 3 (industry skips the school
+requirement). Stations need power, cover a radius (see the coverage data
+views), and charge monthly upkeep. Buildings with **no fire coverage can burn
+down** — you'll get a notice when one does.
+
+Watch the budget — roads, plants, and services cost upkeep monthly; taxes
+above 9% suppress demand.
 
 | Control | Action |
 | --- | --- |

@@ -10,6 +10,9 @@ const ZONE_NAMES: Record<Zone, string> = {
   [Zone.PowerPlant]: 'Coal Plant',
   [Zone.PowerLine]: 'Power Line',
   [Zone.Park]: 'Park',
+  [Zone.FireStation]: 'Fire Station',
+  [Zone.PoliceStation]: 'Police Station',
+  [Zone.School]: 'School',
 };
 
 export function buildQuery(root: HTMLElement) {
@@ -27,10 +30,21 @@ export function buildQuery(root: HTMLElement) {
         rows.push(['Stage', t.stage === 0 ? 'undeveloped' : String(t.stage)]);
         rows.push(['Powered', t.powered ? 'yes' : 'no']);
         rows.push(['Commute', Number.isFinite(t.commute) ? String(t.commute) : '—']);
+        rows.push(['Fire cover', `${Math.round(t.fireCov * 100)}%`]);
+        rows.push(['Police cover', `${Math.round(t.policeCov * 100)}%`]);
+        rows.push(['School cover', `${Math.round(t.schoolCov * 100)}%`]);
       }
       if (t.zone === Zone.Road) {
         rows.push(['Traffic', String(t.traffic)]);
         if (t.wire) rows.push(['Power line', 'overhead']);
+      }
+      if (
+        t.zone === Zone.FireStation ||
+        t.zone === Zone.PoliceStation ||
+        t.zone === Zone.School ||
+        t.zone === Zone.PowerPlant
+      ) {
+        rows.push(['Powered', t.powered ? 'yes' : 'no']);
       }
       rows.push(['Land value', `${Math.round(t.landValue * 100)}%`]);
       rows.push(['Pollution', `${Math.round(t.pollution * 100)}%`]);

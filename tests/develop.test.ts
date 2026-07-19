@@ -6,7 +6,7 @@ import { makeCity, zone } from './helpers';
 
 const always = () => 0; // rand() < p always fires for any p > 0
 
-/** Zoned tile at (5,5) with a road at (5,6); caller tweaks fields. */
+/** Zoned tile at (5,5) with a road at (5,6), fully serviced; caller tweaks fields. */
 function setup(z: Zone, stage: 0 | 1 | 2 | 3 = 0): CityState {
   const city = makeCity();
   zone(city, 5, 5, z, stage);
@@ -15,6 +15,9 @@ function setup(z: Zone, stage: 0 | 1 | 2 | 3 = 0): CityState {
   t.powered = true;
   t.landValue = 0.5;
   t.commute = 3;
+  t.fireCov = 1;
+  t.policeCov = 1;
+  t.schoolCov = 1;
   return city;
 }
 
@@ -82,6 +85,38 @@ describe('developTile', () => {
     expect(city.tiles[idx(5, 5)].stage).toBe(1);
     developTile(city, 5, 5, always);
     expect(city.tiles[idx(5, 5)].abandoned).toBe(true);
+  });
+
+  test('no fire coverage caps buildings at stage 1', () => {
+    const city = setup(Zone.Residential, 1);
+    city.demand.r = 0.9;
+    city.tiles[idx(5, 5)].fireCov = 0;
+    developTile(city, 5, 5, always);
+    expect(city.tiles[idx(5, 5)].stage).toBe(1);
+  });
+
+  test('stage 3 homes need police and school coverage', () => {
+    const city = setup(Zone.Residential, 2);
+    city.demand.r = 0.9;
+    city.tiles[idx(5, 5)].landValue = 0.7;
+    city.tiles[idx(5, 5)].schoolCov = 0;
+    developTile(city, 5, 5, always);
+    expect(city.tiles[idx(5, 5)].stage).toBe(2);
+    city.tiles[idx(5, 5)].schoolCov = 0.4;
+    developTile(city, 5, 5, always);
+    expect(city.tiles[idx(5, 5)].stage).toBe(3);
+  });
+
+  test('stage 3 industry needs police but not school', () => {
+    const city = setup(Zone.Industrial, 2);
+    city.demand.i = 0.9;
+    city.tiles[idx(5, 5)].schoolCov = 0;
+    city.tiles[idx(5, 5)].policeCov = 0;
+    developTile(city, 5, 5, always);
+    expect(city.tiles[idx(5, 5)].stage).toBe(2);
+    city.tiles[idx(5, 5)].policeCov = 0.4;
+    developTile(city, 5, 5, always);
+    expect(city.tiles[idx(5, 5)].stage).toBe(3);
   });
 
   test('mildly negative demand leaves standing buildings alone', () => {
