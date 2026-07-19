@@ -30,6 +30,9 @@ export function buildQuery(root: HTMLElement) {
         rows.push(['Stage', t.stage === 0 ? 'undeveloped' : String(t.stage)]);
         rows.push(['Powered', t.powered ? 'yes' : 'no']);
         rows.push(['Commute', Number.isFinite(t.commute) ? String(t.commute) : '—']);
+        rows.push(['Fire cover', `${Math.round(t.fireCov * 100)}%`]);
+        rows.push(['Police cover', `${Math.round(t.policeCov * 100)}%`]);
+        rows.push(['School cover', `${Math.round(t.schoolCov * 100)}%`]);
       }
       if (t.zone === Zone.Road) {
         rows.push(['Traffic', String(t.traffic)]);

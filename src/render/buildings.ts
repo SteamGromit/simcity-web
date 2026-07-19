@@ -173,6 +173,39 @@ export function drawBuilding(
     return;
   }
 
+  if (zone === Zone.FireStation || zone === Zone.PoliceStation || zone === Zone.School) {
+    const style =
+      zone === Zone.FireStation
+        ? { h: 18, f: 0.8, hue: 2, sat: 62, lit: 46 }
+        : zone === Zone.PoliceStation
+          ? { h: 18, f: 0.8, hue: 215, sat: 45, lit: 44 }
+          : { h: 12, f: 0.85, hue: 45, sat: 42, lit: 56 };
+    box(ctx, sx, sy, style.f, style.h, style.hue, style.sat, style.lit);
+    // white service band across both faces
+    const cy = sy + HH;
+    const bandY = style.h * 0.45;
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(sx - HW * style.f, cy - bandY);
+    ctx.lineTo(sx, cy + HH * style.f - bandY);
+    ctx.lineTo(sx + HW * style.f, cy - bandY);
+    ctx.stroke();
+    if (zone === Zone.School) {
+      // flagpole
+      ctx.strokeStyle = '#cfc8ba';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(sx, cy - style.h - 14);
+      ctx.lineTo(sx, cy - style.h);
+      ctx.stroke();
+      ctx.fillStyle = '#d24b3f';
+      ctx.fillRect(sx, cy - style.h - 14, 7, 4);
+    }
+    if (!powered) drawNoPowerBolt(ctx, sx, sy - style.h - 8);
+    return;
+  }
+
   if (stage === 0) {
     const tint = ZONE_TINT[zone];
     if (tint) diamond(ctx, sx, sy, tint);

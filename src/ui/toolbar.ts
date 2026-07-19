@@ -13,6 +13,9 @@ const TOOLS: { id: ToolId | 'query'; label: string }[] = [
   { id: 'plant', label: 'Coal Plant' },
   { id: 'line', label: 'Power Line' },
   { id: 'park', label: 'Park' },
+  { id: 'fire', label: 'Fire Station' },
+  { id: 'police', label: 'Police Station' },
+  { id: 'school', label: 'School' },
 ];
 
 export function buildToolbar(

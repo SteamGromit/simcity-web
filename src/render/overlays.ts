@@ -3,14 +3,30 @@ import { GRID } from '../sim/types';
 import { diamond } from './buildings';
 import { isoToScreen } from './iso';
 
-export type OverlayId = 'power' | 'pollution' | 'landvalue' | 'traffic';
+export type OverlayId =
+  | 'power'
+  | 'pollution'
+  | 'landvalue'
+  | 'traffic'
+  | 'fire'
+  | 'police'
+  | 'school';
 
 export const OVERLAY_LABELS: Record<OverlayId, string> = {
   power: 'Power',
   pollution: 'Pollution',
   landvalue: 'Land Value',
   traffic: 'Traffic',
+  fire: 'Fire Cover',
+  police: 'Police Cover',
+  school: 'School Cover',
 };
+
+const COVERAGE_FIELD = {
+  fire: 'fireCov',
+  police: 'policeCov',
+  school: 'schoolCov',
+} as const;
 
 function tint(city: CityState, i: number, overlay: OverlayId): string | null {
   const t = city.tiles[i];
@@ -29,6 +45,16 @@ function tint(city: CityState, i: number, overlay: OverlayId): string | null {
       if (t.zone !== Zone.Road) return null;
       const v = Math.min(1, t.traffic / 20);
       return `hsl(${120 - 120 * v} 80% 45% / 0.6)`;
+    }
+    case 'fire':
+    case 'police':
+    case 'school': {
+      const cov = t[COVERAGE_FIELD[overlay]];
+      const developable =
+        t.zone === Zone.Residential || t.zone === Zone.Commercial || t.zone === Zone.Industrial;
+      if (cov > 0) return `rgba(80,220,100,${0.15 + 0.4 * cov})`;
+      if (developable && t.stage > 0) return 'rgba(230,60,50,0.5)';
+      return null;
     }
   }
 }

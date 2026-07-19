@@ -225,6 +225,10 @@ window.addEventListener('resize', () => renderer.resize());
 
 // --- render loop ---
 function frame() {
+  if (city.notices.length > 0) {
+    toast(city.notices[city.notices.length - 1]);
+    city.notices.length = 0;
+  }
   renderer.draw(city, view);
   hud.update(city);
   requestAnimationFrame(frame);
