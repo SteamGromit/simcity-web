@@ -184,11 +184,12 @@ function smokestack(ctx: CanvasRenderingContext2D, cx: number, cy: number, h: nu
   ctx.fillRect(cx, cy - h - 16, 5, 3);
 }
 
-export function tree(ctx: CanvasRenderingContext2D, tx: number, ty: number) {
+export function tree(ctx: CanvasRenderingContext2D, tx: number, ty: number, wind = 0) {
   ctx.fillStyle = '#5d4534';
   ctx.fillRect(tx - 1, ty, 2, 6);
   ctx.beginPath();
-  ctx.arc(tx, ty - 3, 5, 0, Math.PI * 2);
+  // canopy whips leeward and droops slightly under hurricane wind
+  ctx.arc(tx + wind, ty - 3 + Math.abs(wind) * 0.15, 5, 0, Math.PI * 2);
   ctx.fillStyle = 'hsl(120 45% 30%)';
   ctx.fill();
 }
