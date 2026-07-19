@@ -1,8 +1,8 @@
 import { idx, inBounds } from '../sim/grid';
 import { mulberry32 } from '../sim/city';
-import { CityState, GRID, Zone } from '../sim/types';
+import { CityState, GRID, Terrain, Zone } from '../sim/types';
 import { Automata } from './automata';
-import { drawBuilding, drawPole, fillTile, strokeTile } from './buildings';
+import { drawBuilding, drawPole, fillTile, strokeTile, tree } from './buildings';
 import { TileGeom, isoToScreen, screenToIso, setViewAngle, tileDepth, tileGeom } from './iso';
 import { OverlayId, drawOverlay } from './overlays';
 
@@ -158,7 +158,16 @@ export class Renderer {
       return;
     }
     const v = this.variants[i];
+    if (t.terrain === Terrain.Water) {
+      fillTile(this.ctx, geom, `hsl(${205 + v * 8} ${52 + v * 6}% ${30 + v * 5}%)`);
+      return;
+    }
     fillTile(this.ctx, geom, `hsl(${96 + v * 10} ${30 + v * 8}% ${34 + v * 6}%)`);
+    if (t.terrain === Terrain.Forest) {
+      tree(this.ctx, geom.cx - 9 + v * 6, geom.cy - 3);
+      tree(this.ctx, geom.cx + 5 - v * 4, geom.cy + 2 + v * 3);
+      tree(this.ctx, geom.cx - 2 + v * 3, geom.cy - 8 + v * 2);
+    }
   }
 
   /** Lane markings toward orthogonally-adjacent roads; a dot for dead ends. */

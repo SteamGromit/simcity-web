@@ -17,6 +17,9 @@ const TOOLS: { id: ToolId | 'query'; label: string }[] = [
   { id: 'fire', label: 'Fire Station' },
   { id: 'police', label: 'Police Station' },
   { id: 'school', label: 'School' },
+  { id: 'terraWater', label: 'Water' },
+  { id: 'terraForest', label: 'Forest' },
+  { id: 'terraGrass', label: 'Level Land' },
 ];
 
 export function buildToolbar(

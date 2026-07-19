@@ -1,4 +1,4 @@
-import { GRID, Tile, Zone } from './types';
+import { GRID, Terrain, Tile, Zone } from './types';
 
 export function idx(x: number, y: number): number {
   return y * GRID + x;
@@ -37,6 +37,7 @@ export function forEachTile(cb: (x: number, y: number, i: number) => void): void
 export function blankTile(): Tile {
   return {
     zone: Zone.None,
+    terrain: Terrain.Grass,
     stage: 0,
     density: 1,
     powered: false,

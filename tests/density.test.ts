@@ -5,7 +5,13 @@ import { applyTool, newCity } from '../src/sim/city';
 import { developTile } from '../src/sim/develop';
 import { updateDemand } from '../src/sim/demand';
 import { deserialize, serialize } from '../src/sim/save';
-import { makeCity, zone } from './helpers';
+import { clearLand, makeCity, zone } from './helpers';
+
+function newFlatCity(seed: number) {
+  const city = newCity(seed);
+  clearLand(city);
+  return city;
+}
 
 const always = () => 0;
 
@@ -64,7 +70,7 @@ describe('density stage caps', () => {
 
 describe('density zoning tool', () => {
   test('zoning at higher density costs more and stamps the tile', () => {
-    const city = newCity(1);
+    const city = newFlatCity(1);
     applyTool(city, 'zoneR', 5, 5, 3);
     expect(city.tiles[idx(5, 5)].density).toBe(3);
     expect(city.funds).toBe(START_FUNDS - 20); // §5 × 4
@@ -73,20 +79,20 @@ describe('density zoning tool', () => {
   });
 
   test('non-zone tools ignore density', () => {
-    const city = newCity(1);
+    const city = newFlatCity(1);
     applyTool(city, 'road', 5, 5, 3);
     expect(city.funds).toBe(START_FUNDS - 10); // road stays §10
   });
 
   test('density survives a save round-trip', () => {
-    const city = newCity(1);
+    const city = newFlatCity(1);
     applyTool(city, 'zoneR', 5, 5, 2);
     const revived = deserialize(serialize(city));
     expect(revived!.tiles[idx(5, 5)].density).toBe(2);
   });
 
   test('junk density in a save degrades to low', () => {
-    const city = newCity(1);
+    const city = newFlatCity(1);
     const mangled = JSON.parse(serialize(city));
     mangled.tiles[0].density = 99;
     expect(deserialize(JSON.stringify(mangled))!.tiles[0].density).toBe(1);

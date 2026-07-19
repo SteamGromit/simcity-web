@@ -1,7 +1,7 @@
 import { collectBudget } from './budget';
 import { updateDemand } from './demand';
 import { developTile } from './develop';
-import { blankTile, idx, inBounds } from './grid';
+import { blankTile, idx, inBounds, neighbors4 } from './grid';
 import { updateLandValue } from './landvalue';
 import { updatePollution } from './pollution';
 import { updatePower } from './power';
@@ -16,6 +16,7 @@ import {
   GRID,
   HISTORY_MAX,
   START_FUNDS,
+  Terrain,
   TICKS_PER_MONTH,
   ToolId,
   Zone,
@@ -24,11 +25,49 @@ import {
 const DEV_SLICE = 512; // tiles given a development roll per tick
 const FIELD_INTERVAL = 4; // ticks between field recomputes
 
+/** Grow an organic blob of `terrain` from a random start; deterministic. */
+function growBlob(
+  tiles: CityState['tiles'],
+  rand: () => number,
+  terrain: Terrain,
+  size: number,
+): void {
+  const frontier: [number, number][] = [
+    [4 + Math.floor(rand() * (GRID - 8)), 4 + Math.floor(rand() * (GRID - 8))],
+  ];
+  let placed = 0;
+  let guard = size * 20;
+  while (placed < size && frontier.length > 0 && guard-- > 0) {
+    const k = Math.floor(rand() * frontier.length);
+    const [x, y] = frontier.splice(k, 1)[0];
+    if (!inBounds(x, y)) continue;
+    const t = tiles[idx(x, y)];
+    if (t.terrain !== Terrain.Grass) continue;
+    t.terrain = terrain;
+    placed++;
+    for (const [nx, ny] of neighbors4(x, y)) {
+      if (rand() < 0.75) frontier.push([nx, ny]);
+    }
+  }
+}
+
+function generateTerrain(tiles: CityState['tiles'], seed: number): void {
+  const rand = mulberry32(seed ^ 0x7e44a1);
+  growBlob(tiles, rand, Terrain.Water, 70 + Math.floor(rand() * 90));
+  if (rand() < 0.5) growBlob(tiles, rand, Terrain.Water, 40 + Math.floor(rand() * 50));
+  const forests = 3 + Math.floor(rand() * 3);
+  for (let i = 0; i < forests; i++) {
+    growBlob(tiles, rand, Terrain.Forest, 15 + Math.floor(rand() * 35));
+  }
+}
+
 export function newCity(seed: number): CityState {
+  const tiles = Array.from({ length: GRID * GRID }, blankTile);
+  generateTerrain(tiles, seed);
   return {
     version: 1,
     seed,
-    tiles: Array.from({ length: GRID * GRID }, blankTile),
+    tiles,
     funds: START_FUNDS,
     tick: 0,
     month: 0,
@@ -67,11 +106,28 @@ const TOOL_ZONE: Partial<Record<ToolId, Zone>> = {
 };
 
 export const ZONE_TOOLS: ToolId[] = ['zoneR', 'zoneC', 'zoneI'];
+const TERRAIN_TOOLS: ToolId[] = ['terraWater', 'terraForest', 'terraGrass'];
+
+const TOOL_TERRAIN: Partial<Record<ToolId, Terrain>> = {
+  terraWater: Terrain.Water,
+  terraForest: Terrain.Forest,
+  terraGrass: Terrain.Grass,
+};
+
+/** God-mode window: terrain sculpting is free until anything has developed. */
+function isPristine(city: CityState): boolean {
+  return city.population === 0 && city.jobs === 0;
+}
 
 /** Zone tools cost more at higher density; everything else has a flat cost. */
 export function toolCost(tool: ToolId, density: Density): number {
   const mult = ZONE_TOOLS.includes(tool) ? DENSITY_COST_MULT[density] : 1;
   return COSTS[tool] * mult;
+}
+
+function effectiveCost(city: CityState, tool: ToolId, density: Density): number {
+  if (TERRAIN_TOOLS.includes(tool) && isPristine(city)) return 0;
+  return toolCost(tool, density);
 }
 
 function validateTool(
@@ -82,9 +138,16 @@ function validateTool(
   density: Density,
 ): string | null {
   if (!inBounds(x, y)) return 'out of bounds';
-  if (city.funds < toolCost(tool, density)) return 'not enough funds';
+  if (city.funds < effectiveCost(city, tool, density)) return 'not enough funds';
   const t = city.tiles[idx(x, y)];
-  if (tool === 'bulldoze') return t.zone === Zone.None ? 'nothing to bulldoze' : null;
+  if (tool === 'bulldoze') {
+    return t.zone === Zone.None && t.terrain === Terrain.Grass ? 'nothing to bulldoze' : null;
+  }
+  if (TERRAIN_TOOLS.includes(tool)) {
+    if (t.zone !== Zone.None) return 'tile occupied';
+    return t.terrain === TOOL_TERRAIN[tool] ? 'no change' : null;
+  }
+  if (t.terrain !== Terrain.Grass) return 'cannot build on water or forest';
   if (tool === 'line' && t.zone === Zone.Road) return t.wire ? 'tile occupied' : null;
   return t.zone === Zone.None ? null : 'tile occupied';
 }
@@ -111,8 +174,14 @@ export function applyTool(
   if (err) return { ok: false, err };
 
   const t = city.tiles[idx(x, y)];
+  const cost = effectiveCost(city, tool, density);
   if (tool === 'bulldoze') {
+    // razing a structure keeps the ground; dozing bare forest/water clears it
+    const keepTerrain = t.zone !== Zone.None ? t.terrain : Terrain.Grass;
     city.tiles[idx(x, y)] = blankTile();
+    city.tiles[idx(x, y)].terrain = keepTerrain;
+  } else if (TERRAIN_TOOLS.includes(tool)) {
+    t.terrain = TOOL_TERRAIN[tool]!;
   } else if (tool === 'line' && t.zone === Zone.Road) {
     t.wire = true;
   } else {
@@ -121,7 +190,7 @@ export function applyTool(
     t.abandoned = false;
     if (ZONE_TOOLS.includes(tool)) t.density = density;
   }
-  city.funds -= toolCost(tool, density);
+  city.funds -= cost;
   return { ok: true };
 }
 

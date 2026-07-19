@@ -1,5 +1,13 @@
 import { blankTile } from './grid';
-import { CityState, GRID, HISTORY_MAX, MAX_STAGE_BY_DENSITY, Tile, Zone } from './types';
+import {
+  CityState,
+  GRID,
+  HISTORY_MAX,
+  MAX_STAGE_BY_DENSITY,
+  Terrain,
+  Tile,
+  Zone,
+} from './types';
 
 /** JSON can't hold Infinity; commute uses −1 on the wire. */
 export function serialize(city: CityState): string {
@@ -18,6 +26,7 @@ function reviveTile(raw: unknown): Tile {
   if (!raw || typeof raw !== 'object') return t;
   const r = raw as Record<string, unknown>;
   if (typeof r.zone === 'number' && r.zone >= Zone.None && r.zone <= Zone.School) t.zone = r.zone;
+  if (r.terrain === Terrain.Water || r.terrain === Terrain.Forest) t.terrain = r.terrain;
   if (r.density === 2 || r.density === 3) t.density = r.density;
   if (typeof r.stage === 'number' && Number.isInteger(r.stage) && r.stage >= 1 && r.stage <= 7) {
     t.stage = Math.min(r.stage, MAX_STAGE_BY_DENSITY[t.density]) as Tile['stage'];

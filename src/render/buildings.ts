@@ -151,7 +151,7 @@ function smokestack(ctx: CanvasRenderingContext2D, cx: number, cy: number, h: nu
   ctx.fillRect(cx, cy - h - 16, 5, 3);
 }
 
-function tree(ctx: CanvasRenderingContext2D, tx: number, ty: number) {
+export function tree(ctx: CanvasRenderingContext2D, tx: number, ty: number) {
   ctx.fillStyle = '#5d4534';
   ctx.fillRect(tx - 1, ty, 2, 6);
   ctx.beginPath();

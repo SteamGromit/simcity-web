@@ -34,7 +34,16 @@ let activeTool: ActiveTool = null;
 let activeDensity: Density = 1;
 
 /** Tools that drag out a filled rectangle rather than painting tile by tile. */
-const RECT_TOOLS = new Set(['zoneR', 'zoneC', 'zoneI', 'park', 'bulldoze']);
+const RECT_TOOLS = new Set([
+  'zoneR',
+  'zoneC',
+  'zoneI',
+  'park',
+  'bulldoze',
+  'terraWater',
+  'terraForest',
+  'terraGrass',
+]);
 
 // --- toast ---
 const toastEl = document.createElement('div');

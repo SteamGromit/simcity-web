@@ -1,5 +1,10 @@
 import { blankTile, idx } from '../src/sim/grid';
-import { CityState, GRID, Stage, Zone } from '../src/sim/types';
+import { CityState, GRID, Stage, Terrain, Zone } from '../src/sim/types';
+
+/** Flatten generated terrain to grass so tests can build anywhere. */
+export function clearLand(city: CityState): void {
+  for (const t of city.tiles) t.terrain = Terrain.Grass;
+}
 
 export function makeCity(): CityState {
   return {
