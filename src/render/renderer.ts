@@ -2,7 +2,16 @@ import { idx, inBounds } from '../sim/grid';
 import { mulberry32 } from '../sim/city';
 import { CityState, GRID, MAX_ELEV, Terrain, Zone } from '../sim/types';
 import { Automata } from './automata';
-import { drawBuilding, drawFire, drawPole, fillPoly, fillTile, strokeTile, tree } from './buildings';
+import {
+  drawBuilding,
+  drawFire,
+  drawPole,
+  drawRubble,
+  fillPoly,
+  fillTile,
+  strokeTile,
+  tree,
+} from './buildings';
 import { ELEV_PX, TileGeom, isoToScreen, screenToIso, setViewAngle, tileDepth, tileGeom } from './iso';
 import { OverlayId, drawOverlay } from './overlays';
 import { nightFactor, nightTint } from './daynight';
@@ -147,6 +156,7 @@ export class Renderer {
       const geom = tileGeom(x, y, t.elevation);
       this.drawCliffs(geom, city, x, y);
       this.drawGround(geom, city, x, y);
+      if (t.rubble > 0) drawRubble(ctx, geom, this.variants[i]);
       if (t.zone !== Zone.None && t.zone !== Zone.Road) {
         drawBuilding(ctx, geom, t.zone, t.stage, t.abandoned, t.powered, this.variants[i], this.night);
       }
