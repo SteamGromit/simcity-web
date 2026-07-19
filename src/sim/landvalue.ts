@@ -1,0 +1,32 @@
+import { tilesWithin } from './grid';
+import { CityState, GRID, Zone } from './types';
+
+const BASE = 0.3;
+const PARK_RADIUS = 3;
+
+/** Land value = base + park proximity − pollution − commute drag, clamped 0..1. */
+export function updateLandValue(city: CityState): void {
+  const parkBonus = new Float64Array(GRID * GRID);
+  for (let i = 0; i < city.tiles.length; i++) {
+    if (city.tiles[i].zone !== Zone.Park) continue;
+    const x = i % GRID;
+    const y = (i / GRID) | 0;
+    for (const [nx, ny] of tilesWithin(x, y, PARK_RADIUS)) {
+      const d = Math.max(Math.abs(nx - x), Math.abs(ny - y));
+      parkBonus[ny * GRID + nx] += 0.25 * (1 - d / (PARK_RADIUS + 1));
+    }
+  }
+
+  for (let i = 0; i < city.tiles.length; i++) {
+    const t = city.tiles[i];
+    const zoned =
+      t.zone === Zone.Residential || t.zone === Zone.Commercial || t.zone === Zone.Industrial;
+    const commutePenalty = !zoned
+      ? 0
+      : Number.isFinite(t.commute)
+        ? Math.min(0.25, t.commute / 40)
+        : 0.15;
+    const v = BASE + parkBonus[i] - 0.5 * t.pollution - commutePenalty;
+    t.landValue = Math.max(0, Math.min(1, v));
+  }
+}
