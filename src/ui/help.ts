@@ -39,6 +39,9 @@ export function buildHelp(root: HTMLElement) {
         <ul>
           <li>Zones develop only when <b>powered</b> and near a
               <b>road</b> that reaches jobs (R) or workers (C/I).</li>
+          <li><b>Water:</b> growth past stage 2 needs a powered
+              <b>Water Pump</b> by open water, connected via buildings or
+              <b>Pipes</b> (pipes cross under roads).</li>
           <li><b>Hills:</b> roads climb one level at a time — a 2-level
               cliff blocks them. Raise/Lower Land sculpts the terrain;
               the <b>Road</b> tool builds <b>bridges</b> over water.</li>

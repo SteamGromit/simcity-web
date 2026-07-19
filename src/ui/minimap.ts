@@ -17,6 +17,8 @@ const ZONE_COLORS: Record<Zone, string> = {
   [Zone.School]: '#b09a5e',
   [Zone.Hospital]: '#d8e2e6',
   [Zone.BusStop]: '#3f8f8a',
+  [Zone.WaterPump]: '#3f6fb0',
+  [Zone.WaterPipe]: '#5a7d9c',
 };
 
 export interface Camera {

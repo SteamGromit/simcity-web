@@ -225,6 +225,32 @@ export function drawBuilding(
     return;
   }
 
+  if (zone === Zone.WaterPump) {
+    // squat blue pumphouse with an intake stack
+    box(ctx, geom, 0.6, 12, 210, 45, 45);
+    ctx.fillStyle = '#7fb3d8';
+    ctx.fillRect(cx - 3, cy - 24, 6, 12);
+    ctx.fillStyle = '#2d5f8a';
+    ctx.fillRect(cx - 4, cy - 26, 8, 3);
+    if (!powered) drawNoPowerBolt(ctx, cx, cy - 30);
+    return;
+  }
+
+  if (zone === Zone.WaterPipe) {
+    // buried main: a low blue-grey conduit bump
+    fillPoly(
+      ctx,
+      [
+        [cx - 10, cy],
+        [cx, cy - 5],
+        [cx + 10, cy],
+        [cx, cy + 5],
+      ],
+      'hsl(207 25% 40%)',
+    );
+    return;
+  }
+
   if (zone === Zone.BusStop) {
     // small teal shelter with a stop-sign post
     box(ctx, geom, 0.45, 7, 178, 40, 42);

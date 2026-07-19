@@ -28,7 +28,7 @@ function reviveTile(raw: unknown): Tile {
   const t = blankTile();
   if (!raw || typeof raw !== 'object') return t;
   const r = raw as Record<string, unknown>;
-  if (typeof r.zone === 'number' && r.zone >= Zone.None && r.zone <= Zone.BusStop) {
+  if (typeof r.zone === 'number' && r.zone >= Zone.None && r.zone <= Zone.WaterPipe) {
     t.zone = r.zone;
   }
   if (r.terrain === Terrain.Water || r.terrain === Terrain.Forest) t.terrain = r.terrain;
@@ -43,8 +43,10 @@ function reviveTile(raw: unknown): Tile {
     if (!(t.zone === Zone.Road && t.terrain === Terrain.Water)) t.terrain = Terrain.Grass;
   }
   t.powered = r.powered === true;
+  t.watered = r.watered === true;
   t.abandoned = r.abandoned === true;
   t.wire = r.wire === true;
+  t.pipe = r.pipe === true;
   t.fireCov = finite(r.fireCov, 0);
   t.policeCov = finite(r.policeCov, 0);
   t.schoolCov = finite(r.schoolCov, 0);

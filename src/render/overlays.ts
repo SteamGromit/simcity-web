@@ -11,7 +11,8 @@ export type OverlayId =
   | 'fire'
   | 'police'
   | 'school'
-  | 'health';
+  | 'health'
+  | 'water';
 
 export const OVERLAY_LABELS: Record<OverlayId, string> = {
   power: 'Power',
@@ -22,6 +23,7 @@ export const OVERLAY_LABELS: Record<OverlayId, string> = {
   police: 'Police Cover',
   school: 'School Cover',
   health: 'Health Cover',
+  water: 'Water',
 };
 
 const COVERAGE_FIELD = {
@@ -37,6 +39,9 @@ function tint(city: CityState, i: number, overlay: OverlayId): string | null {
     case 'power':
       if (t.zone === Zone.None || t.zone === Zone.Road) return null;
       return t.powered ? 'rgba(80,220,100,0.45)' : 'rgba(230,60,50,0.5)';
+    case 'water':
+      if (t.zone === Zone.None || t.zone === Zone.Road) return t.pipe ? 'rgba(80,160,230,0.5)' : null;
+      return t.watered ? 'rgba(80,160,230,0.45)' : 'rgba(230,60,50,0.5)';
     case 'pollution':
       if (t.pollution <= 0.02) return null;
       return `rgba(122,72,30,${Math.min(0.75, t.pollution * 0.8)})`;

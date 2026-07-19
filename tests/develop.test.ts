@@ -18,6 +18,7 @@ function setup(z: Zone, stage: 0 | 1 | 2 | 3 = 0): CityState {
   t.fireCov = 1;
   t.policeCov = 1;
   t.schoolCov = 1;
+  t.watered = true;
   return city;
 }
 
