@@ -1,5 +1,6 @@
 import { CityState, DisasterKind, ORDINANCES } from '../sim/types';
 import { getSkin, setSkin, SKINS } from '../render/skins';
+import { getWeatherFx, setWeatherFx } from '../render/fx';
 import { adviseTips } from '../sim/tips';
 
 /** City Hall: the advisor board (every active tip) and ordinance toggles. */
@@ -22,6 +23,10 @@ export function buildCityHall(
     <div id="disaster-list"></div>
     <h4>City style</h4>
     <div id="skin-list"></div>
+    <h4>Display</h4>
+    <label class="ordinance" id="weatherfx-row" title="Rain, snow, and cloud visuals. The simulation (and hurricane rain) is unaffected.">
+      <input type="checkbox" id="weatherfx-box"><span>Weather effects</span>
+    </label>
   `;
   root.appendChild(panel);
 
@@ -75,6 +80,14 @@ export function buildCityHall(
     skinList.appendChild(btn);
   }
   syncSkins();
+
+  const fxBox = panel.querySelector('#weatherfx-box') as HTMLInputElement;
+  fxBox.checked = getWeatherFx();
+  fxBox.addEventListener('change', () => {
+    setWeatherFx(fxBox.checked);
+    localStorage.setItem('simcity.weatherfx', fxBox.checked ? '1' : '0');
+    onToggle();
+  });
 
   let lastTipRender = 0;
   const syncBoxes = () => {

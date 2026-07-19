@@ -7,6 +7,7 @@ import { ELEV_PX, TileGeom, isoToScreen, screenToIso, setViewAngle, tileDepth, t
 import { OverlayId, drawOverlay } from './overlays';
 import { nightFactor, nightTint } from './daynight';
 import { getSkin } from './skins';
+import { getWeatherFx } from './fx';
 
 export interface ViewState {
   hover: { x: number; y: number } | null;
@@ -20,8 +21,13 @@ export interface ViewState {
 
 const TAU = Math.PI * 2;
 
+/** Automata time multiplier per sim speed (pause/normal/fast/cheetah). */
+const AUTOMATA_SCALE = [0, 1, 1.8, 3] as const;
+
 export class Renderer {
   camera = { x: 0, y: 0, zoom: 1 };
+  /** Current sim speed, fed by the UI so street life keeps pace. */
+  simSpeed: 0 | 1 | 2 | 3 = 1;
   private angle = 0;
   private ctx: CanvasRenderingContext2D;
   private variants: Float32Array;
@@ -115,7 +121,7 @@ export class Renderer {
     if (this.orderDirty) this.rebuildOrder();
     const now = performance.now();
     this.night = nightFactor(now);
-    this.automata.step(city, now);
+    this.automata.step(city, now, AUTOMATA_SCALE[this.simSpeed]);
 
     const dpr = window.devicePixelRatio || 1;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -175,9 +181,10 @@ export class Renderer {
     }
 
     const storm = city.disasters.hurricaneTicks > 0;
-    if (storm || city.weather.kind === 'rain') this.drawRain(now, storm ? 1 : 0.45);
-    else if (city.weather.kind === 'snow') this.drawSnow(now);
-    else if (city.weather.kind === 'cloudy') {
+    const fx = getWeatherFx(); // hurricane rain always shows — it's a disaster cue
+    if (storm || (fx && city.weather.kind === 'rain')) this.drawRain(now, storm ? 1 : 0.45);
+    else if (fx && city.weather.kind === 'snow') this.drawSnow(now);
+    else if (fx && city.weather.kind === 'cloudy') {
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = 'rgba(120, 130, 150, 0.10)';

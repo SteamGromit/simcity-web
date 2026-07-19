@@ -4,6 +4,19 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.20.1] — 2026-07-19 · Polish
+
+### Added
+- **Weather effects toggle** (City Hall → Display): switch off the
+  ambient rain/snow/cloud visuals if you prefer a clear view. The
+  simulation effects, the HUD weather emoji, and hurricane rain (a
+  disaster cue) are unaffected. Remembered like a preference.
+
+### Changed
+- **Street life now keeps pace with the simulation speed**: cars and
+  pedestrians freeze when paused, stroll at normal speed, and hustle at
+  fast/cheetah — instead of ambling on wall-clock time regardless.
+
 ## [0.20.0] — 2026-07-19 · City styles
 
 ### Added
