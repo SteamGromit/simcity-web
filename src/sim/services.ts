@@ -1,5 +1,4 @@
-import { idx } from './grid';
-import { tilesWithin } from './grid';
+import { idx, tilesWithin } from './grid';
 import { CityState, FIRE_RISK, GRID, SERVICE_RADII, Zone } from './types';
 
 const SERVICES: { zone: Zone; radius: number; field: 'fireCov' | 'policeCov' | 'schoolCov' }[] = [
@@ -26,7 +25,8 @@ export function updateCoverage(city: CityState): void {
     const y = (i / GRID) | 0;
     for (const [nx, ny] of tilesWithin(x, y, service.radius)) {
       const d = Math.max(Math.abs(nx - x), Math.abs(ny - y));
-      const cov = 1 - d / service.radius;
+      // R+1 denominator keeps the rim ring covered (same convention as parks)
+      const cov = 1 - d / (service.radius + 1);
       const t = city.tiles[idx(nx, ny)];
       if (cov > t[service.field]) t[service.field] = cov;
     }

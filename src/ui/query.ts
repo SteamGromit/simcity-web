@@ -38,6 +38,14 @@ export function buildQuery(root: HTMLElement) {
         rows.push(['Traffic', String(t.traffic)]);
         if (t.wire) rows.push(['Power line', 'overhead']);
       }
+      if (
+        t.zone === Zone.FireStation ||
+        t.zone === Zone.PoliceStation ||
+        t.zone === Zone.School ||
+        t.zone === Zone.PowerPlant
+      ) {
+        rows.push(['Powered', t.powered ? 'yes' : 'no']);
+      }
       rows.push(['Land value', `${Math.round(t.landValue * 100)}%`]);
       rows.push(['Pollution', `${Math.round(t.pollution * 100)}%`]);
 

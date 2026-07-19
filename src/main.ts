@@ -2,7 +2,7 @@ import './ui/style.css';
 import { applyTool, canApply, mulberry32, newCity, simTick } from './sim/city';
 import { idx } from './sim/grid';
 import { deserialize, serialize } from './sim/save';
-import { CityState } from './sim/types';
+import { CityState, Zone } from './sim/types';
 import { Renderer, ViewState } from './render/renderer';
 import { OverlayId } from './render/overlays';
 import { ActiveTool, buildToolbar } from './ui/toolbar';
@@ -97,6 +97,7 @@ const hud = buildHud(
       renderer.reseed(city.seed);
       hud.syncTaxes(city);
       toast('City loaded', 'info');
+      advisoryForUnprotectedCity();
     },
     newCity() {
       if (!window.confirm('Start a new city? Unsaved progress is lost.')) return;
@@ -108,6 +109,20 @@ const hud = buildHud(
   },
 );
 setSpeed(1);
+
+/** Saves from before civic services existed have no fire protection — warn once. */
+function advisoryForUnprotectedCity() {
+  const hasStation = city.tiles.some((t) => t.zone === Zone.FireStation);
+  const hasBuildings = city.tiles.some(
+    (t) =>
+      t.stage > 0 &&
+      (t.zone === Zone.Residential || t.zone === Zone.Commercial || t.zone === Zone.Industrial),
+  );
+  if (hasBuildings && !hasStation) {
+    city.notices.push('Advisory: buildings without fire coverage can burn — build fire stations.');
+  }
+}
+advisoryForUnprotectedCity();
 
 // --- input ---
 function toolAllowed(tool: ActiveTool, x: number, y: number): boolean {
@@ -226,7 +241,9 @@ window.addEventListener('resize', () => renderer.resize());
 // --- render loop ---
 function frame() {
   if (city.notices.length > 0) {
-    toast(city.notices[city.notices.length - 1]);
+    const n = city.notices.length;
+    const last = city.notices[n - 1];
+    toast(n === 1 ? last : `${last} (+${n - 1} more)`);
     city.notices.length = 0;
   }
   renderer.draw(city, view);

@@ -53,7 +53,7 @@ function tint(city: CityState, i: number, overlay: OverlayId): string | null {
       const developable =
         t.zone === Zone.Residential || t.zone === Zone.Commercial || t.zone === Zone.Industrial;
       if (cov > 0) return `rgba(80,220,100,${0.15 + 0.4 * cov})`;
-      if (developable && t.stage > 0) return 'rgba(230,60,50,0.5)';
+      if (developable && t.stage > 0 && !t.abandoned) return 'rgba(230,60,50,0.5)';
       return null;
     }
   }

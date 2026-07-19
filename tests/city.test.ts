@@ -164,6 +164,18 @@ describe('save round-trip', () => {
     expect(deserialize(mangled)).toBeNull();
   });
 
+  test('stations and notices survive a round-trip; junk notices are dropped', () => {
+    const city = buildStarterTown(9);
+    applyTool(city, 'fire', 9, 7);
+    city.notices.push('Fire! A building at (5, 8) burned down — no fire coverage.');
+    const revived = deserialize(serialize(city));
+    expect(revived).toEqual(city);
+    const junk = JSON.parse(serialize(city));
+    junk.notices = ['ok', 42, null, 'also ok'];
+    const cleaned = deserialize(JSON.stringify(junk));
+    expect(cleaned!.notices).toEqual(['ok', 'also ok']);
+  });
+
   test('malformed tile fields degrade to blank defaults, never NaN', () => {
     const tiles = JSON.stringify(Array.from({ length: GRID * GRID }, () => ({})));
     const json = `{"version":1,"seed":1,"tiles":${tiles},"funds":100,"tick":0,"month":0,"taxes":{"r":0.09,"c":0.09,"i":0.09}}`;
