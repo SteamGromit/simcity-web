@@ -31,6 +31,7 @@ function desirability(t: Tile): number {
 /** Service coverage required before a building may reach `next` stage. */
 function servicesAllow(t: Tile, next: number): boolean {
   if (next >= 2 && t.fireCov <= 0) return false;
+  if (next >= 3 && !t.watered) return false; // wells only carry a building so far
   if (next >= 3) {
     if (t.policeCov <= 0) return false;
     if (t.zone !== Zone.Industrial && t.schoolCov <= 0) return false;

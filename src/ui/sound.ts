@@ -22,6 +22,8 @@ const TOOL_SOUNDS: Record<ToolId, SoundSpec> = {
   school: { wave: 'triangle', freq: 350, freqEnd: 250, dur: 0.14, vol: 0.5 },
   hospital: { wave: 'triangle', freq: 260, freqEnd: 180, dur: 0.14, vol: 0.5 },
   bus: { wave: 'triangle', freq: 380, freqEnd: 300, dur: 0.12, vol: 0.45 },
+  pump: { wave: 'triangle', freq: 220, freqEnd: 160, dur: 0.18, vol: 0.5 },
+  pipe: { wave: 'sine', freq: 340, freqEnd: 300, dur: 0.05, vol: 0.3 },
   terraWater: { wave: 'noise', freq: 0, dur: 0.18, vol: 0.35 },
   terraForest: { wave: 'noise', freq: 0, dur: 0.13, vol: 0.25 },
   terraGrass: { wave: 'noise', freq: 0, dur: 0.1, vol: 0.2 },

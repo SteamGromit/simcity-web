@@ -90,6 +90,7 @@ describe('adviseTips', () => {
     zone(city, 10, 11, Zone.Residential, 2);
     const t = city.tiles[idx(10, 11)];
     t.powered = true;
+    t.watered = true;
     t.fireCov = 0.8;
     expect(ids(city)).toEqual([]);
   });

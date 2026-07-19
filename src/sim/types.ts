@@ -14,6 +14,8 @@ export enum Zone {
   School,
   Hospital,
   BusStop,
+  WaterPump,
+  WaterPipe,
 }
 
 export type Stage = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -35,9 +37,13 @@ export interface Tile {
   /** Zoned density (R/C/I): caps development at stage 3 / 5 / 7. */
   density: Density;
   powered: boolean;
+  /** Connected to a working water pump; stages 3+ require it. */
+  watered: boolean;
   abandoned: boolean;
   /** Power line strung over a road tile (lines elsewhere use Zone.PowerLine). */
   wire: boolean;
+  /** Water main under a road tile (pipes elsewhere use Zone.WaterPipe). */
+  pipe: boolean;
   /** Service coverage 0..1 from powered stations, refreshed by the sim. */
   fireCov: number;
   policeCov: number;
@@ -161,6 +167,8 @@ export type ToolId =
   | 'school'
   | 'hospital'
   | 'bus'
+  | 'pump'
+  | 'pipe'
   | 'terraWater'
   | 'terraForest'
   | 'terraGrass'
@@ -181,6 +189,8 @@ export const COSTS: Record<ToolId, number> = {
   school: 400,
   hospital: 600,
   bus: 150,
+  pump: 300,
+  pipe: 5,
   terraWater: 25,
   terraForest: 10,
   terraGrass: 5,
@@ -193,6 +203,9 @@ export const COSTS: Record<ToolId, number> = {
 export const MAX_ELEV = 3;
 /** Flat cost for a road tile laid over water. */
 export const BRIDGE_COST = 50;
+
+/** A pump only works within this Chebyshev distance of open water. */
+export const PUMP_WATER_RANGE = 2;
 
 /** Commuter volume a road tile carries comfortably; beyond it, congestion. */
 export const ROAD_CAPACITY = 12;

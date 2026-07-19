@@ -29,6 +29,7 @@ function primeTile(density: 1 | 2 | 3, z: Zone = Zone.Residential) {
   t.policeCov = 1;
   t.schoolCov = 1;
   t.healthCov = 1;
+  t.watered = true;
   city.demand = { r: 1, c: 1, i: 1 };
   return city;
 }

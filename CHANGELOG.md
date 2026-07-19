@@ -4,6 +4,18 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.14.0] — 2026-07-19 · Water utility
+
+### Added
+- **Water Pumps** (§300, §25/mo) and **Pipes** (§5): pumps only work
+  powered and within 2 tiles of open water — geography matters. Water
+  flows through adjacent zones and buildings like the power grid; pipes
+  bridge gaps and cross under roads (mirroring power lines). The Water
+  data view shows what's connected.
+- **Growth past stage 2 requires running water** — wells only carry a
+  building so far. The advisor warns when buildings run dry; the query
+  tool shows a Watered row.
+
 ## [0.13.0] — 2026-07-19 · City Hall
 
 ### Added

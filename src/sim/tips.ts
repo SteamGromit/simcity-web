@@ -8,6 +8,7 @@ export type TipId =
   | 'unpowered-zones'
   | 'no-road-access'
   | 'no-fire-coverage'
+  | 'no-water'
   | 'no-health'
   | 'congestion'
   | 'deficit'
@@ -23,6 +24,8 @@ export interface Tip {
 const TIP_TEXT: Record<TipId, string> = {
   'fire-burning':
     'A fire is raging! It spreads to neighbors — fire coverage fights it; bulldoze a firebreak.',
+  'no-water':
+    'Buildings need running water to grow past stage 2 — build a Water Pump by open water and lay Pipes.',
   'no-health':
     'Tall buildings need a Hospital in reach to keep growing — build one near your towers.',
   congestion:
@@ -58,6 +61,7 @@ export function adviseTips(city: CityState): Tip[] {
   let roadlessZones = 0;
   let uncoveredBuildings = 0;
   let unhealthyTowers = 0;
+  let dryBuildings = 0;
   let pollutedHomes = 0;
   let abandonedCount = 0;
   let burningCount = 0;
@@ -76,6 +80,7 @@ export function adviseTips(city: CityState): Tip[] {
     if (!roadAccess(city, i % GRID, (i / GRID) | 0)) roadlessZones++;
     if (t.stage > 0 && !t.abandoned) {
       if (t.fireCov === 0) uncoveredBuildings++;
+      if (t.stage >= 2 && !t.watered) dryBuildings++;
       if (t.stage >= 4 && t.zone !== Zone.Industrial && t.healthCov === 0) unhealthyTowers++;
       if (t.zone === Zone.Residential && t.pollution > 0.5) pollutedHomes++;
     }
@@ -93,6 +98,7 @@ export function adviseTips(city: CityState): Tip[] {
   if (hasPlant && unpoweredZones > 0) add('unpowered-zones');
   if (roadlessZones > 0) add('no-road-access');
   if (uncoveredBuildings > 0) add('no-fire-coverage');
+  if (dryBuildings > 0) add('no-water');
   if (unhealthyTowers > 0) add('no-health');
   if (jammedRoads >= 5) add('congestion');
   if (city.lastBudget.net < 0) add('deficit');

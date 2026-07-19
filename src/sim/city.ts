@@ -5,6 +5,7 @@ import { blankTile, idx, inBounds, neighbors4 } from './grid';
 import { updateLandValue } from './landvalue';
 import { updatePollution } from './pollution';
 import { updatePower } from './power';
+import { updateWater } from './water';
 import { fireRisk, updateCoverage, updateFires } from './services';
 import { updateTraffic } from './traffic';
 import {
@@ -151,6 +152,8 @@ const TOOL_ZONE: Partial<Record<ToolId, Zone>> = {
   school: Zone.School,
   hospital: Zone.Hospital,
   bus: Zone.BusStop,
+  pump: Zone.WaterPump,
+  pipe: Zone.WaterPipe,
 };
 
 export const ZONE_TOOLS: ToolId[] = ['zoneR', 'zoneC', 'zoneI'];
@@ -226,6 +229,7 @@ function validateTool(
     }
   }
   if (tool === 'line' && t.zone === Zone.Road) return t.wire ? 'tile occupied' : null;
+  if (tool === 'pipe' && t.zone === Zone.Road) return t.pipe ? 'tile occupied' : null;
   return t.zone === Zone.None ? null : 'tile occupied';
 }
 
@@ -265,6 +269,8 @@ export function applyTool(
     t.elevation += tool === 'terraRaise' ? 1 : -1;
   } else if (tool === 'line' && t.zone === Zone.Road) {
     t.wire = true;
+  } else if (tool === 'pipe' && t.zone === Zone.Road) {
+    t.pipe = true;
   } else {
     t.zone = TOOL_ZONE[tool]!;
     t.stage = 0;
@@ -285,6 +291,7 @@ export function simTick(city: CityState, rand: () => number): void {
 
   if (city.tick % FIELD_INTERVAL === 0) {
     updatePower(city);
+    updateWater(city);
     updateCoverage(city);
     updateTraffic(city);
     updatePollution(city);
