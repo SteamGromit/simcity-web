@@ -1,6 +1,7 @@
 import { idx, inBounds } from '../sim/grid';
 import { mulberry32 } from '../sim/city';
 import { CityState, GRID, Zone } from '../sim/types';
+import { Automata } from './automata';
 import { drawBuilding, drawPole, diamond } from './buildings';
 import { TILE_H, TILE_W, isoToScreen, screenToIso } from './iso';
 import { OverlayId, drawOverlay } from './overlays';
@@ -20,6 +21,7 @@ export class Renderer {
   camera = { x: 0, y: 0, zoom: 1 };
   private ctx: CanvasRenderingContext2D;
   private variants: Float32Array;
+  private automata = new Automata();
 
   constructor(private canvas: HTMLCanvasElement, seed: number) {
     this.ctx = canvas.getContext('2d')!;
@@ -57,6 +59,7 @@ export class Renderer {
 
   draw(city: CityState, view: ViewState) {
     const { ctx } = this;
+    this.automata.step(city, performance.now());
     const dpr = window.devicePixelRatio || 1;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#10151c';
@@ -84,6 +87,7 @@ export class Renderer {
         if (t.zone !== Zone.None && t.zone !== Zone.Road) {
           drawBuilding(ctx, sx, sy, t.zone, t.stage, t.abandoned, t.powered, this.variants[i]);
         }
+        this.automata.drawTile(ctx, i);
       }
     }
 
