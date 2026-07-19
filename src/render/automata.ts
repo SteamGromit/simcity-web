@@ -31,8 +31,7 @@ interface Ped {
 }
 
 function center(i: number): { sx: number; sy: number } {
-  const { sx, sy } = isoToScreen(i % GRID, (i / GRID) | 0);
-  return { sx, sy: sy + TILE_H / 2 };
+  return isoToScreen((i % GRID) + 0.5, ((i / GRID) | 0) + 0.5);
 }
 
 /**

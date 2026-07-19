@@ -4,6 +4,18 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.6.0] — 2026-07-19 · Free view rotation
+
+### Added
+- The camera rotates a full 360° (hold Q/E), pivoting around the screen
+  center. The projection, building faces, lighting, picking, overlays,
+  automata, and the minimap viewport all follow the view angle.
+
+### Changed
+- Rendering is now geometry-driven: ground tiles are projected quads,
+  building walls are visibility-tested per view angle, and paint order is a
+  depth sort recomputed as the camera turns.
+
 ## [0.5.0] — 2026-07-19 · Quality of life & automata
 
 ### Added
