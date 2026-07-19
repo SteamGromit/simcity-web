@@ -1,0 +1,94 @@
+import { describe, expect, test } from 'vitest';
+import { idx } from '../src/sim/grid';
+import { CityState, Zone } from '../src/sim/types';
+import { developTile } from '../src/sim/develop';
+import { makeCity, zone } from './helpers';
+
+const always = () => 0; // rand() < p always fires for any p > 0
+
+/** Zoned tile at (5,5) with a road at (5,6); caller tweaks fields. */
+function setup(z: Zone, stage: 0 | 1 | 2 | 3 = 0): CityState {
+  const city = makeCity();
+  zone(city, 5, 5, z, stage);
+  zone(city, 5, 6, Zone.Road);
+  const t = city.tiles[idx(5, 5)];
+  t.powered = true;
+  t.landValue = 0.5;
+  t.commute = 3;
+  return city;
+}
+
+describe('developTile', () => {
+  test('an eligible zone with positive demand builds stage 1', () => {
+    const city = setup(Zone.Residential);
+    city.demand.r = 0.5;
+    developTile(city, 5, 5, always);
+    expect(city.tiles[idx(5, 5)].stage).toBe(1);
+  });
+
+  test('buildings grow a stage at a time when land value allows', () => {
+    const city = setup(Zone.Residential, 1);
+    city.demand.r = 0.8;
+    developTile(city, 5, 5, always);
+    expect(city.tiles[idx(5, 5)].stage).toBe(2);
+    developTile(city, 5, 5, always); // LV 0.5 < 0.55 gate for stage 3
+    expect(city.tiles[idx(5, 5)].stage).toBe(2);
+    city.tiles[idx(5, 5)].landValue = 0.7;
+    developTile(city, 5, 5, always);
+    expect(city.tiles[idx(5, 5)].stage).toBe(3);
+  });
+
+  test('industry ignores the land value gates', () => {
+    const city = setup(Zone.Industrial, 2);
+    city.demand.i = 0.8;
+    city.tiles[idx(5, 5)].landValue = 0.05;
+    developTile(city, 5, 5, always);
+    expect(city.tiles[idx(5, 5)].stage).toBe(3);
+  });
+
+  test('losing power downgrades, then abandons', () => {
+    const city = setup(Zone.Residential, 2);
+    city.demand.r = 0.5;
+    city.tiles[idx(5, 5)].powered = false;
+    developTile(city, 5, 5, always);
+    expect(city.tiles[idx(5, 5)].stage).toBe(1);
+    developTile(city, 5, 5, always);
+    expect(city.tiles[idx(5, 5)].abandoned).toBe(true);
+  });
+
+  test('abandoned buildings redevelop when conditions recover', () => {
+    const city = setup(Zone.Residential, 1);
+    city.tiles[idx(5, 5)].abandoned = true;
+    city.demand.r = 0.5;
+    developTile(city, 5, 5, always);
+    const t = city.tiles[idx(5, 5)];
+    expect(t.abandoned).toBe(false);
+    expect(t.stage).toBe(1);
+  });
+
+  test('no road access, no development — ever', () => {
+    const city = makeCity();
+    zone(city, 30, 30, Zone.Commercial);
+    city.tiles[idx(30, 30)].powered = true;
+    city.demand.c = 1;
+    developTile(city, 30, 30, always);
+    expect(city.tiles[idx(30, 30)].stage).toBe(0);
+  });
+
+  test('collapsed demand hollows the city out', () => {
+    const city = setup(Zone.Industrial, 2);
+    city.demand.i = -0.6;
+    developTile(city, 5, 5, always);
+    expect(city.tiles[idx(5, 5)].stage).toBe(1);
+    developTile(city, 5, 5, always);
+    expect(city.tiles[idx(5, 5)].abandoned).toBe(true);
+  });
+
+  test('mildly negative demand leaves standing buildings alone', () => {
+    const city = setup(Zone.Residential, 2);
+    city.demand.r = -0.1;
+    developTile(city, 5, 5, always);
+    expect(city.tiles[idx(5, 5)].stage).toBe(2);
+    expect(city.tiles[idx(5, 5)].abandoned).toBe(false);
+  });
+});
