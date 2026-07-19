@@ -8,6 +8,8 @@ import { OverlayId } from './render/overlays';
 import { ActiveTool, buildToolbar } from './ui/toolbar';
 import { buildHud } from './ui/hud';
 import { buildQuery } from './ui/query';
+import { buildCharts } from './ui/charts';
+import { buildMinimap } from './ui/minimap';
 
 const SAVE_KEY = 'simcity.save';
 const SPEED_MS = [0, 250, 83, 28];
@@ -27,9 +29,12 @@ let city: CityState = (() => {
 let rand = mulberry32(city.seed + city.tick);
 const renderer = new Renderer(canvas, city.seed);
 
-const view: ViewState = { hover: null, hoverValid: true, overlay: null };
+const view: ViewState = { hover: null, hoverValid: true, overlay: null, rect: null };
 let activeTool: ActiveTool = null;
 let activeDensity: Density = 1;
+
+/** Tools that drag out a filled rectangle rather than painting tile by tile. */
+const RECT_TOOLS = new Set(['zoneR', 'zoneC', 'zoneI', 'park', 'bulldoze']);
 
 // --- toast ---
 const toastEl = document.createElement('div');
@@ -80,11 +85,17 @@ const toolbar = buildToolbar(
     activeDensity = density;
   },
 );
+const charts = buildCharts(uiRoot, () => city);
+const minimap = buildMinimap(uiRoot, (wx, wy) => {
+  renderer.camera.x = wx - canvas.clientWidth / 2 / renderer.camera.zoom;
+  renderer.camera.y = wy - canvas.clientHeight / 2 / renderer.camera.zoom;
+});
 const hud = buildHud(
   uiRoot,
   () => city,
   {
     setSpeed,
+    toggleCharts: () => charts.toggle(),
     save() {
       localStorage.setItem(SAVE_KEY, serialize(city));
       toast('City saved', 'info');
@@ -136,9 +147,25 @@ function toolAllowed(tool: ActiveTool, x: number, y: number): boolean {
 
 let painting = false;
 let lastPainted = -1;
+let rectAnchor: { x: number; y: number } | null = null;
 let panning = false;
 let spaceHeld = false;
 let panStart = { x: 0, y: 0, camX: 0, camY: 0 };
+
+function applyRect(rect: { x0: number; y0: number; x1: number; y1: number }) {
+  if (!activeTool || activeTool === 'query') return;
+  let applied = 0;
+  let broke = false;
+  for (let y = Math.min(rect.y0, rect.y1); y <= Math.max(rect.y0, rect.y1); y++) {
+    for (let x = Math.min(rect.x0, rect.x1); x <= Math.max(rect.x0, rect.x1); x++) {
+      const res = applyTool(city, activeTool, x, y, activeDensity);
+      if (res.ok) applied++;
+      else if (res.err === 'not enough funds') broke = true;
+    }
+  }
+  if (broke) toast('Ran out of funds before finishing');
+  else if (applied === 0) toast('Nothing to build there');
+}
 
 function paintAt(x: number, y: number, firstClick: boolean) {
   if (!activeTool || activeTool === 'query') return;
@@ -162,6 +189,11 @@ canvas.addEventListener('pointerdown', (e) => {
     query.show(city, tile.x, tile.y, e.clientX, e.clientY);
     return;
   }
+  if (activeTool && RECT_TOOLS.has(activeTool)) {
+    rectAnchor = tile;
+    view.rect = { x0: tile.x, y0: tile.y, x1: tile.x, y1: tile.y };
+    return;
+  }
   painting = true;
   lastPainted = idx(tile.x, tile.y);
   paintAt(tile.x, tile.y, true);
@@ -176,6 +208,9 @@ canvas.addEventListener('pointermove', (e) => {
   const tile = renderer.pick(e.clientX, e.clientY);
   view.hover = tile;
   view.hoverValid = tile ? toolAllowed(activeTool, tile.x, tile.y) : true;
+  if (rectAnchor && tile) {
+    view.rect = { x0: rectAnchor.x, y0: rectAnchor.y, x1: tile.x, y1: tile.y };
+  }
   if (painting && tile && idx(tile.x, tile.y) !== lastPainted) {
     lastPainted = idx(tile.x, tile.y);
     paintAt(tile.x, tile.y, false);
@@ -183,6 +218,9 @@ canvas.addEventListener('pointermove', (e) => {
 });
 
 window.addEventListener('pointerup', () => {
+  if (rectAnchor && view.rect) applyRect(view.rect);
+  rectAnchor = null;
+  view.rect = null;
   painting = false;
   panning = false;
   lastPainted = -1;
@@ -209,6 +247,8 @@ window.addEventListener('keydown', (e) => {
       e.preventDefault();
       break;
     case 'Escape':
+      rectAnchor = null;
+      view.rect = null;
       toolbar.clearTool();
       query.hide();
       break;
@@ -252,6 +292,8 @@ function frame() {
   }
   renderer.draw(city, view);
   hud.update(city);
+  charts.update(city);
+  minimap.update(city, renderer.camera, canvas);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

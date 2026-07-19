@@ -9,6 +9,8 @@ export interface ViewState {
   hover: { x: number; y: number } | null;
   hoverValid: boolean;
   overlay: OverlayId | null;
+  /** Pending rectangle selection (zone/park/bulldoze drag), inclusive corners. */
+  rect: { x0: number; y0: number; x1: number; y1: number } | null;
 }
 
 const HW = TILE_W / 2;
@@ -86,6 +88,23 @@ export class Renderer {
     }
 
     if (view.overlay) drawOverlay(ctx, city, view.overlay);
+
+    if (view.rect) {
+      const { x0, y0, x1, y1 } = view.rect;
+      ctx.fillStyle = 'rgba(255,255,255,0.22)';
+      for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) {
+        for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
+          const { sx, sy } = isoToScreen(x, y);
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.lineTo(sx + HW, sy + HH);
+          ctx.lineTo(sx, sy + TILE_H);
+          ctx.lineTo(sx - HW, sy + HH);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+    }
 
     if (view.hover) {
       const { sx, sy } = isoToScreen(view.hover.x, view.hover.y);
