@@ -13,6 +13,8 @@ export interface ViewState {
   overlay: OverlayId | null;
   /** Pending rectangle selection (zone/park/bulldoze drag), inclusive corners. */
   rect: { x0: number; y0: number; x1: number; y1: number } | null;
+  /** Pending road line (adjustable until released). */
+  line: [number, number][] | null;
 }
 
 const TAU = Math.PI * 2;
@@ -164,6 +166,12 @@ export class Renderer {
         for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
           fillTile(ctx, tileGeom(x, y, elevOf(x, y)), 'rgba(255,255,255,0.22)');
         }
+      }
+    }
+
+    if (view.line) {
+      for (const [x, y] of view.line) {
+        fillTile(ctx, tileGeom(x, y, elevOf(x, y)), 'rgba(255,235,150,0.35)');
       }
     }
 

@@ -90,7 +90,8 @@ simulation in your favor.
 
 | Control | Action |
 | --- | --- |
-| Left click / drag | apply tool (zones, parks, bulldoze drag out a rectangle; roads paint) |
+| Left click / drag | apply tool (zones, parks, bulldoze drag rectangles; roads draw an adjustable line) |
+| Tool keys | B bulldoze · R road · 1/2/3 zones · P plant · L line · K park · F/V/S/D services · U bus · W/X water · I query |
 | Minimap click | jump the camera |
 | Charts button | population and funds history |
 | Query tool | inspect any tile |
@@ -101,6 +102,10 @@ simulation in your favor.
 | M | mute / unmute sound |
 | Esc | deselect tool |
 | ⏸ ▶ ▶▶ ▶▶▶ | pause / normal / fast / cheetah |
+
+Panels are yours to arrange: drag the toolbar, HUD, and info panels by
+their title bars, and click a toolbar section header to fold that group
+away — everything is remembered.
 
 Save/Load keeps one city in your browser's localStorage.
 

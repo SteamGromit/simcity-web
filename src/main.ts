@@ -1,5 +1,6 @@
 import './ui/style.css';
 import { applyTool, canApply, mulberry32, newCity, simTick } from './sim/city';
+import { roadLine } from './sim/grid';
 import { idx } from './sim/grid';
 import { deserialize, serialize } from './sim/save';
 import { CityState, Density, Zone } from './sim/types';
@@ -11,6 +12,8 @@ import { buildQuery } from './ui/query';
 import { buildCharts } from './ui/charts';
 import { buildMinimap } from './ui/minimap';
 import { buildCityHall } from './ui/cityhall';
+import { makeDraggable } from './ui/drag';
+import { TOOL_KEYS } from './ui/shortcuts';
 import { buildHelp, buildTipBar } from './ui/help';
 import { adviseTips } from './sim/tips';
 import { ambientLevel, createSoundPlayer, soundFor, UI_SOUNDS } from './ui/sound';
@@ -33,7 +36,7 @@ let city: CityState = (() => {
 let rand = mulberry32(city.seed + city.tick);
 const renderer = new Renderer(canvas, city.seed);
 
-const view: ViewState = { hover: null, hoverValid: true, overlay: null, rect: null };
+const view: ViewState = { hover: null, hoverValid: true, overlay: null, rect: null, line: null };
 let activeTool: ActiveTool = null;
 let activeDensity: Density = 1;
 
@@ -149,6 +152,20 @@ const hud = buildHud(
 );
 setSpeed(1);
 
+makeDraggable(toolbar.el, toolbar.grip, 'toolbar');
+for (const [sel, key] of [
+  ['#hud', 'hud'],
+  ['#budget-panel', 'budget'],
+  ['#charts-panel', 'charts'],
+  ['#cityhall-panel', 'cityhall'],
+  ['#help-panel', 'help'],
+] as const) {
+  const panel = document.querySelector<HTMLElement>(sel);
+  if (!panel) continue;
+  const handle = panel.querySelector<HTMLElement>('h3') ?? panel;
+  makeDraggable(panel, handle, key);
+}
+
 // --- sound ---
 const sound = createSoundPlayer();
 
@@ -196,6 +213,7 @@ function toolAllowed(tool: ActiveTool, x: number, y: number): boolean {
 let painting = false;
 let lastPainted = -1;
 let rectAnchor: { x: number; y: number } | null = null;
+let lineAnchor: { x: number; y: number } | null = null;
 let panning = false;
 let spaceHeld = false;
 let panStart = { x: 0, y: 0, camX: 0, camY: 0 };
@@ -248,6 +266,12 @@ canvas.addEventListener('pointerdown', (e) => {
     view.rect = { x0: tile.x, y0: tile.y, x1: tile.x, y1: tile.y };
     return;
   }
+  if (activeTool === 'road') {
+    // roads draw as an adjustable line: drag to aim, release to build
+    lineAnchor = tile;
+    view.line = [[tile.x, tile.y]];
+    return;
+  }
   painting = true;
   lastPainted = idx(tile.x, tile.y);
   paintAt(tile.x, tile.y, true);
@@ -265,6 +289,9 @@ canvas.addEventListener('pointermove', (e) => {
   if (rectAnchor && tile) {
     view.rect = { x0: rectAnchor.x, y0: rectAnchor.y, x1: tile.x, y1: tile.y };
   }
+  if (lineAnchor && tile) {
+    view.line = roadLine(lineAnchor.x, lineAnchor.y, tile.x, tile.y);
+  }
   if (painting && tile && idx(tile.x, tile.y) !== lastPainted) {
     lastPainted = idx(tile.x, tile.y);
     paintAt(tile.x, tile.y, false);
@@ -272,14 +299,32 @@ canvas.addEventListener('pointermove', (e) => {
 });
 
 window.addEventListener('pointerup', (e) => {
-  // releasing over UI chrome cancels the pending rectangle (Esc also works)
+  // releasing over UI chrome cancels the pending shape (Esc also works)
   if (rectAnchor && view.rect && e.target === canvas) applyRect(view.rect);
+  if (lineAnchor && view.line && e.target === canvas) applyLine(view.line);
   rectAnchor = null;
   view.rect = null;
+  lineAnchor = null;
+  view.line = null;
   painting = false;
   panning = false;
   lastPainted = -1;
 });
+
+function applyLine(line: [number, number][]) {
+  let applied = 0;
+  let broke = false;
+  for (const [x, y] of line) {
+    const res = applyTool(city, 'road', x, y, activeDensity);
+    if (res.ok) applied++;
+    else if (res.err === 'not enough funds') broke = true;
+  }
+  if (applied > 0) sound.play(soundFor('road'));
+  if (broke) {
+    toast('Ran out of funds before finishing');
+    sound.play(UI_SOUNDS.error);
+  }
+}
 
 canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
@@ -314,6 +359,8 @@ window.addEventListener('keydown', (e) => {
     case 'Escape':
       rectAnchor = null;
       view.rect = null;
+      lineAnchor = null;
+      view.line = null;
       toolbar.clearTool();
       query.hide();
       help.hide();
@@ -342,6 +389,14 @@ window.addEventListener('keydown', (e) => {
       break;
   }
 });
+window.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const tool = TOOL_KEYS[e.key.toLowerCase()];
+  if (tool && !(e.target instanceof HTMLInputElement)) {
+    toolbar.selectTool(tool);
+  }
+});
+
 window.addEventListener('keyup', (e) => {
   if (e.key === ' ') spaceHeld = false;
   if (e.key === 'q' || e.key === 'Q') rotateKeys.delete('q');

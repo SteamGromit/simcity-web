@@ -4,6 +4,23 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.16.0] — 2026-07-19 · Control room
+
+### Added
+- **Keyboard shortcuts for every tool** — B bulldoze, R road, 1/2/3
+  zones, P plant, L line, K park, F/V/S/D fire/police/school/hospital,
+  U bus, W pump, X pipe, I query. Shown as key chips on the buttons and
+  safe alongside the existing Q/E/M/H bindings.
+- **Collapsible toolbar** — tools are grouped (Build · Civic & utilities ·
+  Terrain · Zone density · Data views); click a header to fold a group,
+  and the folded state persists.
+- **Movable panels** — drag the toolbar (by its ⠿ grip), HUD, Budget,
+  Charts, City Hall, and Help panels anywhere; positions persist across
+  sessions.
+- **Road line tool** — roads now draw as an adjustable line: press, drag
+  to aim (live gold preview, stairstepped so every tile connects), release
+  to build. Esc cancels a pending line.
+
 ## [0.15.0] — 2026-07-19 · Day & night
 
 ### Added
