@@ -195,6 +195,24 @@ body {
   background: #3a4a62;
 }
 
+#mute-btn {
+  position: fixed;
+  top: 8px;
+  right: 44px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #2a3648;
+  border: 1px solid #465870;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+
+#mute-btn:hover {
+  background: #3a4a62;
+}
+
 #help-panel {
   position: fixed;
   top: 50%;

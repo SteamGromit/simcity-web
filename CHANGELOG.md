@@ -4,6 +4,19 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.9.0] — 2026-07-19 · Sound
+
+### Added
+- Procedural sound effects via the Web Audio API — no audio assets, in the
+  spirit of the asset-free renderer. Every tool has a synthesized cue
+  (road thunk, zone ticks pitched per sector, coal-plant rumble, power-line
+  zap, terrain noise), plus error buzz, save/load chime, tool-select tick,
+  and an alarm when a notice (fire) arrives.
+- Ambient city hum: low-pass noise whose level follows population on a log
+  curve — a dead city is silent, a metropolis murmurs.
+- Mute toggle (🔊 button top-right, or M), persisted across sessions.
+  Rapid drag-painting is throttled so it doesn't machine-gun.
+
 ## [0.8.0] — 2026-07-19 · Help & advisor tips
 
 ### Added
