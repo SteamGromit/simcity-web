@@ -17,12 +17,11 @@ export function neighbors4(x: number, y: number): [number, number][] {
   return out;
 }
 
-/** All in-bounds tiles with Chebyshev distance ≤ r from (x,y), excluding (x,y) itself. */
+/** All in-bounds tiles with Chebyshev distance ≤ r from (x,y), center included. */
 export function tilesWithin(x: number, y: number, r: number): [number, number][] {
   const out: [number, number][] = [];
   for (let dy = -r; dy <= r; dy++) {
     for (let dx = -r; dx <= r; dx++) {
-      if (dx === 0 && dy === 0) continue;
       if (inBounds(x + dx, y + dy)) out.push([x + dx, y + dy]);
     }
   }
