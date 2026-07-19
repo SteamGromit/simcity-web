@@ -31,6 +31,7 @@ export function buildHelp(root: HTMLElement) {
           <li><b>Middle-drag or Space+drag</b> — pan · <b>Wheel</b> — zoom</li>
           <li><b>Q / E</b> — rotate the view · <b>Arrows</b> — pan</li>
           <li><b>Esc</b> — cancel tool · <b>H</b> or <b>?</b> — this help</li>
+          <li><b>M</b> — mute / unmute sound</li>
         </ul>
       </section>
       <section>

@@ -12,6 +12,7 @@ import { buildCharts } from './ui/charts';
 import { buildMinimap } from './ui/minimap';
 import { buildHelp, buildTipBar } from './ui/help';
 import { adviseTips } from './sim/tips';
+import { ambientLevel, createSoundPlayer, soundFor, UI_SOUNDS } from './ui/sound';
 
 const SAVE_KEY = 'simcity.save';
 const SPEED_MS = [0, 250, 83, 28];
@@ -88,6 +89,7 @@ const toolbar = buildToolbar(
   (tool) => {
     activeTool = tool;
     if (tool !== 'query') query.hide();
+    if (tool) sound.play(UI_SOUNDS.select);
   },
   (overlay: OverlayId | null) => {
     view.overlay = overlay;
@@ -110,12 +112,14 @@ const hud = buildHud(
     save() {
       localStorage.setItem(SAVE_KEY, serialize(city));
       toast('City saved', 'info');
+      sound.play(UI_SOUNDS.info);
     },
     load() {
       const saved = localStorage.getItem(SAVE_KEY);
       const revived = saved ? deserialize(saved) : null;
       if (!revived) {
         toast('No valid save found');
+        sound.play(UI_SOUNDS.error);
         return;
       }
       city = revived;
@@ -124,6 +128,7 @@ const hud = buildHud(
       minimap.invalidate();
       hud.syncTaxes(city);
       toast('City loaded', 'info');
+      sound.play(UI_SOUNDS.info);
       advisoryForUnprotectedCity();
     },
     newCity() {
@@ -138,10 +143,29 @@ const hud = buildHud(
 );
 setSpeed(1);
 
+// --- sound ---
+const sound = createSoundPlayer();
+
 const help = buildHelp(uiRoot);
 const tipBar = buildTipBar(uiRoot);
 tipBar.update(adviseTips(city));
-window.setInterval(() => tipBar.update(adviseTips(city)), 2000);
+window.setInterval(() => {
+  tipBar.update(adviseTips(city));
+  sound.setAmbient(ambientLevel(city.population));
+}, 2000);
+
+const muteBtn = document.createElement('button');
+muteBtn.id = 'mute-btn';
+function syncMuteBtn() {
+  muteBtn.textContent = sound.muted ? '🔇' : '🔊';
+  muteBtn.title = sound.muted ? 'Unmute (M)' : 'Mute (M)';
+}
+muteBtn.addEventListener('click', () => {
+  sound.toggleMute();
+  syncMuteBtn();
+});
+syncMuteBtn();
+uiRoot.appendChild(muteBtn);
 
 /** Saves from before civic services existed have no fire protection — warn once. */
 function advisoryForUnprotectedCity() {
@@ -181,14 +205,21 @@ function applyRect(rect: { x0: number; y0: number; x1: number; y1: number }) {
       else if (res.err === 'not enough funds') broke = true;
     }
   }
-  if (broke) toast('Ran out of funds before finishing');
+  if (applied > 0) sound.play(soundFor(activeTool));
+  if (broke) {
+    toast('Ran out of funds before finishing');
+    sound.play(UI_SOUNDS.error);
+  }
 }
 
 function paintAt(x: number, y: number, firstClick: boolean) {
   if (!activeTool || activeTool === 'query') return;
   const res = applyTool(city, activeTool, x, y, activeDensity);
-  if (!res.ok && firstClick && res.err !== 'tile occupied' && res.err !== 'nothing to bulldoze') {
+  if (res.ok) {
+    sound.play(soundFor(activeTool), 70);
+  } else if (firstClick && res.err !== 'tile occupied' && res.err !== 'nothing to bulldoze') {
     toast(res.err!);
+    sound.play(UI_SOUNDS.error);
   }
 }
 
@@ -286,6 +317,11 @@ window.addEventListener('keydown', (e) => {
     case '?':
       help.toggle();
       break;
+    case 'm':
+    case 'M':
+      sound.toggleMute();
+      syncMuteBtn();
+      break;
     case 'ArrowUp':
       renderer.camera.y -= pan;
       break;
@@ -336,6 +372,7 @@ function frame(now: number) {
     const n = city.notices.length;
     const last = city.notices[n - 1];
     toast(n === 1 ? last : `${last} (+${n - 1} more)`);
+    sound.play(UI_SOUNDS.alarm);
     city.notices.length = 0;
   }
   renderer.draw(city, view);
