@@ -77,7 +77,10 @@ the blaze). Watch for the flames and the advisor warning; if the fire
 department can't cope, bulldoze a firebreak before the whole block goes.
 
 Watch the budget — roads, plants, and services cost upkeep monthly; taxes
-above 9% suppress demand.
+above 9% suppress demand. Open **City Hall** for the advisor board (every
+current warning at a glance) and to enact **ordinances** — monthly-cost
+policies like the Clean Air Act or Free Bus Service that bend the
+simulation in your favor.
 
 | Control | Action |
 | --- | --- |
