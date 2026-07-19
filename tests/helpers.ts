@@ -15,6 +15,7 @@ export function makeCity(): CityState {
     jobs: 0,
     lastBudget: { rIncome: 0, cIncome: 0, iIncome: 0, expenses: 0, net: 0 },
     notices: [],
+    history: { pop: [], funds: [] },
   };
 }
 

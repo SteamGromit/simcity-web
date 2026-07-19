@@ -193,6 +193,34 @@ body {
   background: rgba(40, 110, 60, 0.95);
 }
 
+#minimap {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  width: 128px;
+  height: 128px;
+  cursor: pointer;
+  image-rendering: pixelated;
+}
+
+#charts-panel {
+  position: fixed;
+  top: 70px;
+  right: 250px;
+  padding: 10px;
+}
+
+#charts-panel h3 {
+  font-size: 13px;
+  margin-bottom: 8px;
+  color: #fff;
+}
+
+#charts-panel canvas {
+  display: block;
+  margin-bottom: 8px;
+}
+
 #toast.show {
   opacity: 1;
 }

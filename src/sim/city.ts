@@ -14,6 +14,7 @@ import {
   Density,
   DENSITY_COST_MULT,
   GRID,
+  HISTORY_MAX,
   START_FUNDS,
   TICKS_PER_MONTH,
   ToolId,
@@ -37,6 +38,7 @@ export function newCity(seed: number): CityState {
     jobs: 0,
     lastBudget: { rIncome: 0, cIncome: 0, iIncome: 0, expenses: 0, net: 0 },
     notices: [],
+    history: { pop: [], funds: [] },
   };
 }
 
@@ -152,5 +154,11 @@ export function simTick(city: CityState, rand: () => number): void {
     collectBudget(city);
     updateDemand(city); // demand reflects the month's new totals right away
     if (city.notices.length > 8) city.notices.splice(0, city.notices.length - 8);
+    city.history.pop.push(city.population);
+    city.history.funds.push(city.funds);
+    if (city.history.pop.length > HISTORY_MAX) {
+      city.history.pop.shift();
+      city.history.funds.shift();
+    }
   }
 }
