@@ -4,6 +4,17 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.18.0] — 2026-07-19 · Weather
+
+### Added
+- **Seasonal weather**: each month rolls clear ☀️ / cloudy ⛅ / rain 🌧️ /
+  snow ❄️ (snow only in winter by the sim calendar), shown beside the
+  date and rendered — rainfall, drifting snowfall with a whitened world,
+  or an overcast wash.
+- Weather touches the sim gently: wet weather halves fire ignition risk,
+  and snowbound roads drag every commute (unplowed +0.5 per tile).
+  Weather persists in saves.
+
 ## [0.17.0] — 2026-07-19 · Disasters
 
 ### Added

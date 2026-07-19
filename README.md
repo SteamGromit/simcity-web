@@ -77,7 +77,9 @@ unlocks the tallest towers (industry skips the school and hospital
 requirements). Stations need power, cover a radius (see the coverage data
 views), and charge monthly upkeep.
 
-**Disasters** strike once your city is big enough to matter: tornados
+**Weather** rolls through with the seasons — rain damps fires, winter
+snow slows every commute — and **disasters** strike once your city is big
+enough to matter: tornados
 carve wandering paths of rubble (and fires), hurricanes lash the whole
 map with storm surge along the waterfront, and pandemics empty homes that
 lack hospital coverage. Feeling reckless? City Hall has a
