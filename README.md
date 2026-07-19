@@ -55,10 +55,15 @@ Keep industry (and the coal plant) away from homes: pollution wrecks
 residential land value. Parks raise it.
 
 Growing past small buildings takes **civic services**: fire coverage unlocks
-stage 2, police + school coverage unlock stage 3 (industry skips the school
-requirement). Stations need power, cover a radius (see the coverage data
-views), and charge monthly upkeep. Buildings with **no fire coverage can burn
-down** — you'll get a notice when one does.
+stage 2, police + school coverage unlock stage 3, and a **hospital** in reach
+unlocks the tallest towers (industry skips the school and hospital
+requirements). Stations need power, cover a radius (see the coverage data
+views), and charge monthly upkeep.
+
+Buildings with no fire coverage can **catch fire — and fires spread** to
+neighboring buildings, covered or not (coverage resists the jump and fights
+the blaze). Watch for the flames and the advisor warning; if the fire
+department can't cope, bulldoze a firebreak before the whole block goes.
 
 Watch the budget — roads, plants, and services cost upkeep monthly; taxes
 above 9% suppress demand.

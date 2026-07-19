@@ -2,7 +2,7 @@ import { idx, inBounds } from '../sim/grid';
 import { mulberry32 } from '../sim/city';
 import { CityState, GRID, Terrain, Zone } from '../sim/types';
 import { Automata } from './automata';
-import { drawBuilding, drawPole, fillTile, strokeTile, tree } from './buildings';
+import { drawBuilding, drawFire, drawPole, fillTile, strokeTile, tree } from './buildings';
 import { TileGeom, isoToScreen, screenToIso, setViewAngle, tileDepth, tileGeom } from './iso';
 import { OverlayId, drawOverlay } from './overlays';
 
@@ -96,7 +96,8 @@ export class Renderer {
     const { ctx } = this;
     setViewAngle(this.angle);
     if (this.orderDirty) this.rebuildOrder();
-    this.automata.step(city, performance.now());
+    const now = performance.now();
+    this.automata.step(city, now);
 
     const dpr = window.devicePixelRatio || 1;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -124,6 +125,7 @@ export class Renderer {
       if (t.zone !== Zone.None && t.zone !== Zone.Road) {
         drawBuilding(ctx, geom, t.zone, t.stage, t.abandoned, t.powered, this.variants[i]);
       }
+      if (t.burning > 0) drawFire(ctx, geom, now, this.variants[i]);
       this.automata.drawTile(ctx, i);
     }
 

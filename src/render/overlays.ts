@@ -10,7 +10,8 @@ export type OverlayId =
   | 'traffic'
   | 'fire'
   | 'police'
-  | 'school';
+  | 'school'
+  | 'health';
 
 export const OVERLAY_LABELS: Record<OverlayId, string> = {
   power: 'Power',
@@ -20,12 +21,14 @@ export const OVERLAY_LABELS: Record<OverlayId, string> = {
   fire: 'Fire Cover',
   police: 'Police Cover',
   school: 'School Cover',
+  health: 'Health Cover',
 };
 
 const COVERAGE_FIELD = {
   fire: 'fireCov',
   police: 'policeCov',
   school: 'schoolCov',
+  health: 'healthCov',
 } as const;
 
 function tint(city: CityState, i: number, overlay: OverlayId): string | null {
@@ -48,7 +51,8 @@ function tint(city: CityState, i: number, overlay: OverlayId): string | null {
     }
     case 'fire':
     case 'police':
-    case 'school': {
+    case 'school':
+    case 'health': {
       const cov = t[COVERAGE_FIELD[overlay]];
       const developable =
         t.zone === Zone.Residential || t.zone === Zone.Commercial || t.zone === Zone.Industrial;

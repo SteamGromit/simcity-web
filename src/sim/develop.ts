@@ -15,7 +15,7 @@ function desirability(t: Tile): number {
   const services = (t.fireCov + t.policeCov + t.schoolCov) / 3;
   switch (t.zone) {
     case Zone.Residential:
-      return 0.7 * t.landValue + 0.3 * jobAccess + 0.12 * services;
+      return 0.7 * t.landValue + 0.3 * jobAccess + 0.12 * services + 0.06 * t.healthCov;
     case Zone.Commercial:
       return 0.5 * t.landValue + 0.5 * jobAccess + 0.12 * services;
     case Zone.Industrial:
@@ -36,6 +36,8 @@ function servicesAllow(t: Tile, next: number): boolean {
     if (t.fireCov <= HIGH_STAGE_COV || t.policeCov <= HIGH_STAGE_COV) return false;
     if (t.zone !== Zone.Industrial && t.schoolCov <= HIGH_STAGE_COV) return false;
   }
+  // towers need a hospital in reach (industry exempt, as with schools)
+  if (next >= 5 && t.zone !== Zone.Industrial && t.healthCov <= 0) return false;
   return true;
 }
 
@@ -55,6 +57,7 @@ export function developTile(city: CityState, x: number, y: number, rand: () => n
   if (t.zone !== Zone.Residential && t.zone !== Zone.Commercial && t.zone !== Zone.Industrial) {
     return;
   }
+  if (t.burning > 0) return; // fire consumes the tile; no growth or decay mid-blaze
 
   const eligible = t.powered && roadAccess(city, x, y) !== null;
   const demand = sectorDemand(city, t.zone);

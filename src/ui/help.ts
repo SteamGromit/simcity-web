@@ -43,7 +43,10 @@ export function buildHelp(root: HTMLElement) {
               pollution and long commutes — it caps building stages.</li>
           <li><b>Density</b> (Low/Med/High) caps how tall a zone can build.</li>
           <li><b>Fire, Police, School</b> coverage keeps buildings safe and
-              desirable; unserved buildings can burn or decay.</li>
+              desirable; a <b>Hospital</b> is needed for the tallest stages.</li>
+          <li><b>Fires spread!</b> Uncovered buildings can ignite; flames jump
+              to neighbors. Fire coverage fights them — or bulldoze a
+              firebreak.</li>
           <li><b>Taxes</b>: 9% is neutral — below 7% boosts demand, above
               12% chokes it.</li>
           <li>Abandoned buildings recover if commutes, demand and

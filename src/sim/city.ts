@@ -5,7 +5,7 @@ import { blankTile, idx, inBounds, neighbors4 } from './grid';
 import { updateLandValue } from './landvalue';
 import { updatePollution } from './pollution';
 import { updatePower } from './power';
-import { fireRisk, updateCoverage } from './services';
+import { fireRisk, updateCoverage, updateFires } from './services';
 import { updateTraffic } from './traffic';
 import {
   CityState,
@@ -103,6 +103,7 @@ const TOOL_ZONE: Partial<Record<ToolId, Zone>> = {
   fire: Zone.FireStation,
   police: Zone.PoliceStation,
   school: Zone.School,
+  hospital: Zone.Hospital,
 };
 
 export const ZONE_TOOLS: ToolId[] = ['zoneR', 'zoneC', 'zoneI'];
@@ -225,6 +226,8 @@ export function simTick(city: CityState, rand: () => number): void {
     updateLandValue(city);
     updateDemand(city);
   }
+
+  updateFires(city, rand);
 
   const start = (city.tick * DEV_SLICE) % (GRID * GRID);
   for (let n = 0; n < DEV_SLICE; n++) {

@@ -4,6 +4,24 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.10.0] — 2026-07-19 · Health & spreading fires
+
+### Added
+- **Hospital** (§600, §60/mo upkeep, radius 10): the fourth civic service.
+  Health coverage is required for stage 5+ residential/commercial towers
+  (industry exempt) and gives homes a small desirability boost. Health
+  Cover data view, query rows, white red-cross building.
+- **Fires now spread.** An uncovered building that ignites burns for a
+  while instead of vanishing: flames render on the map, the fire jumps to
+  adjacent buildings (fire coverage resists it — and can extinguish the
+  blaze), abandoned shells catch too, and a burned-out building collapses
+  to an empty lot. Bulldozing a burning building stops the fire — cutting
+  firebreaks is a real tactic. The advisor's top-priority tip warns while
+  anything burns.
+
+### Changed
+- Old saves load cleanly; new tile fields default safely.
+
 ## [0.9.0] — 2026-07-19 · Sound
 
 ### Added

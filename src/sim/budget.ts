@@ -35,6 +35,9 @@ export function collectBudget(city: CityState): BudgetReport {
       case Zone.School:
         expenses += SERVICE_UPKEEP.school;
         break;
+      case Zone.Hospital:
+        expenses += SERVICE_UPKEEP.health;
+        break;
     }
   }
 
