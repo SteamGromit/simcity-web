@@ -56,6 +56,6 @@ describe('updateDemand', () => {
     cheap.taxes.r = 0.05;
     updateDemand(cheap);
     expect(taxed.demand.r).toBeLessThan(base.demand.r);
-    expect(cheap.demand.r).toBeGreaterThanOrEqual(base.demand.r);
+    expect(cheap.demand.r).toBeGreaterThan(base.demand.r);
   });
 });

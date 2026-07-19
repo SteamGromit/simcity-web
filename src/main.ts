@@ -1,8 +1,8 @@
 import './ui/style.css';
-import { applyTool, mulberry32, newCity, simTick } from './sim/city';
+import { applyTool, canApply, mulberry32, newCity, simTick } from './sim/city';
 import { idx } from './sim/grid';
 import { deserialize, serialize } from './sim/save';
-import { CityState, COSTS, Zone } from './sim/types';
+import { CityState } from './sim/types';
 import { Renderer, ViewState } from './render/renderer';
 import { OverlayId } from './render/overlays';
 import { ActiveTool, buildToolbar } from './ui/toolbar';
@@ -35,11 +35,15 @@ const toastEl = document.createElement('div');
 toastEl.id = 'toast';
 uiRoot.appendChild(toastEl);
 let toastTimer = 0;
-function toast(msg: string) {
+function toast(msg: string, kind: 'error' | 'info' = 'error') {
   toastEl.textContent = msg;
+  toastEl.classList.toggle('info', kind === 'info');
   toastEl.classList.add('show');
   window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => toastEl.classList.remove('show'), 2200);
+  toastTimer = window.setTimeout(
+    () => toastEl.classList.remove('show'),
+    kind === 'error' ? 4000 : 2200,
+  );
 }
 
 // --- sim loop ---
@@ -55,6 +59,7 @@ function tickSafely() {
     simTick(city, rand);
   } catch (err) {
     window.clearInterval(timer);
+    hud.showActiveSpeed(0);
     toast(`Simulation paused: ${err instanceof Error ? err.message : err}`);
   }
 }
@@ -78,7 +83,7 @@ const hud = buildHud(
     setSpeed,
     save() {
       localStorage.setItem(SAVE_KEY, serialize(city));
-      toast('City saved');
+      toast('City saved', 'info');
     },
     load() {
       const saved = localStorage.getItem(SAVE_KEY);
@@ -89,13 +94,15 @@ const hud = buildHud(
       }
       city = revived;
       rand = mulberry32(city.seed + city.tick);
+      renderer.reseed(city.seed);
       hud.syncTaxes(city);
-      toast('City loaded');
+      toast('City loaded', 'info');
     },
     newCity() {
       if (!window.confirm('Start a new city? Unsaved progress is lost.')) return;
       city = newCity(Date.now() % 2 ** 31);
       rand = mulberry32(city.seed);
+      renderer.reseed(city.seed);
       hud.syncTaxes(city);
     },
   },
@@ -105,9 +112,7 @@ setSpeed(1);
 // --- input ---
 function toolAllowed(tool: ActiveTool, x: number, y: number): boolean {
   if (!tool || tool === 'query') return true;
-  const t = city.tiles[idx(x, y)];
-  if (tool === 'bulldoze') return t.zone !== Zone.None;
-  return t.zone === Zone.None && city.funds >= COSTS[tool];
+  return canApply(city, tool, x, y);
 }
 
 let painting = false;

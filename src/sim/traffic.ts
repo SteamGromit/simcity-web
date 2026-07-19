@@ -76,6 +76,7 @@ function roadDistanceTo(city: CityState, zones: Zone[]): Float64Array {
 export function updateTraffic(city: CityState): void {
   const jobDist = roadDistanceTo(city, [Zone.Commercial, Zone.Industrial]);
   const workerDist = roadDistanceTo(city, [Zone.Residential]);
+  const accessIdx = new Int32Array(city.tiles.length).fill(-1);
 
   for (let i = 0; i < city.tiles.length; i++) {
     const t = city.tiles[i];
@@ -91,20 +92,17 @@ export function updateTraffic(city: CityState): void {
       t.commute = Infinity;
       continue;
     }
+    accessIdx[i] = idx(access.rx, access.ry);
     const field = t.zone === Zone.Residential ? jobDist : workerDist;
-    t.commute = field[idx(access.rx, access.ry)];
+    t.commute = field[accessIdx[i]];
   }
 
   // Traffic: walk each developed residence's access road down the jobDist gradient.
   for (let i = 0; i < city.tiles.length; i++) {
     const t = city.tiles[i];
     if (t.zone !== Zone.Residential || t.stage === 0 || t.abandoned) continue;
-    if (!Number.isFinite(t.commute)) continue;
-    const x = i % GRID;
-    const y = (i / GRID) | 0;
-    const access = roadAccess(city, x, y);
-    if (!access) continue;
-    let cur = idx(access.rx, access.ry);
+    if (!Number.isFinite(t.commute) || accessIdx[i] === -1) continue;
+    let cur = accessIdx[i];
     for (let step = 0; step < MAX_WALK; step++) {
       city.tiles[cur].traffic += 1;
       if (jobDist[cur] === 0) break;

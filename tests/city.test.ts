@@ -116,4 +116,28 @@ describe('save round-trip', () => {
     expect(deserialize('{"version":99}')).toBeNull();
     expect(deserialize('{"hello":"world"}')).toBeNull();
   });
+
+  test('a version-1 save with the wrong tile count yields null', () => {
+    expect(deserialize('{"version":1,"tiles":[]}')).toBeNull();
+  });
+
+  test('non-finite top-level numbers yield null', () => {
+    const city = newCity(1);
+    const mangled = serialize(city).replace(`"funds":${city.funds}`, '"funds":null');
+    expect(deserialize(mangled)).toBeNull();
+  });
+
+  test('malformed tile fields degrade to blank defaults, never NaN', () => {
+    const tiles = JSON.stringify(Array.from({ length: GRID * GRID }, () => ({})));
+    const json = `{"version":1,"seed":1,"tiles":${tiles},"funds":100,"tick":0,"month":0,"taxes":{"r":0.09,"c":0.09,"i":0.09}}`;
+    const city = deserialize(json);
+    expect(city).not.toBeNull();
+    expect(city!.population).toBe(0);
+    expect(city!.tiles[0].commute).toBe(Infinity);
+    expect(city!.tiles[0].landValue).toBe(0.3);
+    // a wedged-save regression guard: the revived city must still simulate
+    const rand = mulberry32(1);
+    for (let i = 0; i < 20; i++) simTick(city!, rand);
+    expect(Number.isFinite(city!.funds)).toBe(true);
+  });
 });

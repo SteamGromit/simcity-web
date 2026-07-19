@@ -1,4 +1,5 @@
-import { BudgetReport, CityState, C_JOBS, I_JOBS, R_POP, Zone } from './types';
+import { sumCapacities } from './capacity';
+import { BudgetReport, CityState, Zone } from './types';
 
 const R_YIELD = 10;
 const C_YIELD = 16;
@@ -7,9 +8,7 @@ const UPKEEP = { road: 1, line: 0.2, plant: 150, park: 2 };
 
 /** Monthly close: collect taxes on developed capacity, pay upkeep, move funds. */
 export function collectBudget(city: CityState): BudgetReport {
-  let population = 0;
-  let cJobs = 0;
-  let iJobs = 0;
+  const { population, cJobs, iJobs } = sumCapacities(city);
   let expenses = 0;
 
   for (const t of city.tiles) {
@@ -26,11 +25,6 @@ export function collectBudget(city: CityState): BudgetReport {
       case Zone.Park:
         expenses += UPKEEP.park;
         break;
-      default:
-        if (t.stage === 0 || t.abandoned) break;
-        if (t.zone === Zone.Residential) population += R_POP[t.stage];
-        else if (t.zone === Zone.Commercial) cJobs += C_JOBS[t.stage];
-        else if (t.zone === Zone.Industrial) iJobs += I_JOBS[t.stage];
     }
   }
 

@@ -1,4 +1,5 @@
-import { CityState, GRID } from './types';
+import { blankTile } from './grid';
+import { CityState, GRID, Tile, Zone } from './types';
 
 /** JSON can't hold Infinity; commute uses −1 on the wire. */
 export function serialize(city: CityState): string {
@@ -7,15 +8,61 @@ export function serialize(city: CityState): string {
   );
 }
 
+function finite(v: unknown, fallback: number): number {
+  return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+}
+
+/** Rebuild a tile from untrusted data; anything malformed falls back to blank. */
+function reviveTile(raw: unknown): Tile {
+  const t = blankTile();
+  if (!raw || typeof raw !== 'object') return t;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.zone === 'number' && r.zone >= Zone.None && r.zone <= Zone.Park) t.zone = r.zone;
+  if (r.stage === 1 || r.stage === 2 || r.stage === 3) t.stage = r.stage;
+  t.powered = r.powered === true;
+  t.abandoned = r.abandoned === true;
+  t.pollution = finite(r.pollution, 0);
+  t.landValue = finite(r.landValue, 0.3);
+  t.commute = r.commute === -1 ? Infinity : finite(r.commute, Infinity);
+  t.traffic = finite(r.traffic, 0);
+  return t;
+}
+
+/**
+ * Parse a save. Returns null on corrupt or foreign data; malformed tile
+ * fields degrade to blank-tile defaults so a revived city can never
+ * NaN-poison the simulation.
+ */
 export function deserialize(json: string): CityState | null {
   try {
     const data = JSON.parse(json);
     if (!data || data.version !== 1) return null;
     if (!Array.isArray(data.tiles) || data.tiles.length !== GRID * GRID) return null;
-    for (const t of data.tiles) {
-      if (t.commute === -1) t.commute = Infinity;
-    }
-    return data as CityState;
+    if (![data.funds, data.tick, data.month].every((v) => Number.isFinite(v))) return null;
+    const taxes = data.taxes ?? {};
+    if (![taxes.r, taxes.c, taxes.i].every((v: unknown) => Number.isFinite(v))) return null;
+
+    const demand = data.demand ?? {};
+    const budget = data.lastBudget ?? {};
+    return {
+      version: 1,
+      seed: finite(data.seed, 1),
+      tiles: data.tiles.map(reviveTile),
+      funds: data.funds,
+      tick: data.tick,
+      month: data.month,
+      demand: { r: finite(demand.r, 0), c: finite(demand.c, 0), i: finite(demand.i, 0) },
+      taxes: { r: taxes.r, c: taxes.c, i: taxes.i },
+      population: finite(data.population, 0),
+      jobs: finite(data.jobs, 0),
+      lastBudget: {
+        rIncome: finite(budget.rIncome, 0),
+        cIncome: finite(budget.cIncome, 0),
+        iIncome: finite(budget.iIncome, 0),
+        expenses: finite(budget.expenses, 0),
+        net: finite(budget.net, 0),
+      },
+    };
   } catch {
     return null;
   }

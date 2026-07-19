@@ -57,29 +57,37 @@ const TOOL_ZONE: Partial<Record<ToolId, Zone>> = {
   park: Zone.Park,
 };
 
+function validateTool(city: CityState, tool: ToolId, x: number, y: number): string | null {
+  if (!inBounds(x, y)) return 'out of bounds';
+  if (city.funds < COSTS[tool]) return 'not enough funds';
+  const t = city.tiles[idx(x, y)];
+  if (tool === 'bulldoze') return t.zone === Zone.None ? 'nothing to bulldoze' : null;
+  return t.zone === Zone.None ? null : 'tile occupied';
+}
+
+/** Would applyTool succeed here? (Used for hover feedback.) */
+export function canApply(city: CityState, tool: ToolId, x: number, y: number): boolean {
+  return validateTool(city, tool, x, y) === null;
+}
+
 export function applyTool(
   city: CityState,
   tool: ToolId,
   x: number,
   y: number,
 ): { ok: boolean; err?: string } {
-  if (!inBounds(x, y)) return { ok: false, err: 'out of bounds' };
-  const cost = COSTS[tool];
-  if (city.funds < cost) return { ok: false, err: 'not enough funds' };
-  const t = city.tiles[idx(x, y)];
+  const err = validateTool(city, tool, x, y);
+  if (err) return { ok: false, err };
 
   if (tool === 'bulldoze') {
-    if (t.zone === Zone.None) return { ok: false, err: 'nothing to bulldoze' };
     city.tiles[idx(x, y)] = blankTile();
-    city.funds -= cost;
-    return { ok: true };
+  } else {
+    const t = city.tiles[idx(x, y)];
+    t.zone = TOOL_ZONE[tool]!;
+    t.stage = 0;
+    t.abandoned = false;
   }
-
-  if (t.zone !== Zone.None) return { ok: false, err: 'tile occupied' };
-  t.zone = TOOL_ZONE[tool]!;
-  t.stage = 0;
-  t.abandoned = false;
-  city.funds -= cost;
+  city.funds -= COSTS[tool];
   return { ok: true };
 }
 

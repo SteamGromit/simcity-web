@@ -35,18 +35,20 @@ export function buildHud(root: HTMLElement, city: () => CityState, actions: HudA
 
   const speedsEl = el.querySelector('#speeds') as HTMLElement;
   const speedButtons: HTMLButtonElement[] = [];
+  const showActiveSpeed = (i: number) =>
+    speedButtons.forEach((b, j) => b.classList.toggle('active', j === i));
   SPEED_LABELS.forEach((label, i) => {
     const btn = document.createElement('button');
     btn.textContent = label;
     btn.title = ['Pause', 'Normal', 'Fast', 'Cheetah'][i];
     btn.addEventListener('click', () => {
       actions.setSpeed(i as 0 | 1 | 2 | 3);
-      speedButtons.forEach((b, j) => b.classList.toggle('active', j === i));
+      showActiveSpeed(i);
     });
     speedButtons.push(btn);
     speedsEl.appendChild(btn);
   });
-  speedButtons[1].classList.add('active');
+  showActiveSpeed(1);
 
   (el.querySelector('#save-btn') as HTMLElement).addEventListener('click', actions.save);
   (el.querySelector('#load-btn') as HTMLElement).addEventListener('click', actions.load);
@@ -71,8 +73,10 @@ export function buildHud(root: HTMLElement, city: () => CityState, actions: HudA
     <div class="report" id="budget-report"></div>
   `;
   root.appendChild(budget);
+  let renderedBudget: CityState['lastBudget'] | null = null;
   (el.querySelector('#budget-btn') as HTMLElement).addEventListener('click', () => {
     budget.classList.toggle('hidden');
+    renderedBudget = null; // force a fresh report render on open
   });
 
   const report = budget.querySelector('#budget-report') as HTMLElement;
@@ -114,7 +118,8 @@ export function buildHud(root: HTMLElement, city: () => CityState, actions: HudA
       popEl.textContent = c.population.toLocaleString();
       dateEl.textContent = `${MONTHS[c.month % 12]} ${2000 + Math.floor(c.month / 12)}`;
       drawRci(c);
-      if (!budget.classList.contains('hidden')) {
+      if (!budget.classList.contains('hidden') && renderedBudget !== c.lastBudget) {
+        renderedBudget = c.lastBudget;
         const b = c.lastBudget;
         report.innerHTML = `
           <div><span>Residential</span><span>+§${b.rIncome}</span></div>
@@ -125,6 +130,8 @@ export function buildHud(root: HTMLElement, city: () => CityState, actions: HudA
         `;
       }
     },
+    /** Reflect a programmatic speed change (e.g. error-pause) in the buttons. */
+    showActiveSpeed,
     /** Re-sync tax sliders after loading a different city. */
     syncTaxes(c: CityState) {
       for (const input of budget.querySelectorAll<HTMLInputElement>('input[type=range]')) {

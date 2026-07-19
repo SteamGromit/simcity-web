@@ -189,6 +189,10 @@ body {
   pointer-events: none;
 }
 
+#toast.info {
+  background: rgba(40, 110, 60, 0.95);
+}
+
 #toast.show {
   opacity: 1;
 }

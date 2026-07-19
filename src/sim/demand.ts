@@ -1,4 +1,5 @@
-import { CityState, C_JOBS, I_JOBS, R_POP, Zone } from './types';
+import { sumCapacities } from './capacity';
+import { CityState } from './types';
 
 const WORKFORCE_FRACTION = 0.55;
 const NEUTRAL_TAX = 0.09;
@@ -18,15 +19,7 @@ function taxAdjust(raw: number, tax: number): number {
  * Also recomputes population and job totals from developed tiles.
  */
 export function updateDemand(city: CityState): void {
-  let population = 0;
-  let cJobs = 0;
-  let iJobs = 0;
-  for (const t of city.tiles) {
-    if (t.stage === 0 || t.abandoned) continue;
-    if (t.zone === Zone.Residential) population += R_POP[t.stage];
-    else if (t.zone === Zone.Commercial) cJobs += C_JOBS[t.stage];
-    else if (t.zone === Zone.Industrial) iJobs += I_JOBS[t.stage];
-  }
+  const { population, cJobs, iJobs } = sumCapacities(city);
   city.population = population;
   city.jobs = cJobs + iJobs;
 

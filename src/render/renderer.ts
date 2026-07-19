@@ -21,14 +21,19 @@ export class Renderer {
 
   constructor(private canvas: HTMLCanvasElement, seed: number) {
     this.ctx = canvas.getContext('2d')!;
-    const rand = mulberry32(seed);
     this.variants = new Float32Array(GRID * GRID);
-    for (let i = 0; i < this.variants.length; i++) this.variants[i] = rand();
+    this.reseed(seed);
     this.resize();
     // start centered on the middle of the map
     const mid = isoToScreen(GRID / 2, GRID / 2);
     this.camera.x = mid.sx - this.canvas.clientWidth / 2;
     this.camera.y = mid.sy - this.canvas.clientHeight / 2;
+  }
+
+  /** Re-derive per-tile visual variation; call when a different city loads. */
+  reseed(seed: number) {
+    const rand = mulberry32(seed);
+    for (let i = 0; i < this.variants.length; i++) this.variants[i] = rand();
   }
 
   resize() {
@@ -64,7 +69,10 @@ export class Renderer {
     );
 
     // Row-major is a valid painter's order: every occluder of a tile has
-    // both coordinates ≥ the tile's, so it is always drawn later.
+    // both coordinates ≥ the tile's, so it is always drawn later. This
+    // holds only while each building's pixels stay within ±TILE_W/2 of its
+    // tile center — multi-tile or overhanging buildings need a real
+    // depth sort.
     for (let y = 0; y < GRID; y++) {
       for (let x = 0; x < GRID; x++) {
         const i = idx(x, y);
