@@ -1,6 +1,15 @@
 import { describe, expect, test } from 'vitest';
 import { Zone } from '../src/sim/types';
-import { capacityFor, normalizeTier, pollutionScaleFor, taxYieldFor } from '../src/sim/tiers';
+import {
+  capacityFor,
+  chooseTier,
+  normalizeTier,
+  pollutionScaleFor,
+  taxYieldFor,
+  updateEducation,
+} from '../src/sim/tiers';
+import { idx } from '../src/sim/grid';
+import { makeCity, zone } from './helpers';
 
 describe('normalizeTier', () => {
   test('passes through a valid wealth on R/C', () => {
@@ -72,5 +81,116 @@ describe('pollutionScaleFor', () => {
     expect(pollutionScaleFor('dirty')).toBeCloseTo(1.6);
     expect(pollutionScaleFor('manu')).toBeCloseTo(1.0);
     expect(pollutionScaleFor('tech')).toBeCloseTo(0.25);
+  });
+});
+
+describe('updateEducation', () => {
+  test('an empty city has zero education', () => {
+    const city = makeCity();
+    updateEducation(city);
+    expect(city.eduLevel).toBe(0);
+  });
+
+  test('measures the share of developed R tiles with school coverage', () => {
+    const city = makeCity();
+    for (let x = 0; x < 4; x++) zone(city, x, 5, Zone.Residential, 2);
+    city.tiles[idx(0, 5)].schoolCov = 0.8;
+    city.tiles[idx(1, 5)].schoolCov = 0.2;
+    updateEducation(city);
+    expect(city.eduLevel).toBeCloseTo(0.5); // 2 of 4 covered
+  });
+
+  test('ignores undeveloped and abandoned lots', () => {
+    const city = makeCity();
+    zone(city, 0, 5, Zone.Residential, 2);
+    city.tiles[idx(0, 5)].schoolCov = 0.9;
+    zone(city, 1, 5, Zone.Residential, 0); // undeveloped
+    zone(city, 2, 5, Zone.Residential, 3); // abandoned below
+    city.tiles[idx(2, 5)].abandoned = true;
+    updateEducation(city);
+    expect(city.eduLevel).toBe(1);
+  });
+});
+
+describe('chooseTier — residential and commercial wealth', () => {
+  function rcTile(city: ReturnType<typeof makeCity>, landValue: number, pollution: number) {
+    zone(city, 5, 5, Zone.Residential, 2);
+    const t = city.tiles[idx(5, 5)];
+    t.landValue = landValue;
+    t.pollution = pollution;
+    return t;
+  }
+
+  test('high land value in clean air becomes §§§', () => {
+    const city = makeCity();
+    expect(chooseTier(city, rcTile(city, 0.7, 0.05))).toBe(3);
+  });
+
+  test('the same land value under pollution is capped', () => {
+    const city = makeCity();
+    expect(chooseTier(city, rcTile(city, 0.7, 0.4))).toBe(1);
+  });
+
+  test('middling land value becomes §§', () => {
+    const city = makeCity();
+    expect(chooseTier(city, rcTile(city, 0.5, 0.1))).toBe(2);
+  });
+
+  test('low land value stays §', () => {
+    const city = makeCity();
+    expect(chooseTier(city, rcTile(city, 0.3, 0.0))).toBe(1);
+  });
+
+  test('commercial uses the same wealth thresholds', () => {
+    const city = makeCity();
+    zone(city, 6, 6, Zone.Commercial, 2);
+    const t = city.tiles[idx(6, 6)];
+    t.landValue = 0.7;
+    t.pollution = 0.05;
+    expect(chooseTier(city, t)).toBe(3);
+  });
+});
+
+describe('chooseTier — industry kind', () => {
+  function iTile(
+    city: ReturnType<typeof makeCity>,
+    density: 1 | 2 | 3,
+    pollution: number,
+  ) {
+    zone(city, 8, 8, Zone.Industrial, 2);
+    const t = city.tiles[idx(8, 8)];
+    t.density = density;
+    t.pollution = pollution;
+    return t;
+  }
+
+  test('density 1 industrial is always farmland, whatever the education', () => {
+    const city = makeCity();
+    city.eduLevel = 0.9;
+    expect(chooseTier(city, iTile(city, 1, 0.0))).toBe('ag');
+  });
+
+  test('an uneducated city gets dirty industry', () => {
+    const city = makeCity();
+    city.eduLevel = 0.1;
+    expect(chooseTier(city, iTile(city, 2, 0.0))).toBe('dirty');
+  });
+
+  test('a moderately educated city gets manufacturing', () => {
+    const city = makeCity();
+    city.eduLevel = 0.4;
+    expect(chooseTier(city, iTile(city, 2, 0.0))).toBe('manu');
+  });
+
+  test('a highly educated city with clean air gets high-tech', () => {
+    const city = makeCity();
+    city.eduLevel = 0.7;
+    expect(chooseTier(city, iTile(city, 2, 0.1))).toBe('tech');
+  });
+
+  test('high-tech will not move into polluted air', () => {
+    const city = makeCity();
+    city.eduLevel = 0.7;
+    expect(chooseTier(city, iTile(city, 2, 0.5))).toBe('manu');
   });
 });

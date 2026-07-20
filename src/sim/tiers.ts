@@ -1,10 +1,12 @@
 import {
   C_JOBS,
+  CityState,
   I_JOBS,
   IndustryKind,
   R_POP,
   Stage,
   Tier,
+  Tile,
   Wealth,
   Zone,
 } from './types';
@@ -93,4 +95,52 @@ export function taxYieldFor(zone: Zone, tier: Tier): number {
 /** Emission multiplier for an industrial lot. */
 export function pollutionScaleFor(tier: Tier): number {
   return KIND_POLLUTION[(typeof tier === 'string' ? tier : NEUTRAL_KIND)];
+}
+
+/** Land value needed for each wealth, with a pollution ceiling that stops a
+ * well-parked lot downwind of a refinery from reading as affluent. */
+const WEALTH_GATES = [
+  { lv: 0.62, maxPollution: 0.15, wealth: 3 as Wealth },
+  { lv: 0.42, maxPollution: 0.35, wealth: 2 as Wealth },
+];
+/** City-wide education needed for each industry kind. */
+const TECH_EDU = 0.55;
+const TECH_MAX_POLLUTION = 0.3;
+const MANU_EDU = 0.3;
+
+/**
+ * Share of developed residential lots within reach of a school. Education is
+ * a property of the city's workforce, not of a factory's own lot — computing
+ * it per-tile would let one school beside an industrial park conjure a tech
+ * corridor out of nothing.
+ */
+export function updateEducation(city: CityState): void {
+  let developed = 0;
+  let covered = 0;
+  for (const t of city.tiles) {
+    if (t.zone !== Zone.Residential || t.stage === 0 || t.abandoned) continue;
+    developed++;
+    if (t.schoolCov > 0) covered++;
+  }
+  city.eduLevel = developed === 0 ? 0 : covered / developed;
+}
+
+/**
+ * The subtype local conditions call for. Pure: reads only fields the sim
+ * already maintains, so it can be re-asked any time without side effects.
+ */
+export function chooseTier(city: CityState, tile: Tile): Tier {
+  if (tile.zone === Zone.Industrial) {
+    if (tile.density === 1) return 'ag'; // player-chosen farmland
+    if (city.eduLevel >= TECH_EDU && tile.pollution < TECH_MAX_POLLUTION) return 'tech';
+    if (city.eduLevel >= MANU_EDU) return 'manu';
+    return 'dirty';
+  }
+  if (isRC(tile.zone)) {
+    for (const gate of WEALTH_GATES) {
+      if (tile.landValue >= gate.lv && tile.pollution < gate.maxPollution) return gate.wealth;
+    }
+    return 1;
+  }
+  return normalizeTier(tile.zone, tile.tier);
 }
