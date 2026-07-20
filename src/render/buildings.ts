@@ -2,6 +2,17 @@ import { IndustryKind, Stage, Tier, Wealth, Zone } from '../sim/types';
 import { normalizeTier } from '../sim/tiers';
 import { TileGeom } from './iso';
 import { getSkin } from './skins';
+import {
+  Archetype,
+  channels,
+  footprintBudget,
+  pickArchetype,
+  pickFarmLayout,
+  paletteFamily,
+  PropKind,
+  RoofStyle,
+  WindowStyle,
+} from './archetypes';
 
 /** Heights (px) by zone and stage 1..7. */
 const HEIGHTS: Partial<Record<Zone, number[]>> = {
@@ -167,6 +178,31 @@ interface Face {
   brightness: number; // 0..1 lighting factor
 }
 
+type Pt = [number, number];
+const mid = (a: Pt, b: Pt): Pt => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+const lerp2 = (a: Pt, b: Pt, t: number): Pt => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+
+/** Shift a tile's geometry by a tile-space offset (ox, oy in tile-fraction
+ * units), so sub-boxes and props rotate with the view for free. */
+function shiftGeom(geom: TileGeom, ox: number, oy: number): TileGeom {
+  const [c0, c1, , c3] = geom.corners;
+  const dx = ox * (c1[0] - c0[0]) + oy * (c3[0] - c0[0]);
+  const dy = ox * (c1[1] - c0[1]) + oy * (c3[1] - c0[1]);
+  return {
+    cx: geom.cx + dx,
+    cy: geom.cy + dy,
+    corners: geom.corners.map(([px, py]) => [px + dx, py + dy] as Pt),
+  };
+}
+
+/** Point on the roof at fractional (u, v) across the footprint quad. */
+function roofPt(foot: Pt[], h: number, u: number, v: number): Pt {
+  const top = lerp2(foot[0], foot[1], u);
+  const bot = lerp2(foot[3], foot[2], u);
+  const p = lerp2(top, bot, v);
+  return [p[0], p[1] - h];
+}
+
 /**
  * Pseudo-3D box rising from the tile. Footprint is the ground quad inset
  * toward the center by fraction f. The corners run clockwise on screen at
@@ -182,7 +218,7 @@ function box(
   hue: number,
   sat: number,
   lit: number,
-): Face[] {
+): { faces: Face[]; foot: [number, number][] } {
   const skin = getSkin();
   [hue, sat, lit] = skin.building(hue, sat, lit);
   const foot: [number, number][] = geom.corners.map(([px, py]) => [
@@ -233,7 +269,7 @@ function box(
     ctx.closePath();
     ctx.stroke();
   }
-  return faces;
+  return { faces, foot };
 }
 
 function windows(
@@ -241,13 +277,27 @@ function windows(
   faces: Face[],
   h: number,
   litUp: boolean,
-  night = 0,
+  night: number,
+  style: WindowStyle,
 ) {
-  // occupied windows glow warmer and brighter after dark
   ctx.strokeStyle = litUp
     ? `rgba(255, ${Math.round(240 - 30 * night)}, ${Math.round(160 - 60 * night)}, ${0.55 + 0.4 * night})`
     : 'rgba(20,20,30,0.45)';
   ctx.lineWidth = 1.5;
+  if (style === 'columns') {
+    for (const face of faces) {
+      for (let t = 0.2; t <= 0.81; t += 0.15) {
+        const x = face.a[0] + (face.b[0] - face.a[0]) * t;
+        const y = face.a[1] + (face.b[1] - face.a[1]) * t;
+        ctx.beginPath();
+        ctx.moveTo(x, y - 4);
+        ctx.lineTo(x, y - Math.max(5, h - 5));
+        ctx.stroke();
+      }
+    }
+    return;
+  }
+  if (style === 'grid') ctx.setLineDash([2.5, 2.5]);
   for (const face of faces) {
     const ax = face.a[0] + (face.b[0] - face.a[0]) * 0.12;
     const ay = face.a[1] + (face.b[1] - face.a[1]) * 0.12;
@@ -259,6 +309,127 @@ function windows(
       ctx.lineTo(bx, by - wy);
       ctx.stroke();
     }
+  }
+  ctx.setLineDash([]);
+}
+
+/** Roof cap over the full-height mass. 'flat' is box()'s own lightened cap. */
+function drawRoof(
+  ctx: CanvasRenderingContext2D,
+  foot: Pt[],
+  h: number,
+  style: RoofStyle,
+  hue: number,
+  sat: number,
+  lit: number,
+) {
+  const roof = foot.map(([x, y]) => [x, y - h] as Pt);
+  if (style === 'parapet') {
+    ctx.strokeStyle = hsl(hue, sat, lit * 0.55);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(roof[0][0], roof[0][1]);
+    for (let i = 1; i < 4; i++) ctx.lineTo(roof[i][0], roof[i][1]);
+    ctx.closePath();
+    ctx.stroke();
+    return;
+  }
+  if (style === 'gabled') {
+    const rh = Math.min(10, 4 + h * 0.2);
+    const a = mid(roof[0], roof[3]);
+    const b = mid(roof[1], roof[2]);
+    // gable ends first, then the slopes over them
+    fillPoly(ctx, [roof[0], roof[3], [a[0], a[1] - rh]], hsl(hue, sat, lit * 0.9));
+    fillPoly(ctx, [roof[1], roof[2], [b[0], b[1] - rh]], hsl(hue, sat, lit * 0.9));
+    fillPoly(ctx, [roof[0], roof[1], [b[0], b[1] - rh], [a[0], a[1] - rh]], hsl(hue, sat * 0.9, lit * 0.8));
+    fillPoly(ctx, [roof[3], roof[2], [b[0], b[1] - rh], [a[0], a[1] - rh]], hsl(hue, sat * 0.9, lit * 0.62));
+    return;
+  }
+  if (style === 'sawtooth') {
+    const q = (t: number, s: number): Pt =>
+      lerp2(lerp2(roof[0], roof[1], t), lerp2(roof[3], roof[2], t), s);
+    for (let k = 0; k < 3; k++) {
+      const t0 = k / 3;
+      const t1 = (k + 1) / 3;
+      const a = q(t0, 0);
+      const b = q(t0, 1);
+      const c = q(t1, 1);
+      const d = q(t1, 0);
+      fillPoly(ctx, [a, b, [b[0], b[1] - 3], [a[0], a[1] - 3]], hsl(hue, sat, lit * 0.5));
+      fillPoly(ctx, [[a[0], a[1] - 3], [b[0], b[1] - 3], c, d], hsl(hue, sat, lit * 0.78));
+    }
+  }
+}
+
+function drawProp(ctx: CanvasRenderingContext2D, kind: PropKind, x: number, y: number) {
+  switch (kind) {
+    case 'waterTower':
+      ctx.strokeStyle = '#5a5248';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x - 3, y);
+      ctx.lineTo(x - 3, y - 6);
+      ctx.moveTo(x + 3, y);
+      ctx.lineTo(x + 3, y - 6);
+      ctx.stroke();
+      ctx.fillStyle = '#8a7f6d';
+      ctx.fillRect(x - 4, y - 13, 8, 7);
+      fillPoly(ctx, [[x - 4, y - 13], [x + 4, y - 13], [x, y - 17]], '#6e6557');
+      break;
+    case 'acUnit':
+      ctx.fillStyle = '#9aa0a6';
+      ctx.fillRect(x - 3, y - 3, 5, 4);
+      ctx.fillStyle = '#7d838a';
+      ctx.fillRect(x + 3, y - 2, 3, 3);
+      break;
+    case 'antenna':
+      ctx.strokeStyle = '#cfd2d6';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x, y - 12);
+      ctx.stroke();
+      ctx.fillStyle = '#e05548';
+      ctx.fillRect(x - 1, y - 13, 2, 2);
+      break;
+    case 'chimney':
+      ctx.fillStyle = '#8a5a48';
+      ctx.fillRect(x - 1.5, y - 9, 3, 9);
+      ctx.fillStyle = '#6e483a';
+      ctx.fillRect(x - 2, y - 10, 4, 2);
+      break;
+    case 'vent':
+      ctx.fillStyle = '#848a90';
+      ctx.fillRect(x - 3, y - 4, 6, 4);
+      ctx.strokeStyle = '#5f646a';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(x - 2, y - 3);
+      ctx.lineTo(x + 2, y - 3);
+      ctx.moveTo(x - 2, y - 1.5);
+      ctx.lineTo(x + 2, y - 1.5);
+      ctx.stroke();
+      break;
+    case 'tank':
+      ctx.fillStyle = '#b9bdb6';
+      ctx.beginPath();
+      ctx.arc(x, y - 4, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#8f948d';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(x, y - 4, 4.5, 0, Math.PI * 2);
+      ctx.stroke();
+      break;
+    case 'yardTree':
+      tree(ctx, x, y);
+      break;
+    case 'hedge':
+      ctx.fillStyle = 'hsl(115 40% 26%)';
+      ctx.fillRect(x - 5, y - 3, 10, 3);
+      break;
+    case 'awning':
+      break; // drawn along the wall base in drawArchetype
   }
 }
 
@@ -317,19 +488,98 @@ export const ZONE_TINT: Partial<Record<Zone, string>> = {
 /** Farmland: tilled ground stripes and a low barn. Never a smokestack. */
 function farm(ctx: CanvasRenderingContext2D, geom: TileGeom, variant: number) {
   const { cx, cy } = geom;
-  fillTile(ctx, geom, 'hsl(74 32% 38%)'); // crop green
-  // furrows, angled with the isometric grid
+  const chan = channels(variant);
+  const layout = pickFarmLayout(chan());
+  fillTile(ctx, geom, `hsl(74 32% ${36 + Math.floor(chan() * 6)}%)`);
   ctx.strokeStyle = 'rgba(60, 48, 28, 0.35)';
   ctx.lineWidth = 1;
   for (let k = -2; k <= 2; k++) {
     ctx.beginPath();
-    ctx.moveTo(cx - 20 + k * 3, cy + k * 5);
-    ctx.lineTo(cx + 20 + k * 3, cy + k * 5 - 2);
+    if (layout.furrowAngle === 0) {
+      ctx.moveTo(cx - 20 + k * 3, cy + k * 5);
+      ctx.lineTo(cx + 20 + k * 3, cy + k * 5 - 2);
+    } else {
+      ctx.moveTo(cx + k * 6 - 2, cy - 10 + k * 2);
+      ctx.lineTo(cx + k * 6 + 2, cy + 10 + k * 2);
+    }
     ctx.stroke();
   }
-  // barn, nudged off-center by variant so neighbouring farms differ
-  const bx = cx + (variant - 0.5) * 10;
-  box(ctx, { ...geom, cx: bx }, 0.32, 10 + variant * 4, 14, 48, 42);
+  const bg = shiftGeom(geom, layout.barnOx, layout.barnOy);
+  box(ctx, bg, 0.3, 10 + chan() * 5, 14, 48, 42);
+  if (layout.extra === 'silo') {
+    const sg = shiftGeom(geom, -layout.barnOx, -layout.barnOy);
+    ctx.fillStyle = '#c9c4b4';
+    ctx.fillRect(sg.cx - 2.5, sg.cy - 16, 5, 14);
+    ctx.fillStyle = '#a8a294';
+    ctx.beginPath();
+    ctx.arc(sg.cx, sg.cy - 16, 2.5, Math.PI, 0);
+    ctx.fill();
+  } else if (layout.extra === 'coop') {
+    const cg = shiftGeom(geom, -layout.barnOx * 0.8, -layout.barnOy * 0.8);
+    box(ctx, cg, 0.16, 5, 30, 35, 55);
+  }
+}
+
+const GROUND_SPOTS: Pt[] = [[0.3, 0.3], [-0.32, 0.25], [0.28, -0.3], [-0.3, -0.3]];
+const GROUND_PROPS: PropKind[] = ['tank', 'yardTree', 'hedge'];
+
+function drawArchetype(
+  ctx: CanvasRenderingContext2D,
+  geom: TileGeom,
+  arch: Archetype,
+  stage: Stage,
+  zone: Zone,
+  baseH: number,
+  hue: number,
+  sat: number,
+  lit: number,
+  abandoned: boolean,
+  night: number,
+  chan: () => number,
+) {
+  const budget = footprintBudget(stage);
+  // draw masses back-to-front under the current rotation
+  const masses = arch.boxes
+    .map((sb) => ({ sb, g: shiftGeom(geom, sb.ox * budget, sb.oy * budget) }))
+    .sort((a, b) => a.g.cy - b.g.cy);
+  let primary: { faces: Face[]; foot: Pt[] } | null = null;
+  for (const { sb, g } of masses) {
+    const r = box(ctx, g, sb.f * budget, baseH * sb.hf, hue, sat, lit);
+    if (sb.hf === 1) primary = r;
+  }
+  if (!primary) return;
+
+  // decorations run through the skin exactly like walls do
+  const [dh, ds, dl] = getSkin().building(hue, sat, lit);
+  drawRoof(ctx, primary.foot, baseH, arch.roof, dh, ds, dl);
+  if (stage >= 2 && zone !== Zone.Industrial) {
+    windows(ctx, primary.faces, baseH, !abandoned, night, arch.windows);
+  }
+
+  if (abandoned) return; // ruins keep walls and roof, lose the trimmings
+  let spot = 0;
+  for (const kind of arch.props) {
+    if (chan() > 0.85) continue; // most lots carry the prop; some go without
+    if (kind === 'awning') {
+      ctx.strokeStyle = hsl((dh + 150) % 360, 55, 55);
+      ctx.lineWidth = 2.5;
+      for (const face of primary.faces) {
+        const a = lerp2(face.a, face.b, 0.1);
+        const b = lerp2(face.a, face.b, 0.9);
+        ctx.beginPath();
+        ctx.moveTo(a[0], a[1] - 6);
+        ctx.lineTo(b[0], b[1] - 6);
+        ctx.stroke();
+      }
+    } else if (GROUND_PROPS.includes(kind)) {
+      const [gx, gy] = GROUND_SPOTS[spot++ % GROUND_SPOTS.length];
+      const g = shiftGeom(geom, gx, gy);
+      drawProp(ctx, kind, g.cx, g.cy);
+    } else {
+      const p = roofPt(primary.foot, baseH, 0.3 + chan() * 0.4, 0.3 + chan() * 0.4);
+      drawProp(ctx, kind, p[0], p[1]);
+    }
+  }
 }
 
 export function drawBuilding(
@@ -419,7 +669,7 @@ export function drawBuilding(
           : zone === Zone.Hospital
             ? { h: 22, f: 0.82, hue: 190, sat: 12, lit: 68 }
             : { h: 12, f: 0.85, hue: 45, sat: 42, lit: 56 };
-    const faces = box(ctx, geom, style.f, style.h, style.hue, style.sat, style.lit);
+    const { faces } = box(ctx, geom, style.f, style.h, style.hue, style.sat, style.lit);
     // white service band across the visible walls
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';
     ctx.lineWidth = 2;
@@ -466,17 +716,21 @@ export function drawBuilding(
   }
 
   const h = (HEIGHTS[zone]?.[stage] ?? 12) * (0.92 + variant * 0.16) * getSkin().heightScale;
-  // Footprint must stay under 1.0 to preserve the painter's-order invariant.
-  const f = Math.min(0.85, 0.55 + stage * 0.05);
+  const chan = channels(variant);
+  const arch = pickArchetype(zone, tier, stage, chan());
+  const [fh, fs, fl] = paletteFamily(zone, tier, chan());
   let [hue, sat, lit] = paletteFor(zone, tier, stage);
-  hue += Math.floor(variant * 24) - 12;
+  // family shift plus a narrowed jitter (±6°, was ±12°) — families carry
+  // the variety now, jitter just breaks up rows
+  hue = (hue + fh + Math.floor(chan() * 12) - 6 + 360) % 360;
+  sat = Math.max(0, Math.min(100, sat + fs));
+  lit = Math.max(0, Math.min(100, lit + fl));
 
   if (abandoned) {
     sat = 6;
     lit = 32;
   }
-  const faces = box(ctx, geom, f, h, hue, sat, lit);
-  if (stage >= 2 && zone !== Zone.Industrial) windows(ctx, faces, h, !abandoned, night);
+  drawArchetype(ctx, geom, arch, stage, zone, h, hue, sat, lit, abandoned, night, chan);
   // Only smoky industry gets stacks; high-tech is clean and farms have none.
   if (zone === Zone.Industrial && stage >= 2 && !abandoned && (kind === 'dirty' || kind === 'manu')) {
     smokestack(ctx, cx + 8, cy - 8, h + 8);
@@ -487,7 +741,7 @@ export function drawBuilding(
     // boarded-up cross over the roof
     ctx.strokeStyle = 'rgba(30,25,20,0.8)';
     ctx.lineWidth = 2;
-    const r = 0.5 * f;
+    const r = 0.5 * footprintBudget(stage);
     ctx.beginPath();
     ctx.moveTo(cx - 14 * r, cy - h - 5 * r);
     ctx.lineTo(cx + 14 * r, cy - h + 5 * r);
