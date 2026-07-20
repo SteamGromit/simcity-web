@@ -96,6 +96,10 @@ function tickSafely() {
   }
 }
 
+// --- sound --- (before the UI: City Hall reads the music pref as it builds)
+const sound = createSoundPlayer();
+const music = createMusicPlayer(sound);
+
 // --- UI ---
 const query = buildQuery(uiRoot);
 const toolbar = buildToolbar(
@@ -185,10 +189,6 @@ for (const [sel, key] of [
   const handle = panel.querySelector<HTMLElement>('h3') ?? panel;
   makeDraggable(panel, handle, key);
 }
-
-// --- sound ---
-const sound = createSoundPlayer();
-const music = createMusicPlayer(sound);
 
 const help = buildHelp(uiRoot);
 const tipBar = buildTipBar(uiRoot);
