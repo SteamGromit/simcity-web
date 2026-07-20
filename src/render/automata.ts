@@ -247,6 +247,7 @@ export class Automata {
 
   private spawnPed(lots: number[]): Ped {
     const a = Math.random() * Math.PI * 2;
+    // spawn in the sidewalk annulus (see stepPeds)
     const r = 0.6 + Math.random() * 0.28;
     const pace = 0.7 + Math.random() * 0.7;
     return {
