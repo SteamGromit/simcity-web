@@ -28,10 +28,16 @@ export function buildHelp(root: HTMLElement) {
         <h4>Controls</h4>
         <ul>
           <li><b>Click / drag</b> — apply tool (zones drag rectangles)</li>
+          <li><b>Zoning</b> — click a zone tool and pick a density in its
+              flyout; <b>1/2/3</b> reuse each zone's last density</li>
           <li><b>Middle-drag or Space+drag</b> — pan · <b>Wheel</b> — zoom</li>
           <li><b>Q / E</b> — rotate the view · <b>Arrows</b> — pan</li>
+          <li><b>⇧ + letter</b> — toggle data views: ⇧P power, ⇧O pollution,
+              ⇧L land value, ⇧T traffic, ⇧F fire, ⇧V police, ⇧S school,
+              ⇧H health, ⇧W water</li>
           <li><b>Esc</b> — cancel tool · <b>H</b> or <b>?</b> — this help</li>
-          <li><b>M</b> — mute / unmute sound</li>
+          <li><b>M</b> — mute · <b>⠿</b> — drag panels · <b>⇱</b> — pop a
+              tool section out</li>
         </ul>
       </section>
       <section>

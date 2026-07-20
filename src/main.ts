@@ -15,7 +15,7 @@ import { buildMinimap } from './ui/minimap';
 import { buildCityHall } from './ui/cityhall';
 import { buildDisplay } from './ui/display';
 import { makeDraggable } from './ui/drag';
-import { TOOL_KEYS } from './ui/shortcuts';
+import { OVERLAY_KEYS, TOOL_KEYS } from './ui/shortcuts';
 import { setSkin } from './render/skins';
 import { setWeatherFx } from './render/fx';
 import { setDayNight } from './render/daynight';
@@ -395,7 +395,6 @@ window.addEventListener('keydown', (e) => {
       help.hide();
       break;
     case 'h':
-    case 'H':
     case '?':
       help.toggle();
       break;
@@ -421,10 +420,15 @@ window.addEventListener('keydown', (e) => {
 });
 window.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
-  const tool = TOOL_KEYS[e.key.toLowerCase()];
-  if (tool && !(e.target instanceof HTMLInputElement)) {
-    toolbar.selectTool(tool);
+  if (e.target instanceof HTMLInputElement) return;
+  if (e.shiftKey) {
+    // Shift is the data-views hold-key; shifted presses never reach tools
+    const overlayKey = OVERLAY_KEYS[e.key.toLowerCase()];
+    if (overlayKey) toolbar.toggleOverlay(overlayKey);
+    return;
   }
+  const tool = TOOL_KEYS[e.key.toLowerCase()];
+  if (tool) toolbar.selectTool(tool);
 });
 
 window.addEventListener('keyup', (e) => {
