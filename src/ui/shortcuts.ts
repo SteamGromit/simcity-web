@@ -1,4 +1,5 @@
-import { ToolId } from '../sim/types';
+import { Density, ToolId } from '../sim/types';
+import { OverlayId } from '../render/overlays';
 
 /** Keys already claimed by camera/help/sound bindings — never map tools here. */
 export const RESERVED_KEYS = new Set(['q', 'e', 'm', 'h', '?', ' ', 'escape']);
@@ -27,3 +28,28 @@ export const TOOL_KEYS: Record<string, ToolId | 'query'> = {
 export const KEY_OF: Partial<Record<ToolId | 'query', string>> = Object.fromEntries(
   Object.entries(TOOL_KEYS).map(([k, tool]) => [tool, k.toUpperCase()]),
 );
+
+/** Shift+key overlay toggles. Bare keys stay tools; Shift means a view. */
+export const OVERLAY_KEYS: Record<string, OverlayId> = {
+  p: 'power',
+  o: 'pollution',
+  l: 'landvalue',
+  t: 'traffic',
+  f: 'fire',
+  v: 'police', // matches the V police-station tool key
+  s: 'school',
+  h: 'health',
+  w: 'water',
+};
+
+/** Reverse lookup: overlay id → its display key, for button labels. */
+export const OVERLAY_KEY_OF: Partial<Record<OverlayId, string>> = Object.fromEntries(
+  Object.entries(OVERLAY_KEYS).map(([k, id]) => [id, `⇧${k.toUpperCase()}`]),
+);
+
+/** Revive a persisted zone density; junk clamps to Low. */
+export function clampDensity(raw: unknown): Density {
+  if (raw === '2' || raw === 2) return 2;
+  if (raw === '3' || raw === 3) return 3;
+  return 1;
+}

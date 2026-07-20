@@ -1,7 +1,14 @@
 import { describe, expect, test } from 'vitest';
 import { roadLine } from '../src/sim/grid';
-import { RESERVED_KEYS, TOOL_KEYS } from '../src/ui/shortcuts';
+import {
+  clampDensity,
+  OVERLAY_KEY_OF,
+  OVERLAY_KEYS,
+  RESERVED_KEYS,
+  TOOL_KEYS,
+} from '../src/ui/shortcuts';
 import { COSTS } from '../src/sim/types';
+import { OVERLAY_LABELS } from '../src/render/overlays';
 
 describe('roadLine', () => {
   test('straight lines include both endpoints', () => {
@@ -63,5 +70,37 @@ describe('TOOL_KEYS', () => {
     expect(tools).toContain('zoneR');
     expect(tools).toContain('zoneC');
     expect(tools).toContain('zoneI');
+  });
+});
+
+describe('OVERLAY_KEYS', () => {
+  test('keys are unique single letters', () => {
+    const keys = Object.keys(OVERLAY_KEYS);
+    expect(new Set(keys).size).toBe(keys.length);
+    for (const k of keys) expect(k).toMatch(/^[a-z]$/);
+  });
+
+  test('every overlay is reachable and gets a ⇧ label', () => {
+    const ids = Object.values(OVERLAY_KEYS);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const id of Object.keys(OVERLAY_LABELS) as (keyof typeof OVERLAY_LABELS)[]) {
+      expect(ids).toContain(id);
+      expect(OVERLAY_KEY_OF[id]).toMatch(/^⇧[A-Z]$/);
+    }
+  });
+});
+
+describe('clampDensity', () => {
+  test('passes stored densities through', () => {
+    expect(clampDensity('1')).toBe(1);
+    expect(clampDensity('2')).toBe(2);
+    expect(clampDensity('3')).toBe(3);
+  });
+
+  test('junk clamps to Low', () => {
+    expect(clampDensity(null)).toBe(1);
+    expect(clampDensity(undefined)).toBe(1);
+    expect(clampDensity('9')).toBe(1);
+    expect(clampDensity('abc')).toBe(1);
   });
 });
