@@ -184,6 +184,15 @@ describe('save round-trip', () => {
     expect(cleaned!.notices).toEqual(['ok', 'also ok']);
   });
 
+  test('out-of-range taxes and demand are clamped on revival', () => {
+    const junk = JSON.parse(serialize(newCity(1)));
+    junk.taxes = { r: 9, c: -0.5, i: 0.13 };
+    junk.demand = { r: 50, c: -50, i: 0.4 };
+    const revived = deserialize(JSON.stringify(junk));
+    expect(revived!.taxes).toEqual({ r: 0.2, c: 0, i: 0.13 });
+    expect(revived!.demand).toEqual({ r: 1, c: -1, i: 0.4 });
+  });
+
   test('malformed tile fields degrade to blank defaults, never NaN', () => {
     const tiles = JSON.stringify(Array.from({ length: GRID * GRID }, () => ({})));
     const json = `{"version":1,"seed":1,"tiles":${tiles},"funds":100,"tick":0,"month":0,"taxes":{"r":0.09,"c":0.09,"i":0.09}}`;

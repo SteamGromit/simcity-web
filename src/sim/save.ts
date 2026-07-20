@@ -40,6 +40,10 @@ function finite(v: unknown, fallback: number): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
 }
 
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, v));
+}
+
 /** Rebuild a tile from untrusted data; anything malformed falls back to blank. */
 function reviveTile(raw: unknown): Tile {
   const t = blankTile();
@@ -156,11 +160,17 @@ export function deserialize(json: string): CityState | null {
       funds: data.funds,
       tick: data.tick,
       month: data.month,
-      demand: { r: finite(demand.r, 0), c: finite(demand.c, 0), i: finite(demand.i, 0) },
-      taxes: { r: taxes.r, c: taxes.c, i: taxes.i },
+      // taxes multiply into income and demand into growth probability, so a
+      // crafted save must not push them past what the game itself can set
+      demand: {
+        r: clamp(finite(demand.r, 0), -1, 1),
+        c: clamp(finite(demand.c, 0), -1, 1),
+        i: clamp(finite(demand.i, 0), -1, 1),
+      },
+      taxes: { r: clamp(taxes.r, 0, 0.2), c: clamp(taxes.c, 0, 0.2), i: clamp(taxes.i, 0, 0.2) },
       population: finite(data.population, 0),
       jobs: finite(data.jobs, 0),
-      eduLevel: Math.max(0, Math.min(1, finite(data.eduLevel, 0))),
+      eduLevel: clamp(finite(data.eduLevel, 0), 0, 1),
       lastBudget: {
         rIncome: finite(budget.rIncome, 0),
         cIncome: finite(budget.cIncome, 0),
