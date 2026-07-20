@@ -339,6 +339,22 @@ describe('retierMonthly', () => {
     expect(t.tier).toBe('dirty');
   });
 
+  test('a tech lot demotes to manu when eduLevel falls below TECH_EDU - DEAD_BAND', () => {
+    // Regression test: this value (0.4) is the critical discriminator between the
+    // correct gate (current === 'tech' ? TECH_EDU : MANU_EDU) and a buggy version
+    // keyed off verdict. With 0.4:
+    // - Falls below TECH_EDU - DEAD_BAND (0.5), triggering demotion
+    // - Stays above MANU_EDU - DEAD_BAND (0.25), so only the correct gate catches it
+    const city = makeCity();
+    city.eduLevel = 0.4;
+    zone(city, 8, 8, Zone.Industrial, 3, 'tech');
+    const t = city.tiles[idx(8, 8)];
+    t.density = 2;
+    t.pollution = 0; // held low, no pollution-based demotion
+    retierMonthly(city, always);
+    expect(t.tier).toBe('manu');
+  });
+
   test('leaves undeveloped and abandoned lots alone', () => {
     const city = makeCity();
     zone(city, 5, 5, Zone.Residential, 0, 1);
