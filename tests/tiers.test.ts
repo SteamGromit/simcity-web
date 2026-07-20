@@ -263,6 +263,26 @@ describe('retierMonthly', () => {
     expect(t.tier).toBe(2); // one step down
   });
 
+  test('a §§§ lot does not oscillate when pollution hovers just past its ceiling', () => {
+    const city = makeCity();
+    zone(city, 5, 5, Zone.Residential, 4, 3); // §§§ today
+    const t = city.tiles[idx(5, 5)];
+    t.landValue = 0.9; // comfortably above every land-value gate
+    t.pollution = 0.17; // past the §§§ ceiling (0.15) but inside the 0.05 band
+    for (let m = 0; m < 24; m++) retierMonthly(city, always);
+    expect(t.tier).toBe(3); // holds — no flicker
+  });
+
+  test('a §§§ lot demotes once pollution clears its ceiling by more than DEAD_BAND', () => {
+    const city = makeCity();
+    zone(city, 5, 5, Zone.Residential, 4, 3); // §§§ today
+    const t = city.tiles[idx(5, 5)];
+    t.landValue = 0.9; // comfortably above every land-value gate
+    t.pollution = 0.22; // clears the 0.15 ceiling by more than the 0.05 band
+    retierMonthly(city, always);
+    expect(t.tier).toBe(2); // one step down
+  });
+
   test('farmland is never overruled by the sim', () => {
     const city = makeCity();
     city.eduLevel = 0.9;
@@ -284,6 +304,39 @@ describe('retierMonthly', () => {
     expect(t.tier).toBe('manu');
     retierMonthly(city, always);
     expect(t.tier).toBe('tech');
+  });
+
+  test('a tech lot demotes to manu once pollution clears its ceiling by more than DEAD_BAND', () => {
+    const city = makeCity();
+    city.eduLevel = 0.9; // high and stable — well above TECH_EDU throughout
+    zone(city, 8, 8, Zone.Industrial, 3, 'tech');
+    const t = city.tiles[idx(8, 8)];
+    t.density = 2;
+    t.pollution = 0.4; // clears TECH_MAX_POLLUTION (0.3) by more than the 0.05 band
+    retierMonthly(city, always);
+    expect(t.tier).toBe('manu');
+  });
+
+  test('a tech lot holds when pollution is inside the dead band above its ceiling', () => {
+    const city = makeCity();
+    city.eduLevel = 0.9; // high and stable — well above TECH_EDU throughout
+    zone(city, 8, 8, Zone.Industrial, 3, 'tech');
+    const t = city.tiles[idx(8, 8)];
+    t.density = 2;
+    t.pollution = 0.32; // past TECH_MAX_POLLUTION (0.3) but inside the 0.05 band
+    for (let m = 0; m < 24; m++) retierMonthly(city, always);
+    expect(t.tier).toBe('tech'); // holds — no flicker
+  });
+
+  test('a manu lot demotes to dirty when eduLevel falls decisively below MANU_EDU', () => {
+    const city = makeCity();
+    city.eduLevel = 0.2; // more than DEAD_BAND below MANU_EDU (0.3)
+    zone(city, 8, 8, Zone.Industrial, 3, 'manu');
+    const t = city.tiles[idx(8, 8)];
+    t.density = 2;
+    t.pollution = 0;
+    retierMonthly(city, always);
+    expect(t.tier).toBe('dirty');
   });
 
   test('leaves undeveloped and abandoned lots alone', () => {

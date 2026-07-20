@@ -170,14 +170,25 @@ function stepKind(from: IndustryKind, to: IndustryKind): IndustryKind {
 /**
  * Has the tile cleared its gate by enough to justify moving? An upgrade must
  * beat the target's threshold by DEAD_BAND; a downgrade must fall below the
- * threshold it currently satisfies by the same margin.
+ * threshold it currently satisfies by the same margin. A pollution ceiling
+ * is just another gate for this purpose — it must be exceeded by DEAD_BAND
+ * before it forces a downgrade, so a lot near the line doesn't flicker as
+ * pollution drifts across the raw threshold.
  */
 function withinDeadBand(city: CityState, tile: Tile, current: Tier, verdict: Tier): boolean {
   if (tile.zone === Zone.Industrial) {
     const ladder: IndustryKind[] = ['dirty', 'manu', 'tech'];
     const up = ladder.indexOf(verdict as IndustryKind) > ladder.indexOf(current as IndustryKind);
-    const gate = verdict === 'tech' ? TECH_EDU : MANU_EDU;
-    return up ? city.eduLevel >= gate + DEAD_BAND : city.eduLevel < gate - DEAD_BAND;
+    if (up) {
+      const gate = verdict === 'tech' ? TECH_EDU : MANU_EDU;
+      return city.eduLevel >= gate + DEAD_BAND;
+    }
+    // Keyed off the tier being left, not the target: leaving 'tech' must
+    // clear TECH_EDU's margin even though the target ('manu') is gated by
+    // MANU_EDU.
+    if (current === 'tech' && tile.pollution >= TECH_MAX_POLLUTION + DEAD_BAND) return true;
+    const gate = current === 'tech' ? TECH_EDU : MANU_EDU;
+    return city.eduLevel < gate - DEAD_BAND;
   }
   const up = (verdict as Wealth) > (current as Wealth);
   if (up) {
@@ -185,9 +196,7 @@ function withinDeadBand(city: CityState, tile: Tile, current: Tier, verdict: Tie
     return gate ? tile.landValue >= gate.lv + DEAD_BAND : false;
   }
   const gate = WEALTH_GATES.find((g) => g.wealth === (current as Wealth));
-  // A pollution ceiling breach is decisive on its own — no land-value margin
-  // needed to push a lot out of a tier it can no longer support.
-  if (gate && tile.pollution >= gate.maxPollution) return true;
+  if (gate && tile.pollution >= gate.maxPollution + DEAD_BAND) return true;
   return gate ? tile.landValue < gate.lv - DEAD_BAND : true;
 }
 
