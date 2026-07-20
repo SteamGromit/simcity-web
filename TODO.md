@@ -6,16 +6,12 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Backlog (in order)
 
-1. **Visual variety** — more variation in building, vehicle, and
-   pedestrian appearance: seeded per-tile building variants (shapes,
-   roofs, palettes), more vehicle types/colors. Builds on the tier
-   taxonomy so each subtype reads distinctly.
-2. **Rewards** — special buildings the mayor's office can purchase once
+1. **Rewards** — special buildings the mayor's office can purchase once
    city milestones are hit (e.g. Stadium, Library, Museum, Monument);
    each grants a city-wide effect.
-3. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
+2. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
    deferred until single-city play is deep enough).
-4. **Modding hooks** — data-driven building/balance definitions; folds in
+3. **Modding hooks** — data-driven building/balance definitions; folds in
    user-made skins from the skins item.
 5. **Per-tier visuals** - distinct appearance and height of buildings based on tier
 6. **Garabage** - residents produce garabage. garabage pickup is a city service requiring a way to dispose of or process the trash. mayor can buy a trash dump. when city advances past some threshold of advancement, some trash can be recycled.
@@ -28,6 +24,10 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 13. **seasons** - color of vegetation and disaster type varies with season\
 
 ## Done
+
+- **Visual variety** — shipped v0.24.0 (seeded building archetypes:
+  composed silhouettes, roofs, props, palette families, window styles;
+  farm layout variants; context-aware vehicle kinds; pedestrian variety).
 
 - **RCI tiers & industry types** — shipped v0.23.0 (industry splits into
   agricultural/dirty/manufacturing/high-tech by education and pollution,

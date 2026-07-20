@@ -4,6 +4,18 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## v0.24.0 — Visual variety
+
+- Seeded per-tile building archetypes: composed silhouettes (L-shapes,
+  setbacks, twin masses), roof styles (flat/parapet/gabled/sawtooth),
+  rooftop and yard props, palette families per tier, and three window
+  styles — all deterministic from the map seed, composing with skins.
+- Farms vary: barn placement, furrow direction, silo or coop.
+- Context-aware traffic: trucks favor industrial roads, taxis and vans
+  commercial ones, buses appear near bus stops; kind-specific speeds and
+  paint, wider car palette.
+- Pedestrians vary in build, dress, and pace.
+
 ## [0.23.0] — 2026-07-20 · RCI tiers & industry types
 
 ### Added
