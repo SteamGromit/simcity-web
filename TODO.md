@@ -21,6 +21,11 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 9. **Crime** - crime can happen anywhere, but is more common in certain areas and conditions
 10. **traffic accidents** - occasionally a road is blocked due to an accident. Accident prob depends on traffic flow.
 11. **seasons** - color of vegetation and disaster type varies with season\
+12. **Input-guard bug** — the camera/help/mute keydown listener fires even
+    when a form control is focused: arrow keys nudge a focused tax slider
+    AND pan the camera at once. Add an `HTMLInputElement` early-return
+    (minding the slider's legitimate arrow keys). Found in the v0.25.0
+    final review; predates that branch.
 
 ## Done
 
