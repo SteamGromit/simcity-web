@@ -13,10 +13,12 @@ import { buildQuery } from './ui/query';
 import { buildCharts } from './ui/charts';
 import { buildMinimap } from './ui/minimap';
 import { buildCityHall } from './ui/cityhall';
+import { buildDisplay } from './ui/display';
 import { makeDraggable } from './ui/drag';
 import { TOOL_KEYS } from './ui/shortcuts';
 import { setSkin } from './render/skins';
 import { setWeatherFx } from './render/fx';
+import { setDayNight } from './render/daynight';
 import { buildHelp, buildTipBar } from './ui/help';
 import { adviseTips } from './sim/tips';
 import { ambientLevel, createSoundPlayer, soundFor, UI_SOUNDS } from './ui/sound';
@@ -39,6 +41,7 @@ let city: CityState = (() => {
 
 setSkin(localStorage.getItem('simcity.skin') ?? 'classic');
 setWeatherFx(localStorage.getItem('simcity.weatherfx') !== '0');
+setDayNight(localStorage.getItem('simcity.daynight') === '1');
 let rand = mulberry32(city.seed + city.tick);
 const renderer = new Renderer(canvas, city.seed);
 
@@ -96,7 +99,7 @@ function tickSafely() {
   }
 }
 
-// --- sound --- (before the UI: City Hall reads the music pref as it builds)
+// --- sound --- (before the UI: Display reads the music pref as it builds)
 const sound = createSoundPlayer();
 const music = createMusicPlayer(sound);
 
@@ -129,10 +132,11 @@ const cityHall = buildCityHall(
     spawnDisaster(city, kind, rand);
     sound.play(UI_SOUNDS.alarm);
   },
-  {
-    isOn: () => music.on,
-    toggle: () => music.toggle(),
-  },
+);
+const display = buildDisplay(
+  uiRoot,
+  { isOn: () => music.on, toggle: () => music.toggle() },
+  () => sound.play(UI_SOUNDS.select),
 );
 const hud = buildHud(
   uiRoot,
@@ -141,6 +145,7 @@ const hud = buildHud(
     setSpeed,
     toggleCharts: () => charts.toggle(),
     toggleCityHall: () => cityHall.toggle(),
+    toggleDisplay: () => display.toggle(),
     save() {
       localStorage.setItem(SAVE_KEY, serialize(city));
       toast('City saved', 'info');
@@ -182,6 +187,7 @@ for (const [sel, key] of [
   ['#budget-panel', 'budget'],
   ['#charts-panel', 'charts'],
   ['#cityhall-panel', 'cityhall'],
+  ['#display-panel', 'display'],
   ['#help-panel', 'help'],
 ] as const) {
   const panel = document.querySelector<HTMLElement>(sel);

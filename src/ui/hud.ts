@@ -16,6 +16,7 @@ export interface HudActions {
   newCity(): void;
   toggleCharts(): void;
   toggleCityHall(): void;
+  toggleDisplay(): void;
 }
 
 const SPEED_LABELS = ['⏸', '▶', '▶▶', '▶▶▶'];
@@ -33,6 +34,7 @@ export function buildHud(root: HTMLElement, city: () => CityState, actions: HudA
     <button id="budget-btn">Budget</button>
     <button id="cityhall-btn">City Hall</button>
     <button id="charts-btn">Charts</button>
+    <button id="display-btn">Display</button>
     <button id="save-btn">Save</button>
     <button id="load-btn">Load</button>
     <button id="new-btn">New</button>
@@ -64,6 +66,7 @@ export function buildHud(root: HTMLElement, city: () => CityState, actions: HudA
 
   (el.querySelector('#charts-btn') as HTMLElement).addEventListener('click', actions.toggleCharts);
   (el.querySelector('#cityhall-btn') as HTMLElement).addEventListener('click', actions.toggleCityHall);
+  (el.querySelector('#display-btn') as HTMLElement).addEventListener('click', actions.toggleDisplay);
   (el.querySelector('#save-btn') as HTMLElement).addEventListener('click', actions.save);
   (el.querySelector('#load-btn') as HTMLElement).addEventListener('click', actions.load);
   (el.querySelector('#new-btn') as HTMLElement).addEventListener('click', actions.newCity);

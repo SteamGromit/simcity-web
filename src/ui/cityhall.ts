@@ -1,6 +1,4 @@
 import { CityState, DisasterKind, ORDINANCES } from '../sim/types';
-import { getSkin, setSkin, SKINS } from '../render/skins';
-import { getWeatherFx, setWeatherFx } from '../render/fx';
 import { adviseTips } from '../sim/tips';
 import { tierBreakdown } from '../sim/tierstats';
 
@@ -10,7 +8,6 @@ export function buildCityHall(
   city: () => CityState,
   onToggle: () => void,
   onDisaster: (kind: DisasterKind) => void,
-  music: { isOn(): boolean; toggle(): boolean },
 ) {
   const panel = document.createElement('div');
   panel.id = 'cityhall-panel';
@@ -25,15 +22,6 @@ export function buildCityHall(
     <div id="ordinance-list"></div>
     <h4>Disasters · tempt fate</h4>
     <div id="disaster-list"></div>
-    <h4>City style</h4>
-    <div id="skin-list"></div>
-    <h4>Display</h4>
-    <label class="ordinance" id="weatherfx-row" title="Rain, snow, and cloud visuals. The simulation (and hurricane rain) is unaffected.">
-      <input type="checkbox" id="weatherfx-box"><span>Weather effects</span>
-    </label>
-    <label class="ordinance" id="music-row" title="Procedural soundtrack that follows your city's biome, season, weather, and growth. M mutes everything.">
-      <input type="checkbox" id="music-box"><span>Music</span>
-    </label>
   `;
   root.appendChild(panel);
 
@@ -69,41 +57,6 @@ export function buildCityHall(
     btn.addEventListener('click', () => onDisaster(kind));
     disasterList.appendChild(btn);
   }
-
-  const skinList = panel.querySelector('#skin-list') as HTMLElement;
-  const skinButtons: HTMLButtonElement[] = [];
-  const syncSkins = () =>
-    SKINS.forEach((sk, i) => skinButtons[i].classList.toggle('active', getSkin().id === sk.id));
-  for (const sk of SKINS) {
-    const btn = document.createElement('button');
-    btn.textContent = sk.label;
-    btn.title = sk.blurb;
-    btn.addEventListener('click', () => {
-      setSkin(sk.id);
-      localStorage.setItem('simcity.skin', sk.id);
-      syncSkins();
-      onToggle();
-    });
-    skinButtons.push(btn);
-    skinList.appendChild(btn);
-  }
-  syncSkins();
-
-  const fxBox = panel.querySelector('#weatherfx-box') as HTMLInputElement;
-  fxBox.checked = getWeatherFx();
-  fxBox.addEventListener('change', () => {
-    setWeatherFx(fxBox.checked);
-    localStorage.setItem('simcity.weatherfx', fxBox.checked ? '1' : '0');
-    onToggle();
-  });
-
-  const musicBox = panel.querySelector('#music-box') as HTMLInputElement;
-  musicBox.checked = music.isOn();
-  musicBox.addEventListener('change', () => {
-    music.toggle();
-    musicBox.checked = music.isOn();
-    onToggle();
-  });
 
   let lastTipRender = 0;
   const syncBoxes = () => {
