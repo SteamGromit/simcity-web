@@ -17,6 +17,7 @@ import { updatePollution } from '../src/sim/pollution';
 import { developTile } from '../src/sim/develop';
 import { simTick } from '../src/sim/city';
 import { deserialize, serialize } from '../src/sim/save';
+import { tierBreakdown, tierLabel } from '../src/sim/tierstats';
 
 describe('normalizeTier', () => {
   test('passes through a valid wealth on R/C', () => {
@@ -549,5 +550,38 @@ describe('saving tiers', () => {
     expect(deserialize(JSON.stringify(raw))!.eduLevel).toBe(1);
     raw.eduLevel = -3;
     expect(deserialize(JSON.stringify(raw))!.eduLevel).toBe(0);
+  });
+});
+
+describe('tierLabel', () => {
+  test('names wealth with section signs and industry by kind', () => {
+    expect(tierLabel(Zone.Residential, 1)).toBe('§');
+    expect(tierLabel(Zone.Residential, 3)).toBe('§§§');
+    expect(tierLabel(Zone.Industrial, 'ag')).toBe('agricultural');
+    expect(tierLabel(Zone.Industrial, 'tech')).toBe('high-tech');
+  });
+});
+
+describe('tierBreakdown', () => {
+  test('totals population by wealth and industrial jobs by kind', () => {
+    const city = makeCity();
+    zone(city, 1, 1, Zone.Residential, 2, 1); // 28 people
+    zone(city, 2, 1, Zone.Residential, 2, 3); // 18 people
+    zone(city, 3, 1, Zone.Industrial, 2, 'ag'); // 14 jobs
+    zone(city, 4, 1, Zone.Industrial, 2, 'tech'); // 24 jobs
+    const out = tierBreakdown(city);
+    expect(out.wealth[1]).toBe(28);
+    expect(out.wealth[3]).toBe(18);
+    expect(out.wealth[2]).toBe(0);
+    expect(out.industry.ag).toBe(14);
+    expect(out.industry.tech).toBe(24);
+    expect(out.industry.dirty).toBe(0);
+  });
+
+  test('skips abandoned lots', () => {
+    const city = makeCity();
+    zone(city, 1, 1, Zone.Residential, 4, 2);
+    city.tiles[idx(1, 1)].abandoned = true;
+    expect(tierBreakdown(city).wealth[2]).toBe(0);
   });
 });

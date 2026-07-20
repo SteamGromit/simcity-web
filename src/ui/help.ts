@@ -63,6 +63,15 @@ export function buildHelp(root: HTMLElement) {
         </ul>
       </section>
     </div>
+    <h4>Wealth &amp; industry</h4>
+    <p>Buildings pick a character from their surroundings. Raise land value
+    with parks, services, and clean air and neighborhoods gentrify from § to
+    §§§ — wealthier lots hold fewer people but pay far more tax.</p>
+    <p>Industry follows your schools. With few of them you get dirty
+    factories; educate the city and they modernize into manufacturing, then
+    into clean high-tech — provided the air is clean enough to attract it.
+    Zone industry at <em>low</em> density for farmland: little pollution,
+    few jobs, and a pleasant place to grow.</p>
   `;
   root.appendChild(panel);
 

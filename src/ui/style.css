@@ -279,6 +279,14 @@ body {
   cursor: pointer;
 }
 
+.tier-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.85em;
+  padding: 0.1rem 0;
+}
+
 #cityhall-panel #disaster-list {
   display: flex;
   gap: 5px;

@@ -1,4 +1,5 @@
 import { idx } from '../sim/grid';
+import { tierLabel } from '../sim/tierstats';
 import { CityState, ROAD_CAPACITY, Terrain, Zone } from '../sim/types';
 
 const ZONE_NAMES: Record<Zone, string> = {
@@ -40,6 +41,7 @@ export function buildQuery(root: HTMLElement) {
       if (t.zone === Zone.Residential || t.zone === Zone.Commercial || t.zone === Zone.Industrial) {
         if (t.burning > 0) rows.push(['Status', '🔥 ON FIRE']);
         rows.push(['Density', ['', 'Low', 'Medium', 'High'][t.density]]);
+        if (t.stage > 0) rows.push(['Tier', tierLabel(t.zone, t.tier)]);
         rows.push(['Stage', t.stage === 0 ? 'undeveloped' : String(t.stage)]);
         rows.push(['Powered', t.powered ? 'yes' : 'no']);
         rows.push(['Watered', t.watered ? 'yes' : 'no']);

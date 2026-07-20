@@ -2,6 +2,7 @@ import { CityState, DisasterKind, ORDINANCES } from '../sim/types';
 import { getSkin, setSkin, SKINS } from '../render/skins';
 import { getWeatherFx, setWeatherFx } from '../render/fx';
 import { adviseTips } from '../sim/tips';
+import { tierBreakdown } from '../sim/tierstats';
 
 /** City Hall: the advisor board (every active tip) and ordinance toggles. */
 export function buildCityHall(
@@ -18,6 +19,8 @@ export function buildCityHall(
     <h3>City Hall</h3>
     <h4>Advisors</h4>
     <ul id="advisor-list"></ul>
+    <h4>City make-up</h4>
+    <div id="tier-breakdown"></div>
     <h4>Ordinances · monthly cost</h4>
     <div id="ordinance-list"></div>
     <h4>Disasters · tempt fate</h4>
@@ -35,6 +38,7 @@ export function buildCityHall(
   root.appendChild(panel);
 
   const advisorList = panel.querySelector('#advisor-list') as HTMLElement;
+  const tierPanel = panel.querySelector('#tier-breakdown') as HTMLElement;
   const ordinanceList = panel.querySelector('#ordinance-list') as HTMLElement;
 
   for (const o of ORDINANCES) {
@@ -124,6 +128,20 @@ export function buildCityHall(
       advisorList.innerHTML = tips.length
         ? tips.map((t) => `<li>${t.text}</li>`).join('')
         : '<li class="quiet">No complaints — the city hums along.</li>';
+
+      const b = tierBreakdown(c);
+      const pop = b.wealth[1] + b.wealth[2] + b.wealth[3];
+      const jobs = b.industry.ag + b.industry.dirty + b.industry.manu + b.industry.tech;
+      const pct = (n: number, total: number) =>
+        total === 0 ? '—' : `${Math.round((n / total) * 100)}%`;
+      tierPanel.innerHTML = `
+        <div class="tier-row"><span>Residents §/§§/§§§</span><span>${pct(b.wealth[1], pop)} · ${pct(b.wealth[2], pop)} · ${pct(b.wealth[3], pop)}</span></div>
+        <div class="tier-row"><span>Farm jobs</span><span>${pct(b.industry.ag, jobs)}</span></div>
+        <div class="tier-row"><span>Dirty industry</span><span>${pct(b.industry.dirty, jobs)}</span></div>
+        <div class="tier-row"><span>Manufacturing</span><span>${pct(b.industry.manu, jobs)}</span></div>
+        <div class="tier-row"><span>High-tech</span><span>${pct(b.industry.tech, jobs)}</span></div>
+        <div class="tier-row"><span>Education</span><span>${Math.round(c.eduLevel * 100)}%</span></div>
+      `;
     },
     /** Re-sync checkboxes after loading a different city. */
     syncBoxes,
