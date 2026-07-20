@@ -99,7 +99,11 @@ department can't cope, bulldoze a firebreak before the whole block goes.
 Watch the budget — roads, plants, and services cost upkeep monthly; taxes
 above 9% suppress demand. Pick a **city style** in City Hall — Classic, cartoon **Springfield**
 (ink outlines, loud colors), or muted brownstone **NYC** — all drawn
-procedurally, switchable live. Open **City Hall** for the advisor board (every
+procedurally, switchable live. Listen for the **adaptive soundtrack** —
+a fully synthesized score that follows your city: desert maps play a
+different scale, winter turns it minor and slow, rain thins it out, an
+industrial skyline darkens it, and the band grows as the village becomes
+a metropolis (toggle in City Hall → Display; M mutes everything). Open **City Hall** for the advisor board (every
 current warning at a glance) and to enact **ordinances** — monthly-cost
 policies like the Clean Air Act or Free Bus Service that bend the
 simulation in your favor.

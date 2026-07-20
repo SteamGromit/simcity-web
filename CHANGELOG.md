@@ -4,6 +4,22 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.22.0] — 2026-07-19 · Adaptive music
+
+### Added
+- **Adaptive soundtrack**: a procedural score, fully synthesized in the
+  browser like every other sound, that plays the city back at you.
+  Locale and climate pick the color — desert maps run a hijaz scale on a
+  higher root, winter turns minor, low, and slow, summer lifts the
+  register, rain and clouds soften and thin the notes, snow rings sparse
+  high bells. Growth builds the band: a village gets a lone slow melody,
+  bass joins at 500 residents, a pad at 5 000, percussion at 20 000 as
+  the tempo climbs 70→110 bpm. A heavily industrial city turns the
+  music minor with a sawtooth bass; an active disaster ducks everything
+  to a tense low drone until the skies clear.
+- **Music toggle** (City Hall → Display): on by default, remembered like
+  a preference. M still mutes all audio at once.
+
 ## [0.21.0] — 2026-07-19 · Disaster visuals
 
 ### Added
