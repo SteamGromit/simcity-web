@@ -6,16 +6,17 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Backlog (in order)
 
-1. **Adaptive music** — procedural/genre soundtrack themed to locale and
-   climate (biome, weather, season) and to the city's maturation and
-   make-up (village → metropolis; residential vs industrial character);
-   builds on the Web Audio engine from v0.9. *(user-requested 2026-07-19)*
-2. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
+1. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
    deferred until single-city play is deep enough).
-3. **Modding hooks** — data-driven building/balance definitions; folds in
+2. **Modding hooks** — data-driven building/balance definitions; folds in
    user-made skins from the skins item.
 
 ## Done
+
+- **Adaptive music** — shipped v0.22.0 (procedural soundtrack: biome
+  scale/root, seasonal mode/register, weather damping, growth-gated
+  layers 70→110 bpm, industrial minor color, disaster duck; City Hall
+  toggle).
 
 - **Disaster visuals & animation** — shipped v0.21.0 (rubble trails that
   block rebuilding and decay over months, tornado debris + dust ring +

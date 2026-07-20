@@ -20,6 +20,7 @@ import { setWeatherFx } from './render/fx';
 import { buildHelp, buildTipBar } from './ui/help';
 import { adviseTips } from './sim/tips';
 import { ambientLevel, createSoundPlayer, soundFor, UI_SOUNDS } from './ui/sound';
+import { createMusicPlayer } from './ui/music';
 
 const SAVE_KEY = 'simcity.save';
 const SPEED_MS = [0, 250, 83, 28];
@@ -95,6 +96,10 @@ function tickSafely() {
   }
 }
 
+// --- sound --- (before the UI: City Hall reads the music pref as it builds)
+const sound = createSoundPlayer();
+const music = createMusicPlayer(sound);
+
 // --- UI ---
 const query = buildQuery(uiRoot);
 const toolbar = buildToolbar(
@@ -123,6 +128,10 @@ const cityHall = buildCityHall(
   (kind) => {
     spawnDisaster(city, kind, rand);
     sound.play(UI_SOUNDS.alarm);
+  },
+  {
+    isOn: () => music.on,
+    toggle: () => music.toggle(),
   },
 );
 const hud = buildHud(
@@ -181,15 +190,13 @@ for (const [sel, key] of [
   makeDraggable(panel, handle, key);
 }
 
-// --- sound ---
-const sound = createSoundPlayer();
-
 const help = buildHelp(uiRoot);
 const tipBar = buildTipBar(uiRoot);
 tipBar.update(adviseTips(city));
 window.setInterval(() => {
   tipBar.update(adviseTips(city));
   sound.setAmbient(ambientLevel(city.population));
+  music.update(city);
 }, 2000);
 
 const muteBtn = document.createElement('button');
@@ -200,6 +207,7 @@ function syncMuteBtn() {
 }
 muteBtn.addEventListener('click', () => {
   sound.toggleMute();
+  music.update(city);
   syncMuteBtn();
 });
 syncMuteBtn();
@@ -388,6 +396,7 @@ window.addEventListener('keydown', (e) => {
     case 'm':
     case 'M':
       sound.toggleMute();
+      music.update(city);
       syncMuteBtn();
       break;
     case 'ArrowUp':

@@ -9,6 +9,7 @@ export function buildCityHall(
   city: () => CityState,
   onToggle: () => void,
   onDisaster: (kind: DisasterKind) => void,
+  music: { isOn(): boolean; toggle(): boolean },
 ) {
   const panel = document.createElement('div');
   panel.id = 'cityhall-panel';
@@ -26,6 +27,9 @@ export function buildCityHall(
     <h4>Display</h4>
     <label class="ordinance" id="weatherfx-row" title="Rain, snow, and cloud visuals. The simulation (and hurricane rain) is unaffected.">
       <input type="checkbox" id="weatherfx-box"><span>Weather effects</span>
+    </label>
+    <label class="ordinance" id="music-row" title="Procedural soundtrack that follows your city's biome, season, weather, and growth. M mutes everything.">
+      <input type="checkbox" id="music-box"><span>Music</span>
     </label>
   `;
   root.appendChild(panel);
@@ -86,6 +90,14 @@ export function buildCityHall(
   fxBox.addEventListener('change', () => {
     setWeatherFx(fxBox.checked);
     localStorage.setItem('simcity.weatherfx', fxBox.checked ? '1' : '0');
+    onToggle();
+  });
+
+  const musicBox = panel.querySelector('#music-box') as HTMLInputElement;
+  musicBox.checked = music.isOn();
+  musicBox.addEventListener('change', () => {
+    music.toggle();
+    musicBox.checked = music.isOn();
     onToggle();
   });
 

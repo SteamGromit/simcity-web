@@ -104,6 +104,10 @@ export function createSoundPlayer() {
     get muted() {
       return muted;
     },
+    /** The lazily created AudioContext; null until the first play(). */
+    context(): AudioContext | null {
+      return ctx;
+    },
     toggleMute(): boolean {
       muted = !muted;
       localStorage.setItem(MUTE_KEY, muted ? '1' : '0');
