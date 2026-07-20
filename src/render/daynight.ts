@@ -14,3 +14,15 @@ export function nightFactor(timeMs: number): number {
 export function nightTint(f: number): string {
   return `rgba(13, 17, 46, ${(0.42 * f).toFixed(3)})`;
 }
+
+/** Player toggle for the visual cycle: off means permanent daylight.
+ * Defaults off — the player opts in via the Display panel. */
+let enabled = false;
+
+export function setDayNight(on: boolean): void {
+  enabled = on;
+}
+
+export function getDayNight(): boolean {
+  return enabled;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { DAY_CYCLE_MS, nightFactor } from '../src/render/daynight';
+import { DAY_CYCLE_MS, getDayNight, nightFactor, setDayNight } from '../src/render/daynight';
 
 describe('nightFactor', () => {
   test('midday is bright, midnight is dark', () => {
@@ -21,5 +21,18 @@ describe('nightFactor', () => {
     const dusk = nightFactor(DAY_CYCLE_MS * 0.3);
     expect(dusk).toBeGreaterThan(0.05);
     expect(dusk).toBeLessThan(0.95);
+  });
+});
+
+describe('day/night toggle', () => {
+  test('defaults off', () => {
+    expect(getDayNight()).toBe(false);
+  });
+
+  test('round-trips on and off', () => {
+    setDayNight(true);
+    expect(getDayNight()).toBe(true);
+    setDayNight(false);
+    expect(getDayNight()).toBe(false);
   });
 });

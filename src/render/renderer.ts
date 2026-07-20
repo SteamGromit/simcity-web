@@ -15,7 +15,7 @@ import {
 import { ELEV_PX, TileGeom, isoToScreen, screenToIso, setViewAngle, tileDepth, tileGeom } from './iso';
 import { DisasterFx } from './disasterfx';
 import { OverlayId, drawOverlay } from './overlays';
-import { nightFactor, nightTint } from './daynight';
+import { getDayNight, nightFactor, nightTint } from './daynight';
 import { getSkin } from './skins';
 import { getWeatherFx } from './fx';
 
@@ -135,7 +135,7 @@ export class Renderer {
     setViewAngle(this.angle);
     if (this.orderDirty) this.rebuildOrder();
     const now = performance.now();
-    this.night = nightFactor(now);
+    this.night = getDayNight() ? nightFactor(now) : 0;
     this.frameNow = now;
     this.storm = city.disasters.hurricaneTicks > 0;
     this.wind = this.storm ? -4 + Math.sin(now / 120) * 3 : 0;
