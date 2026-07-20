@@ -4,6 +4,14 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.25.1] — 2026-07-20 · Display panel fix
+
+### Fixed
+- The Display panel was invisible: it had no positioning CSS, and the
+  controls moved from City Hall were still styled under City Hall's
+  selector scope. It now opens beside the toolbar with working city
+  style, weather, music, and day/night controls.
+
 ## [0.25.0] — 2026-07-20 · Controls revamp
 
 ### Added

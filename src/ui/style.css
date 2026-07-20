@@ -227,6 +227,14 @@ body {
 }
 
 /* ---- city hall ---- */
+#display-panel {
+  position: fixed;
+  top: 70px;
+  left: 146px;
+  width: 220px;
+  padding: 10px 12px;
+}
+
 #cityhall-panel {
   position: fixed;
   top: 70px;
@@ -237,13 +245,15 @@ body {
   padding: 10px 12px;
 }
 
-#cityhall-panel h3 {
+#cityhall-panel h3,
+#display-panel h3 {
   font-size: 13px;
   margin-bottom: 6px;
   color: #fff;
 }
 
-#cityhall-panel h4 {
+#cityhall-panel h4,
+#display-panel h4 {
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -274,7 +284,8 @@ body {
   color: #4dc464;
 }
 
-#cityhall-panel .ordinance {
+#cityhall-panel .ordinance,
+#display-panel .ordinance {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -311,12 +322,12 @@ body {
   background: #55323c;
 }
 
-#cityhall-panel #skin-list {
+#display-panel #skin-list {
   display: flex;
   gap: 5px;
 }
 
-#cityhall-panel #skin-list button {
+#display-panel #skin-list button {
   flex: 1;
   background: #2a3648;
   color: #d8dee6;
@@ -328,7 +339,7 @@ body {
   font-size: 11px;
 }
 
-#cityhall-panel #skin-list button.active {
+#display-panel #skin-list button.active {
   background: #4d7cc7;
   border-color: #7aa5e8;
   color: #fff;
