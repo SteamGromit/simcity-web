@@ -108,6 +108,13 @@ const TECH_EDU = 0.55;
 const TECH_MAX_POLLUTION = 0.3;
 const MANU_EDU = 0.3;
 
+/** Hysteresis: a tile must clear its gate by this margin to move, so a lot
+ * parked on a boundary doesn't flicker between tiers month after month. */
+const DEAD_BAND = 0.05;
+/** Per-month chance an eligible tile actually converts, so change ripples
+ * through a neighborhood over a year or two rather than flipping at once. */
+const RETIER_CHANCE = 0.15;
+
 /**
  * Share of developed residential lots within reach of a school. Education is
  * a property of the city's workforce, not of a factory's own lot — computing
@@ -143,4 +150,68 @@ export function chooseTier(city: CityState, tile: Tile): Tier {
     return 1;
   }
   return normalizeTier(tile.zone, tile.tier);
+}
+
+/** One step from `from` toward `to` along the wealth ladder. */
+function stepWealth(from: Wealth, to: Wealth): Wealth {
+  return (from < to ? from + 1 : from - 1) as Wealth;
+}
+
+/** One step from `from` toward `to` along dirty → manu → tech. Farmland is
+ * not on the ladder — it is player-chosen and never converted. */
+function stepKind(from: IndustryKind, to: IndustryKind): IndustryKind {
+  const ladder: IndustryKind[] = ['dirty', 'manu', 'tech'];
+  const a = ladder.indexOf(from);
+  const b = ladder.indexOf(to);
+  if (a < 0 || b < 0) return from;
+  return ladder[a < b ? a + 1 : a - 1];
+}
+
+/**
+ * Has the tile cleared its gate by enough to justify moving? An upgrade must
+ * beat the target's threshold by DEAD_BAND; a downgrade must fall below the
+ * threshold it currently satisfies by the same margin.
+ */
+function withinDeadBand(city: CityState, tile: Tile, current: Tier, verdict: Tier): boolean {
+  if (tile.zone === Zone.Industrial) {
+    const ladder: IndustryKind[] = ['dirty', 'manu', 'tech'];
+    const up = ladder.indexOf(verdict as IndustryKind) > ladder.indexOf(current as IndustryKind);
+    const gate = verdict === 'tech' ? TECH_EDU : MANU_EDU;
+    return up ? city.eduLevel >= gate + DEAD_BAND : city.eduLevel < gate - DEAD_BAND;
+  }
+  const up = (verdict as Wealth) > (current as Wealth);
+  if (up) {
+    const gate = WEALTH_GATES.find((g) => g.wealth === (verdict as Wealth));
+    return gate ? tile.landValue >= gate.lv + DEAD_BAND : false;
+  }
+  const gate = WEALTH_GATES.find((g) => g.wealth === (current as Wealth));
+  // A pollution ceiling breach is decisive on its own — no land-value margin
+  // needed to push a lot out of a tier it can no longer support.
+  if (gate && tile.pollution >= gate.maxPollution) return true;
+  return gate ? tile.landValue < gate.lv - DEAD_BAND : true;
+}
+
+/**
+ * Re-evaluate developed lots against current conditions and convert the
+ * eligible ones a single step. Conversion is a re-skin plus a capacity
+ * change — stage is preserved, nothing is demolished.
+ */
+export function retierMonthly(city: CityState, rand: () => number): void {
+  for (const tile of city.tiles) {
+    if (tile.stage === 0 || tile.abandoned) continue;
+    const isI = tile.zone === Zone.Industrial;
+    if (!isI && !isRC(tile.zone)) continue;
+    if (isI && tile.density === 1) continue; // farmland is the player's call
+
+    const current = normalizeTier(tile.zone, tile.tier);
+    const verdict = chooseTier(city, tile);
+    if (verdict === current) continue;
+    if (isI && (current === 'ag' || verdict === 'ag')) continue;
+    if (!withinDeadBand(city, tile, current, verdict)) continue;
+    if (rand() >= RETIER_CHANCE) continue;
+
+    tile.tier = isI
+      ? stepKind(current as IndustryKind, verdict as IndustryKind)
+      : stepWealth(current as Wealth, verdict as Wealth);
+  }
 }

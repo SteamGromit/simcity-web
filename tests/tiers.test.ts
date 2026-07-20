@@ -5,6 +5,7 @@ import {
   chooseTier,
   normalizeTier,
   pollutionScaleFor,
+  retierMonthly,
   taxYieldFor,
   updateEducation,
 } from '../src/sim/tiers';
@@ -192,5 +193,111 @@ describe('chooseTier — industry kind', () => {
     const city = makeCity();
     city.eduLevel = 0.7;
     expect(chooseTier(city, iTile(city, 2, 0.5))).toBe('manu');
+  });
+});
+
+describe('retierMonthly', () => {
+  const always = () => 0; // rand below the rate limit: convert whenever eligible
+  const never = () => 0.99; // rand above the rate limit: never convert
+
+  function richTile(city: ReturnType<typeof makeCity>) {
+    zone(city, 5, 5, Zone.Residential, 4, 1); // currently §, deserves §§§
+    const t = city.tiles[idx(5, 5)];
+    t.landValue = 0.9;
+    t.pollution = 0;
+    return t;
+  }
+
+  test('converts one step at a time, never skipping a tier', () => {
+    const city = makeCity();
+    const t = richTile(city);
+    retierMonthly(city, always);
+    expect(t.tier).toBe(2); // § → §§, not straight to §§§
+    retierMonthly(city, always);
+    expect(t.tier).toBe(3);
+    retierMonthly(city, always);
+    expect(t.tier).toBe(3); // already at the verdict; holds
+  });
+
+  test('the rate limit holds a tile that would otherwise convert', () => {
+    const city = makeCity();
+    const t = richTile(city);
+    retierMonthly(city, never);
+    expect(t.tier).toBe(1);
+  });
+
+  test('preserves stage across a conversion', () => {
+    const city = makeCity();
+    const t = richTile(city);
+    retierMonthly(city, always);
+    expect(t.stage).toBe(4);
+  });
+
+  test('a tile inside the dead band holds its tier', () => {
+    const city = makeCity();
+    zone(city, 5, 5, Zone.Residential, 4, 1);
+    const t = city.tiles[idx(5, 5)];
+    t.pollution = 0;
+    t.landValue = 0.44; // verdict is §§, but only 0.02 past the 0.42 gate
+    for (let m = 0; m < 24; m++) retierMonthly(city, always);
+    expect(t.tier).toBe(1);
+  });
+
+  test('a tile well past the gate converts', () => {
+    const city = makeCity();
+    zone(city, 5, 5, Zone.Residential, 4, 1);
+    const t = city.tiles[idx(5, 5)];
+    t.pollution = 0;
+    t.landValue = 0.5; // clears 0.42 by well over the 0.05 band
+    retierMonthly(city, always);
+    expect(t.tier).toBe(2);
+  });
+
+  test('downgrades a tile whose neighborhood has decayed', () => {
+    const city = makeCity();
+    zone(city, 5, 5, Zone.Residential, 4, 3); // §§§ today
+    const t = city.tiles[idx(5, 5)];
+    t.landValue = 0.1; // well below every gate
+    t.pollution = 0.6;
+    retierMonthly(city, always);
+    expect(t.tier).toBe(2); // one step down
+  });
+
+  test('farmland is never overruled by the sim', () => {
+    const city = makeCity();
+    city.eduLevel = 0.9;
+    zone(city, 8, 8, Zone.Industrial, 2, 'ag');
+    const t = city.tiles[idx(8, 8)];
+    t.density = 1;
+    for (let m = 0; m < 24; m++) retierMonthly(city, always);
+    expect(t.tier).toBe('ag');
+  });
+
+  test('industry walks dirty → manu → tech one step at a time', () => {
+    const city = makeCity();
+    city.eduLevel = 0.9;
+    zone(city, 8, 8, Zone.Industrial, 3, 'dirty');
+    const t = city.tiles[idx(8, 8)];
+    t.density = 2;
+    t.pollution = 0;
+    retierMonthly(city, always);
+    expect(t.tier).toBe('manu');
+    retierMonthly(city, always);
+    expect(t.tier).toBe('tech');
+  });
+
+  test('leaves undeveloped and abandoned lots alone', () => {
+    const city = makeCity();
+    zone(city, 5, 5, Zone.Residential, 0, 1);
+    zone(city, 6, 5, Zone.Residential, 4, 1);
+    city.tiles[idx(6, 5)].abandoned = true;
+    for (const [x, y] of [[5, 5], [6, 5]] as const) {
+      const t = city.tiles[idx(x, y)];
+      t.landValue = 0.9;
+      t.pollution = 0;
+    }
+    retierMonthly(city, always);
+    expect(city.tiles[idx(5, 5)].tier).toBe(1);
+    expect(city.tiles[idx(6, 5)].tier).toBe(1);
   });
 });
