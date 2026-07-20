@@ -92,3 +92,115 @@ export function moodFrom(city: CityState): MusicMood {
     duck: anyDisasterActive(city),
   };
 }
+
+/** One scheduled note. Beats are half-beat quantized within a 4-beat bar. */
+export interface NoteEvent {
+  beat: number;
+  freq: number; // ignored for noise
+  dur: number; // beats
+  wave: OscillatorType | 'noise';
+  vol: number;
+  layer: 'pad' | 'bass' | 'melody' | 'percussion';
+}
+
+/** Melody pitches: two octaves of the scale, lifted by the register. */
+function noteTable(mood: MusicMood): number[] {
+  const base = 1 + mood.register;
+  const out: number[] = [];
+  for (let oct = 0; oct < 2; oct++) {
+    for (const semi of mood.scale) out.push(mood.root * 2 ** (base + oct + semi / 12));
+  }
+  return out;
+}
+
+/**
+ * Compose one bar from the mood. Deterministic for a given (mood,
+ * barIndex, rand sequence); every 4th bar the melody cadences home.
+ */
+export function composeBar(mood: MusicMood, barIndex: number, rand: () => number): NoteEvent[] {
+  const out: NoteEvent[] = [];
+  if (mood.duck) {
+    // disasters: a bare fifth droning low — dread, not a tune
+    out.push({ beat: 0, freq: mood.root, dur: 4, wave: 'sine', vol: 0.25, layer: 'pad' });
+    out.push({
+      beat: 0,
+      freq: mood.root * 2 ** (7 / 12),
+      dur: 4,
+      wave: 'sine',
+      vol: 0.15,
+      layer: 'pad',
+    });
+    return out;
+  }
+
+  if (mood.layers.pad) {
+    const third = mood.minor ? 3 : 4;
+    for (const semi of [0, third, 7]) {
+      out.push({
+        beat: 0,
+        freq: mood.root * 2 ** (1 + semi / 12),
+        dur: 4,
+        wave: 'sine',
+        vol: 0.16 * mood.volume,
+        layer: 'pad',
+      });
+    }
+  }
+
+  if (mood.layers.bass) {
+    const wave: NoteEvent['wave'] = mood.minor ? 'sawtooth' : 'triangle';
+    out.push({ beat: 0, freq: mood.root, dur: 1.5, wave, vol: 0.4 * mood.volume, layer: 'bass' });
+    out.push({
+      beat: 2,
+      freq: barIndex % 2 === 1 ? mood.root * 2 ** (7 / 12) : mood.root,
+      dur: 1.5,
+      wave,
+      vol: 0.35 * mood.volume,
+      layer: 'bass',
+    });
+  }
+
+  if (mood.layers.melody) {
+    const table = noteTable(mood);
+    let ix = Math.floor(rand() * table.length);
+    const count = mood.sparse ? 2 : 4;
+    for (let n = 0; n < count; n++) {
+      const swing = rand() < 0.3 ? 0.5 : 0;
+      ix = Math.min(table.length - 1, Math.max(0, ix + Math.floor(rand() * 5) - 2));
+      if (barIndex % 4 === 3 && n === count - 1) ix = 0; // cadence home
+      out.push({
+        beat: Math.min(3.5, n * (4 / count) + swing),
+        freq: table[ix],
+        dur: mood.bells ? 1.5 : 0.9,
+        wave: mood.bells ? 'sine' : 'triangle',
+        vol: 0.4 * mood.volume,
+        layer: 'melody',
+      });
+    }
+  }
+
+  if (mood.layers.percussion && !mood.sparse) {
+    for (const b of [0, 2]) {
+      out.push({
+        beat: b,
+        freq: 0,
+        dur: 0.12,
+        wave: 'noise',
+        vol: 0.35 * mood.volume,
+        layer: 'percussion',
+      });
+    }
+    for (const b of [1, 3]) {
+      out.push({
+        beat: b,
+        freq: 0,
+        dur: 0.05,
+        wave: 'noise',
+        vol: 0.18 * mood.volume,
+        layer: 'percussion',
+      });
+    }
+  }
+
+  return out;
+}
