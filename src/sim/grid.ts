@@ -68,6 +68,7 @@ export function blankTile(): Tile {
     elevation: 0,
     stage: 0,
     density: 1,
+    tier: 2,
     powered: false,
     watered: false,
     abandoned: false,

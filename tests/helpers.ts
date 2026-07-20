@@ -1,5 +1,5 @@
 import { blankTile, idx } from '../src/sim/grid';
-import { CityState, defaultDisasters, defaultOrdinances, GRID, Stage, Terrain, Zone } from '../src/sim/types';
+import { CityState, defaultDisasters, defaultOrdinances, GRID, Stage, Terrain, Tier, Zone } from '../src/sim/types';
 import { defaultWeather } from '../src/sim/weather';
 
 /** Flatten generated terrain to grass so tests can build anywhere. */
@@ -20,6 +20,7 @@ export function makeCity(): CityState {
     taxes: { r: 0.09, c: 0.09, i: 0.09 },
     population: 0,
     jobs: 0,
+    eduLevel: 0,
     lastBudget: { rIncome: 0, cIncome: 0, iIncome: 0, expenses: 0, net: 0 },
     ordinances: defaultOrdinances(),
     disasters: defaultDisasters(),
@@ -29,10 +30,18 @@ export function makeCity(): CityState {
   };
 }
 
-export function zone(city: CityState, x: number, y: number, z: Zone, stage: Stage = 0) {
+export function zone(
+  city: CityState,
+  x: number,
+  y: number,
+  z: Zone,
+  stage: Stage = 0,
+  tier: Tier = 2,
+) {
   const t = city.tiles[idx(x, y)];
   t.zone = z;
   t.stage = stage;
+  t.tier = tier;
 }
 
 /** Lay a straight run of road tiles, inclusive of both endpoints. */

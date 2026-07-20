@@ -145,6 +145,7 @@ export function deserialize(json: string): CityState | null {
       taxes: { r: taxes.r, c: taxes.c, i: taxes.i },
       population: finite(data.population, 0),
       jobs: finite(data.jobs, 0),
+      eduLevel: finite(data.eduLevel, 0),
       lastBudget: {
         rIncome: finite(budget.rIncome, 0),
         cIncome: finite(budget.cIncome, 0),

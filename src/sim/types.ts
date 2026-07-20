@@ -20,6 +20,12 @@ export enum Zone {
 
 export type Stage = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 export type Density = 1 | 2 | 3;
+/** Residential/commercial wealth: § / §§ / §§§. */
+export type Wealth = 1 | 2 | 3;
+/** Industrial subtype. Agriculture is player-chosen via density 1. */
+export type IndustryKind = 'ag' | 'dirty' | 'manu' | 'tech';
+/** A developed tile's subtype: wealth for R/C, kind for I. */
+export type Tier = Wealth | IndustryKind;
 
 export enum Terrain {
   Grass,
@@ -36,6 +42,9 @@ export interface Tile {
   stage: Stage;
   /** Zoned density (R/C/I): caps development at stage 3 / 5 / 7. */
   density: Density;
+  /** Wealth (R/C) or industry kind (I). Meaningless while stage === 0;
+   * always read through normalizeTier, never raw. */
+  tier: Tier;
   powered: boolean;
   /** Connected to a working water pump; stages 3+ require it. */
   watered: boolean;
@@ -156,6 +165,8 @@ export interface CityState {
   taxes: Taxes;
   population: number;
   jobs: number;
+  /** Share of developed R tiles with school coverage, 0..1. Gates high-tech. */
+  eduLevel: number;
   lastBudget: BudgetReport;
   /** Enacted city policies; each charges monthly and tweaks the sim. */
   ordinances: Record<OrdinanceId, boolean>;
