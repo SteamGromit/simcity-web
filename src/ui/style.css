@@ -57,7 +57,7 @@ body {
 }
 
 #hud button,
-#toolbar button,
+.tool-panel button,
 #budget-panel button,
 #query-panel button {
   background: #2a3648;
@@ -70,12 +70,12 @@ body {
 }
 
 #hud button:hover,
-#toolbar button:hover {
+.tool-panel button:hover {
   background: #3a4a62;
 }
 
 #hud button.active,
-#toolbar button.active {
+.tool-panel button.active {
   background: #4d7cc7;
   border-color: #7aa5e8;
   color: #fff;
@@ -91,6 +91,9 @@ body {
   position: fixed;
   top: 70px;
   left: 8px;
+}
+
+.tool-panel {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -98,19 +101,19 @@ body {
   width: 128px;
 }
 
-#toolbar button {
+.tool-panel button {
   display: flex;
   justify-content: space-between;
   gap: 6px;
   text-align: left;
 }
 
-#toolbar button .cost {
+.tool-panel button .cost {
   color: #9fb2c8;
   font-size: 11px;
 }
 
-#toolbar .section {
+.tool-panel .section {
   margin-top: 6px;
   font-size: 10px;
   letter-spacing: 0.08em;
@@ -118,29 +121,29 @@ body {
   color: #7d8fa5;
 }
 
-#toolbar .section.collapsible {
+.tool-panel .section.collapsible {
   cursor: pointer;
   user-select: none;
 }
 
-#toolbar .section.collapsible:hover {
+.tool-panel .section.collapsible:hover {
   color: #aabfec;
 }
 
-#toolbar .section-body {
+.tool-panel .section-body {
   display: flex;
   flex-direction: column;
   gap: 4px;
   margin-top: 4px;
 }
 
-#toolbar button .meta {
+.tool-panel button .meta {
   display: flex;
   align-items: center;
   gap: 5px;
 }
 
-#toolbar button .key {
+.tool-panel button .key {
   font-size: 9px;
   color: #8ea0b8;
   border: 1px solid #465870;
@@ -497,4 +500,24 @@ body {
 
 #toast.show {
   opacity: 1;
+}
+
+.tool-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#density-flyout {
+  position: absolute;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  width: 132px;
+}
+
+#density-flyout.hidden {
+  display: none;
 }

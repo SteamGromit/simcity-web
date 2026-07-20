@@ -1,7 +1,7 @@
 import { Density, DENSITY_COST_MULT, ToolId } from '../sim/types';
 import { toolCost, ZONE_TOOLS } from '../sim/city';
 import { OVERLAY_LABELS, OverlayId } from '../render/overlays';
-import { KEY_OF } from './shortcuts';
+import { clampDensity, KEY_OF, OVERLAY_KEY_OF } from './shortcuts';
 
 export type ActiveTool = ToolId | 'query' | null;
 
@@ -9,12 +9,15 @@ const BUILD_TOOLS: { id: ToolId | 'query'; label: string }[] = [
   { id: 'query', label: 'Query' },
   { id: 'bulldoze', label: 'Bulldoze' },
   { id: 'road', label: 'Road' },
-  { id: 'zoneR', label: 'Residential' },
-  { id: 'zoneC', label: 'Commercial' },
-  { id: 'zoneI', label: 'Industrial' },
   { id: 'plant', label: 'Coal Plant' },
   { id: 'line', label: 'Power Line' },
   { id: 'park', label: 'Park' },
+];
+
+const ZONING_TOOLS: { id: ToolId; label: string }[] = [
+  { id: 'zoneR', label: 'Residential' },
+  { id: 'zoneC', label: 'Commercial' },
+  { id: 'zoneI', label: 'Industrial' },
 ];
 
 const CIVIC_TOOLS: { id: ToolId; label: string }[] = [
@@ -36,6 +39,17 @@ const TERRA_TOOLS: { id: ToolId; label: string }[] = [
 ];
 
 const COLLAPSE_KEY = 'simcity.toolbar.';
+const DENSITY_KEY = 'simcity.density.';
+const DENSITY_LABELS = ['', 'Low', 'Medium', 'High'] as const;
+
+/** A toolbar section; Task 4's detach logic extends this record. */
+export interface ToolbarSection {
+  wrap: HTMLElement;
+  body: HTMLElement;
+  header: HTMLElement;
+  slug: string;
+  title: string;
+}
 
 export function buildToolbar(
   root: HTMLElement,
@@ -45,7 +59,7 @@ export function buildToolbar(
 ) {
   const el = document.createElement('div');
   el.id = 'toolbar';
-  el.className = 'panel';
+  el.className = 'panel tool-panel';
   root.appendChild(el);
 
   const grip = document.createElement('div');
@@ -55,34 +69,74 @@ export function buildToolbar(
 
   const toolButtons = new Map<string, HTMLButtonElement>();
   let active: ActiveTool = null;
-  let density: Density = 1;
 
-  const costLabel = (id: ToolId | 'query') => (id === 'query' ? '' : `§${toolCost(id, density)}`);
-
-  /** Collapsible section: the header toggles its body; state persists. */
-  function section(slug: string, title: string): HTMLElement {
-    const header = document.createElement('div');
-    header.className = 'section collapsible';
-    const body = document.createElement('div');
-    body.className = 'section-body';
-    const sync = (collapsed: boolean) => {
-      body.classList.toggle('hidden', collapsed);
-      header.textContent = `${collapsed ? '▸' : '▾'} ${title}`;
-    };
-    header.addEventListener('click', () => {
-      const collapsed = !body.classList.contains('hidden');
-      localStorage.setItem(COLLAPSE_KEY + slug, collapsed ? '1' : '0');
-      sync(collapsed);
-    });
-    sync(localStorage.getItem(COLLAPSE_KEY + slug) === '1');
-    el.appendChild(header);
-    el.appendChild(body);
-    return body;
+  /** Last-used density per zone type, revived from storage. */
+  const densities = new Map<ToolId, Density>();
+  for (const id of ZONE_TOOLS) {
+    densities.set(id, clampDensity(localStorage.getItem(DENSITY_KEY + id)));
   }
+  const densityOf = (id: ToolId): Density => densities.get(id) ?? 1;
+  const isZone = (id: ActiveTool): id is ToolId =>
+    id !== null && id !== 'query' && (ZONE_TOOLS as readonly ToolId[]).includes(id);
+
+  const costLabel = (id: ToolId | 'query') =>
+    id === 'query' ? '' : `§${toolCost(id, isZone(id) ? densityOf(id) : 1)}`;
+
+  // --- density flyout: one shared element, repositioned per zoning button ---
+  const flyout = document.createElement('div');
+  flyout.id = 'density-flyout';
+  flyout.className = 'panel hidden';
+  el.appendChild(flyout);
+  let flyoutFor: ToolId | null = null;
+
+  function closeFlyout() {
+    flyout.classList.add('hidden');
+    flyoutFor = null;
+  }
+
+  function syncZoneCosts() {
+    for (const id of ZONE_TOOLS) {
+      const zb = toolButtons.get(id);
+      if (zb) (zb.querySelector('.cost') as HTMLElement).textContent = costLabel(id);
+    }
+  }
+
+  function openFlyout(id: ToolId, anchor: HTMLButtonElement) {
+    flyout.innerHTML = '';
+    flyoutFor = id;
+    ([1, 2, 3] as const).forEach((d) => {
+      const btn = document.createElement('button');
+      btn.innerHTML = `<span>${DENSITY_LABELS[d]}</span><span class="cost">×${DENSITY_COST_MULT[d]} §${toolCost(id, d)}</span>`;
+      btn.classList.toggle('active', densityOf(id) === d);
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        densities.set(id, d);
+        localStorage.setItem(DENSITY_KEY + id, String(d));
+        syncZoneCosts();
+        if (active === id) onDensity(d);
+        closeFlyout();
+      });
+      flyout.appendChild(btn);
+    });
+    // to the right of the button, inside whichever panel hosts the section
+    const host = (anchor.closest('.tool-panel') as HTMLElement) ?? el;
+    host.appendChild(flyout);
+    flyout.style.left = `${anchor.offsetLeft + anchor.offsetWidth + 6}px`;
+    flyout.style.top = `${anchor.offsetTop}px`;
+    flyout.classList.remove('hidden');
+  }
+
+  // clicking anywhere outside the flyout (or its zoning button) closes it
+  document.addEventListener('pointerdown', (e) => {
+    const t = e.target as HTMLElement;
+    if (flyoutFor && !flyout.contains(t) && !t.closest('.zoning-btn')) closeFlyout();
+  });
 
   function applyTool(tool: ActiveTool) {
     active = tool;
+    if (flyoutFor && flyoutFor !== active) closeFlyout();
     for (const [tid, b] of toolButtons) b.classList.toggle('active', tid === active);
+    if (isZone(tool)) onDensity(densityOf(tool));
     onTool(active);
   }
 
@@ -93,10 +147,53 @@ export function buildToolbar(
     btn.addEventListener('click', () => applyTool(active === id ? null : id));
     toolButtons.set(id, btn);
     parent.appendChild(btn);
+    return btn;
+  }
+
+  /** Zoning buttons open the density flyout beside them when activated. */
+  function zoneButton(id: ToolId, label: string, parent: HTMLElement) {
+    const btn = toolButton(id, label, parent);
+    btn.classList.add('zoning-btn');
+    // toolButton's own click handler already toggled the tool; this one
+    // only manages the flyout, so registration order matters: it runs after.
+    btn.addEventListener('click', () => {
+      if (active === id) openFlyout(id, btn);
+      else closeFlyout();
+    });
+  }
+
+  /** Collapsible section: the header toggles its body; state persists. */
+  const sections: ToolbarSection[] = [];
+  function section(slug: string, title: string): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'tool-section';
+    const header = document.createElement('div');
+    header.className = 'section collapsible';
+    const headText = document.createElement('span');
+    header.appendChild(headText);
+    const body = document.createElement('div');
+    body.className = 'section-body';
+    const sync = (collapsed: boolean) => {
+      body.classList.toggle('hidden', collapsed);
+      headText.textContent = `${collapsed ? '▸' : '▾'} ${title}`;
+    };
+    header.addEventListener('click', () => {
+      const collapsed = !body.classList.contains('hidden');
+      localStorage.setItem(COLLAPSE_KEY + slug, collapsed ? '1' : '0');
+      sync(collapsed);
+    });
+    sync(localStorage.getItem(COLLAPSE_KEY + slug) === '1');
+    wrap.append(header, body);
+    el.appendChild(wrap);
+    sections.push({ wrap, body, header, slug, title });
+    return body;
   }
 
   const buildBody = section('build', 'Build');
   for (const { id, label } of BUILD_TOOLS) toolButton(id, label, buildBody);
+
+  const zoningBody = section('zoning', 'Zoning');
+  for (const { id, label } of ZONING_TOOLS) zoneButton(id, label, zoningBody);
 
   const civicBody = section('civic', 'Civic & utilities');
   for (const { id, label } of CIVIC_TOOLS) toolButton(id, label, civicBody);
@@ -104,36 +201,19 @@ export function buildToolbar(
   const terraBody = section('terrain', 'Terrain · free until founded');
   for (const { id, label } of TERRA_TOOLS) toolButton(id, label, terraBody);
 
-  const densityBody = section('density', 'Zone density');
-  const densityButtons = new Map<Density, HTMLButtonElement>();
-  ([1, 2, 3] as const).forEach((d) => {
-    const btn = document.createElement('button');
-    btn.innerHTML = `<span>${['', 'Low', 'Medium', 'High'][d]}</span><span class="cost">×${DENSITY_COST_MULT[d]}</span>`;
-    btn.addEventListener('click', () => {
-      density = d;
-      for (const [dd, b] of densityButtons) b.classList.toggle('active', dd === d);
-      for (const id of ZONE_TOOLS) {
-        const zb = toolButtons.get(id);
-        if (zb) (zb.querySelector('.cost') as HTMLElement).textContent = costLabel(id);
-      }
-      onDensity(d);
-    });
-    densityButtons.set(d, btn);
-    densityBody.appendChild(btn);
-  });
-  densityButtons.get(1)!.classList.add('active');
-
   const viewsBody = section('views', 'Data views');
   const overlayButtons = new Map<string, HTMLButtonElement>();
   let overlay: OverlayId | null = null;
+  function toggleOverlay(id: OverlayId) {
+    overlay = overlay === id ? null : id;
+    for (const [oid, b] of overlayButtons) b.classList.toggle('active', oid === overlay);
+    onOverlay(overlay);
+  }
   for (const id of Object.keys(OVERLAY_LABELS) as OverlayId[]) {
     const btn = document.createElement('button');
-    btn.innerHTML = `<span>${OVERLAY_LABELS[id]}</span>`;
-    btn.addEventListener('click', () => {
-      overlay = overlay === id ? null : id;
-      for (const [oid, b] of overlayButtons) b.classList.toggle('active', oid === overlay);
-      onOverlay(overlay);
-    });
+    const key = OVERLAY_KEY_OF[id] ? `<span class="key">${OVERLAY_KEY_OF[id]}</span>` : '';
+    btn.innerHTML = `<span>${OVERLAY_LABELS[id]}</span><span class="meta">${key}</span>`;
+    btn.addEventListener('click', () => toggleOverlay(id));
     overlayButtons.set(id, btn);
     viewsBody.appendChild(btn);
   }
@@ -147,8 +227,13 @@ export function buildToolbar(
     selectTool(tool: ToolId | 'query') {
       applyTool(active === tool ? null : tool);
     },
+    /** Toggle a data view; keyboard and buttons share this path. */
+    toggleOverlay,
     /** Drag handle and panel element, for movable-panel wiring. */
     grip,
     el,
+    /** Sections and root, consumed by the detach wiring. */
+    sections,
+    root,
   };
 }
