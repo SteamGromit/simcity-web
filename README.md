@@ -33,7 +33,7 @@ decides what happens next:
   archetypes that compose distinctly across tiles: silhouettes (L-shapes,
   setbacks, twin masses), roof styles (flat/parapet/gabled/sawtooth),
   rooftop and yard props, palette families per tier, and window styles.
-  Farms vary in barn placement and furrow direction.
+  Farms vary in barn placement, furrow direction, and a silo or coop.
 - **Context-aware traffic** — vehicles pick roles by location: trucks move
   goods on industrial roads, taxis and vans favor commercial routes, and
   buses cluster near transit stops. Each kind has distinct speeds and paint.

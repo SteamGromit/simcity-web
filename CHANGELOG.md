@@ -6,6 +6,7 @@ feature drops rather than semver promises.
 
 ## [0.24.0] — 2026-07-20 · Visual variety
 
+### Added
 - Seeded per-tile building archetypes: composed silhouettes (L-shapes,
   setbacks, twin masses), roof styles (flat/parapet/gabled/sawtooth),
   rooftop and yard props, palette families per tier, and three window
