@@ -4,7 +4,7 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
-## v0.24.0 — Visual variety
+## [0.24.0] — 2026-07-20 · Visual variety
 
 - Seeded per-tile building archetypes: composed silhouettes (L-shapes,
   setbacks, twin masses), roof styles (flat/parapet/gabled/sawtooth),
