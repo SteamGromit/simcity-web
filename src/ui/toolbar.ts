@@ -2,6 +2,7 @@ import { Density, DENSITY_COST_MULT, ToolId } from '../sim/types';
 import { toolCost, ZONE_TOOLS } from '../sim/city';
 import { OVERLAY_LABELS, OverlayId } from '../render/overlays';
 import { clampDensity, KEY_OF, OVERLAY_KEY_OF } from './shortcuts';
+import { makeDraggable } from './drag';
 
 export type ActiveTool = ToolId | 'query' | null;
 
@@ -49,6 +50,9 @@ export interface ToolbarSection {
   header: HTMLElement;
   slug: string;
   title: string;
+  /** Hidden order-keeper left in the toolbar while detached. */
+  anchor?: HTMLElement;
+  float?: HTMLElement;
 }
 
 export function buildToolbar(
@@ -216,6 +220,53 @@ export function buildToolbar(
     btn.addEventListener('click', () => toggleOverlay(id));
     overlayButtons.set(id, btn);
     viewsBody.appendChild(btn);
+  }
+
+  // --- detachable sections ---
+  const DETACH_SUFFIX = '.out';
+
+  function setDetached(sec: ToolbarSection, out: boolean) {
+    localStorage.setItem(COLLAPSE_KEY + sec.slug + DETACH_SUFFIX, out ? '1' : '0');
+    if (out) {
+      const float = document.createElement('div');
+      float.className = 'panel tool-panel tool-float';
+      const fgrip = document.createElement('div');
+      fgrip.className = 'drag-grip';
+      const ftitle = document.createElement('span');
+      ftitle.textContent = `⠿ ${sec.title}`;
+      const dock = document.createElement('button');
+      dock.className = 'detach';
+      dock.textContent = '⇲';
+      dock.title = 'Return to toolbar';
+      dock.addEventListener('click', () => setDetached(sec, false));
+      fgrip.append(ftitle, dock);
+      float.append(fgrip, sec.wrap);
+      root.appendChild(float);
+      makeDraggable(float, fgrip, `sec-${sec.slug}`);
+      sec.float = float;
+    } else {
+      sec.anchor!.after(sec.wrap);
+      sec.float?.remove();
+      sec.float = undefined;
+    }
+  }
+
+  for (const sec of sections) {
+    const btn = document.createElement('button');
+    btn.className = 'detach';
+    btn.textContent = '⇱';
+    btn.title = 'Pop section out';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation(); // don't also collapse the section
+      setDetached(sec, true);
+    });
+    sec.header.appendChild(btn);
+    sec.anchor = document.createElement('div');
+    sec.anchor.className = 'hidden';
+    sec.wrap.before(sec.anchor);
+    if (localStorage.getItem(COLLAPSE_KEY + sec.slug + DETACH_SUFFIX) === '1') {
+      setDetached(sec, true);
+    }
   }
 
   return {

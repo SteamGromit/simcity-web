@@ -521,3 +521,35 @@ body {
 #density-flyout.hidden {
   display: none;
 }
+
+.tool-float {
+  position: fixed;
+  top: 70px;
+  left: 170px;
+  z-index: 20;
+}
+
+.tool-panel .section.collapsible {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.drag-grip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+button.detach {
+  background: none;
+  border: none;
+  color: #7d8fa5;
+  padding: 0 2px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+button.detach:hover {
+  color: #aabfec;
+}
