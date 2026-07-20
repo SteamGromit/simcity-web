@@ -85,8 +85,11 @@ snow slows every commute — and **disasters** strike once your city is big
 enough to matter: tornados
 carve wandering paths of rubble (and fires), hurricanes lash the whole
 map with storm surge along the waterfront, and pandemics empty homes that
-lack hospital coverage. Feeling reckless? City Hall has a
-"tempt fate" panel.
+lack hospital coverage. Expect a show — flying debris, wind-whipped
+trees, foam churning on the shore, masked citizens on quiet streets —
+and a cleanup: wrecked lots stay buried in rubble for a few months
+(bulldoze to clear faster) before anything rebuilds. Feeling reckless?
+City Hall has a "tempt fate" panel.
 
 Buildings with no fire coverage can **catch fire — and fires spread** to
 neighboring buildings, covered or not (coverage resists the jump and fights

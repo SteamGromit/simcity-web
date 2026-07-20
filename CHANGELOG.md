@@ -4,6 +4,27 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.21.0] — 2026-07-19 · Disaster visuals
+
+### Added
+- **Rubble**: every stage a disaster knocks off a building now buries the
+  lot in debris — drawn as an ash stain with scattered blocks and
+  splintered beams. Rubble blocks redevelopment while it lasts, cleanup
+  crews carry it off over ~4 months, bulldozing clears it instantly, and
+  it survives save/load. The tornado finally leaves a visible trail.
+- **Tornado spectacle**: debris chunks fling outward from the funnel and
+  arc to the ground, a dust ring churns at the point of contact, and an
+  ugly green-grey storm light falls over the city while the funnel is
+  down.
+- **Hurricane spectacle**: near-horizontal wind streaks over the driving
+  rain, forest canopies whip and lean in the gusts, and storm surge
+  churns whitecaps and foam along every shoreline.
+- **Pandemic street cues**: traffic thins to a quarter and pedestrians
+  to ~15% while the outbreak runs, and the walkers still out wear masks.
+
+All disaster visuals ignore the weather-effects toggle — they're cues,
+not ambiance (same rule as hurricane rain since v0.20.1).
+
 ## [0.20.1] — 2026-07-19 · Polish
 
 ### Added
