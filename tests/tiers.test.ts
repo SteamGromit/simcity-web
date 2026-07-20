@@ -11,6 +11,9 @@ import {
 } from '../src/sim/tiers';
 import { idx } from '../src/sim/grid';
 import { makeCity, zone } from './helpers';
+import { sumCapacities } from '../src/sim/capacity';
+import { collectBudget } from '../src/sim/budget';
+import { updatePollution } from '../src/sim/pollution';
 
 describe('normalizeTier', () => {
   test('passes through a valid wealth on R/C', () => {
@@ -368,5 +371,55 @@ describe('retierMonthly', () => {
     retierMonthly(city, always);
     expect(city.tiles[idx(5, 5)].tier).toBe(1);
     expect(city.tiles[idx(6, 5)].tier).toBe(1);
+  });
+});
+
+describe('tier-aware aggregates', () => {
+  test('sumCapacities scales by tier', () => {
+    const city = makeCity();
+    zone(city, 1, 1, Zone.Residential, 2, 1); // 24 × 1.15 = 28
+    zone(city, 2, 1, Zone.Residential, 2, 3); // 24 × 0.75 = 18
+    zone(city, 3, 1, Zone.Industrial, 2, 'ag'); // 30 × 0.45 = 14
+    zone(city, 4, 1, Zone.Industrial, 2, 'dirty'); // 30 × 1.15 = 35
+    const { population, iJobs } = sumCapacities(city);
+    expect(population).toBe(46);
+    expect(iJobs).toBe(49);
+  });
+
+  test('§§§ residents out-earn § residents at equal head count', () => {
+    const poor = makeCity();
+    const rich = makeCity();
+    // stage 5 § holds 276 (240 × 1.15); match it with §§§ lots at 180 each
+    zone(poor, 1, 1, Zone.Residential, 5, 1);
+    zone(rich, 1, 1, Zone.Residential, 5, 3);
+    const poorReport = collectBudget(poor);
+    const richReport = collectBudget(rich);
+    const poorPer = poorReport.rIncome / sumCapacities(poor).population;
+    const richPer = richReport.rIncome / sumCapacities(rich).population;
+    expect(richPer).toBeGreaterThan(poorPer * 2);
+  });
+
+  test('high-tech industry out-earns farmland', () => {
+    const farm = makeCity();
+    const tech = makeCity();
+    zone(farm, 1, 1, Zone.Industrial, 4, 'ag');
+    zone(tech, 1, 1, Zone.Industrial, 4, 'tech');
+    expect(collectBudget(tech).iIncome).toBeGreaterThan(collectBudget(farm).iIncome);
+  });
+
+  test('industry kind scales emission', () => {
+    // A single stage-2 lot, measured on its own tile: no plume stacking, no
+    // clamping, so the reading is the kind multiplier times the base emission.
+    const reading = (tier: 'ag' | 'dirty' | 'manu' | 'tech') => {
+      const city = makeCity();
+      zone(city, 10, 10, Zone.Industrial, 2, tier);
+      updatePollution(city);
+      return city.tiles[idx(10, 10)].pollution;
+    };
+    expect(reading('manu')).toBeCloseTo(0.6, 2); // (0.3 + 0.15 × 2) × 1.00
+    expect(reading('ag')).toBeCloseTo(0.06, 2); // × 0.10
+    expect(reading('dirty')).toBeCloseTo(0.96, 2); // × 1.60
+    expect(reading('tech')).toBeCloseTo(0.15, 2); // × 0.25
+    expect(reading('dirty')).toBeGreaterThan(reading('ag') * 5);
   });
 });

@@ -1,4 +1,4 @@
-import { sumCapacities } from './capacity';
+import { capacityFor, taxYieldFor } from './tiers';
 import { BudgetReport, CityState, ORDINANCES, SERVICE_UPKEEP, Zone } from './types';
 
 const R_YIELD = 10;
@@ -8,10 +8,23 @@ const UPKEEP = { road: 1, line: 0.2, plant: 150, park: 2, pump: 25, pipe: 0.2 };
 
 /** Monthly close: collect taxes on developed capacity, pay upkeep, move funds. */
 export function collectBudget(city: CityState): BudgetReport {
-  const { population, cJobs, iJobs } = sumCapacities(city);
   let expenses = 0;
+  let rIncome = 0;
+  let cIncome = 0;
+  let iIncome = 0;
 
   for (const t of city.tiles) {
+    if (t.stage > 0 && !t.abandoned) {
+      const cap = capacityFor(t.zone, t.tier, t.stage);
+      if (t.zone === Zone.Residential) {
+        rIncome += cap * city.taxes.r * R_YIELD * taxYieldFor(t.zone, t.tier);
+      } else if (t.zone === Zone.Commercial) {
+        cIncome += cap * city.taxes.c * C_YIELD * taxYieldFor(t.zone, t.tier);
+      } else if (t.zone === Zone.Industrial) {
+        iIncome += cap * city.taxes.i * I_YIELD * taxYieldFor(t.zone, t.tier);
+      }
+    }
+
     switch (t.zone) {
       case Zone.Road:
         expenses += UPKEEP.road;
@@ -56,9 +69,9 @@ export function collectBudget(city: CityState): BudgetReport {
   }
 
   const report: BudgetReport = {
-    rIncome: Math.round(population * city.taxes.r * R_YIELD),
-    cIncome: Math.round(cJobs * city.taxes.c * C_YIELD),
-    iIncome: Math.round(iJobs * city.taxes.i * I_YIELD),
+    rIncome: Math.round(rIncome),
+    cIncome: Math.round(cIncome),
+    iIncome: Math.round(iIncome),
     expenses: Math.round(expenses),
     net: 0,
   };

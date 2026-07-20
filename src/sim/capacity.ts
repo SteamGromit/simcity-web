@@ -1,4 +1,5 @@
-import { CityState, C_JOBS, I_JOBS, R_POP, Zone } from './types';
+import { capacityFor } from './tiers';
+import { CityState, Zone } from './types';
 
 export interface Capacities {
   population: number;
@@ -13,9 +14,10 @@ export function sumCapacities(city: CityState): Capacities {
   let iJobs = 0;
   for (const t of city.tiles) {
     if (t.stage === 0 || t.abandoned) continue;
-    if (t.zone === Zone.Residential) population += R_POP[t.stage];
-    else if (t.zone === Zone.Commercial) cJobs += C_JOBS[t.stage];
-    else if (t.zone === Zone.Industrial) iJobs += I_JOBS[t.stage];
+    const cap = capacityFor(t.zone, t.tier, t.stage);
+    if (t.zone === Zone.Residential) population += cap;
+    else if (t.zone === Zone.Commercial) cJobs += cap;
+    else if (t.zone === Zone.Industrial) iJobs += cap;
   }
   return { population, cJobs, iJobs };
 }

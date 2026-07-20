@@ -1,4 +1,5 @@
 import { tilesWithin } from './grid';
+import { pollutionScaleFor } from './tiers';
 import { CityState, GRID, Zone } from './types';
 
 const SPREAD = 5; // Chebyshev radius an emitter reaches
@@ -10,7 +11,9 @@ function emission(city: CityState, i: number): number {
   const scrub = city.ordinances.cleanAir ? 0.7 : 1;
   if (t.zone === Zone.PowerPlant) return 1.0;
   if (t.abandoned && t.stage > 0) return 0.1;
-  if (t.zone === Zone.Industrial && t.stage > 0) return (0.3 + 0.15 * t.stage) * scrub;
+  if (t.zone === Zone.Industrial && t.stage > 0) {
+    return (0.3 + 0.15 * t.stage) * scrub * pollutionScaleFor(t.tier);
+  }
   // Roads are line sources — plumes from adjacent tiles stack, so the
   // per-tile cap must stay small or busy corridors saturate to 1.0.
   if (t.zone === Zone.Road && t.traffic > 0) return Math.min(0.06, t.traffic * 0.005) * scrub;
