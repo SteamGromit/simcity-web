@@ -4,6 +4,12 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.24.1] — 2026-07-20 · Save hardening
+
+### Fixed
+- Crafted saves can no longer revive tax rates above the 20% slider cap or
+  demand outside [-1, 1]; both clamp to the ranges the game itself can set.
+
 ## [0.24.0] — 2026-07-20 · Visual variety
 
 ### Added
