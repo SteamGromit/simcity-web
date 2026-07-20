@@ -4,6 +4,24 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.25.0] — 2026-07-20 · Controls revamp
+
+### Added
+- Zoning section with a per-zone density flyout — click a zone tool and
+  choose Low/Medium/High beside it; each zone remembers its last density
+  (1/2/3 keys reuse it).
+- Toolbar sections pop out into draggable floating panels and re-dock;
+  positions and detached state persist.
+- Shift+key data-view shortcuts (⇧P power, ⇧O pollution, ⇧L land value,
+  ⇧T traffic, ⇧F fire, ⇧V police, ⇧S school, ⇧H health, ⇧W water).
+- Display panel (HUD button) gathering city style, weather effects, and
+  music, plus a new day/night lighting toggle.
+
+### Changed
+- The day/night cycle is now off by default — enable it in Display.
+- The global Zone density section is gone; density lives with each zone
+  tool. City style / weather / music moved from City Hall to Display.
+
 ## [0.24.1] — 2026-07-20 · Save hardening
 
 ### Fixed

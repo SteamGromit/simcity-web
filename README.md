@@ -65,8 +65,10 @@ cold, so grade your routes or go around. The Road tool also builds
 cliffs.
 
 Start with a **coal plant**, draw a **road**, then zone **residential /
-commercial / industrial** beside the road (within 2 tiles). Buildings need
-both road access and power to develop.
+commercial / industrial** beside the road (within 2 tiles). Click a zone
+tool to open a density flyout beside it (Low/Medium/High); each zone
+remembers its last density. Buildings need both road access and power to
+develop.
 
 Power conducts through adjacent zones and buildings but **not across roads or
 empty land** — string power lines to bridge gaps (lines can be placed on road
@@ -110,13 +112,15 @@ the blaze). Watch for the flames and the advisor warning; if the fire
 department can't cope, bulldoze a firebreak before the whole block goes.
 
 Watch the budget — roads, plants, and services cost upkeep monthly; taxes
-above 9% suppress demand. Pick a **city style** in City Hall — Classic, cartoon **Springfield**
+above 9% suppress demand. Pick a **city style** in the **Display panel** — Classic, cartoon **Springfield**
 (ink outlines, loud colors), or muted brownstone **NYC** — all drawn
 procedurally, switchable live. Listen for the **adaptive soundtrack** —
 a fully synthesized score that follows your city: desert maps play a
 different scale, winter turns it minor and slow, rain thins it out, an
 industrial skyline darkens it, and the band grows as the village becomes
-a metropolis (toggle in City Hall → Display; M mutes everything). Open **City Hall** for the advisor board (every
+a metropolis (toggle in Display; M mutes everything). The Display panel
+also gathers weather effects and a day/night lighting toggle (off by
+default). Open **City Hall** for the advisor board (every
 current warning at a glance) and to enact **ordinances** — monthly-cost
 policies like the Clean Air Act or Free Bus Service that bend the
 simulation in your favor.
@@ -125,6 +129,7 @@ simulation in your favor.
 | --- | --- |
 | Left click / drag | apply tool (zones, parks, bulldoze drag rectangles; roads draw an adjustable line) |
 | Tool keys | B bulldoze · R road · 1/2/3 zones · P plant · L line · K park · F/V/S/D services · U bus · W/X water · I query |
+| ⇧ + key | data-view shortcuts: ⇧P power, ⇧O pollution, ⇧L land value, ⇧T traffic, ⇧F fire, ⇧V police, ⇧S school, ⇧H health, ⇧W water |
 | Minimap click | jump the camera |
 | Charts button | population and funds history |
 | Query tool | inspect any tile |
@@ -137,8 +142,9 @@ simulation in your favor.
 | ⏸ ▶ ▶▶ ▶▶▶ | pause / normal / fast / cheetah |
 
 Panels are yours to arrange: drag the toolbar, HUD, and info panels by
-their title bars, and click a toolbar section header to fold that group
-away — everything is remembered.
+their title bars. Toolbar sections pop out into draggable floating panels
+and re-dock; positions and detached state persist. Click a toolbar
+section header to fold that group away — everything is remembered.
 
 Save/Load keeps one city in your browser's localStorage.
 

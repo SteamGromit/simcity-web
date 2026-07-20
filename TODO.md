@@ -20,10 +20,13 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 8. **public health** - public health campaigns paid by mayor reduce rate and/or severity of pandemics 
 9. **Crime** - crime can happen anywhere, but is more common in certain areas and conditions
 10. **traffic accidents** - occasionally a road is blocked due to an accident. Accident prob depends on traffic flow.
-11. **revamp controls** - improve for QoL. For example, condense the path (Build -> Residential, Zone density -> High) to Zoning -> Residential (opens 3 density options to right) -> High. Allow user to separate Tool subsections and place in a separate part of screen to aid visibility. Add keyboad shortcuts for data views (all should require the same hold key (e.g. shift) to distinguish from other controls). Create a serparate modal/control for Display things like weather effects, music, city style. Add to this control a toggle for the day/night lightening defaulted to off. \
-12. **seasons** - color of vegetation and disaster type varies with season\
+11. **seasons** - color of vegetation and disaster type varies with season\
 
 ## Done
+
+- **Controls revamp** — shipped v0.25.0 (zoning density flyout with
+  per-zone memory, detachable toolbar sections, ⇧-key data views,
+  Display panel with day/night lighting toggle defaulted off).
 
 - **Visual variety** — shipped v0.24.0 (seeded building archetypes:
   composed silhouettes, roofs, props, palette families, window styles;
