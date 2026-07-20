@@ -9,6 +9,7 @@ import { updateWater } from './water';
 import { pandemicMonthly, rollForDisaster, rubbleMonthly, updateDisasters } from './disasters';
 import { defaultWeather, updateWeatherMonthly } from './weather';
 import { fireRisk, updateCoverage, updateFires } from './services';
+import { retierMonthly, updateEducation } from './tiers';
 import { updateTraffic } from './traffic';
 import {
   Biome,
@@ -317,6 +318,7 @@ export function simTick(city: CityState, rand: () => number): void {
     updateTraffic(city);
     updatePollution(city);
     updateLandValue(city);
+    updateEducation(city);
     updateDemand(city);
   }
 
@@ -334,6 +336,7 @@ export function simTick(city: CityState, rand: () => number): void {
     fireRisk(city, rand);
     pandemicMonthly(city, rand);
     rubbleMonthly(city);
+    retierMonthly(city, rand);
     rollForDisaster(city, rand);
     updateWeatherMonthly(city, rand);
     collectBudget(city);

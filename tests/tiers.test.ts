@@ -10,10 +10,12 @@ import {
   updateEducation,
 } from '../src/sim/tiers';
 import { idx } from '../src/sim/grid';
-import { makeCity, zone } from './helpers';
+import { makeCity, road, zone } from './helpers';
 import { sumCapacities } from '../src/sim/capacity';
 import { collectBudget } from '../src/sim/budget';
 import { updatePollution } from '../src/sim/pollution';
+import { developTile } from '../src/sim/develop';
+import { simTick } from '../src/sim/city';
 
 describe('normalizeTier', () => {
   test('passes through a valid wealth on R/C', () => {
@@ -421,5 +423,55 @@ describe('tier-aware aggregates', () => {
     expect(reading('dirty')).toBeCloseTo(0.96, 2); // × 1.60
     expect(reading('tech')).toBeCloseTo(0.15, 2); // × 0.25
     expect(reading('dirty')).toBeGreaterThan(reading('ag') * 5);
+  });
+});
+
+describe('tier assignment during development', () => {
+  test('a newly built lot takes the tier its conditions call for', () => {
+    const city = makeCity();
+    road(city, 4, 5, 6, 5);
+    zone(city, 5, 6, Zone.Residential, 0, 1);
+    const t = city.tiles[idx(5, 6)];
+    t.powered = true;
+    t.landValue = 0.9;
+    t.pollution = 0;
+    t.commute = 2;
+    city.demand.r = 1;
+    for (let n = 0; n < 50 && t.stage === 0; n++) developTile(city, 5, 6, () => 0);
+    expect(t.stage).toBeGreaterThan(0);
+    expect(t.tier).toBe(3);
+  });
+
+  test('an industrial lot at density 1 builds as farmland', () => {
+    const city = makeCity();
+    road(city, 4, 5, 6, 5);
+    zone(city, 5, 6, Zone.Industrial, 0, 'manu');
+    const t = city.tiles[idx(5, 6)];
+    t.powered = true;
+    t.density = 1;
+    t.commute = 2;
+    city.demand.i = 1;
+    for (let n = 0; n < 50 && t.stage === 0; n++) developTile(city, 5, 6, () => 0);
+    expect(t.stage).toBeGreaterThan(0);
+    expect(t.tier).toBe('ag');
+  });
+});
+
+describe('simTick integration', () => {
+  test('refreshes education and re-tiers on the monthly boundary', () => {
+    const city = makeCity();
+    // A real, powered School (fed by an adjacent PowerPlant) rather than a
+    // hand-set schoolCov: updateCoverage recomputes coverage fields from
+    // scratch on every field-refresh tick, so a manually seeded schoolCov
+    // would be wiped out before updateEducation ever reads it.
+    zone(city, 0, 9, Zone.PowerPlant);
+    zone(city, 0, 8, Zone.School);
+    for (let x = 0; x < 4; x++) {
+      zone(city, x, 5, Zone.Residential, 2);
+    }
+    const rand = () => 0.5;
+    for (let n = 0; n < 8; n++) simTick(city, rand);
+    expect(city.month).toBe(1);
+    expect(city.eduLevel).toBeGreaterThan(0);
   });
 });

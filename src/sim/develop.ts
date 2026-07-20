@@ -1,4 +1,5 @@
 import { idx } from './grid';
+import { chooseTier } from './tiers';
 import { roadAccess } from './traffic';
 import { CityState, MAX_STAGE_BY_DENSITY, Tile, Zone } from './types';
 
@@ -73,8 +74,10 @@ export function developTile(city: CityState, x: number, y: number, rand: () => n
       if (t.abandoned) {
         t.abandoned = false;
         t.stage = 1;
+        t.tier = chooseTier(city, t);
       } else if (t.stage === 0) {
         t.stage = 1;
+        t.tier = chooseTier(city, t);
       } else if (t.stage < MAX_STAGE_BY_DENSITY[t.density]) {
         const next = t.stage + 1;
         const lvGated = t.zone !== Zone.Industrial && t.landValue < LV_GATES[next];

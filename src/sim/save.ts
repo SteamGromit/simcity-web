@@ -1,4 +1,5 @@
 import { blankTile } from './grid';
+import { INDUSTRY_KINDS } from './tiers';
 import { defaultWeather, WEATHER_KINDS, WeatherKind } from './weather';
 import {
   CityState,
@@ -11,9 +12,22 @@ import {
   MAX_STAGE_BY_DENSITY,
   RUBBLE_MONTHS,
   Terrain,
+  Tier,
   Tile,
   Zone,
 } from './types';
+
+/**
+ * Recognizes any raw value shaped like a Tier (a Wealth number or an
+ * IndustryKind string). Deliberately not zone-normalized here: `tier` is
+ * meaningless raw while stage === 0 (per Tile's own doc comment) and every
+ * real consumer (capacityFor, taxYieldFor, pollutionScaleFor) normalizes
+ * against the tile's zone at read time. Revival should round-trip the raw
+ * value byte-for-byte, the same way stage and density do, not "correct" it.
+ */
+function isTierShape(v: unknown): v is Tier {
+  return v === 1 || v === 2 || v === 3 || (typeof v === 'string' && (INDUSTRY_KINDS as readonly string[]).includes(v));
+}
 
 /** JSON can't hold Infinity; commute uses −1 on the wire. */
 export function serialize(city: CityState): string {
@@ -39,6 +53,7 @@ function reviveTile(raw: unknown): Tile {
   if (typeof r.stage === 'number' && Number.isInteger(r.stage) && r.stage >= 1 && r.stage <= 7) {
     t.stage = Math.min(r.stage, MAX_STAGE_BY_DENSITY[t.density]) as Tile['stage'];
   }
+  if (isTierShape(r.tier)) t.tier = r.tier;
   t.elevation = Math.min(MAX_ELEV, Math.max(0, Math.floor(finite(r.elevation, 0))));
   // structures require grass (roads may bridge water) — a crafted save
   // can't claim waterfront under a tower

@@ -1,10 +1,11 @@
 import { describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
-import { R_POP, START_FUNDS, Zone } from '../src/sim/types';
+import { START_FUNDS, Zone } from '../src/sim/types';
 import { applyTool, newCity } from '../src/sim/city';
 import { developTile } from '../src/sim/develop';
 import { updateDemand } from '../src/sim/demand';
 import { deserialize, serialize } from '../src/sim/save';
+import { capacityFor } from '../src/sim/tiers';
 import { clearLand, makeCity, zone } from './helpers';
 
 function newFlatCity(seed: number) {
@@ -65,8 +66,13 @@ describe('density stage caps', () => {
     const city = primeTile(3);
     growFully(city);
     updateDemand(city);
-    expect(city.population).toBe(R_POP[7]);
-    expect(R_POP[7]).toBeGreaterThan(R_POP[3] * 5);
+    // primeTile's land value clears the stage-7 gate (0.75), which necessarily
+    // clears the §§§ wealth gate (0.62) — so a maxed tower is always wealthy,
+    // and wealthy lots trade headcount for tax yield. Capacity is the tier-
+    // scaled figure, not the raw R_POP table.
+    expect(city.tiles[idx(5, 5)].tier).toBe(3);
+    expect(city.population).toBe(capacityFor(Zone.Residential, 3, 7));
+    expect(city.population).toBeGreaterThan(capacityFor(Zone.Residential, 3, 3) * 5);
   });
 });
 
