@@ -16,6 +16,7 @@ import { collectBudget } from '../src/sim/budget';
 import { updatePollution } from '../src/sim/pollution';
 import { developTile } from '../src/sim/develop';
 import { simTick } from '../src/sim/city';
+import { deserialize, serialize } from '../src/sim/save';
 
 describe('normalizeTier', () => {
   test('passes through a valid wealth on R/C', () => {
@@ -473,5 +474,80 @@ describe('simTick integration', () => {
     for (let n = 0; n < 8; n++) simTick(city, rand);
     expect(city.month).toBe(1);
     expect(city.eduLevel).toBeGreaterThan(0);
+  });
+});
+
+describe('saving tiers', () => {
+  test('a round trip preserves tiers and education', () => {
+    const city = makeCity();
+    zone(city, 1, 1, Zone.Residential, 4, 3);
+    zone(city, 2, 1, Zone.Industrial, 3, 'tech');
+    city.eduLevel = 0.62;
+    const revived = deserialize(serialize(city));
+    expect(revived).not.toBeNull();
+    expect(revived!.tiles[idx(1, 1)].tier).toBe(3);
+    expect(revived!.tiles[idx(2, 1)].tier).toBe('tech');
+    expect(revived!.eduLevel).toBeCloseTo(0.62);
+  });
+
+  test('a save predating tiers revives to the neutral tier', () => {
+    const city = makeCity();
+    zone(city, 1, 1, Zone.Residential, 4);
+    zone(city, 2, 1, Zone.Industrial, 3);
+    const raw = JSON.parse(serialize(city));
+    for (const t of raw.tiles) delete t.tier;
+    delete raw.eduLevel;
+    const revived = deserialize(JSON.stringify(raw));
+    expect(revived).not.toBeNull();
+    // The neutral wealth is the blank-tile default and stands in for both
+    // unions; reads normalize it per zone, so the industrial lot behaves as
+    // manufacturing without the stored value having to say so.
+    expect(revived!.tiles[idx(1, 1)].tier).toBe(2);
+    expect(revived!.tiles[idx(2, 1)].tier).toBe(2);
+    expect(normalizeTier(Zone.Industrial, revived!.tiles[idx(2, 1)].tier)).toBe('manu');
+    expect(revived!.eduLevel).toBe(0);
+  });
+
+  test('an old industrial save keeps its capacity through normalization', () => {
+    const city = makeCity();
+    zone(city, 2, 1, Zone.Industrial, 3);
+    const raw = JSON.parse(serialize(city));
+    for (const t of raw.tiles) delete t.tier;
+    const revived = deserialize(JSON.stringify(raw))!;
+    const t = revived.tiles[idx(2, 1)];
+    // 'manu' carries the 1.0 multiplier, so an old save's industry is worth
+    // exactly what it was worth before tiers existed.
+    expect(capacityFor(t.zone, t.tier, t.stage)).toBe(capacityFor(Zone.Industrial, 'manu', 3));
+  });
+
+  test('a garbage tier falls back rather than poisoning the sim', () => {
+    const city = makeCity();
+    zone(city, 1, 1, Zone.Residential, 4, 3);
+    zone(city, 2, 1, Zone.Industrial, 3, 'tech');
+    const raw = JSON.parse(serialize(city));
+    raw.tiles[idx(1, 1)].tier = 'not-a-tier';
+    raw.tiles[idx(2, 1)].tier = 99;
+    const revived = deserialize(JSON.stringify(raw));
+    expect(revived).not.toBeNull();
+    expect(revived!.tiles[idx(1, 1)].tier).toBe(2);
+    expect(revived!.tiles[idx(2, 1)].tier).toBe(2);
+    // and the sim can still price them
+    expect(Number.isFinite(capacityFor(Zone.Residential, revived!.tiles[idx(1, 1)].tier, 4))).toBe(true);
+  });
+
+  test('a non-numeric education level degrades to zero', () => {
+    const city = makeCity();
+    const raw = JSON.parse(serialize(city));
+    raw.eduLevel = 'wat';
+    expect(deserialize(JSON.stringify(raw))!.eduLevel).toBe(0);
+  });
+
+  test('an out-of-range education level is clamped', () => {
+    const city = makeCity();
+    const raw = JSON.parse(serialize(city));
+    raw.eduLevel = 7.5; // a crafted save must not hand the sim an impossible share
+    expect(deserialize(JSON.stringify(raw))!.eduLevel).toBe(1);
+    raw.eduLevel = -3;
+    expect(deserialize(JSON.stringify(raw))!.eduLevel).toBe(0);
   });
 });
