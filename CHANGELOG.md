@@ -4,6 +4,26 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.23.0] — 2026-07-20 · RCI tiers & industry types
+
+### Added
+- **Industry kinds**: industry splits into agricultural, dirty,
+  manufacturing, and high-tech. Kind is chosen by the city's education
+  level (share of homes with school coverage) and local pollution; zone
+  industrial at low density for farmland.
+- **Wealth tiers**: residential and commercial lots carry § / §§ / §§§
+  driven by land value, with pollution as a ceiling. Wealthier lots hold
+  fewer occupants and pay substantially more tax.
+- **Gradual re-tiering**: lots re-tier as conditions change —
+  neighborhoods gentrify and industry modernizes over months rather than
+  flipping at once, with a dead band so boundary lots don't flicker.
+- **Distinct looks**: each subtype renders distinctly; farms draw tilled
+  fields and a barn instead of a factory box, high-tech is a clean
+  white-teal, and only smoky industry gets smokestacks.
+- **City make-up panel**: City Hall shows residents by wealth, industrial
+  jobs by kind, and the education level driving industry; the query tool
+  names each developed lot's tier.
+
 ## [0.22.0] — 2026-07-19 · Adaptive music
 
 ### Added

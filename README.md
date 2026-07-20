@@ -24,6 +24,11 @@ decides what happens next:
   become towers as land value, services, and schools allow; cars roam the
   busy roads, citizens stroll outside their buildings, and day fades into
   night with glowing windows and streetlights.
+- **Wealth & industry tiers** — buildings pick a character from their
+  surroundings rather than from a zoning menu: residential and commercial
+  lots carry § / §§ / §§§ wealth from land value, and industry comes as
+  agricultural, dirty, manufacturing, or high-tech depending on education
+  and clean air. Zone industrial at low density for farmland.
 
 ## Run it
 

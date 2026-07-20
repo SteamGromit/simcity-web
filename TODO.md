@@ -6,24 +6,25 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Backlog (in order)
 
-1. **RCI tiers & industry types** — SC4-style subtypes: industry splits
-   into agricultural / dirty / manufacturing / high-tech; residential and
-   commercial get wealth tiers (§ / §§ / §§§). Demand, desirability, and
-   building appearance differ per tier. Foundation for visual variety and
-   rewards.
-2. **Visual variety** — more variation in building, vehicle, and
+1. **Visual variety** — more variation in building, vehicle, and
    pedestrian appearance: seeded per-tile building variants (shapes,
    roofs, palettes), more vehicle types/colors. Builds on the tier
    taxonomy so each subtype reads distinctly.
-3. **Rewards** — special buildings the mayor's office can purchase once
+2. **Rewards** — special buildings the mayor's office can purchase once
    city milestones are hit (e.g. Stadium, Library, Museum, Monument);
    each grants a city-wide effect.
-4. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
+3. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
    deferred until single-city play is deep enough).
-5. **Modding hooks** — data-driven building/balance definitions; folds in
+4. **Modding hooks** — data-driven building/balance definitions; folds in
    user-made skins from the skins item.
 
 ## Done
+
+- **RCI tiers & industry types** — shipped v0.23.0 (industry splits into
+  agricultural/dirty/manufacturing/high-tech by education and pollution,
+  farms at low density; R/C wealth tiers §/§§/§§§ from land value; gradual
+  monthly re-tiering; per-tier capacity, tax yield, pollution, and
+  rendering; City Hall make-up panel).
 
 - **Adaptive music** — shipped v0.22.0 (procedural soundtrack: biome
   scale/root, seasonal mode/register, weather damping, growth-gated
