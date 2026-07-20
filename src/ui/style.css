@@ -553,3 +553,8 @@ button.detach {
 button.detach:hover {
   color: #aabfec;
 }
+
+/* a floating section's grip already carries the re-dock control */
+.tool-float .section .detach {
+  display: none;
+}

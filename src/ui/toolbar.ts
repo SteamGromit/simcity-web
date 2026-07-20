@@ -226,6 +226,7 @@ export function buildToolbar(
   const DETACH_SUFFIX = '.out';
 
   function setDetached(sec: ToolbarSection, out: boolean) {
+    if (out && sec.float) return; // already floating — don't orphan the panel
     localStorage.setItem(COLLAPSE_KEY + sec.slug + DETACH_SUFFIX, out ? '1' : '0');
     if (out) {
       const float = document.createElement('div');
