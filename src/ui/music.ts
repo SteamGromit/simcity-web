@@ -204,3 +204,102 @@ export function composeBar(mood: MusicMood, barIndex: number, rand: () => number
 
   return out;
 }
+
+const MUSIC_KEY = 'simcity.music';
+
+/**
+ * Web Audio bar scheduler. Owns nothing until the sound player's context
+ * exists (first user gesture — autoplay-safe). Composes the next bar just
+ * before it's due; mood changes land on bar boundaries. Untested, like
+ * the render layer.
+ */
+export function createMusicPlayer(sound: { context(): AudioContext | null; muted: boolean }) {
+  let on = localStorage.getItem(MUSIC_KEY) !== '0';
+  let mood: MusicMood | null = null;
+  let master: GainNode | null = null;
+  let noiseBuf: AudioBuffer | null = null;
+  let nextBarAt = 0; // AudioContext time of the next unscheduled bar
+  let barIndex = 0;
+  let timer: number | null = null;
+
+  function ensureGraph(c: AudioContext) {
+    if (master) return;
+    master = c.createGain();
+    master.gain.value = 0.06;
+    master.connect(c.destination);
+    noiseBuf = c.createBuffer(1, c.sampleRate, c.sampleRate);
+    const data = noiseBuf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  }
+
+  function scheduleNote(c: AudioContext, e: NoteEvent, barStart: number, secPerBeat: number) {
+    const t = barStart + e.beat * secPerBeat;
+    const dur = Math.max(0.05, e.dur * secPerBeat);
+    const gain = c.createGain();
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.001, e.vol), t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    gain.connect(master!);
+    if (e.wave === 'noise') {
+      const src = c.createBufferSource();
+      src.buffer = noiseBuf!;
+      const filter = c.createBiquadFilter();
+      filter.type = 'highpass';
+      filter.frequency.value = e.dur > 0.1 ? 120 : 4000; // kick vs hat
+      src.connect(filter).connect(gain);
+      src.start(t, Math.random(), dur);
+    } else {
+      const osc = c.createOscillator();
+      osc.type = e.wave;
+      osc.frequency.setValueAtTime(e.freq, t);
+      osc.connect(gain);
+      osc.start(t);
+      osc.stop(t + dur + 0.05);
+    }
+  }
+
+  /** Keep about a bar of music scheduled ahead of the playhead. */
+  function pump() {
+    const c = sound.context();
+    if (!c || !mood) return;
+    ensureGraph(c);
+    const secPerBeat = 60 / mood.tempo;
+    const barLen = 4 * secPerBeat;
+    if (nextBarAt < c.currentTime + 0.05) nextBarAt = c.currentTime + 0.05;
+    while (nextBarAt < c.currentTime + barLen + 0.3) {
+      for (const e of composeBar(mood, barIndex, Math.random)) {
+        scheduleNote(c, e, nextBarAt, secPerBeat);
+      }
+      nextBarAt += barLen;
+      barIndex += 1;
+    }
+  }
+
+  function setRunning(run: boolean) {
+    if (run && timer === null) timer = window.setInterval(pump, 250);
+    if (!run && timer !== null) {
+      window.clearInterval(timer);
+      timer = null;
+      nextBarAt = 0; // resume cleanly later
+    }
+    if (master) master.gain.value = run ? 0.06 : 0;
+  }
+
+  return {
+    get on() {
+      return on;
+    },
+    /** Flip the pref; returns the new state. */
+    toggle(): boolean {
+      on = !on;
+      localStorage.setItem(MUSIC_KEY, on ? '1' : '0');
+      setRunning(on && !sound.muted && sound.context() !== null);
+      return on;
+    },
+    /** Refresh the mood from the city; start/stop with mute and pref. */
+    update(city: CityState) {
+      mood = moodFrom(city);
+      setRunning(on && !sound.muted && sound.context() !== null);
+    },
+  };
+}
