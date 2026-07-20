@@ -25,7 +25,10 @@ const KIND_SPEED: Record<VehicleKind, number> = {
   car: 1, taxi: 1.1, van: 0.95, truck: 0.8, bus: 0.75,
 };
 
-const PED_COLORS = ['#3a3530', '#5a4a3a', '#2f3a4a', '#4a3a4a'];
+const PED_COLORS = [
+  '#3a3530', '#5a4a3a', '#2f3a4a', '#4a3a4a',
+  '#6e3d33', '#33523f', '#7a7469', '#42356b',
+];
 
 /** Kind weights from what the spawn road serves. Pure — unit tested. */
 export function vehicleWeights(neighborZones: Zone[]): Record<VehicleKind, number> {
@@ -72,6 +75,8 @@ interface Ped {
   vy: number;
   ttl: number; // seconds until respawn
   color: string;
+  w: number; // 1–2 px
+  h: number; // 2–4 px
 }
 
 /** Elevations of the last-stepped city, so actors ride their tile's height. */
@@ -242,16 +247,18 @@ export class Automata {
 
   private spawnPed(lots: number[]): Ped {
     const a = Math.random() * Math.PI * 2;
-    // spawn in the sidewalk annulus (see stepPeds)
     const r = 0.6 + Math.random() * 0.28;
+    const pace = 0.7 + Math.random() * 0.7;
     return {
       tile: lots[(Math.random() * lots.length) | 0],
       ox: Math.cos(a) * HW * r * 0.7,
       oy: Math.sin(a) * HH * r * 0.7,
-      vx: Math.cos(a) * 4,
-      vy: Math.sin(a) * 2,
+      vx: Math.cos(a) * 4 * pace,
+      vy: Math.sin(a) * 2 * pace,
       ttl: 4 + Math.random() * 6,
       color: PED_COLORS[(Math.random() * PED_COLORS.length) | 0],
+      w: 1 + ((Math.random() * 2) | 0),
+      h: 2 + ((Math.random() * 3) | 0),
     };
   }
 
@@ -332,10 +339,10 @@ export class Automata {
       for (const p of peds) {
         const c = center(p.tile);
         ctx.fillStyle = p.color;
-        ctx.fillRect(c.sx + p.ox - 1, c.sy + p.oy - 2, 2, 3);
+        ctx.fillRect(c.sx + p.ox - p.w / 2, c.sy + p.oy - p.h + 1, p.w, p.h);
         if (this.pandemic) {
           ctx.fillStyle = '#f2f5f8'; // masked up
-          ctx.fillRect(c.sx + p.ox - 1, c.sy + p.oy - 2, 2, 1);
+          ctx.fillRect(c.sx + p.ox - p.w / 2, c.sy + p.oy - p.h + 1, p.w, 1);
         }
       }
     }
