@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
 import { Zone } from '../src/sim/types';
-import { Automata } from '../src/render/automata';
+import { Automata, pickKind, vehicleWeights } from '../src/render/automata';
 import { makeCity, road, zone } from './helpers';
 
 describe('Automata', () => {
@@ -76,5 +76,41 @@ describe('Automata', () => {
     automata.step(city, 0);
     automata.step(city, 100);
     expect(automata.pedCount()).toBeGreaterThan(0);
+  });
+});
+
+describe('vehicle mix', () => {
+  const bare = [Zone.None, Zone.None, Zone.None, Zone.None];
+
+  test('industry neighbors favor trucks', () => {
+    const ind = vehicleWeights([Zone.Industrial, Zone.Industrial, Zone.None, Zone.None]);
+    expect(ind.truck).toBeGreaterThan(vehicleWeights(bare).truck);
+  });
+
+  test('commerce favors taxis and vans', () => {
+    const com = vehicleWeights([Zone.Commercial, Zone.Commercial, Zone.None, Zone.None]);
+    expect(com.taxi).toBeGreaterThan(vehicleWeights(bare).taxi);
+    expect(com.van).toBeGreaterThan(vehicleWeights(bare).van);
+  });
+
+  test('buses only appear near bus stops', () => {
+    expect(vehicleWeights(bare).bus).toBe(0);
+    expect(vehicleWeights([Zone.BusStop, Zone.None, Zone.None, Zone.None]).bus).toBeGreaterThan(0);
+  });
+
+  test('weights are non-negative with a positive total everywhere', () => {
+    for (const zones of [bare, [Zone.Residential, Zone.Park, Zone.Road, Zone.School]]) {
+      const w = vehicleWeights(zones);
+      const total = w.car + w.taxi + w.van + w.truck + w.bus;
+      expect(total).toBeGreaterThan(0);
+      for (const v of Object.values(w)) expect(v).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  test('pickKind honors the dominant weight across the roll range', () => {
+    const w = { car: 0, taxi: 0, van: 0, truck: 5, bus: 0 };
+    expect(pickKind(w, 0.01)).toBe('truck');
+    expect(pickKind(w, 0.99)).toBe('truck');
+    expect(pickKind({ ...w, truck: 0, car: 1 }, 0.5)).toBe('car');
   });
 });

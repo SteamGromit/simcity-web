@@ -9,13 +9,57 @@ const SCAN_INTERVAL = 15; // steps between full-grid rescans
 const MAX_CARS = 40;
 const MAX_PEDS = 60;
 const CAR_SPEED = 1.8; // tiles per second
-const CAR_COLORS = ['#e8e6e0', '#b8bcc4', '#c05045', '#4a6fb0', '#e0b83a', '#3a3f46'];
+
+export type VehicleKind = 'car' | 'taxi' | 'van' | 'truck' | 'bus';
+
+const CAR_COLORS = [
+  '#e8e6e0', '#b8bcc4', '#c05045', '#4a6fb0', '#e0b83a',
+  '#3a3f46', '#7a4a8c', '#4a8a5a', '#a35d2a', '#8c8578',
+];
+const VAN_COLORS = ['#dcd9d2', '#9aa4ad', '#5b7d9e'];
+const TRUCK_COLORS = ['#c7c3ba', '#8f9aa6', '#7d6b52'];
+const TAXI_BODY = '#e8c227';
+const BUS_BODY = '#2fa38f'; // transit teal, matches the bus-stop shelter
+
+const KIND_SPEED: Record<VehicleKind, number> = {
+  car: 1, taxi: 1.1, van: 0.95, truck: 0.8, bus: 0.75,
+};
+
 const PED_COLORS = ['#3a3530', '#5a4a3a', '#2f3a4a', '#4a3a4a'];
+
+/** Kind weights from what the spawn road serves. Pure — unit tested. */
+export function vehicleWeights(neighborZones: Zone[]): Record<VehicleKind, number> {
+  const w: Record<VehicleKind, number> = { car: 4, taxi: 0.2, van: 0.4, truck: 0.3, bus: 0 };
+  for (const z of neighborZones) {
+    if (z === Zone.Industrial) {
+      w.truck += 1.4;
+      w.van += 0.4;
+    } else if (z === Zone.Commercial) {
+      w.taxi += 0.9;
+      w.van += 0.5;
+    } else if (z === Zone.BusStop) {
+      w.bus += 2;
+    }
+  }
+  return w;
+}
+
+export function pickKind(w: Record<VehicleKind, number>, r: number): VehicleKind {
+  const order: VehicleKind[] = ['car', 'taxi', 'van', 'truck', 'bus'];
+  const total = order.reduce((s, k) => s + w[k], 0);
+  let acc = 0;
+  for (const k of order) {
+    acc += w[k];
+    if (r * total < acc) return k;
+  }
+  return 'car';
+}
 
 interface Car {
   from: number; // tile index
   to: number;
   t: number; // 0..1 progress
+  kind: VehicleKind;
   color: string;
   laneSide: 1 | -1;
 }
@@ -107,18 +151,30 @@ export class Automata {
       if (city.tiles[from].zone !== Zone.Road) break; // stale scan; wait for rescan
       const next = this.nextRoad(city, from, -1);
       if (next === -1) break;
+      const nz: Zone[] = [];
+      const x = from % GRID;
+      const y = (from / GRID) | 0;
+      for (const [nx, ny] of neighbors4(x, y)) nz.push(city.tiles[idx(nx, ny)].zone);
+      const kind = pickKind(vehicleWeights(nz), Math.random());
+      const color =
+        kind === 'taxi' ? TAXI_BODY
+        : kind === 'bus' ? BUS_BODY
+        : kind === 'van' ? VAN_COLORS[(Math.random() * VAN_COLORS.length) | 0]
+        : kind === 'truck' ? TRUCK_COLORS[(Math.random() * TRUCK_COLORS.length) | 0]
+        : CAR_COLORS[(Math.random() * CAR_COLORS.length) | 0];
       this.cars.push({
         from,
         to: next,
         t: Math.random(),
-        color: CAR_COLORS[(Math.random() * CAR_COLORS.length) | 0],
+        kind,
+        color,
         laneSide: Math.random() < 0.5 ? 1 : -1,
       });
     }
     if (this.cars.length > target) this.cars.length = target;
 
     for (const car of this.cars) {
-      car.t += dt * CAR_SPEED;
+      car.t += dt * CAR_SPEED * KIND_SPEED[car.kind];
       while (car.t >= 1) {
         car.t -= 1;
         const next = this.nextRoad(city, car.to, car.from);
@@ -235,10 +291,39 @@ export class Automata {
         ctx.translate(sx, sy);
         ctx.rotate(angle);
         ctx.translate(0, car.laneSide * 4);
-        ctx.fillStyle = car.color;
-        ctx.fillRect(-4, -2, 8, 4);
-        ctx.fillStyle = 'rgba(20,25,35,0.55)';
-        ctx.fillRect(-1.5, -1.5, 3.5, 3);
+        switch (car.kind) {
+          case 'truck':
+            ctx.fillStyle = '#3d434b';
+            ctx.fillRect(-6, -2, 4, 4); // cab
+            ctx.fillStyle = car.color;
+            ctx.fillRect(-1, -2.5, 7, 5); // trailer
+            break;
+          case 'bus':
+            ctx.fillStyle = car.color;
+            ctx.fillRect(-7, -2.5, 14, 5);
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.fillRect(-6, -1.5, 12, 1.5); // window band
+            break;
+          case 'van':
+            ctx.fillStyle = car.color;
+            ctx.fillRect(-4.5, -2.5, 9, 5);
+            ctx.fillStyle = 'rgba(20,25,35,0.55)';
+            ctx.fillRect(-3.5, -1.5, 3, 3);
+            break;
+          case 'taxi':
+            ctx.fillStyle = car.color;
+            ctx.fillRect(-4, -2, 8, 4);
+            ctx.fillStyle = 'rgba(20,25,35,0.55)';
+            ctx.fillRect(-1.5, -1.5, 3.5, 3);
+            ctx.fillStyle = '#2b2b2b';
+            ctx.fillRect(-0.5, -2.7, 2, 1); // roof sign
+            break;
+          default:
+            ctx.fillStyle = car.color;
+            ctx.fillRect(-4, -2, 8, 4);
+            ctx.fillStyle = 'rgba(20,25,35,0.55)';
+            ctx.fillRect(-1.5, -1.5, 3.5, 3);
+        }
         ctx.restore();
       }
     }
