@@ -2,8 +2,11 @@ import { describe, expect, test } from 'vitest';
 import {
   Archetype,
   channels,
+  FARM_LAYOUTS,
   footprintBudget,
+  paletteFamily,
   pickArchetype,
+  pickFarmLayout,
 } from '../src/render/archetypes';
 import { Stage, Tier, Zone } from '../src/sim/types';
 
@@ -90,5 +93,39 @@ describe('geometry invariant', () => {
         expect(sb.hf).toBeLessThanOrEqual(1);
       }
     });
+  });
+});
+
+describe('palette families', () => {
+  test('deterministic and drawn from the family list', () => {
+    const a = paletteFamily(Zone.Residential, 2, 0.4);
+    expect(paletteFamily(Zone.Residential, 2, 0.4)).toEqual(a);
+    expect(a).toHaveLength(3);
+    for (const d of a) expect(Number.isFinite(d)).toBe(true);
+  });
+
+  test('a pick sweep reaches more than one family per tier', () => {
+    const seen = new Set(PICKS.map((p) => JSON.stringify(paletteFamily(Zone.Commercial, 3, p))));
+    expect(seen.size).toBeGreaterThan(1);
+  });
+
+  test('every combo resolves, including normalized fallbacks', () => {
+    for (const [zone, tier] of COMBOS) expect(paletteFamily(zone, tier, 0.5)).toHaveLength(3);
+    expect(paletteFamily(Zone.Industrial, 'ag', 0.5)).toHaveLength(3);
+  });
+});
+
+describe('farm layouts', () => {
+  test('every pick resolves and the sweep covers multiple layouts', () => {
+    const seen = new Set(PICKS.map((p) => pickFarmLayout(p)));
+    expect(seen.size).toBeGreaterThan(1);
+    for (const l of seen) expect(FARM_LAYOUTS).toContain(l);
+  });
+
+  test('layouts keep the barn inside the tile', () => {
+    for (const l of FARM_LAYOUTS) {
+      expect(Math.abs(l.barnOx)).toBeLessThanOrEqual(0.25);
+      expect(Math.abs(l.barnOy)).toBeLessThanOrEqual(0.25);
+    }
   });
 });

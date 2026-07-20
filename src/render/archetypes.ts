@@ -211,3 +211,41 @@ export function pickArchetype(zone: Zone, tier: Tier, stage: Stage, pick: number
   const options = TABLE[familyKey(zone, tier)][bandOf(stage)];
   return options[Math.min(options.length - 1, Math.floor(pick * options.length))];
 }
+
+/** [dh, ds, dl] wall-family deltas per tier; entry 0 is the familiar base
+ * ramp. Large hue deltas are deliberate — they move slate to brick, not
+ * just warm it. Values are a starting point for the visual pass. */
+const FAMILIES: Record<FamilyKey, [number, number, number][]> = {
+  R1: [[0, 0, 0], [15, 8, -3], [-18, -4, 4]],
+  R2: [[0, 0, 0], [160, 14, -4], [24, 6, 8]], // slate / brick / pale clapboard
+  R3: [[0, 0, 0], [-12, 4, -4], [8, -6, 3]],
+  C1: [[0, 0, 0], [12, 6, -4], [-20, -8, 5]],
+  C2: [[0, 0, 0], [-18, 8, -6], [14, -10, 6]],
+  C3: [[0, 0, 0], [10, 6, 4], [-8, -6, -4]],
+  dirty: [[0, 0, 0], [10, 8, -4], [-6, -5, 5]],
+  manu: [[0, 0, 0], [8, 4, -4], [-10, 3, 4]],
+  tech: [[0, 0, 0], [-12, 6, -4], [14, -6, 4]],
+};
+
+export function paletteFamily(zone: Zone, tier: Tier, pick: number): [number, number, number] {
+  const fams = FAMILIES[familyKey(zone, tier)];
+  return fams[Math.min(fams.length - 1, Math.floor(pick * fams.length))];
+}
+
+export interface FarmLayout {
+  barnOx: number; // barn center offset, tile-fraction units
+  barnOy: number;
+  furrowAngle: 0 | 1;
+  extra: 'silo' | 'coop' | null;
+}
+
+export const FARM_LAYOUTS: FarmLayout[] = [
+  { barnOx: -0.18, barnOy: 0.1, furrowAngle: 0, extra: 'silo' },
+  { barnOx: 0.15, barnOy: -0.12, furrowAngle: 1, extra: null },
+  { barnOx: 0, barnOy: 0.18, furrowAngle: 0, extra: 'coop' },
+  { barnOx: -0.12, barnOy: -0.15, furrowAngle: 1, extra: 'silo' },
+];
+
+export function pickFarmLayout(pick: number): FarmLayout {
+  return FARM_LAYOUTS[Math.min(FARM_LAYOUTS.length - 1, Math.floor(pick * FARM_LAYOUTS.length))];
+}
