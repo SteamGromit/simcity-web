@@ -1,6 +1,14 @@
 import { describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
-import { HURRICANE_TICKS, PANDEMIC_MONTHS, TORNADO_TICKS, Zone } from '../src/sim/types';
+import {
+  HURRICANE_TICKS,
+  PANDEMIC_MONTHS,
+  RUBBLE_MONTHS,
+  TICKS_PER_MONTH,
+  TORNADO_TICKS,
+  Zone,
+} from '../src/sim/types';
+import { applyTool, simTick } from '../src/sim/city';
 import { pandemicMonthly, spawnDisaster, updateDisasters } from '../src/sim/disasters';
 import { deserialize, serialize } from '../src/sim/save';
 import { adviseTips } from '../src/sim/tips';
@@ -89,6 +97,81 @@ describe('pandemic', () => {
     };
     expect(run(0)).toBe(true);
     expect(run(1)).toBe(false);
+  });
+});
+
+describe('rubble', () => {
+  test('tornado damage leaves rubble on the lot', () => {
+    const city = makeCity();
+    zone(city, 10, 10, Zone.Residential, 3);
+    city.disasters.tornado = { x: 10, y: 10, ticksLeft: 1 };
+    updateDisasters(city, always); // rand 0 → damage roll hits
+    expect(city.tiles[idx(10, 10)].rubble).toBe(RUBBLE_MONTHS);
+  });
+
+  test('hurricane damage leaves rubble', () => {
+    const city = makeCity();
+    zone(city, 10, 10, Zone.Commercial, 3);
+    city.disasters.hurricaneTicks = 1;
+    updateDisasters(city, always);
+    expect(city.tiles[idx(10, 10)].rubble).toBe(RUBBLE_MONTHS);
+  });
+
+  test('fresh damage re-buries a lot that was almost clear', () => {
+    const city = makeCity();
+    zone(city, 10, 10, Zone.Commercial, 3);
+    city.tiles[idx(10, 10)].rubble = 1;
+    city.disasters.hurricaneTicks = 1;
+    updateDisasters(city, always);
+    expect(city.tiles[idx(10, 10)].rubble).toBe(RUBBLE_MONTHS);
+  });
+
+  test('pandemic abandonment leaves no rubble', () => {
+    const city = makeCity();
+    zone(city, 10, 10, Zone.Residential, 3);
+    city.disasters.pandemicMonths = 1;
+    pandemicMonthly(city, always);
+    expect(city.tiles[idx(10, 10)].abandoned).toBe(true);
+    expect(city.tiles[idx(10, 10)].rubble).toBe(0);
+  });
+
+  test('rubble decays one step per month', () => {
+    const city = makeCity();
+    city.tiles[idx(3, 3)].rubble = 2;
+    for (let i = 0; i < TICKS_PER_MONTH; i++) simTick(city, never);
+    expect(city.tiles[idx(3, 3)].rubble).toBe(1);
+    for (let i = 0; i < TICKS_PER_MONTH; i++) simTick(city, never);
+    expect(city.tiles[idx(3, 3)].rubble).toBe(0);
+  });
+
+  test('bulldozing a wrecked lot clears the rubble', () => {
+    const city = makeCity();
+    city.funds = 100;
+    zone(city, 10, 10, Zone.Residential, 1);
+    city.tiles[idx(10, 10)].rubble = 3;
+    const res = applyTool(city, 'bulldoze', 10, 10);
+    expect(res.ok).toBe(true);
+    expect(city.tiles[idx(10, 10)].rubble).toBe(0);
+    expect(city.tiles[idx(10, 10)].zone).toBe(Zone.None);
+  });
+
+  test('rubble survives a save round-trip', () => {
+    const city = makeCity();
+    city.tiles[idx(7, 7)].rubble = 2;
+    const revived = deserialize(serialize(city))!;
+    expect(revived.tiles[idx(7, 7)].rubble).toBe(2);
+  });
+
+  test('crafted saves cannot smuggle bogus rubble', () => {
+    const city = makeCity();
+    const raw = JSON.parse(serialize(city));
+    raw.tiles[0].rubble = 999;
+    raw.tiles[1].rubble = -5;
+    raw.tiles[2].rubble = 'soon';
+    const revived = deserialize(JSON.stringify(raw))!;
+    expect(revived.tiles[0].rubble).toBe(RUBBLE_MONTHS);
+    expect(revived.tiles[1].rubble).toBe(0);
+    expect(revived.tiles[2].rubble).toBe(0);
   });
 });
 

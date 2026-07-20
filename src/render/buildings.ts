@@ -184,11 +184,12 @@ function smokestack(ctx: CanvasRenderingContext2D, cx: number, cy: number, h: nu
   ctx.fillRect(cx, cy - h - 16, 5, 3);
 }
 
-export function tree(ctx: CanvasRenderingContext2D, tx: number, ty: number) {
+export function tree(ctx: CanvasRenderingContext2D, tx: number, ty: number, wind = 0) {
   ctx.fillStyle = '#5d4534';
   ctx.fillRect(tx - 1, ty, 2, 6);
   ctx.beginPath();
-  ctx.arc(tx, ty - 3, 5, 0, Math.PI * 2);
+  // canopy whips leeward and droops slightly under hurricane wind
+  ctx.arc(tx + wind, ty - 3 + Math.abs(wind) * 0.15, 5, 0, Math.PI * 2);
   ctx.fillStyle = 'hsl(120 45% 30%)';
   ctx.fill();
 }
@@ -382,6 +383,34 @@ export function drawBuilding(
   if (!powered && !abandoned) {
     drawNoPowerBolt(ctx, cx, cy - h - 12);
   }
+}
+
+/** Disaster debris strewn over a wrecked lot; layout seeded by variant so
+ * it holds still frame to frame. Drawn under the surviving building. */
+export function drawRubble(ctx: CanvasRenderingContext2D, geom: TileGeom, variant: number) {
+  const { cx, cy } = geom;
+  fillTile(ctx, geom, 'rgba(70, 62, 55, 0.45)'); // ash-brown ground stain
+  let h = 1 + variant * 976;
+  const rand = () => {
+    h = (h * 1103515245 + 12345) % 2147483648;
+    return h / 2147483648;
+  };
+  for (let k = 0; k < 7; k++) {
+    const px = cx + (rand() - 0.5) * 22;
+    const py = cy + (rand() - 0.5) * 11;
+    const w = 2 + rand() * 4;
+    ctx.fillStyle = `hsl(${25 + rand() * 12} ${8 + rand() * 10}% ${35 + rand() * 25}%)`;
+    ctx.fillRect(px - w / 2, py - w / 4, w, w / 2);
+  }
+  // splintered beams
+  ctx.strokeStyle = '#4a3f33';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(cx - 8 + variant * 4, cy + 3);
+  ctx.lineTo(cx + 2 + variant * 4, cy - 2);
+  ctx.moveTo(cx + 6 - variant * 3, cy + 4);
+  ctx.lineTo(cx - 2 - variant * 3, cy - 1);
+  ctx.stroke();
 }
 
 /** Animated flames over a burning building; flicker driven by time. */

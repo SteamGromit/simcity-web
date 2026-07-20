@@ -62,6 +62,7 @@ export function developTile(city: CityState, x: number, y: number, rand: () => n
     return;
   }
   if (t.burning > 0) return; // fire consumes the tile; no growth or decay mid-blaze
+  if (t.rubble > 0) return; // debris blocks the lot until crews clear it
 
   const eligible = t.powered && roadAccess(city, x, y) !== null;
   const demand = sectorDemand(city, t.zone);

@@ -9,6 +9,7 @@ import {
   MAX_ELEV,
   HISTORY_MAX,
   MAX_STAGE_BY_DENSITY,
+  RUBBLE_MONTHS,
   Terrain,
   Tile,
   Zone,
@@ -55,6 +56,7 @@ function reviveTile(raw: unknown): Tile {
   t.healthCov = finite(r.healthCov, 0);
   t.busCov = finite(r.busCov, 0);
   t.burning = Math.min(FIRE_BURN_TICKS, Math.max(0, Math.floor(finite(r.burning, 0))));
+  t.rubble = Math.min(RUBBLE_MONTHS, Math.max(0, Math.floor(finite(r.rubble, 0))));
   t.pollution = finite(r.pollution, 0);
   t.landValue = finite(r.landValue, 0.3);
   t.commute = r.commute === -1 ? Infinity : finite(r.commute, Infinity);

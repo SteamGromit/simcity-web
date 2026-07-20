@@ -6,7 +6,7 @@ import { updateLandValue } from './landvalue';
 import { updatePollution } from './pollution';
 import { updatePower } from './power';
 import { updateWater } from './water';
-import { pandemicMonthly, rollForDisaster, updateDisasters } from './disasters';
+import { pandemicMonthly, rollForDisaster, rubbleMonthly, updateDisasters } from './disasters';
 import { defaultWeather, updateWeatherMonthly } from './weather';
 import { fireRisk, updateCoverage, updateFires } from './services';
 import { updateTraffic } from './traffic';
@@ -332,6 +332,7 @@ export function simTick(city: CityState, rand: () => number): void {
     city.month += 1;
     fireRisk(city, rand);
     pandemicMonthly(city, rand);
+    rubbleMonthly(city);
     rollForDisaster(city, rand);
     updateWeatherMonthly(city, rand);
     collectBudget(city);

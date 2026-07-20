@@ -79,6 +79,7 @@ export function blankTile(): Tile {
     healthCov: 0,
     busCov: 0,
     burning: 0,
+    rubble: 0,
     pollution: 0,
     landValue: 0.3,
     commute: Infinity,

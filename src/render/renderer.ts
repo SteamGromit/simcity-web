@@ -1,9 +1,19 @@
-import { idx, inBounds } from '../sim/grid';
+import { idx, inBounds, neighbors4 } from '../sim/grid';
 import { mulberry32 } from '../sim/city';
 import { CityState, GRID, MAX_ELEV, Terrain, Zone } from '../sim/types';
 import { Automata } from './automata';
-import { drawBuilding, drawFire, drawPole, fillPoly, fillTile, strokeTile, tree } from './buildings';
+import {
+  drawBuilding,
+  drawFire,
+  drawPole,
+  drawRubble,
+  fillPoly,
+  fillTile,
+  strokeTile,
+  tree,
+} from './buildings';
 import { ELEV_PX, TileGeom, isoToScreen, screenToIso, setViewAngle, tileDepth, tileGeom } from './iso';
+import { DisasterFx } from './disasterfx';
 import { OverlayId, drawOverlay } from './overlays';
 import { nightFactor, nightTint } from './daynight';
 import { getSkin } from './skins';
@@ -32,6 +42,7 @@ export class Renderer {
   private ctx: CanvasRenderingContext2D;
   private variants: Float32Array;
   private automata = new Automata();
+  private disasterFx = new DisasterFx();
   /** tile paint order for the current angle, ascending depth */
   private order: Uint16Array;
   private orderDirty = true;
@@ -39,6 +50,10 @@ export class Renderer {
   private lastCity: CityState | null = null;
   /** current 0..1 darkness, refreshed each draw */
   private night = 0;
+  /** Hurricane state for the current frame: wind lean px and storm flag. */
+  private wind = 0;
+  private storm = false;
+  private frameNow = 0;
 
   constructor(private canvas: HTMLCanvasElement, seed: number) {
     this.ctx = canvas.getContext('2d')!;
@@ -121,7 +136,11 @@ export class Renderer {
     if (this.orderDirty) this.rebuildOrder();
     const now = performance.now();
     this.night = nightFactor(now);
+    this.frameNow = now;
+    this.storm = city.disasters.hurricaneTicks > 0;
+    this.wind = this.storm ? -4 + Math.sin(now / 120) * 3 : 0;
     this.automata.step(city, now, AUTOMATA_SCALE[this.simSpeed]);
+    this.disasterFx.step(city, now, AUTOMATA_SCALE[this.simSpeed]);
 
     const dpr = window.devicePixelRatio || 1;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -147,6 +166,7 @@ export class Renderer {
       const geom = tileGeom(x, y, t.elevation);
       this.drawCliffs(geom, city, x, y);
       this.drawGround(geom, city, x, y);
+      if (t.rubble > 0) drawRubble(ctx, geom, this.variants[i]);
       if (t.zone !== Zone.None && t.zone !== Zone.Road) {
         drawBuilding(ctx, geom, t.zone, t.stage, t.abandoned, t.powered, this.variants[i], this.night);
       }
@@ -179,6 +199,7 @@ export class Renderer {
         ctx.fill();
       }
     }
+    this.disasterFx.drawWorld(ctx, city, now);
 
     const storm = city.disasters.hurricaneTicks > 0;
     const fx = getWeatherFx(); // hurricane rain always shows — it's a disaster cue
@@ -191,6 +212,8 @@ export class Renderer {
       ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
       ctx.restore();
     }
+    // storm washes go before the cursor layers so the cursor stays readable
+    this.disasterFx.drawScreen(ctx, city, now);
 
     const elevOf = (x: number, y: number) => city.tiles[idx(x, y)].elevation;
     if (view.rect) {
@@ -320,6 +343,11 @@ export class Renderer {
     const v = this.variants[i];
     if (t.terrain === Terrain.Water) {
       fillTile(this.ctx, geom, `hsl(${205 + v * 8} ${52 + v * 6}% ${30 + v * 5}%)`);
+      if (this.storm && this.shoreline(city, x, y)) {
+        // storm surge: whitecaps churning against the shore
+        const pulse = 0.25 + 0.2 * Math.sin(this.frameNow / 160 + (x + y) * 1.7);
+        fillTile(this.ctx, geom, `rgba(230, 240, 250, ${pulse.toFixed(3)})`);
+      }
       return;
     }
     if (t.elevation >= 5) {
@@ -335,11 +363,26 @@ export class Renderer {
       const gs = Math.min(95, (30 + v * 8) * getSkin().grassSat);
       fillTile(this.ctx, geom, `hsl(${96 + v * 10} ${gs}% ${34 + v * 6}%)`);
     }
-    if (t.terrain === Terrain.Forest) {
-      tree(this.ctx, geom.cx - 9 + v * 6, geom.cy - 3);
-      tree(this.ctx, geom.cx + 5 - v * 4, geom.cy + 2 + v * 3);
-      tree(this.ctx, geom.cx - 2 + v * 3, geom.cy - 8 + v * 2);
+    if (this.storm && this.shoreline(city, x, y)) {
+      // surge sloshing up onto the waterfront
+      const pulse = 0.12 + 0.12 * Math.sin(this.frameNow / 200 + (x * 3 + y) * 1.3);
+      fillTile(this.ctx, geom, `rgba(225, 238, 248, ${pulse.toFixed(3)})`);
     }
+    if (t.terrain === Terrain.Forest) {
+      const wind = this.storm ? this.wind * (0.7 + v * 0.6) : 0;
+      tree(this.ctx, geom.cx - 9 + v * 6, geom.cy - 3, wind);
+      tree(this.ctx, geom.cx + 5 - v * 4, geom.cy + 2 + v * 3, wind);
+      tree(this.ctx, geom.cx - 2 + v * 3, geom.cy - 8 + v * 2, wind);
+    }
+  }
+
+  /** True when this tile sits on a land/water boundary. */
+  private shoreline(city: CityState, x: number, y: number): boolean {
+    const wet = city.tiles[idx(x, y)].terrain === Terrain.Water;
+    for (const [nx, ny] of neighbors4(x, y)) {
+      if ((city.tiles[idx(nx, ny)].terrain === Terrain.Water) !== wet) return true;
+    }
+    return false;
   }
 
   /** Lane markings toward orthogonally-adjacent roads; a dot for dead ends. */

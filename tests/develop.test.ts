@@ -51,6 +51,17 @@ describe('developTile', () => {
     expect(city.tiles[idx(5, 5)].stage).toBe(3);
   });
 
+  test('rubble blocks development until it clears', () => {
+    const city = setup(Zone.Residential, 1);
+    city.demand.r = 0.8;
+    city.tiles[idx(5, 5)].rubble = 1;
+    developTile(city, 5, 5, always);
+    expect(city.tiles[idx(5, 5)].stage).toBe(1); // buried in debris
+    city.tiles[idx(5, 5)].rubble = 0;
+    developTile(city, 5, 5, always);
+    expect(city.tiles[idx(5, 5)].stage).toBe(2); // cleared → grows again
+  });
+
   test('losing power downgrades, then abandons', () => {
     const city = setup(Zone.Residential, 2);
     city.demand.r = 0.5;

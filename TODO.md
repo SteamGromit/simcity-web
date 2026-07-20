@@ -6,21 +6,21 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Backlog (in order)
 
-1. **Disaster visuals & animation** — richer visual representation of
-   disasters: tornado debris and damage trails, hurricane wind-lashed
-   trees and surge on the waterfront, a visible pandemic cue (e.g. quiet
-   streets, masked automata); the funnel and rain shipped in v0.17 are
-   the starting point. *(user-requested 2026-07-19)*
-2. **Adaptive music** — procedural/genre soundtrack themed to locale and
+1. **Adaptive music** — procedural/genre soundtrack themed to locale and
    climate (biome, weather, season) and to the city's maturation and
    make-up (village → metropolis; residential vs industrial character);
    builds on the Web Audio engine from v0.9. *(user-requested 2026-07-19)*
-3. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
+2. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
    deferred until single-city play is deep enough).
-4. **Modding hooks** — data-driven building/balance definitions; folds in
+3. **Modding hooks** — data-driven building/balance definitions; folds in
    user-made skins from the skins item.
 
 ## Done
+
+- **Disaster visuals & animation** — shipped v0.21.0 (rubble trails that
+  block rebuilding and decay over months, tornado debris + dust ring +
+  storm light, hurricane wind streaks + lashed trees + surge foam,
+  pandemic quiet streets with masked walkers).
 
 - **Skins/styles** — shipped v0.20.0 (Classic / Springfield / NYC,
   procedural restyling via render/skins.ts; user-made skins land with

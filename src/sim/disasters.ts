@@ -6,6 +6,7 @@ import {
   GRID,
   HURRICANE_TICKS,
   PANDEMIC_MONTHS,
+  RUBBLE_MONTHS,
   Terrain,
   TORNADO_TICKS,
   Zone,
@@ -49,6 +50,7 @@ function damage(city: CityState, i: number): void {
   if (!isBuilding(t.zone) || t.stage === 0) return;
   const next = t.stage - 1;
   t.stage = next as typeof t.stage;
+  t.rubble = RUBBLE_MONTHS;
   if (next === 0) t.abandoned = false;
 }
 
@@ -86,6 +88,13 @@ export function updateDisasters(city: CityState, rand: () => number): void {
       if (rand() < (surge ? 0.05 : 0.02)) damage(city, i);
     }
     d.hurricaneTicks -= 1;
+  }
+}
+
+/** Monthly cleanup: crews carry off one step of debris per month. */
+export function rubbleMonthly(city: CityState): void {
+  for (const t of city.tiles) {
+    if (t.rubble > 0) t.rubble -= 1;
   }
 }
 
