@@ -1,4 +1,5 @@
-import { Stage, Zone } from '../sim/types';
+import { IndustryKind, Stage, Tier, Wealth, Zone } from '../sim/types';
+import { normalizeTier } from '../sim/tiers';
 import { TileGeom } from './iso';
 import { getSkin } from './skins';
 
@@ -9,9 +10,19 @@ const HEIGHTS: Partial<Record<Zone, number[]>> = {
   [Zone.Industrial]: [0, 12, 22, 36, 48, 62, 78, 95],
 };
 
-/** Base wall colors [h, s, l] by zone and stage. */
-const PALETTES: Partial<Record<Zone, [number, number, number][]>> = {
-  [Zone.Residential]: [
+/** Base wall colors [h, s, l] by tier and stage. Index 0 is unused (stage 0). */
+const R_PALETTES: Record<Wealth, [number, number, number][]> = {
+  1: [
+    [0, 0, 0],
+    [28, 22, 48], // cottage, weathered brown
+    [30, 20, 44],
+    [32, 18, 40],
+    [34, 16, 38],
+    [35, 15, 36],
+    [36, 14, 34],
+    [37, 13, 32],
+  ],
+  2: [
     [0, 0, 0],
     [95, 30, 62], // small house, pale green
     [150, 25, 55], // rowhouse teal-green
@@ -21,7 +32,30 @@ const PALETTES: Partial<Record<Zone, [number, number, number][]>> = {
     [224, 39, 43], // high-rise
     [230, 42, 40], // residential tower
   ],
-  [Zone.Commercial]: [
+  3: [
+    [0, 0, 0],
+    [42, 18, 78], // villa, pale stone
+    [40, 16, 76],
+    [38, 14, 74],
+    [200, 22, 70], // glass-and-stone mid-rise
+    [202, 24, 68],
+    [204, 26, 66],
+    [206, 28, 64],
+  ],
+};
+
+const C_PALETTES: Record<Wealth, [number, number, number][]> = {
+  1: [
+    [0, 0, 0],
+    [18, 45, 58], // strip retail, warm awning
+    [22, 42, 54],
+    [26, 38, 50],
+    [28, 36, 48],
+    [30, 34, 46],
+    [32, 32, 44],
+    [34, 30, 42],
+  ],
+  2: [
     [0, 0, 0],
     [190, 35, 60], // shop
     [195, 45, 55], // office, glassy cyan
@@ -31,7 +65,30 @@ const PALETTES: Partial<Record<Zone, [number, number, number][]>> = {
     [216, 53, 44], // corporate tower
     [221, 56, 42], // skyscraper
   ],
-  [Zone.Industrial]: [
+  3: [
+    [0, 0, 0],
+    [222, 30, 40],
+    [224, 32, 36],
+    [226, 34, 32], // dark glass tower
+    [228, 36, 30],
+    [230, 38, 28],
+    [232, 40, 26],
+    [234, 42, 24],
+  ],
+};
+
+const I_PALETTES: Record<IndustryKind, [number, number, number][]> = {
+  ag: [
+    [0, 0, 0],
+    [14, 48, 42], // barn red
+    [14, 46, 40],
+    [14, 44, 38],
+    [14, 44, 38],
+    [14, 44, 38],
+    [14, 44, 38],
+    [14, 44, 38],
+  ],
+  dirty: [
     [0, 0, 0],
     [35, 35, 55], // shed, ochre
     [25, 30, 48], // works, rust
@@ -41,7 +98,35 @@ const PALETTES: Partial<Record<Zone, [number, number, number][]>> = {
     [12, 19, 36], // industrial complex
     [10, 17, 34], // mega-plant
   ],
+  manu: [
+    [0, 0, 0],
+    [210, 8, 58], // mid-grey shed
+    [210, 8, 54],
+    [212, 9, 50],
+    [212, 9, 48],
+    [214, 10, 46],
+    [214, 10, 44],
+    [216, 11, 42],
+  ],
+  tech: [
+    [0, 0, 0],
+    [175, 22, 72], // clean white-teal
+    [175, 24, 70],
+    [177, 26, 68],
+    [177, 28, 66],
+    [179, 30, 64],
+    [179, 32, 62],
+    [181, 34, 60],
+  ],
 };
+
+function paletteFor(zone: Zone, tier: Tier, stage: Stage): [number, number, number] {
+  const t = normalizeTier(zone, tier);
+  if (zone === Zone.Residential) return R_PALETTES[t as Wealth][stage];
+  if (zone === Zone.Commercial) return C_PALETTES[t as Wealth][stage];
+  if (zone === Zone.Industrial) return I_PALETTES[t as IndustryKind][stage];
+  return [0, 0, 50];
+}
 
 function hsl(h: number, s: number, l: number): string {
   return `hsl(${h} ${s}% ${l}%)`;
@@ -229,11 +314,30 @@ export const ZONE_TINT: Partial<Record<Zone, string>> = {
   [Zone.Industrial]: 'rgba(235,200,60,0.30)',
 };
 
+/** Farmland: tilled ground stripes and a low barn. Never a smokestack. */
+function farm(ctx: CanvasRenderingContext2D, geom: TileGeom, variant: number) {
+  const { cx, cy } = geom;
+  fillTile(ctx, geom, 'hsl(74 32% 38%)'); // crop green
+  // furrows, angled with the isometric grid
+  ctx.strokeStyle = 'rgba(60, 48, 28, 0.35)';
+  ctx.lineWidth = 1;
+  for (let k = -2; k <= 2; k++) {
+    ctx.beginPath();
+    ctx.moveTo(cx - 20 + k * 3, cy + k * 5);
+    ctx.lineTo(cx + 20 + k * 3, cy + k * 5 - 2);
+    ctx.stroke();
+  }
+  // barn, nudged off-center by variant so neighbouring farms differ
+  const bx = cx + (variant - 0.5) * 10;
+  box(ctx, { ...geom, cx: bx }, 0.32, 10 + variant * 4, 14, 48, 42);
+}
+
 export function drawBuilding(
   ctx: CanvasRenderingContext2D,
   geom: TileGeom,
   zone: Zone,
   stage: Stage,
+  tier: Tier,
   abandoned: boolean,
   powered: boolean,
   variant: number, // 0..1 stable per tile
@@ -353,10 +457,18 @@ export function drawBuilding(
     return;
   }
 
+  const kind = normalizeTier(zone, tier);
+
+  if (zone === Zone.Industrial && kind === 'ag' && !abandoned) {
+    farm(ctx, geom, variant);
+    if (!powered) drawNoPowerBolt(ctx, cx, cy - 20);
+    return;
+  }
+
   const h = (HEIGHTS[zone]?.[stage] ?? 12) * (0.92 + variant * 0.16) * getSkin().heightScale;
   // Footprint must stay under 1.0 to preserve the painter's-order invariant.
   const f = Math.min(0.85, 0.55 + stage * 0.05);
-  let [hue, sat, lit] = PALETTES[zone]?.[stage] ?? [0, 0, 50];
+  let [hue, sat, lit] = paletteFor(zone, tier, stage);
   hue += Math.floor(variant * 24) - 12;
 
   if (abandoned) {
@@ -365,7 +477,11 @@ export function drawBuilding(
   }
   const faces = box(ctx, geom, f, h, hue, sat, lit);
   if (stage >= 2 && zone !== Zone.Industrial) windows(ctx, faces, h, !abandoned, night);
-  if (zone === Zone.Industrial && stage >= 2 && !abandoned) smokestack(ctx, cx + 8, cy - 8, h + 8);
+  // Only smoky industry gets stacks; high-tech is clean and farms have none.
+  if (zone === Zone.Industrial && stage >= 2 && !abandoned && (kind === 'dirty' || kind === 'manu')) {
+    smokestack(ctx, cx + 8, cy - 8, h + 8);
+    if (kind === 'dirty' && stage >= 3) smokestack(ctx, cx - 2, cy - 4, h + 4);
+  }
 
   if (abandoned) {
     // boarded-up cross over the roof

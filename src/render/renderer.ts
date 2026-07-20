@@ -168,7 +168,17 @@ export class Renderer {
       this.drawGround(geom, city, x, y);
       if (t.rubble > 0) drawRubble(ctx, geom, this.variants[i]);
       if (t.zone !== Zone.None && t.zone !== Zone.Road) {
-        drawBuilding(ctx, geom, t.zone, t.stage, t.abandoned, t.powered, this.variants[i], this.night);
+        drawBuilding(
+          ctx,
+          geom,
+          t.zone,
+          t.stage,
+          t.tier,
+          t.abandoned,
+          t.powered,
+          this.variants[i],
+          this.night,
+        );
       }
       if (t.burning > 0) drawFire(ctx, geom, now, this.variants[i]);
       this.automata.drawTile(ctx, i);
