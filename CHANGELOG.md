@@ -4,6 +4,12 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.27.0] — 2026-07-20 · Coverage halo
+
+### Added
+- Placement halo: hovering with a fire/police/school/hospital/bus tool
+  previews the coverage footprint with the data-view green.
+
 ## [0.26.0] — 2026-07-20 · Utility drag-drawing
 
 ### Added
