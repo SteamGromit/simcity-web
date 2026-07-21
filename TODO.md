@@ -21,6 +21,10 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 9. **Crime** - crime can happen anywhere, but is more common in certain areas and conditions
 10. **traffic accidents** - occasionally a road is blocked due to an accident. Accident prob depends on traffic flow.
 11. **seasons** - color of vegetation and disaster type varies with season
+12. **Radius balance pass** — service radii, pollution spread, and
+    land-value bonuses are absolute tile distances tuned for the 64×64
+    map; on 96×96 they cover a smaller share of the city. Revisit after
+    some play-testing on the big map (surfaced in the v0.29.0 review).
 
 ## Done
 
