@@ -4,6 +4,13 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.29.1] — 2026-07-21 · Full-map zoom
+
+### Fixed
+- Zoom-out now reaches far enough to fit the whole 96×96 map onscreen:
+  the 0.5 minimum zoom relaxes on viewports too small to show the full
+  grid (`clampZoom` scales the floor to the viewport).
+
 ## [0.29.0] — 2026-07-20 · Bigger map
 
 ### Added

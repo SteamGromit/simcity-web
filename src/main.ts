@@ -6,6 +6,7 @@ import { idx } from './sim/grid';
 import { deserialize, serialize } from './sim/save';
 import { CityState, Density, Zone } from './sim/types';
 import { Renderer, ViewState } from './render/renderer';
+import { clampZoom } from './render/iso';
 import { OverlayId } from './render/overlays';
 import { ActiveTool, buildToolbar } from './ui/toolbar';
 import { buildHud } from './ui/hud';
@@ -366,7 +367,7 @@ canvas.addEventListener('wheel', (e) => {
   const wx = renderer.camera.x + mx / renderer.camera.zoom;
   const wy = renderer.camera.y + my / renderer.camera.zoom;
   const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-  renderer.camera.zoom = Math.max(0.5, Math.min(2, renderer.camera.zoom * factor));
+  renderer.camera.zoom = clampZoom(renderer.camera.zoom * factor, rect.width, rect.height);
   renderer.camera.x = wx - mx / renderer.camera.zoom;
   renderer.camera.y = wy - my / renderer.camera.zoom;
 });

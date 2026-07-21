@@ -1,7 +1,20 @@
+import { GRID } from '../sim/types';
+
 export const TILE_W = 64;
 export const TILE_H = 32;
 /** Screen pixels of lift per elevation level. */
 export const ELEV_PX = 10;
+
+/**
+ * Clamp a camera zoom so the whole map can always fit onscreen: the lower
+ * bound relaxes below the classic 0.5 floor whenever the viewport is too
+ * small to show the grid's worst-case projected extent (GRID·TILE_W wide,
+ * GRID·TILE_H tall — reached at 0°/45°/90° view angles).
+ */
+export function clampZoom(z: number, viewW: number, viewH: number): number {
+  const fit = Math.min(viewW / (GRID * TILE_W), viewH / (GRID * TILE_H));
+  return Math.max(Math.min(0.5, fit), Math.min(2, z));
+}
 
 /**
  * The projection: rotate grid coordinates by the view angle, then apply the
