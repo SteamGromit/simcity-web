@@ -4,6 +4,16 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.42.0] — 2026-07-21 · Seasons
+
+### Added
+- The world follows the calendar: spring greens, deep summer, orange
+  autumn woods over olive meadows, frost-pale winters — every tree
+  and lawn turns together ("Seasonal colors" toggle in Config).
+  Disasters follow the season too: tornadoes peak in spring,
+  hurricanes in autumn, pandemics in winter. The soundtrack has been
+  seasonal since v0.22 and now shares the same calendar.
+
 ## [0.41.0] — 2026-07-21 · Bundled controls
 
 ### Changed

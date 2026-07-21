@@ -142,7 +142,10 @@ views), and charge monthly upkeep. While placing a service building, a
 green halo previews its coverage.
 
 **Weather** rolls through with the seasons — rain damps fires, winter
-snow slows every commute — and **disasters** strike once your city is big
+snow slows every commute — and the world turns with the calendar:
+orange autumn woods, frost-pale winters (Seasonal colors in Config).
+Disasters follow too: tornado season is spring, hurricanes peak in
+autumn, pandemics in winter. and **disasters** strike once your city is big
 enough to matter: tornados
 carve wandering paths of rubble (and fires), hurricanes lash the whole
 map with storm surge along the waterfront, and pandemics empty homes that
