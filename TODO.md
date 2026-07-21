@@ -19,6 +19,10 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Done
 
+- **Pixel look** — shipped v0.40.0 (nearest-neighbor low-res render
+  pipeline behind a Config toggle, default on; grass flecks; sprite
+  window cells at close zoom; ~80% fewer pixels per frame).
+
 - **Config panel** — shipped v0.39.0 (Display renamed Config; Effects
   and Music volume sliders, persisted; README references updated).
 

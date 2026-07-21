@@ -4,6 +4,17 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.40.0] — 2026-07-21 · Pixel look
+
+### Added
+- Pixel look (Config, on by default): the scene renders at a chunky
+  internal resolution and upscales nearest-neighbor, turning the
+  whole procedural drawing into sprite art — and cutting pixels
+  rendered per frame by ~80%, a real win on older machines. Grass
+  gains sparse pixel flecks, and close zoom draws discrete sprite
+  window cells (a few lit after dark) instead of stripes. Works with
+  every city style; turn it off for the smooth full-resolution look.
+
 ## [0.39.0] — 2026-07-21 · Config panel
 
 ### Changed
