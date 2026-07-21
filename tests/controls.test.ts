@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { roadLine } from '../src/sim/grid';
 import {
   clampDensity,
+  HALO_RADII,
   isFormControl,
   LINE_TOOLS,
   OVERLAY_KEY_OF,
@@ -10,7 +11,7 @@ import {
   RESERVED_KEYS,
   TOOL_KEYS,
 } from '../src/ui/shortcuts';
-import { COSTS } from '../src/sim/types';
+import { COSTS, SERVICE_RADII } from '../src/sim/types';
 import { OVERLAY_LABELS } from '../src/render/overlays';
 
 describe('roadLine', () => {
@@ -147,5 +148,25 @@ describe('LINE_TOOLS / RECT_TOOLS', () => {
       'zoneI',
       'zoneR',
     ]);
+  });
+});
+
+describe('HALO_RADII', () => {
+  test('exactly the five coverage services get a placement halo', () => {
+    expect(Object.keys(HALO_RADII).sort()).toEqual([
+      'bus',
+      'fire',
+      'hospital',
+      'police',
+      'school',
+    ]);
+  });
+
+  test('radii match the sim, hospital bridging to the health key', () => {
+    expect(HALO_RADII.fire).toBe(SERVICE_RADII.fire);
+    expect(HALO_RADII.police).toBe(SERVICE_RADII.police);
+    expect(HALO_RADII.school).toBe(SERVICE_RADII.school);
+    expect(HALO_RADII.hospital).toBe(SERVICE_RADII.health);
+    expect(HALO_RADII.bus).toBe(SERVICE_RADII.bus);
   });
 });
