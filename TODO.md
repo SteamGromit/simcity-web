@@ -17,12 +17,14 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 5. **Crime** - crime can happen anywhere, but is more common in certain areas and conditions
 6. **traffic accidents** - occasionally a road is blocked due to an accident. Accident prob depends on traffic flow.
 7. **seasons** - color of vegetation and disaster type varies with season
-8. **Radius balance pass** — service radii, pollution spread, and
-    land-value bonuses are absolute tile distances tuned for the 64×64
-    map; on 96×96 they cover a smaller share of the city. Revisit after
-    some play-testing on the big map (surfaced in the v0.29.0 review).
 
 ## Done
+
+- **Radius balance pass** — shipped v0.33.1 (`mapScaled` derives
+  share-of-city radii from GRID/64: services 12/12/15/15/8, transit
+  10/13/16/20, land-value 5/3/2, commute grace 12/60; pollution spread
+  and siting rules stay absolute — summed plumes scale quadratically;
+  A/B harness: 63% vs 38% fire coverage from the same stations).
 
 - **Public health** — shipped v0.33.0 (Public Health Campaign
   ordinance: half pandemic odds, half demand/abandonment toll while
