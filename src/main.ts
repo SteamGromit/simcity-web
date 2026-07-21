@@ -1,5 +1,5 @@
 import './ui/style.css';
-import { applyTool, canApply, mulberry32, newCity, simTick } from './sim/city';
+import { applyTool, applyToolLine, canApply, mulberry32, newCity, simTick } from './sim/city';
 import { roadLine } from './sim/grid';
 import { spawnDisaster } from './sim/disasters';
 import { idx } from './sim/grid';
@@ -15,7 +15,7 @@ import { buildMinimap } from './ui/minimap';
 import { buildCityHall } from './ui/cityhall';
 import { buildDisplay } from './ui/display';
 import { makeDraggable } from './ui/drag';
-import { isFormControl, OVERLAY_KEYS, RECT_TOOLS, TOOL_KEYS } from './ui/shortcuts';
+import { isFormControl, LINE_TOOLS, OVERLAY_KEYS, RECT_TOOLS, TOOL_KEYS } from './ui/shortcuts';
 import { setSkin } from './render/skins';
 import { setWeatherFx } from './render/fx';
 import { setDayNight } from './render/daynight';
@@ -45,7 +45,14 @@ setDayNight(localStorage.getItem('simcity.daynight') === '1');
 let rand = mulberry32(city.seed + city.tick);
 const renderer = new Renderer(canvas, city.seed);
 
-const view: ViewState = { hover: null, hoverValid: true, overlay: null, rect: null, line: null };
+const view: ViewState = {
+  hover: null,
+  hoverValid: true,
+  overlay: null,
+  rect: null,
+  line: null,
+  lineTool: null,
+};
 let activeTool: ActiveTool = null;
 let activeDensity: Density = 1;
 
@@ -281,10 +288,11 @@ canvas.addEventListener('pointerdown', (e) => {
     view.rect = { x0: tile.x, y0: tile.y, x1: tile.x, y1: tile.y };
     return;
   }
-  if (activeTool === 'road') {
-    // roads draw as an adjustable line: drag to aim, release to build
+  if (activeTool && LINE_TOOLS.has(activeTool)) {
+    // line tools draw as an adjustable line: drag to aim, release to build
     lineAnchor = tile;
     view.line = [[tile.x, tile.y]];
+    view.lineTool = activeTool;
     return;
   }
   painting = true;
@@ -316,30 +324,23 @@ canvas.addEventListener('pointermove', (e) => {
 window.addEventListener('pointerup', (e) => {
   // releasing over UI chrome cancels the pending shape (Esc also works)
   if (rectAnchor && view.rect && e.target === canvas) applyRect(view.rect);
-  if (lineAnchor && view.line && e.target === canvas) applyLine(view.line);
+  if (lineAnchor && view.line && view.lineTool && e.target === canvas) {
+    const { applied, brokeFunds } = applyToolLine(city, view.lineTool, view.line, activeDensity);
+    if (applied > 0) sound.play(soundFor(view.lineTool));
+    if (brokeFunds) {
+      toast('Ran out of funds before finishing');
+      sound.play(UI_SOUNDS.error);
+    }
+  }
   rectAnchor = null;
   view.rect = null;
   lineAnchor = null;
   view.line = null;
+  view.lineTool = null;
   painting = false;
   panning = false;
   lastPainted = -1;
 });
-
-function applyLine(line: [number, number][]) {
-  let applied = 0;
-  let broke = false;
-  for (const [x, y] of line) {
-    const res = applyTool(city, 'road', x, y, activeDensity);
-    if (res.ok) applied++;
-    else if (res.err === 'not enough funds') broke = true;
-  }
-  if (applied > 0) sound.play(soundFor('road'));
-  if (broke) {
-    toast('Ran out of funds before finishing');
-    sound.play(UI_SOUNDS.error);
-  }
-}
 
 canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
@@ -377,6 +378,7 @@ window.addEventListener('keydown', (e) => {
       view.rect = null;
       lineAnchor = null;
       view.line = null;
+      view.lineTool = null;
       toolbar.clearTool();
       query.hide();
       help.hide();
