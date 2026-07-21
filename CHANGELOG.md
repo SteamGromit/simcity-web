@@ -4,6 +4,14 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.33.0] — 2026-07-21 · Public health
+
+### Added
+- Public Health Campaign ordinance ($200/month): pandemics strike half
+  as often, and while one rages the demand hit and the abandonment
+  roll on uncovered homes are both halved. Old saves load with the
+  campaign off.
+
 ## [0.32.0] — 2026-07-21 · Transit tiers
 
 ### Added
