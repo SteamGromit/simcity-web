@@ -103,7 +103,7 @@ export interface BudgetReport {
   net: number;
 }
 
-export type OrdinanceId = 'cleanAir' | 'freeBus' | 'fireCode' | 'eduGrant';
+export type OrdinanceId = 'cleanAir' | 'freeBus' | 'fireCode' | 'eduGrant' | 'healthDrive';
 
 export interface Ordinance {
   id: OrdinanceId;
@@ -138,10 +138,16 @@ export const ORDINANCES: Ordinance[] = [
     blurb: 'Extra school funding: school coverage counts 25% stronger across its reach.',
     cost: 120,
   },
+  {
+    id: 'healthDrive',
+    label: 'Public Health Campaign',
+    blurb: 'Vaccination drives and free clinics: pandemics strike half as often and hit half as hard.',
+    cost: 200,
+  },
 ];
 
 export function defaultOrdinances(): Record<OrdinanceId, boolean> {
-  return { cleanAir: false, freeBus: false, fireCode: false, eduGrant: false };
+  return { cleanAir: false, freeBus: false, fireCode: false, eduGrant: false, healthDrive: false };
 }
 
 export type DisasterKind = 'tornado' | 'hurricane' | 'pandemic';

@@ -10,7 +10,8 @@ import {
   Zone,
 } from '../src/sim/types';
 import { applyTool, simTick } from '../src/sim/city';
-import { pandemicMonthly, spawnDisaster, updateDisasters } from '../src/sim/disasters';
+import { pandemicMonthly, rollForDisaster, spawnDisaster, updateDisasters } from '../src/sim/disasters';
+import { collectBudget } from '../src/sim/budget';
 import { deserialize, serialize } from '../src/sim/save';
 import { adviseTips } from '../src/sim/tips';
 import { makeCity, zone } from './helpers';
@@ -74,6 +75,52 @@ describe('hurricane', () => {
     const after = city.tiles.reduce((s, t) => s + t.stage, 0);
     expect(after).toBeLessThan(before);
     expect(city.disasters.hurricaneTicks).toBe(0);
+  });
+});
+
+describe('public health campaign', () => {
+  const seq = (vals: number[]) => {
+    let i = 0;
+    return () => vals[Math.min(i++, vals.length - 1)];
+  };
+
+  test('halves the odds of a pandemic striking', () => {
+    // rand order: tornado, hurricane, pandemic
+    const rolls = [0.9, 0.9, 0.0015];
+    const base = makeCity();
+    base.population = 1000;
+    rollForDisaster(base, seq(rolls));
+    expect(base.disasters.pandemicMonths).toBe(PANDEMIC_MONTHS);
+
+    const covered = makeCity();
+    covered.population = 1000;
+    covered.ordinances.healthDrive = true;
+    rollForDisaster(covered, seq(rolls));
+    expect(covered.disasters.pandemicMonths).toBe(0);
+  });
+
+  test('halves the pandemic toll on homes and demand', () => {
+    const run = (enacted: boolean) => {
+      const city = makeCity();
+      zone(city, 5, 5, Zone.Residential, 1);
+      city.disasters.pandemicMonths = 1;
+      city.ordinances.healthDrive = enacted;
+      pandemicMonthly(city, () => 0.1);
+      return { abandoned: city.tiles[idx(5, 5)].abandoned, demand: city.demand.r };
+    };
+    const base = run(false);
+    expect(base.abandoned).toBe(true); // 0.1 < 0.15
+    expect(base.demand).toBe(-0.5);
+    const covered = run(true);
+    expect(covered.abandoned).toBe(false); // 0.1 ≥ 0.075
+    expect(covered.demand).toBe(-0.25);
+  });
+
+  test('charges $200 a month while enacted', () => {
+    const city = makeCity();
+    city.ordinances.healthDrive = true;
+    collectBudget(city);
+    expect(city.lastBudget.expenses).toBe(200);
   });
 });
 
