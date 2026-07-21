@@ -25,12 +25,16 @@ const ZONING_TOOLS: { id: ToolId; label: string }[] = [
   { id: 'zoneI', label: 'Industrial' },
 ];
 
-const CIVIC_TOOLS: { id: ToolId; label: string }[] = [
+const CIVIC_TOOLS: { id: ToolId; label: string; title?: string }[] = [
   { id: 'fire', label: 'Fire Station' },
   { id: 'police', label: 'Police Station' },
   { id: 'school', label: 'School' },
   { id: 'hospital', label: 'Hospital' },
   { id: 'bus', label: 'Bus Stop' },
+  { id: 'streetcar', label: 'Streetcar', title: 'Unlocks at population 5,000' },
+  { id: 'monorail', label: 'Monorail', title: 'Unlocks at population 15,000' },
+  { id: 'subway', label: 'Subway', title: 'Unlocks at population 30,000' },
+  { id: 'rail', label: 'Rail Terminal', title: 'Unlocks at population 50,000' },
   { id: 'pump', label: 'Water Pump' },
   { id: 'pipe', label: 'Water Pipe' },
 ];
@@ -207,7 +211,10 @@ export function buildToolbar(
   for (const { id, label } of ZONING_TOOLS) zoneButton(id, label, zoningBody);
 
   const civicBody = section('civic', 'Civic & utilities');
-  for (const { id, label } of CIVIC_TOOLS) toolButton(id, label, civicBody);
+  for (const { id, label, title } of CIVIC_TOOLS) {
+    const btn = toolButton(id, label, civicBody);
+    if (title) btn.title = title;
+  }
 
   const terraBody = section('terrain', 'Terrain · free until founded');
   for (const { id, label } of TERRA_TOOLS) toolButton(id, label, terraBody);

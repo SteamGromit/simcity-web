@@ -93,7 +93,11 @@ residential land value. Parks raise it.
 Roads have **capacity** — a jammed artery makes every commute through it
 longer, which drags down desirability and land value. Relieve it with
 parallel routes, or place **bus stops** near homes *and* jobs: covered
-commutes put half the cars on the road.
+commutes put half the cars on the road. Growth unlocks the transit
+ladder — **Streetcar** (pop 5,000), **Monorail** (15,000), **Subway**
+(30,000), **Commuter Rail** (50,000) — each covering a wider radius and
+putting even fewer cars on the road; the worse-served end of a trip
+decides its ride.
 
 Growing past small buildings takes **civic services**: fire coverage unlocks
 stage 2, police + school coverage unlock stage 3, and a **hospital** in reach

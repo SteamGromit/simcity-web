@@ -1,6 +1,5 @@
 import { idx, inBounds, neighbors4 } from './grid';
 import {
-  BUS_TRAFFIC_SHARE,
   CityState,
   CONGESTION_MAX_EXTRA,
   GRID,
@@ -199,8 +198,13 @@ export function updateTraffic(city: CityState): void {
     }
     const arrival = city.tiles[path[path.length - 1]];
     const rides = t.busCov > 0 && arrival.busCov > 0;
-    const busShare = city.ordinances.freeBus ? BUS_TRAFFIC_SHARE / 2 : BUS_TRAFFIC_SHARE;
-    const share = rides ? busShare : 1;
+    // the worse-served trip end bounds the ride; fare-free transit
+    // halves whatever mode carries it
+    let share = 1;
+    if (rides) {
+      share = Math.max(t.transitShare, arrival.transitShare);
+      if (city.ordinances.freeBus) share /= 2;
+    }
     for (const p of path) city.tiles[p].traffic += share;
   }
 }

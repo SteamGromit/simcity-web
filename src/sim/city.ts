@@ -9,7 +9,8 @@ import { updateWater } from './water';
 import { pandemicMonthly, rollForDisaster, rubbleMonthly, updateDisasters } from './disasters';
 import { defaultWeather, updateWeatherMonthly } from './weather';
 import { fireRisk, updateCoverage, updateFires } from './services';
-import { PLANT_SPECS, isPlant, plantUnlocked } from './energy';
+import { PLANT_SPECS, isPlant } from './energy';
+import { TRANSIT_SPECS, isTransit } from './transit';
 import { retierMonthly, updateEducation } from './tiers';
 import { updateTraffic } from './traffic';
 import {
@@ -191,6 +192,10 @@ const TOOL_ZONE: Partial<Record<ToolId, Zone>> = {
   wind: Zone.WindTurbine,
   hydro: Zone.HydroPlant,
   nuclear: Zone.NuclearPlant,
+  streetcar: Zone.StreetcarStop,
+  monorail: Zone.MonorailStation,
+  subway: Zone.SubwayStation,
+  rail: Zone.RailTerminal,
 };
 
 export const ZONE_TOOLS: ToolId[] = ['zoneR', 'zoneC', 'zoneI'];
@@ -266,8 +271,16 @@ function validateTool(
     }
   }
   const built = TOOL_ZONE[tool];
-  if (built !== undefined && isPlant(built) && !plantUnlocked(built, city.population)) {
-    return `unlocks at population ${PLANT_SPECS[built]!.unlockPop.toLocaleString('en-US')}`;
+  if (built !== undefined) {
+    // growth-gated tools: energy plants and the transit ladder
+    const gate = isPlant(built)
+      ? PLANT_SPECS[built]!.unlockPop
+      : isTransit(built)
+        ? TRANSIT_SPECS[built]!.unlockPop
+        : 0;
+    if (city.population < gate) {
+      return `unlocks at population ${gate.toLocaleString('en-US')}`;
+    }
   }
   if (tool === 'hydro') {
     const wet = neighbors4(x, y).some(

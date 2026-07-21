@@ -21,6 +21,10 @@ function consumes(t: Tile): boolean {
     case Zone.Hospital:
     case Zone.BusStop:
     case Zone.WaterPump:
+    case Zone.StreetcarStop:
+    case Zone.MonorailStation:
+    case Zone.SubwayStation:
+    case Zone.RailTerminal:
       return true;
     default:
       return false;

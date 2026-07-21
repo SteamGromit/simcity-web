@@ -1,5 +1,7 @@
 import { idx, neighbors4, tilesWithin } from './grid';
+import { TRANSIT_SPECS, TRANSIT_ZONES } from './transit';
 import {
+  BUS_TRAFFIC_SHARE,
   CityState,
   FIRE_BURN_TICKS,
   FIRE_EXTINGUISH,
@@ -12,12 +14,20 @@ import {
 
 type CovField = 'fireCov' | 'policeCov' | 'schoolCov' | 'healthCov' | 'busCov';
 
-const SERVICES: { zone: Zone; radius: number; field: CovField }[] = [
+const SERVICES: { zone: Zone; radius: number; field: CovField; share?: number }[] = [
   { zone: Zone.FireStation, radius: SERVICE_RADII.fire, field: 'fireCov' },
   { zone: Zone.PoliceStation, radius: SERVICE_RADII.police, field: 'policeCov' },
   { zone: Zone.School, radius: SERVICE_RADII.school, field: 'schoolCov' },
   { zone: Zone.Hospital, radius: SERVICE_RADII.health, field: 'healthCov' },
-  { zone: Zone.BusStop, radius: SERVICE_RADII.bus, field: 'busCov' },
+  { zone: Zone.BusStop, radius: SERVICE_RADII.bus, field: 'busCov', share: BUS_TRAFFIC_SHARE },
+  // the transit ladder rides the bus machinery: same coverage field,
+  // wider radius, fewer cars per covered trip (Tile.transitShare)
+  ...TRANSIT_ZONES.map((zone) => ({
+    zone,
+    radius: TRANSIT_SPECS[zone]!.radius,
+    field: 'busCov' as CovField,
+    share: TRANSIT_SPECS[zone]!.share,
+  })),
 ];
 
 /**
@@ -31,6 +41,7 @@ export function updateCoverage(city: CityState): void {
     t.schoolCov = 0;
     t.healthCov = 0;
     t.busCov = 0;
+    t.transitShare = 1;
   }
   for (let i = 0; i < city.tiles.length; i++) {
     const station = city.tiles[i];
@@ -47,6 +58,9 @@ export function updateCoverage(city: CityState): void {
       }
       const t = city.tiles[idx(nx, ny)];
       if (cov > t[service.field]) t[service.field] = cov;
+      if (service.share !== undefined && service.share < t.transitShare) {
+        t.transitShare = service.share;
+      }
     }
   }
 }

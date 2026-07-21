@@ -62,7 +62,10 @@ export function buildHelp(root: HTMLElement) {
               desirable; a <b>Hospital</b> is needed for the tallest stages.</li>
           <li><b>Traffic congests:</b> jammed roads stretch commutes.
               Add parallel routes, or <b>Bus Stops</b> at both ends of a
-              commute to take cars off the road.</li>
+              commute to take cars off the road. Growth unlocks better
+              transit — <b>Streetcar</b> (pop 5,000), <b>Monorail</b>
+              (15,000), <b>Subway</b> (30,000), <b>Rail Terminal</b>
+              (50,000) — each covering more ground with fewer cars.</li>
           <li><b>Fires spread!</b> Uncovered buildings can ignite; flames jump
               to neighbors. Fire coverage fights them — or bulldoze a
               firebreak.</li>
