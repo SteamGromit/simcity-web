@@ -1,6 +1,7 @@
 import { IndustryKind, Stage, Tier, Wealth, Zone } from '../sim/types';
 import { normalizeTier } from '../sim/tiers';
 import { Entity, entityFor } from '../sim/entities';
+import { getRenderStyle } from './renderstyle';
 import { TileGeom } from './iso';
 import { getSkin } from './skins';
 import {
@@ -243,6 +244,18 @@ function box(
       [a, b, [b[0], b[1] - h], [a[0], a[1] - h]],
       hsl(hue, sat, lit * brightness),
     );
+  }
+
+  if (getRenderStyle() === 'realistic' && h > 8) {
+    // ambient occlusion: walls darken where they meet the ground
+    ctx.strokeStyle = 'rgba(15, 18, 14, 0.20)';
+    ctx.lineWidth = 3;
+    for (const face of faces) {
+      ctx.beginPath();
+      ctx.moveTo(face.a[0], face.a[1] - 1.5);
+      ctx.lineTo(face.b[0], face.b[1] - 1.5);
+      ctx.stroke();
+    }
   }
 
   fillPoly(
@@ -508,10 +521,18 @@ export function drawPole(ctx: CanvasRenderingContext2D, cx: number, cy: number) 
  * in screen space, so shadows swing with camera rotation — an accepted
  * stylization that keeps every frame consistent. */
 export function drawShadow(ctx: CanvasRenderingContext2D, geom: TileGeom, f: number) {
-  const pts = geom.corners.map(
-    ([px, py]) => [geom.cx + (px - geom.cx) * f + 5, geom.cy + (py - geom.cy) * f + 3] as Pt,
-  );
-  fillPoly(ctx, pts, 'rgba(20, 24, 18, 0.30)');
+  const at = (scale: number, dx: number, dy: number) =>
+    geom.corners.map(
+      ([px, py]) =>
+        [geom.cx + (px - geom.cx) * f * scale + dx, geom.cy + (py - geom.cy) * f * scale + dy] as Pt,
+    );
+  if (getRenderStyle() === 'realistic') {
+    // a wide faint penumbra under a tighter core reads as a soft shadow
+    fillPoly(ctx, at(1.25, 6, 4), 'rgba(20, 24, 18, 0.14)');
+    fillPoly(ctx, at(1.0, 5, 3), 'rgba(20, 24, 18, 0.22)');
+    return;
+  }
+  fillPoly(ctx, at(1.0, 5, 3), 'rgba(20, 24, 18, 0.30)');
 }
 
 /** Yellow "no power" bolt centered at (bx, by). */
