@@ -6,31 +6,33 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Backlog (in order)
 
-1. **Utility drag-drawing** — placing power lines and water pipes should
-   work mechanistically like drawing roads (same drag/line interaction).
-2. **Coverage halo on placement** — while the cursor is placing a fire
+1. **Coverage halo on placement** — while the cursor is placing a fire
    station, police station, hospital, etc., show a halo indicating the
    area the service would cover.
-3. **Area demand view** — a data view indicating demand for things in
+2. **Area demand view** — a data view indicating demand for things in
    different areas of the map (not just the global RCI meter).
-4. **Bigger map** — increase the size of the playable city area.
-5. **Rewards** — special buildings the mayor's office can purchase once
+3. **Bigger map** — increase the size of the playable city area.
+4. **Rewards** — special buildings the mayor's office can purchase once
    city milestones are hit (e.g. Stadium, Library, Museum, Monument);
    each grants a city-wide effect.
-6. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
+5. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
    deferred until single-city play is deep enough).
-7. **Modding hooks** — data-driven building/balance definitions; folds in
+6. **Modding hooks** — data-driven building/balance definitions; folds in
    user-made skins from the skins item.
-8. **Per-tier visuals** - distinct appearance and height of buildings based on tier
-9. **Garabage** - residents produce garabage. garabage pickup is a city service requiring a way to dispose of or process the trash. mayor can buy a trash dump. when city advances past some threshold of advancement, some trash can be recycled.
-10. **Tiers of energy** - Other power sources incrementally unlocked upon city advancement: Solar, hydro-electric, nuclear, wind, 
-11. **Transit tiers** - Other public transportation modes unlocked with city advancement: street car, elevated monorail, subway, commuter rail
-12. **public health** - public health campaigns paid by mayor reduce rate and/or severity of pandemics 
-13. **Crime** - crime can happen anywhere, but is more common in certain areas and conditions
-14. **traffic accidents** - occasionally a road is blocked due to an accident. Accident prob depends on traffic flow.
-15. **seasons** - color of vegetation and disaster type varies with season
+7. **Per-tier visuals** - distinct appearance and height of buildings based on tier
+8. **Garabage** - residents produce garabage. garabage pickup is a city service requiring a way to dispose of or process the trash. mayor can buy a trash dump. when city advances past some threshold of advancement, some trash can be recycled.
+9. **Tiers of energy** - Other power sources incrementally unlocked upon city advancement: Solar, hydro-electric, nuclear, wind, 
+10. **Transit tiers** - Other public transportation modes unlocked with city advancement: street car, elevated monorail, subway, commuter rail
+11. **public health** - public health campaigns paid by mayor reduce rate and/or severity of pandemics 
+12. **Crime** - crime can happen anywhere, but is more common in certain areas and conditions
+13. **traffic accidents** - occasionally a road is blocked due to an accident. Accident prob depends on traffic flow.
+14. **seasons** - color of vegetation and disaster type varies with season
 
 ## Done
+
+- **Utility drag-drawing** — shipped v0.26.0 (power lines and pipes use
+  the road line-drag: anchor, aim a rasterized preview — blue for pipes —
+  release to build; `applyToolLine` in the sim layer).
 
 - **Input-guard fix** — shipped v0.25.2 (global keys — camera pan, help,
   mute, Space pan — no longer fire while a form control is focused;

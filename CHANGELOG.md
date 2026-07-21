@@ -4,6 +4,12 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.26.0] — 2026-07-20 · Utility drag-drawing
+
+### Added
+- Power lines and water pipes draw like roads: press to anchor, drag to
+  aim a line preview (pipes preview in blue), release to build.
+
 ## [0.25.2] — 2026-07-20 · Input-guard fix
 
 ### Fixed
