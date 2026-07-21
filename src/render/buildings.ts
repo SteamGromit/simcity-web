@@ -315,6 +315,36 @@ function windows(
   ctx.setLineDash([]);
 }
 
+/** Sprite windows for close zoom: discrete cells in a grid, a few lit
+ * at night — the pixel-art read the stripe shorthand can't give. */
+function windowCells(
+  ctx: CanvasRenderingContext2D,
+  faces: Face[],
+  h: number,
+  occupied: boolean,
+  night: number,
+) {
+  for (const face of faces) {
+    const len = Math.hypot(face.b[0] - face.a[0], face.b[1] - face.a[1]);
+    const cols = Math.max(2, Math.floor(len / 7));
+    for (let wy = 6; wy < h - 4; wy += 7) {
+      for (let c = 0; c < cols; c++) {
+        const u = 0.14 + (0.72 * (c + 0.5)) / cols;
+        const p = lerp2(face.a, face.b, u);
+        // a stable pseudo-random per cell decides who's home after dark
+        const litRoll = Math.abs(Math.sin(p[0] * 12.9898 + wy * 78.233)) % 1;
+        const lit = occupied && night > 0.25 && litRoll > 0.45;
+        ctx.fillStyle = lit
+          ? `rgba(255, 214, 130, ${0.5 + 0.4 * night})`
+          : occupied
+            ? 'rgba(50, 60, 76, 0.55)'
+            : 'rgba(25, 26, 30, 0.6)';
+        ctx.fillRect(p[0] - 1.5, p[1] - wy - 4, 3, 4);
+      }
+    }
+  }
+}
+
 /** Roof cap over the full-height mass. 'flat' is box()'s own lightened cap. */
 function drawRoof(
   ctx: CanvasRenderingContext2D,
@@ -566,20 +596,10 @@ function drawArchetype(
   const [dh, ds, dl] = getSkin().building(hue, sat, lit);
   drawRoof(ctx, primary.foot, baseH, arch.roof, dh, ds, dl);
   if (detail >= 1 && stage >= 2 && zone !== Zone.Industrial) {
-    windows(ctx, primary.faces, baseH, !abandoned, night, arch.windows);
     if (detail === 2) {
-      // mullions: vertical splits through the window stripes
-      ctx.strokeStyle = 'rgba(30, 32, 38, 0.35)';
-      ctx.lineWidth = 0.8;
-      for (const face of primary.faces) {
-        for (const u of [1 / 3, 2 / 3]) {
-          const p = lerp2(face.a, face.b, u);
-          ctx.beginPath();
-          ctx.moveTo(p[0], p[1] - 4);
-          ctx.lineTo(p[0], p[1] - baseH + 3);
-          ctx.stroke();
-        }
-      }
+      windowCells(ctx, primary.faces, baseH, !abandoned, night);
+    } else {
+      windows(ctx, primary.faces, baseH, !abandoned, night, arch.windows);
     }
   }
 

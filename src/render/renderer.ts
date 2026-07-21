@@ -19,6 +19,7 @@ import { getDayNight, nightFactor, nightTint } from './daynight';
 import { groundShade } from './terrainshade';
 import { detailLevel } from './detail';
 import { drawLineVehicles } from './linevehicles';
+import { PIXEL_SCALE, getPixelMode } from './pixelmode';
 import { getSkin } from './skins';
 import { getWeatherFx } from './fx';
 
@@ -54,6 +55,8 @@ export class Renderer {
   simSpeed: 0 | 1 | 2 | 3 = 1;
   private angle = 0;
   private ctx: CanvasRenderingContext2D;
+  private mainCtx: CanvasRenderingContext2D;
+  private buffer: HTMLCanvasElement | null = null;
   private variants: Float32Array;
   private automata = new Automata();
   private disasterFx = new DisasterFx();
@@ -70,9 +73,12 @@ export class Renderer {
   private frameNow = 0;
   /** Accumulated sim-speed-scaled time (ms) driving line vehicles. */
   private lineClock = 0;
+  /** Current frame's LOD, shared with the ground pass. */
+  private detail: 0 | 1 | 2 = 1;
 
   constructor(private canvas: HTMLCanvasElement, seed: number) {
     this.ctx = canvas.getContext('2d')!;
+    this.mainCtx = this.ctx;
     this.variants = new Float32Array(GRID * GRID);
     this.order = new Uint16Array(GRID * GRID);
     this.reseed(seed);
@@ -146,6 +152,19 @@ export class Renderer {
   }
 
   draw(city: CityState, view: ViewState) {
+    // Pixel look: draw the frame on a smaller buffer, then blit it up
+    // with nearest-neighbor so every mark lands on chunky pixels.
+    const ps = getPixelMode() ? PIXEL_SCALE : 1;
+    if (ps < 1) {
+      const bw = Math.max(1, Math.ceil(this.canvas.width * ps));
+      const bh = Math.max(1, Math.ceil(this.canvas.height * ps));
+      if (!this.buffer) this.buffer = document.createElement('canvas');
+      if (this.buffer.width !== bw) this.buffer.width = bw;
+      if (this.buffer.height !== bh) this.buffer.height = bh;
+      this.ctx = this.buffer.getContext('2d')!;
+    } else {
+      this.ctx = this.mainCtx;
+    }
     const { ctx } = this;
     this.lastCity = city;
     setViewAngle(this.angle);
@@ -161,10 +180,10 @@ export class Renderer {
     this.automata.step(city, now, AUTOMATA_SCALE[this.simSpeed]);
     this.disasterFx.step(city, now, AUTOMATA_SCALE[this.simSpeed]);
 
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = (window.devicePixelRatio || 1) * ps;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#10151c';
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    ctx.fillRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
     ctx.setTransform(
       this.camera.zoom * dpr,
       0,
@@ -178,6 +197,7 @@ export class Renderer {
     // stay inside their tile footprint (see buildings.ts), so tile depth
     // alone decides occlusion.
     const detail = detailLevel(this.camera.zoom);
+    this.detail = detail;
     for (let n = 0; n < this.order.length; n++) {
       const i = this.order[n];
       const x = i % GRID;
@@ -215,7 +235,7 @@ export class Renderer {
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = nightTint(this.night);
-      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      ctx.fillRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
       ctx.restore();
     }
 
@@ -242,7 +262,7 @@ export class Renderer {
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = 'rgba(120, 130, 150, 0.10)';
-      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      ctx.fillRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
       ctx.restore();
     }
     // storm washes go before the cursor layers so the cursor stays readable
@@ -283,6 +303,14 @@ export class Renderer {
         2,
       );
     }
+
+    if (ps < 1 && this.buffer) {
+      // the whole frame lands as chunky pixels in one nearest-neighbor blit
+      const m = this.mainCtx;
+      m.setTransform(1, 0, 0, 1, 0, 0);
+      m.imageSmoothingEnabled = false;
+      m.drawImage(this.buffer, 0, 0, this.canvas.width, this.canvas.height);
+    }
   }
 
   /** Screen-space driving rain; intensity 1 = full hurricane. */
@@ -291,14 +319,14 @@ export class Renderer {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = `rgba(40, 55, 80, ${0.18 * intensity})`;
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    ctx.fillRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
     ctx.strokeStyle = `rgba(180, 200, 230, ${0.35 * intensity})`;
     ctx.lineWidth = 1;
     const shift = (now / 3) % 40;
     const step = intensity >= 1 ? 17 : 31;
     ctx.beginPath();
-    for (let ry = 0; ry < this.canvas.height; ry += 34) {
-      for (let rx = ((ry * 13) % 29) - 29; rx < this.canvas.width; rx += step) {
+    for (let ry = 0; ry < this.ctx.canvas.height; ry += 34) {
+      for (let rx = ((ry * 13) % 29) - 29; rx < this.ctx.canvas.width; rx += step) {
         ctx.moveTo(rx + shift, ry + ((now / 4) % 34));
         ctx.lineTo(rx + shift - 6, ry + 14 + ((now / 4) % 34));
       }
@@ -313,10 +341,10 @@ export class Renderer {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = 'rgba(235, 240, 250, 0.08)';
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    ctx.fillRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
     ctx.fillStyle = 'rgba(250, 252, 255, 0.8)';
-    const w = this.canvas.width;
-    const h = this.canvas.height;
+    const w = this.ctx.canvas.width;
+    const h = this.ctx.canvas.height;
     for (let k = 0; k < 160; k++) {
       const seed = k * 2654435761;
       const x = (seed % w) + Math.sin(now / 900 + k) * 14;
@@ -460,6 +488,15 @@ export class Renderer {
       // surge sloshing up onto the waterfront
       const pulse = 0.12 + 0.12 * Math.sin(this.frameNow / 200 + (x * 3 + y) * 1.3);
       fillTile(this.ctx, geom, `rgba(225, 238, 248, ${pulse.toFixed(3)})`);
+    }
+    if (this.detail >= 1 && t.zone === Zone.None && t.terrain === Terrain.Grass && t.elevation < 4) {
+      // pixel-grass flecks: sparse darker tufts seeded by the variant
+      this.ctx.fillStyle = 'rgba(18, 38, 14, 0.20)';
+      for (let k = 0; k < 3; k++) {
+        const fx = ((v * (13 + k * 7)) % 1) - 0.5;
+        const fy = ((v * (29 + k * 11)) % 1) - 0.5;
+        this.ctx.fillRect(geom.cx + fx * 38, geom.cy + fy * 18, 2, 2);
+      }
     }
     if (t.terrain === Terrain.Forest) {
       const wind = this.storm ? this.wind * (0.7 + v * 0.6) : 0;
