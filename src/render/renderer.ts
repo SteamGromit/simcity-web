@@ -470,13 +470,9 @@ export class Renderer {
         const pulse = 0.25 + 0.2 * Math.sin(this.frameNow / 160 + (x + y) * 1.7);
         fillTile(this.ctx, geom, `rgba(230, 240, 250, ${pulse.toFixed(3)})`);
       } else if (!this.storm) {
-        if (getRenderStyle() === 'realistic') {
-          // depth shading: the pool darkens away from its edges
-          const deep = geom.corners.map(
-            ([px, py]) =>
-              [px + (geom.cx - px) * 0.45, py + (geom.cy - py) * 0.45] as [number, number],
-          );
-          fillPoly(this.ctx, deep, `hsl(${207 + v * 6} 58% ${24 + v * 3}%)`);
+        if (getRenderStyle() === 'realistic' && !this.shoreline(city, x, y)) {
+          // depth shading: interior water sits darker than the shallows
+          fillTile(this.ctx, geom, `hsla(${209 + v * 6} 60% 22% / 0.55)`);
         }
         // calm shore: a sand strip and foam line along every land edge
         for (let k = 0; k < 4; k++) {
