@@ -4,6 +4,16 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.36.0] — 2026-07-21 · Line vehicles
+
+### Added
+- Transit lines carry animated vehicles shuttling end to end (one per
+  ~10 path tiles, up to 3): teal buses, streetcars in the line's
+  color, white monorail capsules riding the beam, dark locomotives
+  with a tinted car. Subway lines pulse a soft glow at their stops
+  instead (they're underground). Vehicles pace with sim speed and
+  pause with it.
+
 ## [0.35.0] — 2026-07-21 · Transit lines
 
 ### Changed
