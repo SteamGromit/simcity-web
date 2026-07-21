@@ -6,26 +6,28 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Backlog (in order)
 
-1. **Area demand view** — a data view indicating demand for things in
-   different areas of the map (not just the global RCI meter).
-2. **Bigger map** — increase the size of the playable city area.
-3. **Rewards** — special buildings the mayor's office can purchase once
+1. **Bigger map** — increase the size of the playable city area.
+2. **Rewards** — special buildings the mayor's office can purchase once
    city milestones are hit (e.g. Stadium, Library, Museum, Monument);
    each grants a city-wide effect.
-4. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
+3. **Region play** — multiple city tiles, neighbor deals (SC4 headline;
    deferred until single-city play is deep enough).
-5. **Modding hooks** — data-driven building/balance definitions; folds in
+4. **Modding hooks** — data-driven building/balance definitions; folds in
    user-made skins from the skins item.
-6. **Per-tier visuals** - distinct appearance and height of buildings based on tier
-7. **Garabage** - residents produce garabage. garabage pickup is a city service requiring a way to dispose of or process the trash. mayor can buy a trash dump. when city advances past some threshold of advancement, some trash can be recycled.
-8. **Tiers of energy** - Other power sources incrementally unlocked upon city advancement: Solar, hydro-electric, nuclear, wind, 
-9. **Transit tiers** - Other public transportation modes unlocked with city advancement: street car, elevated monorail, subway, commuter rail
-10. **public health** - public health campaigns paid by mayor reduce rate and/or severity of pandemics 
-11. **Crime** - crime can happen anywhere, but is more common in certain areas and conditions
-12. **traffic accidents** - occasionally a road is blocked due to an accident. Accident prob depends on traffic flow.
-13. **seasons** - color of vegetation and disaster type varies with season
+5. **Per-tier visuals** - distinct appearance and height of buildings based on tier
+6. **Garabage** - residents produce garabage. garabage pickup is a city service requiring a way to dispose of or process the trash. mayor can buy a trash dump. when city advances past some threshold of advancement, some trash can be recycled.
+7. **Tiers of energy** - Other power sources incrementally unlocked upon city advancement: Solar, hydro-electric, nuclear, wind, 
+8. **Transit tiers** - Other public transportation modes unlocked with city advancement: street car, elevated monorail, subway, commuter rail
+9. **public health** - public health campaigns paid by mayor reduce rate and/or severity of pandemics 
+10. **Crime** - crime can happen anywhere, but is more common in certain areas and conditions
+11. **traffic accidents** - occasionally a road is blocked due to an accident. Accident prob depends on traffic flow.
+12. **seasons** - color of vegetation and disaster type varies with season
 
 ## Done
+
+- **Area demand view** — shipped v0.28.0 (⇧D Demand data view: per-tile
+  growth pressure via `demandReading` — green grow, yellow stall, red
+  collapse, slate blocked by power/road).
 
 - **Coverage halo** — shipped v0.27.0 (hovering with a service tool —
   fire, police, school, hospital, bus — previews the coverage footprint
