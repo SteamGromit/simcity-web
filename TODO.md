@@ -17,6 +17,11 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Done
 
+- **Night lighting** — shipped v0.44.0 (darkness layer with punched
+  glow: roads/buildings/civic/plants light radii; unpowered lots stay
+  dark; realistic default style; Config style radios; nightlock debug
+  hook).
+
 - **Realistic render style** — shipped v0.43.0 (`renderstyle.ts`
   three-way Pixel/Smooth/Realistic; soft shadows, wall AO, interior
   water depth, atmospheric haze; legacy pixel pref migrates).

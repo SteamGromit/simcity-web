@@ -3,16 +3,29 @@
  * automata. */
 export const DAY_CYCLE_MS = 90_000;
 
+/** Debug hook: `localStorage.simcity.nightlock = "0.9"` pins the clock
+ * (used by automated screenshots); absent in normal play. */
+const store = typeof localStorage !== 'undefined' ? localStorage : null;
+const lockRaw = store?.getItem('simcity.nightlock');
+const nightLock = lockRaw !== null && lockRaw !== undefined ? parseFloat(lockRaw) : null;
+
 /** 0 at high noon, 1 at midnight, smooth in between with longer days. */
 export function nightFactor(timeMs: number): number {
+  if (nightLock !== null && Number.isFinite(nightLock)) return nightLock;
   const phase = ((timeMs % DAY_CYCLE_MS) + DAY_CYCLE_MS) % DAY_CYCLE_MS;
   const raw = 0.5 - 0.5 * Math.cos((2 * Math.PI * phase) / DAY_CYCLE_MS);
   return Math.pow(raw, 1.4);
 }
 
-/** Fullscreen night wash drawn over the world (screen space). */
+/** Dim ambient wash over everything at night — lit areas keep only
+ * this; the darkness layer stacks on top of the unlit wilds. */
 export function nightTint(f: number): string {
-  return `rgba(13, 17, 46, ${(0.42 * f).toFixed(3)})`;
+  return `rgba(13, 17, 46, ${(0.38 * f).toFixed(3)})`;
+}
+
+/** The deep-night darkness that light sources punch through. */
+export function darknessAlpha(f: number): number {
+  return Math.min(0.82, 0.85 * f);
 }
 
 /** Player toggle for the visual cycle: off means permanent daylight.

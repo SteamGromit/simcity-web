@@ -171,7 +171,9 @@ different scale, winter turns it minor and slow, rain thins it out, an
 industrial skyline darkens it, and the band grows as the village becomes
 a metropolis (toggle in Config; M mutes everything — volume sliders live there too). The Config panel
 also gathers weather effects, volume sliders, and a day/night lighting toggle (off by
-default). Open **City Hall** for the advisor board (every
+default — turn it on: nights go truly dark beyond the city, and
+streetlights and lit windows carve glowing pools where people live;
+unpowered blocks vanish into the black). Open **City Hall** for the advisor board (every
 current warning at a glance) and to enact **ordinances** — monthly-cost
 policies like the Clean Air Act or Free Bus Service that bend the
 simulation in your favor.

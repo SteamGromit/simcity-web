@@ -4,6 +4,19 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.44.0] — 2026-07-21 · Night lighting
+
+### Changed
+- Night is now genuinely dark outside settled areas: a darkness layer
+  covers the map and streetlights (every road), lit buildings
+  (brighter with stage), civic buildings, and power plants punch
+  warm pools of light through it. Unpowered or abandoned lots cast
+  nothing — a brownout is visible from the night sky. Day/night
+  toggle in Config as before.
+- The render style now defaults to **Realistic** for new players
+  (saved preferences unchanged), and Config picks styles with radio
+  buttons.
+
 ## [0.43.0] — 2026-07-21 · Realistic render style
 
 ### Added

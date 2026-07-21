@@ -19,8 +19,12 @@ const store = typeof localStorage !== 'undefined' ? localStorage : null;
 let style: RenderStyle = (() => {
   const v = store?.getItem(KEY);
   if (v === 'pixel' || v === 'smooth' || v === 'realistic') return v;
-  // migrate the v0.40 checkbox: explicit off meant full-res drawing
-  return store?.getItem(LEGACY_PIXEL_KEY) === '0' ? 'smooth' : 'pixel';
+  // migrate the v0.40 checkbox where it was set; fresh installs get
+  // the realistic look
+  const legacy = store?.getItem(LEGACY_PIXEL_KEY);
+  if (legacy === '0') return 'smooth';
+  if (legacy === '1') return 'pixel';
+  return 'realistic';
 })();
 
 export function getRenderStyle(): RenderStyle {
