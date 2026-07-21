@@ -472,13 +472,21 @@ function smokestack(ctx: CanvasRenderingContext2D, cx: number, cy: number, h: nu
   ctx.fillRect(cx, cy - h - 16, 5, 3);
 }
 
+/** Canopy color for the current frame; the renderer sets it from the
+ * season each draw so every tree — forest or yard — turns together. */
+let canopyColor = 'hsl(120 45% 30%)';
+
+export function setCanopyColor(c: string): void {
+  canopyColor = c;
+}
+
 export function tree(ctx: CanvasRenderingContext2D, tx: number, ty: number, wind = 0) {
   ctx.fillStyle = '#5d4534';
   ctx.fillRect(tx - 1, ty, 2, 6);
   ctx.beginPath();
   // canopy whips leeward and droops slightly under hurricane wind
   ctx.arc(tx + wind, ty - 3 + Math.abs(wind) * 0.15, 5, 0, Math.PI * 2);
-  ctx.fillStyle = 'hsl(120 45% 30%)';
+  ctx.fillStyle = canopyColor;
   ctx.fill();
 }
 

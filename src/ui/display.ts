@@ -2,6 +2,7 @@ import { getSkin, setSkin, SKINS } from '../render/skins';
 import { getWeatherFx, setWeatherFx } from '../render/fx';
 import { getDayNight, setDayNight } from '../render/daynight';
 import { getPixelMode, setPixelMode } from '../render/pixelmode';
+import { getSeasonFx, setSeasonFx } from '../render/seasonfx';
 
 /** Config panel: presentation and audio preferences — city style,
  * weather visuals, music, lighting, and volume levels. No city state. */
@@ -34,6 +35,9 @@ export function buildDisplay(
     </label>
     <label class="ordinance" id="pixel-row" title="Render at a chunky internal resolution for a retro sprite look (also faster). Off draws at full resolution.">
       <input type="checkbox" id="pixel-box"><span>Pixel look</span>
+    </label>
+    <label class="ordinance" id="seasons-row" title="Vegetation follows the calendar: spring greens, autumn oranges, winter frost. Off keeps summer looks year-round (weather and the sim are unaffected).">
+      <input type="checkbox" id="seasons-box"><span>Seasonal colors</span>
     </label>
     <h4>Volume</h4>
     <label class="volume-row" title="Tool clicks, event cues, and the ambient city hum.">
@@ -94,6 +98,13 @@ export function buildDisplay(
   pixelBox.checked = getPixelMode();
   pixelBox.addEventListener('change', () => {
     setPixelMode(pixelBox.checked);
+    onToggle();
+  });
+
+  const seasonsBox = panel.querySelector('#seasons-box') as HTMLInputElement;
+  seasonsBox.checked = getSeasonFx();
+  seasonsBox.addEventListener('change', () => {
+    setSeasonFx(seasonsBox.checked);
     onToggle();
   });
 

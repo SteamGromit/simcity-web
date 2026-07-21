@@ -1,5 +1,17 @@
 import { CityState } from './types';
 
+export type Season = 'winter' | 'spring' | 'summer' | 'autumn';
+
+/** The season of a sim month (0 = January 2000). */
+export function seasonOf(month: number): Season {
+  const m = ((month % 12) + 12) % 12;
+  if (m === 11 || m <= 1) return 'winter';
+  if (m <= 4) return 'spring';
+  if (m <= 7) return 'summer';
+  return 'autumn';
+}
+
+
 export const WEATHER_KINDS = ['clear', 'cloudy', 'rain', 'snow'] as const;
 export type WeatherKind = (typeof WEATHER_KINDS)[number];
 

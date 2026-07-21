@@ -78,6 +78,33 @@ describe('hurricane', () => {
   });
 });
 
+describe('seasonal disaster odds', () => {
+  const seq = (vals: number[]) => {
+    let i = 0;
+    return () => vals[Math.min(i++, vals.length - 1)];
+  };
+
+  test('tornadoes favor spring; hurricanes favor autumn; pandemics favor winter', () => {
+    // rand order per roll: tornado, hurricane, pandemic
+    const strike = (month: number, rolls: number[]) => {
+      const city = makeCity();
+      city.population = 1000;
+      city.month = month;
+      rollForDisaster(city, seq(rolls));
+      return city.disasters;
+    };
+    // 0.003 < 0.002·2 (spring tornado) but ≥ 0.002·0.5 (winter tornado)
+    expect(strike(3, [0.003, 0.9, 0.9]).tornado).not.toBeNull(); // April
+    expect(strike(0, [0.003, 0.9, 0.9]).tornado).toBeNull(); // January
+    // 0.002 < 0.0015·2 (autumn hurricane) but ≥ 0.0015·0.3 (winter)
+    expect(strike(9, [0.9, 0.002, 0.9]).hurricaneTicks).toBeGreaterThan(0); // October
+    expect(strike(0, [0.9, 0.002, 0.9]).hurricaneTicks).toBe(0); // January
+    // 0.003 < 0.002·2 (winter pandemic) but ≥ 0.002·0.6 (summer)
+    expect(strike(0, [0.9, 0.9, 0.003]).pandemicMonths).toBeGreaterThan(0); // January
+    expect(strike(6, [0.9, 0.9, 0.003]).pandemicMonths).toBe(0); // July
+  });
+});
+
 describe('public health campaign', () => {
   const seq = (vals: number[]) => {
     let i = 0;
@@ -85,15 +112,18 @@ describe('public health campaign', () => {
   };
 
   test('halves the odds of a pandemic striking', () => {
-    // rand order: tornado, hurricane, pandemic
-    const rolls = [0.9, 0.9, 0.0015];
+    // rand order: tornado, hurricane, pandemic. October pins the
+    // seasonal multiplier (autumn ×1.25 → odds 0.0025).
+    const rolls = [0.9, 0.9, 0.002];
     const base = makeCity();
     base.population = 1000;
+    base.month = 9;
     rollForDisaster(base, seq(rolls));
     expect(base.disasters.pandemicMonths).toBe(PANDEMIC_MONTHS);
 
     const covered = makeCity();
     covered.population = 1000;
+    covered.month = 9;
     covered.ordinances.healthDrive = true;
     rollForDisaster(covered, seq(rolls));
     expect(covered.disasters.pandemicMonths).toBe(0);

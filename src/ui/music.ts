@@ -1,4 +1,5 @@
 import { anyDisasterActive } from '../sim/disasters';
+import { seasonOf } from '../sim/weather';
 import { CityState, Zone } from '../sim/types';
 
 /** Everything the composer needs to know about the city, musically. */
@@ -19,15 +20,7 @@ export const MAJOR_PENTA = [0, 2, 4, 7, 9];
 export const MINOR_PENTA = [0, 3, 5, 7, 10];
 export const HIJAZ = [0, 1, 4, 5, 7, 8, 11];
 
-type Season = 'winter' | 'spring' | 'summer' | 'autumn';
 
-function seasonOf(month: number): Season {
-  const m = month % 12; // 0 = January (months since Jan 2000)
-  if (m === 11 || m <= 1) return 'winter';
-  if (m <= 4) return 'spring';
-  if (m <= 7) return 'summer';
-  return 'autumn';
-}
 
 /** Derive the city's musical mood: locale picks the color, growth the
  * energy, weather the density, disasters the dread. */

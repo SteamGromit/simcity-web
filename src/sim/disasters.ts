@@ -1,4 +1,5 @@
 import { idx, inBounds, neighbors4, tilesWithin } from './grid';
+import { Season, seasonOf } from './weather';
 import {
   CityState,
   DisasterKind,
@@ -112,10 +113,19 @@ export function pandemicMonthly(city: CityState, rand: () => number): void {
 }
 
 /** Rare random strikes, one at a time, only once the city matters. */
+/** Seasonal odds multipliers: tornado season is spring, hurricanes
+ * peak in autumn, pandemics ride the winter. */
+const SEASON_ODDS: Record<DisasterKind, Record<Season, number>> = {
+  tornado: { spring: 2, summer: 1.5, autumn: 0.5, winter: 0.5 },
+  hurricane: { spring: 0.3, summer: 1.5, autumn: 2, winter: 0.3 },
+  pandemic: { spring: 0.6, summer: 0.6, autumn: 1.25, winter: 2 },
+};
+
 export function rollForDisaster(city: CityState, rand: () => number): void {
   if (city.population < DISASTER_MIN_POP || anyDisasterActive(city)) return;
+  const season = seasonOf(city.month);
   for (const kind of Object.keys(DISASTER_ODDS) as DisasterKind[]) {
-    let odds = DISASTER_ODDS[kind];
+    let odds = DISASTER_ODDS[kind] * SEASON_ODDS[kind][season];
     // vaccination drives make outbreaks rarer, not the weather calmer
     if (kind === 'pandemic' && city.ordinances.healthDrive) odds /= 2;
     if (rand() < odds) {

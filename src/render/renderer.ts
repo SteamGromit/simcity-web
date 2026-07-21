@@ -20,6 +20,9 @@ import { groundShade } from './terrainshade';
 import { detailLevel } from './detail';
 import { drawLineVehicles } from './linevehicles';
 import { PIXEL_SCALE, getPixelMode } from './pixelmode';
+import { VegTint, vegTint } from './seasonfx';
+import { seasonOf } from '../sim/weather';
+import { setCanopyColor } from './buildings';
 import { getSkin } from './skins';
 import { getWeatherFx } from './fx';
 
@@ -75,6 +78,8 @@ export class Renderer {
   private lineClock = 0;
   /** Current frame's LOD, shared with the ground pass. */
   private detail: 0 | 1 | 2 = 1;
+  /** Seasonal vegetation tint for the current frame. */
+  private veg: VegTint = vegTint('summer');
 
   constructor(private canvas: HTMLCanvasElement, seed: number) {
     this.ctx = canvas.getContext('2d')!;
@@ -198,6 +203,8 @@ export class Renderer {
     // alone decides occlusion.
     const detail = detailLevel(this.camera.zoom);
     this.detail = detail;
+    this.veg = vegTint(seasonOf(city.month));
+    setCanopyColor(this.veg.canopy);
     for (let n = 0; n < this.order.length; n++) {
       const i = this.order[n];
       const x = i % GRID;
@@ -482,7 +489,11 @@ export class Renderer {
       fillTile(this.ctx, geom, `hsl(${42 + v * 8} ${gs}% ${56 + groundShade(x, y, v)}%)`);
     } else {
       const gs = Math.min(95, (30 + v * 8) * getSkin().grassSat);
-      fillTile(this.ctx, geom, `hsl(${96 + v * 10} ${gs}% ${34 + groundShade(x, y, v)}%)`);
+      fillTile(
+        this.ctx,
+        geom,
+        `hsl(${96 + v * 10 + this.veg.grassHue} ${gs}% ${34 + groundShade(x, y, v) + this.veg.grassLight}%)`,
+      );
     }
     if (this.storm && this.shoreline(city, x, y)) {
       // surge sloshing up onto the waterfront
