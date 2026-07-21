@@ -537,7 +537,7 @@ function drawArchetype(
   abandoned: boolean,
   night: number,
   chan: () => number,
-) {
+): { faces: Face[]; foot: Pt[] } | null {
   const budget = footprintBudget(stage);
   // draw masses back-to-front under the current rotation
   const masses = arch.boxes
@@ -548,7 +548,7 @@ function drawArchetype(
     const r = box(ctx, g, sb.f * budget, baseH * sb.hf, hue, sat, lit);
     if (sb.hf === 1) primary = r;
   }
-  if (!primary) return;
+  if (!primary) return null;
 
   // decorations run through the skin exactly like walls do
   const [dh, ds, dl] = getSkin().building(hue, sat, lit);
@@ -557,7 +557,7 @@ function drawArchetype(
     windows(ctx, primary.faces, baseH, !abandoned, night, arch.windows);
   }
 
-  if (abandoned) return; // ruins keep walls and roof, lose the trimmings
+  if (abandoned) return primary; // ruins keep walls and roof, lose the trimmings
   let spot = 0;
   for (const kind of arch.props) {
     if (chan() > 0.85) continue; // most lots carry the prop; some go without
@@ -580,6 +580,60 @@ function drawArchetype(
       const p = roofPt(primary.foot, baseH, 0.3 + chan() * 0.4, 0.3 + chan() * 0.4);
       drawProp(ctx, kind, p[0], p[1]);
     }
+  }
+  return primary;
+}
+
+/** Small marks that make a lot's tier legible: §§§ roofline trim and
+ * top-band spire, § worn tar cap, dirty grime band, tech glass line.
+ * Expects the normalized tier; never called for abandoned lots. */
+function drawTierAccents(
+  ctx: CanvasRenderingContext2D,
+  primary: { faces: Face[]; foot: Pt[] },
+  zone: Zone,
+  tier: Tier,
+  stage: Stage,
+  h: number,
+) {
+  const roofline = (color: string) => {
+    const roof = primary.foot.map(([x, y]) => [x, y - h] as Pt);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(roof[0][0], roof[0][1]);
+    for (let i = 1; i < 4; i++) ctx.lineTo(roof[i][0], roof[i][1]);
+    ctx.closePath();
+    ctx.stroke();
+    return roof;
+  };
+  const rc = zone === Zone.Residential || zone === Zone.Commercial;
+  if (rc && tier === 3 && stage >= 3) {
+    const roof = roofline('rgba(255, 240, 200, 0.9)');
+    if (stage >= 6) {
+      const sx = (roof[0][0] + roof[2][0]) / 2;
+      const sy = (roof[0][1] + roof[2][1]) / 2;
+      ctx.strokeStyle = '#e8e2d2';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx, sy - 14);
+      ctx.stroke();
+      ctx.fillStyle = '#ffd76a';
+      ctx.fillRect(sx - 1, sy - 16, 2, 2);
+    }
+  } else if (rc && tier === 1) {
+    fillPoly(ctx, primary.foot.map(([x, y]) => [x, y - h] as Pt), 'rgba(40, 36, 30, 0.28)');
+  } else if (zone === Zone.Industrial && tier === 'dirty') {
+    ctx.strokeStyle = 'rgba(35, 30, 24, 0.5)';
+    ctx.lineWidth = 3;
+    for (const face of primary.faces) {
+      ctx.beginPath();
+      ctx.moveTo(face.a[0], face.a[1] - 2);
+      ctx.lineTo(face.b[0], face.b[1] - 2);
+      ctx.stroke();
+    }
+  } else if (zone === Zone.Industrial && tier === 'tech' && stage >= 5) {
+    roofline('rgba(140, 230, 255, 0.85)');
   }
 }
 
@@ -735,7 +789,8 @@ export function drawBuilding(
     sat = 6;
     lit = 32;
   }
-  drawArchetype(ctx, geom, arch, stage, zone, h, hue, sat, lit, abandoned, night, chan);
+  const primary = drawArchetype(ctx, geom, arch, stage, zone, h, hue, sat, lit, abandoned, night, chan);
+  if (primary && !abandoned) drawTierAccents(ctx, primary, zone, kind, stage, h);
   // Only smoky industry gets stacks; high-tech is clean and farms have none.
   if (zone === Zone.Industrial && stage >= 2 && !abandoned && (kind === 'dirty' || kind === 'manu')) {
     smokestack(ctx, cx + 8, cy - 8, h + 8);
