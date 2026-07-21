@@ -143,6 +143,7 @@ const toolbar = buildToolbar(
   (density: Density) => {
     activeDensity = density;
   },
+  () => city.population,
 );
 const wizard = buildTransitWizard(
   uiRoot,
