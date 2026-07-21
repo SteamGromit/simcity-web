@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
 import {
+  GRID,
   HURRICANE_TICKS,
   PANDEMIC_MONTHS,
   RUBBLE_MONTHS,
@@ -56,8 +57,8 @@ describe('tornado', () => {
       if (city.disasters.tornado) {
         expect(city.disasters.tornado.x).toBeGreaterThanOrEqual(0);
         expect(city.disasters.tornado.y).toBeGreaterThanOrEqual(0);
-        expect(city.disasters.tornado.x).toBeLessThan(64);
-        expect(city.disasters.tornado.y).toBeLessThan(64);
+        expect(city.disasters.tornado.x).toBeLessThan(GRID);
+        expect(city.disasters.tornado.y).toBeLessThan(GRID);
       }
     }
   });

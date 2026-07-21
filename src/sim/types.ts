@@ -1,4 +1,4 @@
-export const GRID = 64;
+export const GRID = 96;
 
 export enum Zone {
   None,

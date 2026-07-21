@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
-import { GRID, START_FUNDS, Zone, COSTS } from '../src/sim/types';
-import { applyTool, applyToolLine, mulberry32, newCity, simTick } from '../src/sim/city';
+import { GRID, START_FUNDS, TICKS_PER_MONTH, Zone, COSTS } from '../src/sim/types';
+import { applyTool, applyToolLine, DEV_SLICE, mulberry32, newCity, simTick } from '../src/sim/city';
 import { deserialize, serialize } from '../src/sim/save';
 import { clearLand } from './helpers';
 
@@ -268,5 +268,11 @@ describe('applyToolLine', () => {
     ]);
     expect(res).toEqual({ applied: 2, brokeFunds: false });
     expect(city.tiles[idx(2, 8)].zone).toBe(Zone.Residential);
+  });
+});
+
+describe('development sweep pacing', () => {
+  test('a month of ticks sweeps the whole grid exactly once', () => {
+    expect(DEV_SLICE * TICKS_PER_MONTH).toBe(GRID * GRID);
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
-import { Zone } from '../src/sim/types';
+import { GRID, Zone } from '../src/sim/types';
 import { Automata, pickKind, vehicleWeights } from '../src/render/automata';
 import { makeCity, road, zone } from './helpers';
 
@@ -42,7 +42,7 @@ describe('Automata', () => {
           calls.push([x, y]);
         },
       } as unknown as CanvasRenderingContext2D;
-      for (let i = 0; i < 64 * 64; i++) automata.drawTile(ctx, i);
+      for (let i = 0; i < GRID * GRID; i++) automata.drawTile(ctx, i);
       return JSON.stringify(calls);
     };
 

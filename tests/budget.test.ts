@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { Zone } from '../src/sim/types';
+import { GRID, Zone } from '../src/sim/types';
 import { collectBudget } from '../src/sim/budget';
 import { makeCity, road, zone } from './helpers';
 
@@ -29,7 +29,7 @@ describe('collectBudget', () => {
   test('abandoned buildings pay no taxes', () => {
     const city = makeCity();
     zone(city, 5, 5, Zone.Residential, 3);
-    city.tiles[5 * 64 + 5].abandoned = true;
+    city.tiles[5 * GRID + 5].abandoned = true;
     const report = collectBudget(city);
     expect(report.rIncome).toBe(0);
   });

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { Zone } from '../src/sim/types';
+import { GRID, Zone } from '../src/sim/types';
 import { updateDemand } from '../src/sim/demand';
 import { makeCity, zone } from './helpers';
 
@@ -25,7 +25,7 @@ describe('updateDemand', () => {
   test('abandoned buildings count for nothing', () => {
     const city = makeCity();
     zone(city, 5, 5, Zone.Residential, 2);
-    city.tiles[5 * 64 + 5].abandoned = true;
+    city.tiles[5 * GRID + 5].abandoned = true;
     updateDemand(city);
     expect(city.population).toBe(0);
   });

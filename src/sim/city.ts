@@ -31,7 +31,8 @@ import {
   Zone,
 } from './types';
 
-const DEV_SLICE = 512; // tiles given a development roll per tick
+/** Tiles per development roll; the whole grid is swept once per month. */
+export const DEV_SLICE = (GRID * GRID) / TICKS_PER_MONTH;
 const FIELD_INTERVAL = 4; // ticks between field recomputes
 
 /** Grow an organic blob of `terrain` from a random start; deterministic. */
