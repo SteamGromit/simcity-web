@@ -4,6 +4,21 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.33.1] — 2026-07-21 · Radius balance pass
+
+### Changed
+- Share-of-city distances now derive from the map size (`mapScaled`,
+  GRID/64): service radii fire/police 8→12, school/health 10→15, bus
+  5→8; the transit ladder re-bases to 10/13/16/20; park/water/forest
+  land-value radii 3/2/1→5/3/2; the commute grace band and penalty
+  ramp stretch 8/40→12/60. A station covers the same share of the
+  96×96 map it covered on 64×64 — in the 10-year harness town, two
+  fire stations cover 63% of zoned lots instead of 38%.
+- Pollution spread deliberately stays absolute (radius 5): plumes sum
+  across emitters, so scaling the radius inflates dense-district
+  pollution quadratically. Siting rules (pump water range, hydro
+  adjacency, hurricane surge) also stay physical.
+
 ## [0.33.0] — 2026-07-21 · Public health
 
 ### Added

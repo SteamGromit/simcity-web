@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
-import { FIRE_BURN_TICKS, Zone } from '../src/sim/types';
+import { FIRE_BURN_TICKS, SERVICE_RADII, Zone } from '../src/sim/types';
 import { updatePower } from '../src/sim/power';
 import { fireRisk, updateCoverage } from '../src/sim/services';
 import { developTile } from '../src/sim/develop';
@@ -15,22 +15,24 @@ function poweredStation(city: ReturnType<typeof makeCity>, x: number, y: number,
 
 describe('updateCoverage', () => {
   test('coverage falls off linearly with Chebyshev distance, rim included', () => {
+    const R = SERVICE_RADII.fire;
     const city = makeCity();
     poweredStation(city, 20, 20, Zone.FireStation);
     updateCoverage(city);
     expect(city.tiles[idx(20, 20)].fireCov).toBeCloseTo(1, 5);
-    expect(city.tiles[idx(24, 20)].fireCov).toBeCloseTo(1 - 4 / 9, 5); // d=4, R=8
-    expect(city.tiles[idx(28, 20)].fireCov).toBeGreaterThan(0); // rim d=8 still covered
-    expect(city.tiles[idx(20, 29)].fireCov).toBe(0); // d=9 > R
+    expect(city.tiles[idx(24, 20)].fireCov).toBeCloseTo(1 - 4 / (R + 1), 5); // d=4
+    expect(city.tiles[idx(20 + R, 20)].fireCov).toBeGreaterThan(0); // rim d=R still covered
+    expect(city.tiles[idx(20, 20 + R + 1)].fireCov).toBe(0); // d=R+1 outside
   });
 
   test('overlapping stations take the max, not the sum', () => {
+    const R = SERVICE_RADII.fire;
     const city = makeCity();
     poweredStation(city, 20, 20, Zone.FireStation);
     poweredStation(city, 22, 20, Zone.FireStation);
     updateCoverage(city);
     expect(city.tiles[idx(21, 20)].fireCov).toBeLessThanOrEqual(1);
-    expect(city.tiles[idx(21, 20)].fireCov).toBeCloseTo(1 - 1 / 9, 5); // d=1 from either
+    expect(city.tiles[idx(21, 20)].fireCov).toBeCloseTo(1 - 1 / (R + 1), 5); // d=1 from either
   });
 
   test('unpowered stations provide no coverage', () => {
@@ -42,10 +44,11 @@ describe('updateCoverage', () => {
   });
 
   test('each service fills its own field, school reaches farther', () => {
+    const R = SERVICE_RADII.school;
     const city = makeCity();
     poweredStation(city, 20, 20, Zone.School);
     updateCoverage(city);
-    expect(city.tiles[idx(29, 20)].schoolCov).toBeCloseTo(1 - 9 / 11, 5); // d=9, R=10
+    expect(city.tiles[idx(29, 20)].schoolCov).toBeCloseTo(1 - 9 / (R + 1), 5); // d=9
     expect(city.tiles[idx(29, 20)].fireCov).toBe(0);
     expect(city.tiles[idx(29, 20)].policeCov).toBe(0);
   });

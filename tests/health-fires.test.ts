@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
-import { FIRE_BURN_TICKS, SERVICE_UPKEEP, Zone } from '../src/sim/types';
+import { FIRE_BURN_TICKS, SERVICE_RADII, SERVICE_UPKEEP, Zone } from '../src/sim/types';
 import { updatePower } from '../src/sim/power';
 import { fireRisk, updateCoverage, updateFires } from '../src/sim/services';
 import { developTile } from '../src/sim/develop';
@@ -22,7 +22,7 @@ describe('hospital coverage', () => {
     updateCoverage(city);
     expect(city.tiles[idx(20, 20)].healthCov).toBeCloseTo(1, 5);
     expect(city.tiles[idx(20, 25)].healthCov).toBeGreaterThan(0);
-    expect(city.tiles[idx(20, 32)].healthCov).toBe(0);
+    expect(city.tiles[idx(20, 20 + SERVICE_RADII.health + 1)].healthCov).toBe(0);
   });
 
   test('hospitals charge monthly upkeep', () => {

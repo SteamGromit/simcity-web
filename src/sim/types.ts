@@ -1,5 +1,14 @@
 export const GRID = 96;
 
+/** The grid the classic balance numbers were tuned on. */
+export const BASE_GRID = 64;
+
+/** Scale a 64-era tile distance to this map, so radii and spreads keep
+ * their share of the city across map sizes. Only for share-of-city
+ * semantics — physical adjacency rules (pump water range, hurricane
+ * surge) stay absolute. */
+export const mapScaled = (base: number): number => Math.round((base * GRID) / BASE_GRID);
+
 export enum Zone {
   None,
   Residential,
@@ -293,7 +302,13 @@ export const CONGESTION_MAX_EXTRA = 3;
 export const BUS_TRAFFIC_SHARE = 0.5;
 
 /** Coverage radii (Chebyshev tiles) per service. */
-export const SERVICE_RADII = { fire: 8, police: 8, school: 10, health: 10, bus: 5 };
+export const SERVICE_RADII = {
+  fire: mapScaled(8),
+  police: mapScaled(8),
+  school: mapScaled(10),
+  health: mapScaled(10),
+  bus: mapScaled(5),
+};
 /** Monthly upkeep per service building. */
 export const SERVICE_UPKEEP = { fire: 50, police: 50, school: 40, health: 60, bus: 15 };
 /** Monthly ignition probability for a developed tile with zero fire coverage. */
