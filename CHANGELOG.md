@@ -4,6 +4,16 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.30.0] — 2026-07-21 · Per-tier visuals
+
+### Added
+- Per-tier visuals: building height now scales with RCI tier — §§§
+  residential and commercial rise above their § neighbors (R 0.85/1.0/1.2,
+  C 0.85/1.0/1.35), dirty industry sprawls low while high-tech rises
+  (0.85/1.0/1.15). Signature accents make tier legible up close: §§§
+  roofline trim and a top-band spire, § worn tar caps, grime bands on
+  dirty industry, a cyan glass line on tall tech.
+
 ## [0.29.1] — 2026-07-21 · Full-map zoom
 
 ### Fixed
