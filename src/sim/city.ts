@@ -304,6 +304,27 @@ export function applyTool(
 }
 
 /**
+ * Apply a drag-line of tool tiles (roads, power lines, pipes). Tiles that
+ * reject the tool are skipped, matching how road lines already behave;
+ * brokeFunds reports whether any tile failed on money so the UI can toast.
+ */
+export function applyToolLine(
+  city: CityState,
+  tool: ToolId,
+  line: [number, number][],
+  density: Density = 1,
+): { applied: number; brokeFunds: boolean } {
+  let applied = 0;
+  let brokeFunds = false;
+  for (const [x, y] of line) {
+    const res = applyTool(city, tool, x, y, density);
+    if (res.ok) applied++;
+    else if (res.err === 'not enough funds') brokeFunds = true;
+  }
+  return { applied, brokeFunds };
+}
+
+/**
  * One simulation tick. Development sweeps the grid in DEV_SLICE chunks
  * (full coverage once per month); fields refresh every FIELD_INTERVAL
  * ticks; the budget closes monthly.
