@@ -29,6 +29,11 @@ const TOOL_SOUNDS: Record<ToolId, SoundSpec> = {
   wind: { wave: 'triangle', freq: 110, freqEnd: 70, dur: 0.25, vol: 0.6 },
   hydro: { wave: 'triangle', freq: 80, freqEnd: 45, dur: 0.32, vol: 0.68 },
   nuclear: { wave: 'triangle', freq: 60, freqEnd: 35, dur: 0.4, vol: 0.75 },
+  // transit family: the bus thunk, pitched up the ladder
+  streetcar: { wave: 'triangle', freq: 400, freqEnd: 315, dur: 0.12, vol: 0.45 },
+  monorail: { wave: 'triangle', freq: 430, freqEnd: 340, dur: 0.12, vol: 0.45 },
+  subway: { wave: 'triangle', freq: 460, freqEnd: 365, dur: 0.12, vol: 0.45 },
+  rail: { wave: 'triangle', freq: 490, freqEnd: 390, dur: 0.12, vol: 0.45 },
   terraWater: { wave: 'noise', freq: 0, dur: 0.18, vol: 0.35 },
   terraForest: { wave: 'noise', freq: 0, dur: 0.13, vol: 0.25 },
   terraGrass: { wave: 'noise', freq: 0, dur: 0.1, vol: 0.2 },

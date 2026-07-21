@@ -49,9 +49,9 @@ function reviveTile(raw: unknown): Tile {
   const t = blankTile();
   if (!raw || typeof raw !== 'object') return t;
   const r = raw as Record<string, unknown>;
-  // NuclearPlant is the last Zone member — keep this bound at the enum's
+  // RailTerminal is the last Zone member — keep this bound at the enum's
   // tail when new zones are appended, or saves silently drop them.
-  if (typeof r.zone === 'number' && r.zone >= Zone.None && r.zone <= Zone.NuclearPlant) {
+  if (typeof r.zone === 'number' && r.zone >= Zone.None && r.zone <= Zone.RailTerminal) {
     t.zone = r.zone;
   }
   if (r.terrain === Terrain.Water || r.terrain === Terrain.Forest) t.terrain = r.terrain;

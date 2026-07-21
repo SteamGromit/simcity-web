@@ -74,6 +74,7 @@ export function blankTile(): Tile {
     abandoned: false,
     wire: false,
     pipe: false,
+    transitShare: 1,
     fireCov: 0,
     policeCov: 0,
     schoolCov: 0,

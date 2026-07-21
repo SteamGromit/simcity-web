@@ -21,6 +21,11 @@ export enum Zone {
   WindTurbine,
   HydroPlant,
   NuclearPlant,
+  // appended for save compatibility — transit tiers (v0.32)
+  StreetcarStop,
+  MonorailStation,
+  SubwayStation,
+  RailTerminal,
 }
 
 export type Stage = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -58,6 +63,9 @@ export interface Tile {
   wire: boolean;
   /** Water main under a road tile (pipes elsewhere use Zone.WaterPipe). */
   pipe: boolean;
+  /** Cars a covered trip from here still puts on the road; 1 = no
+   * transit. Computed each coverage pass, like the coverage fields. */
+  transitShare: number;
   /** Service coverage 0..1 from powered stations, refreshed by the sim. */
   fireCov: number;
   policeCov: number;
@@ -220,6 +228,10 @@ export type ToolId =
   | 'wind'
   | 'hydro'
   | 'nuclear'
+  | 'streetcar'
+  | 'monorail'
+  | 'subway'
+  | 'rail'
   | 'terraWater'
   | 'terraForest'
   | 'terraGrass'
@@ -246,6 +258,10 @@ export const COSTS: Record<ToolId, number> = {
   wind: 1200,
   hydro: 5000,
   nuclear: 12000,
+  streetcar: 400,
+  monorail: 900,
+  subway: 1500,
+  rail: 2500,
   terraWater: 25,
   terraForest: 10,
   terraGrass: 5,
