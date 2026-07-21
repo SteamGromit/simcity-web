@@ -17,6 +17,7 @@ import { DisasterFx } from './disasterfx';
 import { OverlayId, drawOverlay } from './overlays';
 import { getDayNight, nightFactor, nightTint } from './daynight';
 import { groundShade } from './terrainshade';
+import { detailLevel } from './detail';
 import { getSkin } from './skins';
 import { getWeatherFx } from './fx';
 
@@ -163,6 +164,7 @@ export class Renderer {
     // Depth-sorted painter's order: valid at every view angle. Buildings
     // stay inside their tile footprint (see buildings.ts), so tile depth
     // alone decides occlusion.
+    const detail = detailLevel(this.camera.zoom);
     for (let n = 0; n < this.order.length; n++) {
       const i = this.order[n];
       const x = i % GRID;
@@ -183,6 +185,7 @@ export class Renderer {
           t.powered,
           this.variants[i],
           this.night,
+          detail,
         );
       }
       if (t.burning > 0) drawFire(ctx, geom, now, this.variants[i]);

@@ -547,6 +547,7 @@ function drawArchetype(
   abandoned: boolean,
   night: number,
   chan: () => number,
+  detail: 0 | 1 | 2 = 1,
 ): { faces: Face[]; foot: Pt[] } | null {
   const budget = footprintBudget(stage);
   // draw masses back-to-front under the current rotation
@@ -563,11 +564,26 @@ function drawArchetype(
   // decorations run through the skin exactly like walls do
   const [dh, ds, dl] = getSkin().building(hue, sat, lit);
   drawRoof(ctx, primary.foot, baseH, arch.roof, dh, ds, dl);
-  if (stage >= 2 && zone !== Zone.Industrial) {
+  if (detail >= 1 && stage >= 2 && zone !== Zone.Industrial) {
     windows(ctx, primary.faces, baseH, !abandoned, night, arch.windows);
+    if (detail === 2) {
+      // mullions: vertical splits through the window stripes
+      ctx.strokeStyle = 'rgba(30, 32, 38, 0.35)';
+      ctx.lineWidth = 0.8;
+      for (const face of primary.faces) {
+        for (const u of [1 / 3, 2 / 3]) {
+          const p = lerp2(face.a, face.b, u);
+          ctx.beginPath();
+          ctx.moveTo(p[0], p[1] - 4);
+          ctx.lineTo(p[0], p[1] - baseH + 3);
+          ctx.stroke();
+        }
+      }
+    }
   }
 
   if (abandoned) return primary; // ruins keep walls and roof, lose the trimmings
+  if (detail === 0) return primary; // far zoom: masses and roofs carry the read
   let spot = 0;
   for (const kind of arch.props) {
     if (chan() > 0.85) continue; // most lots carry the prop; some go without
@@ -592,6 +608,62 @@ function drawArchetype(
     }
   }
   return primary;
+}
+
+/** Street-level life: doors on houses and shops, an entry band on
+ * towers, a storefront strip (plus close-up signage) on commercial.
+ * Expects a non-abandoned lot at detail ≥ 1. */
+function drawStreetLevel(
+  ctx: CanvasRenderingContext2D,
+  primary: { faces: Face[]; foot: Pt[] },
+  zone: Zone,
+  stage: Stage,
+  detail: 0 | 1 | 2,
+  chan: () => number,
+) {
+  if (zone !== Zone.Residential && zone !== Zone.Commercial) return;
+  if (primary.faces.length === 0) return;
+  const front = primary.faces.reduce(
+    (p, f) => (f.a[1] + f.b[1] > p.a[1] + p.b[1] ? f : p),
+    primary.faces[0],
+  );
+  if (zone === Zone.Commercial && stage >= 2) {
+    // storefront strip along the base of every visible wall
+    ctx.strokeStyle = 'rgba(240, 235, 210, 0.5)';
+    ctx.lineWidth = 2.5;
+    for (const face of primary.faces) {
+      ctx.beginPath();
+      ctx.moveTo(face.a[0], face.a[1] - 2);
+      ctx.lineTo(face.b[0], face.b[1] - 2);
+      ctx.stroke();
+    }
+    if (detail === 2) {
+      // a seeded-color sign hung over the storefront
+      const p = lerp2(front.a, front.b, 0.68);
+      ctx.fillStyle = `hsl(${Math.floor(chan() * 360)} 60% 55%)`;
+      ctx.fillRect(p[0] - 3, p[1] - 10, 6, 3.5);
+    }
+  }
+  if (stage >= 5) {
+    // tower entry: a dark full-width band at the base of the front wall
+    ctx.strokeStyle = 'rgba(20, 22, 26, 0.65)';
+    ctx.lineWidth = 3;
+    const a = lerp2(front.a, front.b, 0.15);
+    const b = lerp2(front.a, front.b, 0.85);
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1] - 1.5);
+    ctx.lineTo(b[0], b[1] - 1.5);
+    ctx.stroke();
+    return;
+  }
+  const m = mid(front.a, front.b);
+  ctx.fillStyle = 'rgba(25, 22, 20, 0.85)';
+  ctx.fillRect(m[0] - 2, m[1] - 6, 4, 6);
+  if (detail === 2) {
+    ctx.strokeStyle = 'rgba(235, 228, 210, 0.5)';
+    ctx.lineWidth = 0.8;
+    ctx.strokeRect(m[0] - 2, m[1] - 6, 4, 6);
+  }
 }
 
 /** Small marks that make a lot's tier legible: §§§ roofline trim and
@@ -657,6 +729,7 @@ export function drawBuilding(
   powered: boolean,
   variant: number, // 0..1 stable per tile
   night = 0, // 0 day .. 1 midnight, brightens lit windows
+  detail: 0 | 1 | 2 = 1, // zoom LOD: 0 far (masses only), 2 close (extra trim)
 ) {
   const { cx, cy } = geom;
 
@@ -1004,8 +1077,11 @@ export function drawBuilding(
     lit = 32;
   }
   drawShadow(ctx, geom, footprintBudget(stage));
-  const primary = drawArchetype(ctx, geom, arch, stage, zone, h, hue, sat, lit, abandoned, night, chan);
-  if (primary && !abandoned) drawTierAccents(ctx, primary, zone, kind, stage, h);
+  const primary = drawArchetype(ctx, geom, arch, stage, zone, h, hue, sat, lit, abandoned, night, chan, detail);
+  if (primary && !abandoned && detail >= 1) {
+    drawTierAccents(ctx, primary, zone, kind, stage, h);
+    drawStreetLevel(ctx, primary, zone, stage, detail, chan);
+  }
   // Only smoky industry gets stacks; high-tech is clean and farms have none.
   if (zone === Zone.Industrial && stage >= 2 && !abandoned && (kind === 'dirty' || kind === 'manu')) {
     smokestack(ctx, cx + 8, cy - 8, h + 8);
