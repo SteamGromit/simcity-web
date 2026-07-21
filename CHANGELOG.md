@@ -4,6 +4,16 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.37.0] — 2026-07-21 · Event sounds
+
+### Added
+- Events now sound like something: a two-tone tornado siren, a rising
+  hurricane gale, somber pandemic bells, fire-ignition crackle, a
+  collapse thud with a falling drone when a building is lost, and a
+  power-down whine when the grid first browns out. All synthesized —
+  no audio assets — and gap-limited so frequent events don't spam.
+  M (mute) silences them like everything else.
+
 ## [0.36.0] — 2026-07-21 · Line vehicles
 
 ### Added
