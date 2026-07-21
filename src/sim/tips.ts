@@ -1,3 +1,4 @@
+import { isPlant } from './energy';
 import { CityState, GRID, ROAD_CAPACITY, Zone } from './types';
 import { roadAccess } from './traffic';
 
@@ -6,6 +7,7 @@ export type TipId =
   | 'fire-burning'
   | 'welcome'
   | 'no-power-plant'
+  | 'brownout'
   | 'unpowered-zones'
   | 'no-road-access'
   | 'no-fire-coverage'
@@ -36,6 +38,8 @@ const TIP_TEXT: Record<TipId, string> = {
   welcome:
     'Welcome! Lay a Road, zone Residential beside it, and build a Coal Plant. Press ? for help.',
   'no-power-plant': 'Your zones have no electricity — build a Coal Plant to get things growing.',
+  brownout:
+    'The grid is over capacity and browning out — build another power plant to cover demand.',
   'unpowered-zones':
     'Some zones are unpowered — string Power Lines from the plant (roads carry wires too).',
   'no-road-access': 'Some zones have no road within reach — buildings only develop next to roads.',
@@ -73,7 +77,7 @@ export function adviseTips(city: CityState): Tip[] {
   for (let i = 0; i < city.tiles.length; i++) {
     const t = city.tiles[i];
     if (t.zone !== Zone.None) builtAnything = true;
-    if (t.zone === Zone.PowerPlant) hasPlant = true;
+    if (isPlant(t.zone)) hasPlant = true;
     if (t.zone === Zone.Road && t.traffic > ROAD_CAPACITY) jammedRoads++;
     if (!isRci(t.zone)) continue;
     zonedTiles++;
@@ -100,6 +104,7 @@ export function adviseTips(city: CityState): Tip[] {
     return tips;
   }
   if (zonedTiles > 0 && !hasPlant) add('no-power-plant');
+  if (city.brownouts > 0) add('brownout');
   if (hasPlant && unpoweredZones > 0) add('unpowered-zones');
   if (roadlessZones > 0) add('no-road-access');
   if (uncoveredBuildings > 0) add('no-fire-coverage');

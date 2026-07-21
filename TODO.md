@@ -14,18 +14,22 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 3. **Modding hooks** — data-driven building/balance definitions; folds in
    user-made skins from the skins item.
 4. **Garabage** - residents produce garabage. garabage pickup is a city service requiring a way to dispose of or process the trash. mayor can buy a trash dump. when city advances past some threshold of advancement, some trash can be recycled.
-5. **Tiers of energy** - Other power sources incrementally unlocked upon city advancement: Solar, hydro-electric, nuclear, wind, 
-6. **Transit tiers** - Other public transportation modes unlocked with city advancement: street car, elevated monorail, subway, commuter rail
-7. **public health** - public health campaigns paid by mayor reduce rate and/or severity of pandemics 
-8. **Crime** - crime can happen anywhere, but is more common in certain areas and conditions
-9. **traffic accidents** - occasionally a road is blocked due to an accident. Accident prob depends on traffic flow.
-10. **seasons** - color of vegetation and disaster type varies with season
-11. **Radius balance pass** — service radii, pollution spread, and
+5. **Transit tiers** - Other public transportation modes unlocked with city advancement: street car, elevated monorail, subway, commuter rail
+6. **public health** - public health campaigns paid by mayor reduce rate and/or severity of pandemics 
+7. **Crime** - crime can happen anywhere, but is more common in certain areas and conditions
+8. **traffic accidents** - occasionally a road is blocked due to an accident. Accident prob depends on traffic flow.
+9. **seasons** - color of vegetation and disaster type varies with season
+10. **Radius balance pass** — service radii, pollution spread, and
     land-value bonuses are absolute tile distances tuned for the 64×64
     map; on 96×96 they cover a smaller share of the city. Revisit after
     some play-testing on the big map (surfaced in the v0.29.0 review).
 
 ## Done
+
+- **Tiers of energy** — shipped v0.31.0 (wind/solar/hydro/nuclear
+  unlocked by population; pooled plant capacity with distance-order
+  brownouts, brownout advisor tip; per-plant glyphs, upkeep, and
+  pollution; hydro requires waterside siting).
 
 - **Per-tier visuals** — shipped v0.30.0 (tier-scaled building heights
   via `heightScaleFor`; signature accents: §§§ trim + spire, § tar cap,

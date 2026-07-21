@@ -22,6 +22,10 @@ export function buildHelp(root: HTMLElement) {
               <b>Industrial</b> beside it (drag rectangles).</li>
           <li>Build a <b>Coal Plant</b>; anything touching it or a
               <b>Power Line</b> is powered — roads carry wires too.</li>
+          <li>Plants have limited capacity — an overloaded grid browns
+              out its farthest buildings. Growth unlocks cleaner plants:
+              <b>Wind</b> (pop 2,000), <b>Solar</b> (5,000),
+              <b>Hydro</b> (10,000, by water), <b>Nuclear</b> (25,000).</li>
           <li>Press <b>▶</b> and watch the RCI meter: tall bars mean
               that sector wants to grow.</li>
         </ol>

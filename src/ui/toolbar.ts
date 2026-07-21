@@ -6,11 +6,15 @@ import { makeDraggable } from './drag';
 
 export type ActiveTool = ToolId | 'query' | null;
 
-const BUILD_TOOLS: { id: ToolId | 'query'; label: string }[] = [
+const BUILD_TOOLS: { id: ToolId | 'query'; label: string; title?: string }[] = [
   { id: 'query', label: 'Query' },
   { id: 'bulldoze', label: 'Bulldoze' },
   { id: 'road', label: 'Road' },
   { id: 'plant', label: 'Coal Plant' },
+  { id: 'wind', label: 'Wind Turbine', title: 'Unlocks at population 2,000' },
+  { id: 'solar', label: 'Solar Farm', title: 'Unlocks at population 5,000' },
+  { id: 'hydro', label: 'Hydro Plant', title: 'Unlocks at population 10,000 · needs adjacent water' },
+  { id: 'nuclear', label: 'Nuclear Plant', title: 'Unlocks at population 25,000' },
   { id: 'line', label: 'Power Line' },
   { id: 'park', label: 'Park' },
 ];
@@ -194,7 +198,10 @@ export function buildToolbar(
   }
 
   const buildBody = section('build', 'Build');
-  for (const { id, label } of BUILD_TOOLS) toolButton(id, label, buildBody);
+  for (const { id, label, title } of BUILD_TOOLS) {
+    const btn = toolButton(id, label, buildBody);
+    if (title) btn.title = title;
+  }
 
   const zoningBody = section('zoning', 'Zoning');
   for (const { id, label } of ZONING_TOOLS) zoneButton(id, label, zoningBody);

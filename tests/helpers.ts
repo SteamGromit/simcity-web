@@ -20,6 +20,7 @@ export function makeCity(): CityState {
     taxes: { r: 0.09, c: 0.09, i: 0.09 },
     population: 0,
     jobs: 0,
+    brownouts: 0,
     eduLevel: 0,
     lastBudget: { rIncome: 0, cIncome: 0, iIncome: 0, expenses: 0, net: 0 },
     ordinances: defaultOrdinances(),

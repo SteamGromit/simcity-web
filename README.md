@@ -76,6 +76,12 @@ tiles to cross them). Unpowered zones show a yellow ⚡ bolt; hook them up with
 a line from the plant or by zoning a connected path. The Power data view shows
 what's connected.
 
+Plants have **limited capacity** (in powered buildings) and pool it across
+the grid; overload the pool and the farthest buildings brown out until you
+add plants. Growth unlocks cleaner sources in the Build section: **Wind
+Turbine** (pop 2,000), **Solar Farm** (pop 5,000), **Hydro Plant** (pop
+10,000, must sit beside water), and **Nuclear Plant** (pop 25,000).
+
 **Water** works the same way: build a powered **Water Pump** within two
 tiles of open water and the supply spreads through adjacent buildings;
 **Pipes** bridge gaps and cross under roads. Buildings need running water
