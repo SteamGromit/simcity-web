@@ -118,3 +118,22 @@ describe('terrain rules', () => {
     expect(newCity(3).funds).toBe(START_FUNDS);
   });
 });
+
+describe('terrain density at 96×96', () => {
+  // Feature counts scale with area; loose floors so seeds can't flake.
+  test('temperate maps keep their feature density on the bigger grid', () => {
+    for (const seed of [2, 3, 5]) {
+      const city = newCity(seed);
+      if (city.biome !== 'temperate') continue;
+      const water = city.tiles.filter((t) => t.terrain === Terrain.Water).length;
+      const forest = city.tiles.filter((t) => t.terrain === Terrain.Forest).length;
+      expect(water).toBeGreaterThanOrEqual(70); // one big lake minimum
+      expect(forest).toBeGreaterThanOrEqual(60); // ~7+ groves scaled up
+    }
+  });
+
+  test('at least one true mountain still spawns', () => {
+    const city = newCity(2);
+    expect(Math.max(...city.tiles.map((t) => t.elevation))).toBeGreaterThanOrEqual(4);
+  });
+});
