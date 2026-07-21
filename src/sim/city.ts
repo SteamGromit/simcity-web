@@ -9,6 +9,7 @@ import { updateWater } from './water';
 import { pandemicMonthly, rollForDisaster, rubbleMonthly, updateDisasters } from './disasters';
 import { defaultWeather, updateWeatherMonthly } from './weather';
 import { fireRisk, updateCoverage, updateFires } from './services';
+import { PLANT_SPECS, isPlant, plantUnlocked } from './energy';
 import { retierMonthly, updateEducation } from './tiers';
 import { updateTraffic } from './traffic';
 import {
@@ -186,6 +187,10 @@ const TOOL_ZONE: Partial<Record<ToolId, Zone>> = {
   bus: Zone.BusStop,
   pump: Zone.WaterPump,
   pipe: Zone.WaterPipe,
+  solar: Zone.SolarPlant,
+  wind: Zone.WindTurbine,
+  hydro: Zone.HydroPlant,
+  nuclear: Zone.NuclearPlant,
 };
 
 export const ZONE_TOOLS: ToolId[] = ['zoneR', 'zoneC', 'zoneI'];
@@ -259,6 +264,16 @@ function validateTool(
     if (!(tool === 'road' && t.terrain === Terrain.Water)) {
       return 'cannot build on water or forest';
     }
+  }
+  const built = TOOL_ZONE[tool];
+  if (built !== undefined && isPlant(built) && !plantUnlocked(built, city.population)) {
+    return `unlocks at population ${PLANT_SPECS[built]!.unlockPop.toLocaleString('en-US')}`;
+  }
+  if (tool === 'hydro') {
+    const wet = neighbors4(x, y).some(
+      ([nx, ny]) => city.tiles[idx(nx, ny)].terrain === Terrain.Water,
+    );
+    if (!wet) return 'needs adjacent water';
   }
   if (tool === 'line' && t.zone === Zone.Road) return t.wire ? 'tile occupied' : null;
   if (tool === 'pipe' && t.zone === Zone.Road) return t.pipe ? 'tile occupied' : null;

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { PLANT_SPECS, PLANT_ZONES, isPlant, plantUnlocked } from '../src/sim/energy';
+import { applyTool, canApply } from '../src/sim/city';
 import { updatePower } from '../src/sim/power';
-import { Zone } from '../src/sim/types';
+import { Terrain, Zone } from '../src/sim/types';
 import { clearLand, makeCity } from './helpers';
 
 function idx96(x: number, y: number): number {
@@ -43,6 +44,31 @@ describe('plantUnlocked', () => {
   it('nuclear unlocks at pop 25,000', () => {
     expect(plantUnlocked(Zone.NuclearPlant, 24999)).toBe(false);
     expect(plantUnlocked(Zone.NuclearPlant, 25000)).toBe(true);
+  });
+});
+
+describe('plant placement rules', () => {
+  it('rejects a locked plant with the unlock population', () => {
+    const city = makeCity();
+    clearLand(city);
+    city.funds = 100000;
+    city.population = 1999;
+    expect(canApply(city, 'wind', 10, 10)).toBe(false);
+    expect(applyTool(city, 'wind', 10, 10).err).toMatch(/unlocks at population/);
+    city.population = 2000;
+    expect(applyTool(city, 'wind', 10, 10).ok).toBe(true);
+    expect(city.tiles[idx96(10, 10)].zone).toBe(Zone.WindTurbine);
+  });
+
+  it('hydro needs an orthogonal water neighbor', () => {
+    const city = makeCity();
+    clearLand(city);
+    city.funds = 100000;
+    city.population = 10000;
+    expect(applyTool(city, 'hydro', 20, 20).err).toBe('needs adjacent water');
+    city.tiles[idx96(21, 20)].terrain = Terrain.Water;
+    expect(applyTool(city, 'hydro', 20, 20).ok).toBe(true);
+    expect(city.tiles[idx96(20, 20)].zone).toBe(Zone.HydroPlant);
   });
 });
 
