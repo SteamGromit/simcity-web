@@ -14,7 +14,8 @@ function climbable(city: CityState, a: number, b: number): boolean {
 }
 
 const ACCESS_RADIUS = 2;
-const MAX_WALK = 64;
+/** Commute-walk step cap — scales with the map so long routes aren't cut. */
+const MAX_WALK = GRID;
 
 /**
  * Nearest road tile within Chebyshev distance ACCESS_RADIUS, or null.
