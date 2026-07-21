@@ -18,6 +18,7 @@ import { OverlayId, drawOverlay } from './overlays';
 import { getDayNight, nightFactor, nightTint } from './daynight';
 import { groundShade } from './terrainshade';
 import { detailLevel } from './detail';
+import { drawLineVehicles } from './linevehicles';
 import { getSkin } from './skins';
 import { getWeatherFx } from './fx';
 
@@ -67,6 +68,8 @@ export class Renderer {
   private wind = 0;
   private storm = false;
   private frameNow = 0;
+  /** Accumulated sim-speed-scaled time (ms) driving line vehicles. */
+  private lineClock = 0;
 
   constructor(private canvas: HTMLCanvasElement, seed: number) {
     this.ctx = canvas.getContext('2d')!;
@@ -149,6 +152,9 @@ export class Renderer {
     if (this.orderDirty) this.rebuildOrder();
     const now = performance.now();
     this.night = getDayNight() ? nightFactor(now) : 0;
+    // clamp the frame delta so a background tab doesn't fast-forward
+    this.lineClock +=
+      Math.min(100, Math.max(0, now - this.frameNow)) * AUTOMATA_SCALE[this.simSpeed];
     this.frameNow = now;
     this.storm = city.disasters.hurricaneTicks > 0;
     this.wind = this.storm ? -4 + Math.sin(now / 120) * 3 : 0;
@@ -496,8 +502,10 @@ export class Renderer {
 
   /** Finalized transit lines plus the wizard's live draft. */
   private drawTransitLines(city: CityState, view: ViewState) {
+    const tSec = this.lineClock / 1000;
     for (const line of city.transitLines) {
       this.strokeSegments(line.path, city, line.color, 0.8);
+      drawLineVehicles(this.ctx, city, line, tSec);
     }
     const d = view.transitDraft;
     if (!d) return;
