@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { roadLine } from '../src/sim/grid';
 import {
   clampDensity,
+  isFormControl,
   OVERLAY_KEY_OF,
   OVERLAY_KEYS,
   RESERVED_KEYS,
@@ -87,6 +88,23 @@ describe('OVERLAY_KEYS', () => {
       expect(ids).toContain(id);
       expect(OVERLAY_KEY_OF[id]).toMatch(/^⇧[A-Z]$/);
     }
+  });
+});
+
+describe('isFormControl', () => {
+  test('form controls that own keystrokes are recognized', () => {
+    expect(isFormControl({ tagName: 'INPUT' })).toBe(true);
+    expect(isFormControl({ tagName: 'TEXTAREA' })).toBe(true);
+    expect(isFormControl({ tagName: 'SELECT' })).toBe(true);
+  });
+
+  test('everything else keeps global keys live', () => {
+    expect(isFormControl(null)).toBe(false); // window/document target
+    expect(isFormControl({ tagName: 'BODY' })).toBe(false);
+    expect(isFormControl({ tagName: 'CANVAS' })).toBe(false);
+    // buttons stay false: Space must keep drag-panning after a toolbar click
+    expect(isFormControl({ tagName: 'BUTTON' })).toBe(false);
+    expect(isFormControl({})).toBe(false);
   });
 });
 

@@ -47,6 +47,16 @@ export const OVERLAY_KEY_OF: Partial<Record<OverlayId, string>> = Object.fromEnt
   Object.entries(OVERLAY_KEYS).map(([k, id]) => [id, `⇧${k.toUpperCase()}`]),
 );
 
+/**
+ * True when a keydown's target is a form control that owns keystrokes
+ * (focused slider, text field, dropdown) — global game keys must not fire.
+ * Duck-typed on tagName so it works without a DOM (tests run in node).
+ */
+export function isFormControl(target: unknown): boolean {
+  const tag = (target as { tagName?: unknown } | null)?.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+}
+
 /** Revive a persisted zone density; junk clamps to Low. */
 export function clampDensity(raw: unknown): Density {
   if (raw === '2' || raw === 2) return 2;

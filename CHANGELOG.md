@@ -4,6 +4,13 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.25.2] — 2026-07-20 · Input-guard fix
+
+### Fixed
+- Global shortcuts (camera pan, help, mute, Space pan) no longer fire
+  while a form control is focused: arrow keys on a focused tax slider
+  adjust only the slider instead of also panning the camera.
+
 ## [0.25.1] — 2026-07-20 · Display panel fix
 
 ### Fixed
