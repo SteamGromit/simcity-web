@@ -4,6 +4,19 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.35.0] — 2026-07-21 · Transit lines
+
+### Changed
+- Transit is now planned as **lines**: a wizard panel walks route
+  drawing (click vertices, double-click to finish; surface modes
+  can't cross water), stop placement on tiles touching the route
+  (empty land or unbuilt zones), a six-color picker, and an atomic
+  Done that charges track (§0/10/25/40/50 per tile by mode) plus
+  station prices. Lines render as colored route bands (dashed over
+  water) and live in the save (`city.transitLines`).
+- The five direct station tools are gone; their toolbar buttons now
+  open the wizard. Existing stations from old saves keep working.
+
 ## [0.34.0] — 2026-07-21 · Graphics pass
 
 ### Added

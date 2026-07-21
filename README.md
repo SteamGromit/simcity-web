@@ -115,12 +115,16 @@ residential land value. Parks raise it.
 
 Roads have **capacity** — a jammed artery makes every commute through it
 longer, which drags down desirability and land value. Relieve it with
-parallel routes, or place **bus stops** near homes *and* jobs: covered
-commutes put half the cars on the road. Growth unlocks the transit
-ladder — **Streetcar** (pop 5,000), **Monorail** (15,000), **Subway**
-(30,000), **Commuter Rail** (50,000) — each covering a wider radius and
-putting even fewer cars on the road; the worse-served end of a trip
-decides its ride.
+parallel routes — or plan **transit lines**: click a line tool (Bus
+Line is always available), draw the route point by point on the map
+(double-click to finish it), click tiles on or beside the route to
+place stops, pick the line's color, and press **Done**. Stops near
+homes *and* jobs take cars off the road. Growth unlocks the ladder —
+**Streetcar** (pop 5,000), **Monorail** (15,000), **Subway** (30,000),
+**Commuter Rail** (50,000) — wider coverage, fewer cars per trip; the
+worse-served end of a trip decides its ride. Rail modes charge per
+track tile; surface lines can't cross water, elevated and underground
+ones can.
 
 Growing past small buildings takes **civic services**: fire coverage unlocks
 stage 2, police + school coverage unlock stage 3, and a **hospital** in reach
