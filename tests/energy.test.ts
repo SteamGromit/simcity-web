@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { PLANT_SPECS, PLANT_ZONES, isPlant, plantUnlocked } from '../src/sim/energy';
+import { collectBudget } from '../src/sim/budget';
 import { applyTool, canApply } from '../src/sim/city';
+import { updatePollution } from '../src/sim/pollution';
 import { updatePower } from '../src/sim/power';
 import { Terrain, Zone } from '../src/sim/types';
 import { clearLand, makeCity } from './helpers';
@@ -69,6 +71,29 @@ describe('plant placement rules', () => {
     city.tiles[idx96(21, 20)].terrain = Terrain.Water;
     expect(applyTool(city, 'hydro', 20, 20).ok).toBe(true);
     expect(city.tiles[idx96(20, 20)].zone).toBe(Zone.HydroPlant);
+  });
+});
+
+describe('plant economics and pollution', () => {
+  it('charges each plant its monthly upkeep', () => {
+    const city = makeCity();
+    clearLand(city);
+    city.tiles[idx96(0, 0)].zone = Zone.WindTurbine;
+    city.tiles[idx96(2, 0)].zone = Zone.NuclearPlant;
+    const report = collectBudget(city);
+    expect(report.expenses).toBe(15 + 300);
+  });
+
+  it('clean plants emit nothing; nuclear emits a trace', () => {
+    const city = makeCity();
+    clearLand(city);
+    city.tiles[idx96(10, 10)].zone = Zone.SolarPlant;
+    updatePollution(city);
+    expect(city.tiles[idx96(10, 10)].pollution).toBe(0);
+    city.tiles[idx96(10, 10)].zone = Zone.NuclearPlant;
+    updatePollution(city);
+    expect(city.tiles[idx96(10, 10)].pollution).toBeGreaterThan(0);
+    expect(city.tiles[idx96(10, 10)].pollution).toBeLessThan(0.3);
   });
 });
 

@@ -10,6 +10,10 @@ function emission(city: CityState, i: number): number {
   // replace it, don't regulate it)
   const scrub = city.ordinances.cleanAir ? 0.7 : 1;
   if (t.zone === Zone.PowerPlant) return 1.0;
+  if (t.zone === Zone.NuclearPlant) return 0.15;
+  if (t.zone === Zone.SolarPlant || t.zone === Zone.WindTurbine || t.zone === Zone.HydroPlant) {
+    return 0;
+  }
   if (t.abandoned && t.stage > 0) return 0.1;
   if (t.zone === Zone.Industrial && t.stage > 0) {
     return (0.3 + 0.15 * t.stage) * scrub * pollutionScaleFor(t.tier);

@@ -4,7 +4,18 @@ import { BudgetReport, CityState, ORDINANCES, SERVICE_UPKEEP, Zone } from './typ
 const R_YIELD = 10;
 const C_YIELD = 16;
 const I_YIELD = 14;
-const UPKEEP = { road: 1, line: 0.2, plant: 150, park: 2, pump: 25, pipe: 0.2 };
+const UPKEEP = {
+  road: 1,
+  line: 0.2,
+  plant: 150,
+  park: 2,
+  pump: 25,
+  pipe: 0.2,
+  solar: 20,
+  wind: 15,
+  hydro: 60,
+  nuclear: 300,
+};
 
 /** Monthly close: collect taxes on developed capacity, pay upkeep, move funds. */
 export function collectBudget(city: CityState): BudgetReport {
@@ -42,6 +53,18 @@ export function collectBudget(city: CityState): BudgetReport {
         break;
       case Zone.PowerPlant:
         expenses += UPKEEP.plant;
+        break;
+      case Zone.SolarPlant:
+        expenses += UPKEEP.solar;
+        break;
+      case Zone.WindTurbine:
+        expenses += UPKEEP.wind;
+        break;
+      case Zone.HydroPlant:
+        expenses += UPKEEP.hydro;
+        break;
+      case Zone.NuclearPlant:
+        expenses += UPKEEP.nuclear;
         break;
       case Zone.Park:
         expenses += UPKEEP.park;
