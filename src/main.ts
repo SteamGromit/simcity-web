@@ -15,7 +15,7 @@ import { buildMinimap } from './ui/minimap';
 import { buildCityHall } from './ui/cityhall';
 import { buildDisplay } from './ui/display';
 import { makeDraggable } from './ui/drag';
-import { isFormControl, OVERLAY_KEYS, TOOL_KEYS } from './ui/shortcuts';
+import { isFormControl, OVERLAY_KEYS, RECT_TOOLS, TOOL_KEYS } from './ui/shortcuts';
 import { setSkin } from './render/skins';
 import { setWeatherFx } from './render/fx';
 import { setDayNight } from './render/daynight';
@@ -48,20 +48,6 @@ const renderer = new Renderer(canvas, city.seed);
 const view: ViewState = { hover: null, hoverValid: true, overlay: null, rect: null, line: null };
 let activeTool: ActiveTool = null;
 let activeDensity: Density = 1;
-
-/** Tools that drag out a filled rectangle rather than painting tile by tile. */
-const RECT_TOOLS = new Set([
-  'zoneR',
-  'zoneC',
-  'zoneI',
-  'park',
-  'bulldoze',
-  'terraWater',
-  'terraForest',
-  'terraGrass',
-  'terraRaise',
-  'terraLower',
-]);
 
 // --- toast ---
 const toastEl = document.createElement('div');
