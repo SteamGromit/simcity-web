@@ -6,24 +6,28 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Backlog (in order)
 
-1. **Graphics** - improve them
-2. **transit** - Instead of adding bus stops, streetcar stops, etc, user must add a transit 'line'. This is multi-step process: 1. click button to enter transit adding mode' -> small modal/window opens with instructions, and stays open until done. 2. Add the line itself; mechanics are same as drawing a polygon, 'line' is complete upon double click. 3. add the stops by clicking on squares that touch the 'line'. Must be an available square (can override C/I/R zones that are currently empty). 4. in modal select color for the line. 5. click 'done' to finalize the line or 'cancel'. 
-3. **visuals** - create animated buses and other transit vehicles 
-4. **sounds** - add and make more realistic sounds effects for events
-5. **unique commercial and industrial entities** - create less generic commercial and insustrial entities like Dunder Mifflin Paper Company, Wonka Candy Factory, Initech (hi-tech?), Anthropic, Massive Dynamic, The Bluth Company, WKRP radio station, bookstores, Krusty Krab, cafes, taverns (Cheers, Mo's Tavern), Los Pollos Hermanos, boutique shops, Mega Lo Mart, Trader joes, bank of simness,  Strickland Propane, etc -> each has unique appearance
-6. **config modal** - replace 'display' with 'config'. add volume sliders for sound effects & music
-7. **seasons** - color of vegetation and disaster type varies with season. Change soundtrack
-8. **controls** - do not show options unless they are accessible. Bundle when appropriate (e.g. Transit -> bus | subway etc)
-9. **Modding hooks** — data-driven building/balance definitions; folds in user-made skins from the skins item. 
-10. **Modding editor** - UI for creating/drawing buildings, assigning properties to them, their local and city-wide impact & for editing sim behavior
-11. **Region play** — multiple city tiles, neighbor deals (SC4 headline; deferred until single-city play is deep enough).
-12. **Rewards** — special buildings the mayor's office can purchase after city milestones are hit (e.g. Ballpark -> Arena -> Stadium -> Colesium, Library, Museum, Monument, College -> University -> Research University), They occupy > square. They provide jobs. They mpact the surrounding area (+ and/or -, context dependent) and sometimes the whole city (e.g. Research university unlocks access to Cold fusion power plant)
-13. **Garabage** - residents produce garabage. garabage pickup is a city service requiring a way to dispose of or process the trash. mayor can buy a trash dump. when city advances past some threshold of advancement, some trash can be recycled.
-14. **Crime** - crime can happen anywhere, but is more common in certain areas and conditions
-15. **traffic accidents** - occasionally a road is blocked due to an accident. Accident prob depends on traffic flow. reduce likelihood of accidends with driver education program. Reduce severity/duration of accident impact with fire depts with upgraded EMT program. animate accident and fallout.
-17. **building safety** - buildings can collapse resulting in loss of building and casualties. Probability increases with age of building. Baseline: It is _very_ rare, and only becomes possible after building hits a predefined age (default = 100 years). Probability adjusted by: city program of a. requiring building permit (slight increase in zoning price) and b. City program to hire and deploy infastructure inspectors, who monitor buildings, roads, bridges, utilities. Create animation for building collapse. Once a building has been repaired, its base prob of collapse goes back to 0 and progresses again as if it were newly built
+1. **transit** - Instead of adding bus stops, streetcar stops, etc, user must add a transit 'line'. This is multi-step process: 1. click button to enter transit adding mode' -> small modal/window opens with instructions, and stays open until done. 2. Add the line itself; mechanics are same as drawing a polygon, 'line' is complete upon double click. 3. add the stops by clicking on squares that touch the 'line'. Must be an available square (can override C/I/R zones that are currently empty). 4. in modal select color for the line. 5. click 'done' to finalize the line or 'cancel'. 
+2. **visuals** - create animated buses and other transit vehicles 
+3. **sounds** - add and make more realistic sounds effects for events
+4. **unique commercial and industrial entities** - create less generic commercial and insustrial entities like Dunder Mifflin Paper Company, Wonka Candy Factory, Initech (hi-tech?), Anthropic, Massive Dynamic, The Bluth Company, WKRP radio station, bookstores, Krusty Krab, cafes, taverns (Cheers, Mo's Tavern), Los Pollos Hermanos, boutique shops, Mega Lo Mart, Trader joes, bank of simness,  Strickland Propane, etc -> each has unique appearance
+5. **config modal** - replace 'display' with 'config'. add volume sliders for sound effects & music
+6. **seasons** - color of vegetation and disaster type varies with season. Change soundtrack
+7. **controls** - do not show options unless they are accessible. Bundle when appropriate (e.g. Transit -> bus | subway etc)
+8. **Modding hooks** — data-driven building/balance definitions; folds in user-made skins from the skins item. 
+9. **Modding editor** - UI for creating/drawing buildings, assigning properties to them, their local and city-wide impact & for editing sim behavior
+10. **Region play** — multiple city tiles, neighbor deals (SC4 headline; deferred until single-city play is deep enough).
+11. **Rewards** — special buildings the mayor's office can purchase after city milestones are hit (e.g. Ballpark -> Arena -> Stadium -> Colesium, Library, Museum, Monument, College -> University -> Research University), They occupy > square. They provide jobs. They mpact the surrounding area (+ and/or -, context dependent) and sometimes the whole city (e.g. Research university unlocks access to Cold fusion power plant)
+12. **Garabage** - residents produce garabage. garabage pickup is a city service requiring a way to dispose of or process the trash. mayor can buy a trash dump. when city advances past some threshold of advancement, some trash can be recycled.
+13. **Crime** - crime can happen anywhere, but is more common in certain areas and conditions
+14. **traffic accidents** - occasionally a road is blocked due to an accident. Accident prob depends on traffic flow. reduce likelihood of accidends with driver education program. Reduce severity/duration of accident impact with fire depts with upgraded EMT program. animate accident and fallout.
+15. **building safety** - buildings can collapse resulting in loss of building and casualties. Probability increases with age of building. Baseline: It is _very_ rare, and only becomes possible after building hits a predefined age (default = 100 years). Probability adjusted by: city program of a. requiring building permit (slight increase in zoning price) and b. City program to hire and deploy infastructure inspectors, who monitor buildings, roads, bridges, utilities. Create animation for building collapse. Once a building has been repaired, its base prob of collapse goes back to 0 and progresses again as if it were newly built
 
 ## Done
+
+- **Graphics pass** — shipped v0.34.0 (scene grounding: shadows,
+  sand shorelines, meadow terrain shading, soft cliffs, road curbs;
+  street-level doors/storefronts/signage; `detailLevel` LOD scales
+  rendering with zoom).
 
 - **Radius balance pass** — shipped v0.33.1 (`mapScaled` derives
   share-of-city radii from GRID/64: services 12/12/15/15/8, transit
