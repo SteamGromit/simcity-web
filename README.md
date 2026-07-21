@@ -37,6 +37,9 @@ decides what happens next:
 - **Context-aware traffic** — vehicles pick roles by location: trucks move
   goods on industrial roads, taxis and vans favor commercial routes, and
   buses cluster near transit stops. Each kind has distinct speeds and paint.
+- **Named businesses** — many shops and factories carry homage brands
+  (Dunder Mifflin, Wonka, Initech, Strickland Propane…) with signs on
+  their walls; the Query tool tells you who moved in.
 
 ## Run it
 

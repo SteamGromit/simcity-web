@@ -1,5 +1,6 @@
 import { IndustryKind, Stage, Tier, Wealth, Zone } from '../sim/types';
 import { normalizeTier } from '../sim/tiers';
+import { Entity, entityFor } from '../sim/entities';
 import { TileGeom } from './iso';
 import { getSkin } from './skins';
 import {
@@ -620,13 +621,31 @@ function drawStreetLevel(
   stage: Stage,
   detail: 0 | 1 | 2,
   chan: () => number,
+  entity: Entity | null = null,
 ) {
-  if (zone !== Zone.Residential && zone !== Zone.Commercial) return;
+  if (zone !== Zone.Residential && zone !== Zone.Commercial && zone !== Zone.Industrial) return;
   if (primary.faces.length === 0) return;
   const front = primary.faces.reduce(
     (p, f) => (f.a[1] + f.b[1] > p.a[1] + p.b[1] ? f : p),
     primary.faces[0],
   );
+  if (entity) {
+    // the business board: entity-colored sign hung on the front wall
+    const p = lerp2(front.a, front.b, 0.35);
+    ctx.fillStyle = `hsl(${entity.hue} 65% 48%)`;
+    ctx.fillRect(p[0] - 5.5, p[1] - 14, 11, 5.5);
+    ctx.strokeStyle = 'rgba(250, 250, 245, 0.85)';
+    ctx.lineWidth = 0.8;
+    ctx.strokeRect(p[0] - 5.5, p[1] - 14, 11, 5.5);
+    if (detail === 2) {
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 5px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(entity.initials, p[0], p[1] - 9.8);
+      ctx.textAlign = 'left';
+    }
+  }
+  if (zone === Zone.Industrial) return; // doors/storefronts are R/C dressing
   if (zone === Zone.Commercial && stage >= 2) {
     // storefront strip along the base of every visible wall
     ctx.strokeStyle = 'rgba(240, 235, 210, 0.5)';
@@ -1080,7 +1099,7 @@ export function drawBuilding(
   const primary = drawArchetype(ctx, geom, arch, stage, zone, h, hue, sat, lit, abandoned, night, chan, detail);
   if (primary && !abandoned && detail >= 1) {
     drawTierAccents(ctx, primary, zone, kind, stage, h);
-    drawStreetLevel(ctx, primary, zone, stage, detail, chan);
+    drawStreetLevel(ctx, primary, zone, stage, detail, chan, entityFor(zone, kind, stage, variant));
   }
   // Only smoky industry gets stacks; high-tech is clean and farms have none.
   if (zone === Zone.Industrial && stage >= 2 && !abandoned && (kind === 'dirty' || kind === 'manu')) {
