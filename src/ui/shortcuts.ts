@@ -1,4 +1,4 @@
-import { Density, ToolId } from '../sim/types';
+import { Density, SERVICE_RADII, ToolId } from '../sim/types';
 import { OverlayId } from '../render/overlays';
 
 /** Keys already claimed by camera/help/sound bindings — never map tools here. */
@@ -63,6 +63,18 @@ export const RECT_TOOLS: Set<ToolId> = new Set<ToolId>([
   'terraRaise',
   'terraLower',
 ]);
+
+/**
+ * Service tools that preview their coverage footprint while placing.
+ * Values come from SERVICE_RADII (hospital covers via the health field).
+ */
+export const HALO_RADII: Partial<Record<ToolId, number>> = {
+  fire: SERVICE_RADII.fire,
+  police: SERVICE_RADII.police,
+  school: SERVICE_RADII.school,
+  hospital: SERVICE_RADII.health,
+  bus: SERVICE_RADII.bus,
+};
 
 /**
  * True when a keydown's target is a form control that owns keystrokes

@@ -93,7 +93,8 @@ Growing past small buildings takes **civic services**: fire coverage unlocks
 stage 2, police + school coverage unlock stage 3, and a **hospital** in reach
 unlocks the tallest towers (industry skips the school and hospital
 requirements). Stations need power, cover a radius (see the coverage data
-views), and charge monthly upkeep.
+views), and charge monthly upkeep. While placing a service building, a
+green halo previews its coverage.
 
 **Weather** rolls through with the seasons — rain damps fires, winter
 snow slows every commute — and **disasters** strike once your city is big
