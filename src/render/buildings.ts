@@ -803,6 +803,100 @@ export function drawBuilding(
     return;
   }
 
+  if (zone === Zone.StreetcarStop) {
+    // teal shelter under a catenary pole and its contact wire
+    box(ctx, geom, 0.5, 8, 178, 42, 44);
+    ctx.strokeStyle = '#cfd6d4';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx + 9, cy + 3);
+    ctx.lineTo(cx + 9, cy - 20);
+    ctx.moveTo(cx + 3, cy - 18);
+    ctx.lineTo(cx + 15, cy - 18);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(207, 214, 212, 0.6)';
+    ctx.beginPath();
+    ctx.moveTo(cx - 14, cy - 16);
+    ctx.lineTo(cx + 14, cy - 16);
+    ctx.stroke();
+    if (!powered) drawNoPowerBolt(ctx, cx, cy - 24);
+    return;
+  }
+
+  if (zone === Zone.MonorailStation) {
+    // concrete pylon carrying a beam with a white car parked on it
+    box(ctx, geom, 0.5, 6, 178, 30, 46);
+    ctx.fillStyle = '#9aa0a2';
+    ctx.fillRect(cx - 2, cy - 22, 4, 20);
+    ctx.fillStyle = '#7d8486';
+    ctx.fillRect(cx - 14, cy - 24, 28, 3);
+    ctx.fillStyle = '#e8ecee';
+    ctx.beginPath();
+    ctx.roundRect(cx - 10, cy - 32, 20, 8, 3);
+    ctx.fill();
+    ctx.fillStyle = '#3f8f8a';
+    ctx.fillRect(cx - 7, cy - 30, 14, 2.5);
+    if (!powered) drawNoPowerBolt(ctx, cx, cy - 38);
+    return;
+  }
+
+  if (zone === Zone.SubwayStation) {
+    // stair kiosk descending underground, lit M sign on a post
+    box(ctx, geom, 0.5, 7, 220, 18, 38);
+    ctx.fillStyle = '#1e2226';
+    fillPoly(
+      ctx,
+      [
+        [cx - 8, cy + 2],
+        [cx + 2, cy - 2],
+        [cx + 6, cy + 1],
+        [cx - 4, cy + 5],
+      ],
+      '#1e2226',
+    );
+    ctx.strokeStyle = '#cfd6d4';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx + 10, cy + 2);
+    ctx.lineTo(cx + 10, cy - 16);
+    ctx.stroke();
+    ctx.fillStyle = '#2456c8';
+    ctx.fillRect(cx + 6, cy - 24, 9, 8);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 7px sans-serif';
+    ctx.fillText('M', cx + 8, cy - 17.5);
+    if (!powered) drawNoPowerBolt(ctx, cx, cy - 30);
+    return;
+  }
+
+  if (zone === Zone.RailTerminal) {
+    // brick terminal hall with a white clock face on the gable
+    box(ctx, geom, 0.8, 16, 12, 45, 40);
+    fillPoly(
+      ctx,
+      [
+        [cx - 12, cy - 16],
+        [cx + 12, cy - 16],
+        [cx, cy - 26],
+      ],
+      'hsl(12 40% 34%)',
+    );
+    ctx.fillStyle = '#f2efe6';
+    ctx.beginPath();
+    ctx.arc(cx, cy - 19, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#3a3630';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 19);
+    ctx.lineTo(cx, cy - 21.5);
+    ctx.moveTo(cx, cy - 19);
+    ctx.lineTo(cx + 1.8, cy - 18.2);
+    ctx.stroke();
+    if (!powered) drawNoPowerBolt(ctx, cx, cy - 32);
+    return;
+  }
+
   if (
     zone === Zone.FireStation ||
     zone === Zone.PoliceStation ||
