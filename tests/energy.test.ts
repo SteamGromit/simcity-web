@@ -3,6 +3,7 @@ import { PLANT_SPECS, PLANT_ZONES, isPlant, plantUnlocked } from '../src/sim/ene
 import { collectBudget } from '../src/sim/budget';
 import { applyTool, canApply } from '../src/sim/city';
 import { updatePollution } from '../src/sim/pollution';
+import { deserialize, serialize } from '../src/sim/save';
 import { updatePower } from '../src/sim/power';
 import { Terrain, Zone } from '../src/sim/types';
 import { clearLand, makeCity } from './helpers';
@@ -94,6 +95,18 @@ describe('plant economics and pollution', () => {
     updatePollution(city);
     expect(city.tiles[idx96(10, 10)].pollution).toBeGreaterThan(0);
     expect(city.tiles[idx96(10, 10)].pollution).toBeLessThan(0.3);
+  });
+});
+
+describe('plant save round-trip', () => {
+  it('new plant zones survive serialize → deserialize', () => {
+    const city = makeCity();
+    clearLand(city);
+    city.tiles[idx96(5, 5)].zone = Zone.NuclearPlant;
+    city.tiles[idx96(6, 5)].zone = Zone.SolarPlant;
+    const revived = deserialize(serialize(city))!;
+    expect(revived.tiles[idx96(5, 5)].zone).toBe(Zone.NuclearPlant);
+    expect(revived.tiles[idx96(6, 5)].zone).toBe(Zone.SolarPlant);
   });
 });
 

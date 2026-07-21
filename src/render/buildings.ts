@@ -664,6 +664,99 @@ export function drawBuilding(
     return;
   }
 
+  if (zone === Zone.SolarPlant) {
+    // low plinth under three angled panel rows catching the sky
+    box(ctx, geom, 0.8, 3, 220, 12, 28);
+    for (let k = -1; k <= 1; k++) {
+      fillPoly(
+        ctx,
+        [
+          [cx - 14 + k * 5, cy - 5 + k * 6],
+          [cx + 10 + k * 5, cy - 11 + k * 6],
+          [cx + 14 + k * 5, cy - 7 + k * 6],
+          [cx - 10 + k * 5, cy - 1 + k * 6],
+        ],
+        'hsl(215 62% 46%)',
+      );
+    }
+    return;
+  }
+
+  if (zone === Zone.WindTurbine) {
+    // concrete pad, white mast, three-blade rotor
+    box(ctx, geom, 0.3, 4, 0, 0, 55);
+    ctx.strokeStyle = '#e8eaec';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 2);
+    ctx.lineTo(cx, cy - 32);
+    ctx.stroke();
+    ctx.lineWidth = 1.5;
+    for (const a of [Math.PI / 2, Math.PI / 2 + (2 * Math.PI) / 3, Math.PI / 2 + (4 * Math.PI) / 3]) {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 32);
+      ctx.lineTo(cx + Math.cos(a) * 11, cy - 32 - Math.sin(a) * 11);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#d23b30';
+    ctx.fillRect(cx - 1.5, cy - 33.5, 3, 3);
+    return;
+  }
+
+  if (zone === Zone.HydroPlant) {
+    // blue powerhouse with twin penstocks and a spill of white water
+    box(ctx, geom, 0.7, 14, 210, 48, 38);
+    ctx.strokeStyle = '#9fb2c2';
+    ctx.lineWidth = 3;
+    for (const dx of [-5, 3]) {
+      ctx.beginPath();
+      ctx.moveTo(cx + dx, cy - 14);
+      ctx.lineTo(cx + dx + 6, cy + 2);
+      ctx.stroke();
+    }
+    fillPoly(
+      ctx,
+      [
+        [cx + 2, cy + 2],
+        [cx + 12, cy + 6],
+        [cx + 4, cy + 8],
+      ],
+      'rgba(210, 235, 250, 0.85)',
+    );
+    return;
+  }
+
+  if (zone === Zone.NuclearPlant) {
+    // pale reactor hall beside the waisted cooling tower and its steam
+    box(ctx, geom, 0.8, 11, 45, 8, 60);
+    fillPoly(
+      ctx,
+      [
+        [cx + 7, cy - 1],
+        [cx + 19, cy - 1],
+        [cx + 16, cy - 15],
+        [cx + 10, cy - 15],
+      ],
+      '#c3c8c5',
+    );
+    fillPoly(
+      ctx,
+      [
+        [cx + 10, cy - 15],
+        [cx + 16, cy - 15],
+        [cx + 18, cy - 25],
+        [cx + 8, cy - 25],
+      ],
+      '#d7dcd9',
+    );
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath();
+    ctx.arc(cx + 13, cy - 29, 4, 0, Math.PI * 2);
+    ctx.arc(cx + 17, cy - 32, 3, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+
   if (zone === Zone.PowerLine) {
     drawPole(ctx, cx, cy);
     return;
