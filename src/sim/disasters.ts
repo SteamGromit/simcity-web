@@ -101,10 +101,12 @@ export function rubbleMonthly(city: CityState): void {
 /** Monthly pandemic toll: demand craters and uncovered homes empty out. */
 export function pandemicMonthly(city: CityState, rand: () => number): void {
   if (city.disasters.pandemicMonths <= 0) return;
-  city.demand.r = Math.max(-1, city.demand.r - 0.5);
+  // the Public Health Campaign blunts both the panic and the toll
+  const relief = city.ordinances.healthDrive ? 0.5 : 1;
+  city.demand.r = Math.max(-1, city.demand.r - 0.5 * relief);
   for (const t of city.tiles) {
     if (t.zone !== Zone.Residential || t.stage === 0 || t.abandoned) continue;
-    if (rand() < 0.15 * (1 - t.healthCov)) t.abandoned = true;
+    if (rand() < 0.15 * relief * (1 - t.healthCov)) t.abandoned = true;
   }
   city.disasters.pandemicMonths -= 1;
 }
@@ -113,7 +115,10 @@ export function pandemicMonthly(city: CityState, rand: () => number): void {
 export function rollForDisaster(city: CityState, rand: () => number): void {
   if (city.population < DISASTER_MIN_POP || anyDisasterActive(city)) return;
   for (const kind of Object.keys(DISASTER_ODDS) as DisasterKind[]) {
-    if (rand() < DISASTER_ODDS[kind]) {
+    let odds = DISASTER_ODDS[kind];
+    // vaccination drives make outbreaks rarer, not the weather calmer
+    if (kind === 'pandemic' && city.ordinances.healthDrive) odds /= 2;
+    if (rand() < odds) {
       spawnDisaster(city, kind, rand);
       return;
     }
