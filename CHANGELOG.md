@@ -4,6 +4,17 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.32.0] — 2026-07-21 · Transit tiers
+
+### Added
+- Transit tiers: streetcar ($400, pop 5,000), monorail ($900, pop
+  15,000), subway ($1,500, pop 30,000), and commuter rail ($2,500,
+  pop 50,000) extend the bus — wider coverage radii (7/9/11/13 vs 5)
+  and fewer cars per covered trip (0.4/0.3/0.22/0.15 vs 0.5). The
+  worse-served end of a commute bounds the ride; Fare-Free Transit now
+  halves whatever mode carries it. Stations draw grid power, show
+  coverage halos, and get distinct glyphs.
+
 ## [0.31.0] — 2026-07-21 · Tiers of energy
 
 ### Added
