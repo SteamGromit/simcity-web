@@ -28,6 +28,7 @@ import { setSkin } from './render/skins';
 import { setWeatherFx } from './render/fx';
 import { setDayNight } from './render/daynight';
 import { buildHelp, buildTipBar } from './ui/help';
+import { buildTransitWizard } from './ui/transitwizard';
 import { adviseTips } from './sim/tips';
 import { ambientLevel, createSoundPlayer, soundFor, UI_SOUNDS } from './ui/sound';
 import { createMusicPlayer } from './ui/music';
@@ -61,6 +62,7 @@ const view: ViewState = {
   line: null,
   lineTool: null,
   halo: null,
+  transitDraft: null,
 };
 let activeTool: ActiveTool = null;
 let activeDensity: Density = 1;
@@ -107,9 +109,24 @@ const music = createMusicPlayer(sound);
 
 // --- UI ---
 const query = buildQuery(uiRoot);
+/** ToolIds that now open the transit wizard instead of placing tiles. */
+const TRANSIT_LINE_TOOLS: Partial<Record<string, Zone>> = {
+  bus: Zone.BusStop,
+  streetcar: Zone.StreetcarStop,
+  monorail: Zone.MonorailStation,
+  subway: Zone.SubwayStation,
+  rail: Zone.RailTerminal,
+};
 const toolbar = buildToolbar(
   uiRoot,
   (tool) => {
+    const lineMode = tool ? TRANSIT_LINE_TOOLS[tool] : undefined;
+    if (lineMode !== undefined) {
+      toolbar.clearTool();
+      activeTool = null;
+      wizard.open(lineMode);
+      return;
+    }
     activeTool = tool;
     syncHalo();
     if (tool !== 'query') query.hide();
@@ -120,6 +137,21 @@ const toolbar = buildToolbar(
   },
   (density: Density) => {
     activeDensity = density;
+  },
+);
+const wizard = buildTransitWizard(
+  uiRoot,
+  () => city,
+  (draft) => {
+    view.transitDraft = draft;
+  },
+  () => {
+    toast('Transit line opened', 'info');
+    sound.play(UI_SOUNDS.info);
+  },
+  (msg) => {
+    toast(msg);
+    sound.play(UI_SOUNDS.error);
   },
 );
 const charts = buildCharts(uiRoot, () => city);
@@ -295,6 +327,10 @@ canvas.addEventListener('pointerdown', (e) => {
   if (e.button !== 0) return;
   const tile = renderer.pick(e.clientX, e.clientY);
   if (!tile) return;
+  if (wizard.isOpen()) {
+    wizard.clickTile(tile.x, tile.y);
+    return;
+  }
   if (activeTool === 'query') {
     query.show(city, tile.x, tile.y, e.clientX, e.clientY);
     return;
@@ -326,6 +362,7 @@ canvas.addEventListener('pointermove', (e) => {
   view.hover = tile;
   view.hoverValid = tile ? toolAllowed(activeTool, tile.x, tile.y) : true;
   syncHalo();
+  if (wizard.isOpen() && tile) wizard.hoverTile(tile.x, tile.y);
   if (rectAnchor && tile) {
     view.rect = { x0: rectAnchor.x, y0: rectAnchor.y, x1: tile.x, y1: tile.y };
   }
@@ -357,6 +394,10 @@ window.addEventListener('pointerup', (e) => {
   painting = false;
   panning = false;
   lastPainted = -1;
+});
+
+canvas.addEventListener('dblclick', () => {
+  if (wizard.isOpen()) wizard.dblClick();
 });
 
 canvas.addEventListener('wheel', (e) => {
@@ -391,6 +432,7 @@ window.addEventListener('keydown', (e) => {
       e.preventDefault();
       break;
     case 'Escape':
+      if (wizard.isOpen()) wizard.cancel();
       rectAnchor = null;
       view.rect = null;
       lineAnchor = null;

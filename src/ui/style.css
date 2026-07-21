@@ -569,3 +569,63 @@ button.detach:hover {
 .tool-float .section .detach {
   display: none;
 }
+
+/* ---- transit line wizard ---- */
+#transit-wizard {
+  position: fixed;
+  top: 90px;
+  right: 16px;
+  width: 240px;
+  padding: 10px 14px 12px;
+  z-index: 30;
+}
+#transit-wizard.hidden {
+  display: none;
+}
+#transit-wizard h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  cursor: grab;
+}
+#transit-wizard p {
+  margin: 6px 0;
+  font-size: 12px;
+  color: #c8d2de;
+}
+#transit-wizard #tw-error {
+  color: #e08a80;
+  min-height: 14px;
+}
+#tw-colors {
+  display: flex;
+  gap: 6px;
+  margin: 8px 0;
+}
+.tw-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.tw-swatch.selected {
+  border-color: #f2f5f9;
+}
+#tw-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+#tw-actions button {
+  flex: 1;
+  padding: 5px 0;
+  border-radius: 4px;
+  border: 1px solid #3b4a5e;
+  background: #2a3646;
+  color: #e8edf4;
+  cursor: pointer;
+}
+#tw-actions #tw-done {
+  background: #2f5d3f;
+}

@@ -146,6 +146,38 @@ function migrateLegacy(data: { tiles: unknown[]; disasters?: unknown }): void {
   }
 }
 
+const isPair = (p: unknown): p is [number, number] =>
+  Array.isArray(p) && p.length === 2 && p.every((n) => Number.isInteger(n));
+
+/** Transit lines revive defensively: malformed entries drop, coordinates
+ * must be integer pairs, and the mode must be a transit station zone. */
+function reviveTransitLines(raw: unknown): CityState['transitLines'] {
+  if (!Array.isArray(raw)) return [];
+  const modes = new Set([
+    Zone.BusStop,
+    Zone.StreetcarStop,
+    Zone.MonorailStation,
+    Zone.SubwayStation,
+    Zone.RailTerminal,
+  ]);
+  const out: CityState['transitLines'] = [];
+  for (const l of raw) {
+    if (!l || typeof l !== 'object') continue;
+    const line = l as Record<string, unknown>;
+    if (!modes.has(line.mode as Zone)) continue;
+    if (!Array.isArray(line.path) || !line.path.every(isPair)) continue;
+    if (!Array.isArray(line.stops) || !line.stops.every(isPair)) continue;
+    out.push({
+      id: Number.isInteger(line.id) ? (line.id as number) : out.length + 1,
+      mode: line.mode as Zone,
+      color: typeof line.color === 'string' ? line.color : '#3d6ea8',
+      path: line.path as [number, number][],
+      stops: line.stops as [number, number][],
+    });
+  }
+  return out;
+}
+
 function reviveHistory(raw: unknown): CityState['history'] {
   const empty = { pop: [], funds: [] };
   if (!raw || typeof raw !== 'object') return empty;
@@ -212,6 +244,7 @@ export function deserialize(json: string): CityState | null {
         ? data.notices.filter((n: unknown) => typeof n === 'string')
         : [],
       history: reviveHistory(data.history),
+      transitLines: reviveTransitLines(data.transitLines),
     };
   } catch {
     return null;
