@@ -1,8 +1,12 @@
 import { tilesWithin } from './grid';
 import { pollutionScaleFor } from './tiers';
-import { CityState, GRID, Zone, mapScaled } from './types';
+import { CityState, GRID, Zone } from './types';
 
-const SPREAD = mapScaled(5); // Chebyshev radius an emitter reaches, 64-era base
+// Deliberately NOT map-scaled: plumes sum across emitters, so a wider
+// radius inflates dense-district pollution quadratically (the 10-year
+// harness run saturated land value at mapScaled(5)). Pollution is local
+// physics — the per-tile 64-era balance holds by keeping it absolute.
+const SPREAD = 5; // Chebyshev radius an emitter reaches
 
 function emission(city: CityState, i: number): number {
   const t = city.tiles[i];
