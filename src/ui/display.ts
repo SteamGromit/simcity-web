@@ -95,30 +95,34 @@ export function buildDisplay(
 
   const styleList = panel.querySelector('#style-list') as HTMLElement;
   const STYLES: { id: RenderStyle; label: string; blurb: string }[] = [
-    { id: 'pixel', label: 'Pixel', blurb: 'Chunky retro sprite look — also the fastest.' },
-    { id: 'smooth', label: 'Smooth', blurb: 'Plain full-resolution drawing.' },
     {
       id: 'realistic',
       label: 'Realistic',
       blurb: 'Soft shadows, grounded walls, deep water, atmospheric haze.',
     },
+    { id: 'pixel', label: 'Pixel', blurb: 'Chunky retro sprite look — also the fastest.' },
+    { id: 'smooth', label: 'Smooth', blurb: 'Plain full-resolution drawing.' },
   ];
-  const styleButtons: HTMLButtonElement[] = [];
-  const syncStyles = () =>
-    STYLES.forEach((st, i) => styleButtons[i].classList.toggle('active', getRenderStyle() === st.id));
   for (const st of STYLES) {
-    const b = document.createElement('button');
-    b.textContent = st.label;
-    b.title = st.blurb;
-    b.addEventListener('click', () => {
-      setRenderStyle(st.id);
-      syncStyles();
-      onToggle();
+    const row = document.createElement('label');
+    row.className = 'ordinance style-radio';
+    row.title = st.blurb;
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'renderstyle';
+    radio.value = st.id;
+    radio.checked = getRenderStyle() === st.id;
+    radio.addEventListener('change', () => {
+      if (radio.checked) {
+        setRenderStyle(st.id);
+        onToggle();
+      }
     });
-    styleButtons.push(b);
-    styleList.appendChild(b);
+    const span = document.createElement('span');
+    span.textContent = st.label;
+    row.append(radio, span);
+    styleList.appendChild(row);
   }
-  syncStyles();
 
   const seasonsBox = panel.querySelector('#seasons-box') as HTMLInputElement;
   seasonsBox.checked = getSeasonFx();

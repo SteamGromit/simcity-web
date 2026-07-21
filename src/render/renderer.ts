@@ -15,7 +15,8 @@ import {
 import { ELEV_PX, TileGeom, isoToScreen, screenToIso, setViewAngle, tileDepth, tileGeom } from './iso';
 import { DisasterFx } from './disasterfx';
 import { OverlayId, drawOverlay } from './overlays';
-import { getDayNight, nightFactor, nightTint } from './daynight';
+import { darknessAlpha, getDayNight, nightFactor, nightTint } from './daynight';
+import { isPlant } from '../sim/energy';
 import { groundShade } from './terrainshade';
 import { detailLevel } from './detail';
 import { drawLineVehicles } from './linevehicles';
@@ -251,13 +252,15 @@ export class Renderer {
     if (view.overlay) drawOverlay(ctx, city, view.overlay);
 
     if (this.night > 0.02) {
-      // night wash in screen space; the cursor is drawn above it so it
-      // stays readable after dark
+      // dim ambient wash everywhere, then deep darkness that street
+      // and building light punches through — settled areas glow, the
+      // wilds go properly black
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = nightTint(this.night);
       ctx.fillRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
       ctx.restore();
+      this.drawDarkness(city, dpr);
     }
 
     if (city.disasters.tornado) {
@@ -533,6 +536,84 @@ export class Renderer {
       tree(this.ctx, geom.cx + 5 - v * 4, geom.cy + 2 + v * 3, wind);
       tree(this.ctx, geom.cx - 2 + v * 3, geom.cy - 8 + v * 2, wind);
     }
+  }
+
+  /** Cached radial glow sprite; drawn with destination-out to punch
+   * light through the darkness layer. */
+  private glowSprite: HTMLCanvasElement | null = null;
+  private darkLayer: HTMLCanvasElement | null = null;
+
+  private ensureGlow(): HTMLCanvasElement {
+    if (this.glowSprite) return this.glowSprite;
+    const c = document.createElement('canvas');
+    c.width = 64;
+    c.height = 64;
+    const g = c.getContext('2d')!;
+    const grad = g.createRadialGradient(32, 32, 2, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.55, 'rgba(255,255,255,0.55)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 64, 64);
+    this.glowSprite = c;
+    return c;
+  }
+
+  /** Radius (world px) a tile's lights throw, or 0 for darkness. */
+  private lightRadius(t: CityState['tiles'][number]): number {
+    if (t.zone === Zone.Road) return 24; // streetlights line every road
+    if (t.zone === Zone.None) return 0;
+    if (t.abandoned || !t.powered) return 0; // dark windows, dark lot
+    if (
+      t.zone === Zone.Residential ||
+      t.zone === Zone.Commercial ||
+      t.zone === Zone.Industrial
+    ) {
+      return t.stage > 0 ? 18 + t.stage * 5 : 0;
+    }
+    if (t.zone === Zone.PowerLine || t.zone === Zone.WaterPipe || t.zone === Zone.Park) return 0;
+    if (isPlant(t.zone)) return 40; // plants run lit all night
+    return 26; // civic buildings and stations keep their lights on
+  }
+
+  /** Deep-night darkness with light punched out of settled areas. */
+  private drawDarkness(city: CityState, dpr: number) {
+    const target = this.ctx.canvas;
+    if (!this.darkLayer) this.darkLayer = document.createElement('canvas');
+    if (this.darkLayer.width !== target.width) this.darkLayer.width = target.width;
+    if (this.darkLayer.height !== target.height) this.darkLayer.height = target.height;
+    const d = this.darkLayer.getContext('2d')!;
+    d.setTransform(1, 0, 0, 1, 0, 0);
+    d.globalCompositeOperation = 'source-over';
+    d.clearRect(0, 0, this.darkLayer.width, this.darkLayer.height);
+    d.fillStyle = `rgba(6, 9, 22, ${darknessAlpha(this.night).toFixed(3)})`;
+    d.fillRect(0, 0, this.darkLayer.width, this.darkLayer.height);
+
+    // same camera transform the scene used, so glows land on their tiles
+    d.setTransform(
+      this.camera.zoom * dpr,
+      0,
+      0,
+      this.camera.zoom * dpr,
+      -this.camera.x * this.camera.zoom * dpr,
+      -this.camera.y * this.camera.zoom * dpr,
+    );
+    d.globalCompositeOperation = 'destination-out';
+    const glow = this.ensureGlow();
+    for (let i = 0; i < city.tiles.length; i++) {
+      const r = this.lightRadius(city.tiles[i]);
+      if (r === 0) continue;
+      const x = i % GRID;
+      const y = (i / GRID) | 0;
+      const g = tileGeom(x, y, city.tiles[i].elevation);
+      d.drawImage(glow, g.cx - r, g.cy - r, r * 2, r * 2);
+    }
+
+    const { ctx } = this;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(this.darkLayer, 0, 0);
+    ctx.restore();
   }
 
   /** Stroke a tile-center polyline; segments over water go dashed. */
