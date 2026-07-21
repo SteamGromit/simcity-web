@@ -199,6 +199,8 @@ export class Renderer {
       this.automata.drawTile(ctx, i);
     }
 
+    this.drawTransitLines(city, view);
+
     if (view.overlay) drawOverlay(ctx, city, view.overlay);
 
     if (this.night > 0.02) {
@@ -458,6 +460,60 @@ export class Renderer {
       tree(this.ctx, geom.cx - 9 + v * 6, geom.cy - 3, wind);
       tree(this.ctx, geom.cx + 5 - v * 4, geom.cy + 2 + v * 3, wind);
       tree(this.ctx, geom.cx - 2 + v * 3, geom.cy - 8 + v * 2, wind);
+    }
+  }
+
+  /** Stroke a tile-center polyline; segments over water go dashed. */
+  private strokeSegments(
+    pts: [number, number][],
+    city: CityState,
+    color: string,
+    alpha: number,
+  ) {
+    const { ctx } = this;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    for (let k = 0; k + 1 < pts.length; k++) {
+      const [x0, y0] = pts[k];
+      const [x1, y1] = pts[k + 1];
+      const a = tileGeom(x0, y0, city.tiles[idx(x0, y0)].elevation);
+      const b = tileGeom(x1, y1, city.tiles[idx(x1, y1)].elevation);
+      const wet =
+        city.tiles[idx(x0, y0)].terrain === Terrain.Water ||
+        city.tiles[idx(x1, y1)].terrain === Terrain.Water;
+      ctx.setLineDash(wet ? [4, 4] : []);
+      ctx.beginPath();
+      ctx.moveTo(a.cx, a.cy);
+      ctx.lineTo(b.cx, b.cy);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  /** Finalized transit lines plus the wizard's live draft. */
+  private drawTransitLines(city: CityState, view: ViewState) {
+    for (const line of city.transitLines) {
+      this.strokeSegments(line.path, city, line.color, 0.8);
+    }
+    const d = view.transitDraft;
+    if (!d) return;
+    this.strokeSegments(d.path, city, d.color, 0.9);
+    if (d.pending) this.strokeSegments(d.pending, city, d.color, 0.4);
+    for (const [sx, sy] of d.stops) {
+      const g = tileGeom(sx, sy, city.tiles[idx(sx, sy)].elevation);
+      this.ctx.strokeStyle = '#f2f5f9';
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+      this.ctx.arc(g.cx, g.cy, 6, 0, TAU);
+      this.ctx.stroke();
+      this.ctx.strokeStyle = d.color;
+      this.ctx.beginPath();
+      this.ctx.arc(g.cx, g.cy, 4, 0, TAU);
+      this.ctx.stroke();
     }
   }
 
