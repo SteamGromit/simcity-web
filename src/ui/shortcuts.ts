@@ -47,6 +47,23 @@ export const OVERLAY_KEY_OF: Partial<Record<OverlayId, string>> = Object.fromEnt
   Object.entries(OVERLAY_KEYS).map(([k, id]) => [id, `⇧${k.toUpperCase()}`]),
 );
 
+/** Tools that drag out an adjustable 4-connected line (press, aim, release). */
+export const LINE_TOOLS: Set<ToolId> = new Set<ToolId>(['road', 'line', 'pipe']);
+
+/** Tools that drag out a filled rectangle rather than painting tile by tile. */
+export const RECT_TOOLS: Set<ToolId> = new Set<ToolId>([
+  'zoneR',
+  'zoneC',
+  'zoneI',
+  'park',
+  'bulldoze',
+  'terraWater',
+  'terraForest',
+  'terraGrass',
+  'terraRaise',
+  'terraLower',
+]);
+
 /**
  * True when a keydown's target is a form control that owns keystrokes
  * (focused slider, text field, dropdown) — global game keys must not fire.

@@ -127,7 +127,7 @@ simulation in your favor.
 
 | Control | Action |
 | --- | --- |
-| Left click / drag | apply tool (zones, parks, bulldoze drag rectangles; roads draw an adjustable line) |
+| Left click / drag | apply tool (zones, parks, bulldoze drag rectangles; roads, power lines, and pipes draw an adjustable line) |
 | Tool keys | B bulldoze · R road · 1/2/3 zones · P plant · L line · K park · F/V/S/D services · U bus · W/X water · I query |
 | ⇧ + key | data-view shortcuts: ⇧P power, ⇧O pollution, ⇧L land value, ⇧T traffic, ⇧F fire, ⇧V police, ⇧S school, ⇧H health, ⇧W water |
 | Minimap click | jump the camera |

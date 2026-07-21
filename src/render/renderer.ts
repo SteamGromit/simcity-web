@@ -1,6 +1,6 @@
 import { idx, inBounds, neighbors4 } from '../sim/grid';
 import { mulberry32 } from '../sim/city';
-import { CityState, GRID, MAX_ELEV, Terrain, Zone } from '../sim/types';
+import { CityState, GRID, MAX_ELEV, Terrain, ToolId, Zone } from '../sim/types';
 import { Automata } from './automata';
 import {
   drawBuilding,
@@ -25,8 +25,10 @@ export interface ViewState {
   overlay: OverlayId | null;
   /** Pending rectangle selection (zone/park/bulldoze drag), inclusive corners. */
   rect: { x0: number; y0: number; x1: number; y1: number } | null;
-  /** Pending road line (adjustable until released). */
+  /** Pending drag line (adjustable until released). */
   line: [number, number][] | null;
+  /** Tool the pending line will build (road / power line / pipe). */
+  lineTool: ToolId | null;
 }
 
 const TAU = Math.PI * 2;
@@ -236,8 +238,10 @@ export class Renderer {
     }
 
     if (view.line) {
+      const tint =
+        view.lineTool === 'pipe' ? 'rgba(120,180,255,0.35)' : 'rgba(255,235,150,0.35)';
       for (const [x, y] of view.line) {
-        fillTile(ctx, tileGeom(x, y, elevOf(x, y)), 'rgba(255,235,150,0.35)');
+        fillTile(ctx, tileGeom(x, y, elevOf(x, y)), tint);
       }
     }
 

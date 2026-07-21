@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
-import { GRID, START_FUNDS, Zone } from '../src/sim/types';
-import { applyTool, mulberry32, newCity, simTick } from '../src/sim/city';
+import { GRID, START_FUNDS, Zone, COSTS } from '../src/sim/types';
+import { applyTool, applyToolLine, mulberry32, newCity, simTick } from '../src/sim/city';
 import { deserialize, serialize } from '../src/sim/save';
 import { clearLand } from './helpers';
 
@@ -205,5 +205,68 @@ describe('save round-trip', () => {
     const rand = mulberry32(1);
     for (let i = 0; i < 20; i++) simTick(city!, rand);
     expect(Number.isFinite(city!.funds)).toBe(true);
+  });
+});
+
+describe('applyToolLine', () => {
+  test('builds a run of power lines and pays per tile', () => {
+    const city = newFlatCity(7);
+    const line: [number, number][] = [
+      [2, 2],
+      [3, 2],
+      [4, 2],
+    ];
+    const res = applyToolLine(city, 'line', line);
+    expect(res).toEqual({ applied: 3, brokeFunds: false });
+    for (const [x, y] of line) expect(city.tiles[idx(x, y)].zone).toBe(Zone.PowerLine);
+    expect(city.funds).toBe(START_FUNDS - 3 * COSTS.line);
+  });
+
+  test('wires and pipes cross roads as flags, not replacements', () => {
+    const city = newFlatCity(7);
+    applyTool(city, 'road', 3, 2);
+    applyToolLine(city, 'line', [
+      [2, 2],
+      [3, 2],
+      [4, 2],
+    ]);
+    expect(city.tiles[idx(3, 2)].zone).toBe(Zone.Road);
+    expect(city.tiles[idx(3, 2)].wire).toBe(true);
+    expect(city.tiles[idx(2, 2)].zone).toBe(Zone.PowerLine);
+
+    applyTool(city, 'road', 5, 5);
+    applyToolLine(city, 'pipe', [
+      [4, 5],
+      [5, 5],
+      [6, 5],
+    ]);
+    expect(city.tiles[idx(5, 5)].zone).toBe(Zone.Road);
+    expect(city.tiles[idx(5, 5)].pipe).toBe(true);
+    expect(city.tiles[idx(6, 5)].zone).toBe(Zone.WaterPipe);
+  });
+
+  test('reports brokeFunds and partial count when money runs out', () => {
+    const city = newFlatCity(7);
+    city.funds = COSTS.line * 2 + 1; // afford exactly two tiles
+    const res = applyToolLine(city, 'line', [
+      [1, 1],
+      [2, 1],
+      [3, 1],
+      [4, 1],
+    ]);
+    expect(res.applied).toBe(2);
+    expect(res.brokeFunds).toBe(true);
+  });
+
+  test('skips occupied tiles without flagging funds trouble', () => {
+    const city = newFlatCity(7);
+    applyTool(city, 'zoneR', 2, 8);
+    const res = applyToolLine(city, 'line', [
+      [1, 8],
+      [2, 8],
+      [3, 8],
+    ]);
+    expect(res).toEqual({ applied: 2, brokeFunds: false });
+    expect(city.tiles[idx(2, 8)].zone).toBe(Zone.Residential);
   });
 });

@@ -3,8 +3,10 @@ import { roadLine } from '../src/sim/grid';
 import {
   clampDensity,
   isFormControl,
+  LINE_TOOLS,
   OVERLAY_KEY_OF,
   OVERLAY_KEYS,
+  RECT_TOOLS,
   RESERVED_KEYS,
   TOOL_KEYS,
 } from '../src/ui/shortcuts';
@@ -120,5 +122,30 @@ describe('clampDensity', () => {
     expect(clampDensity(undefined)).toBe(1);
     expect(clampDensity('9')).toBe(1);
     expect(clampDensity('abc')).toBe(1);
+  });
+});
+
+describe('LINE_TOOLS / RECT_TOOLS', () => {
+  test('road, power line, and pipe drag as adjustable lines', () => {
+    expect([...LINE_TOOLS].sort()).toEqual(['line', 'pipe', 'road']);
+  });
+
+  test('every tool has at most one drag interaction', () => {
+    for (const t of LINE_TOOLS) expect(RECT_TOOLS.has(t)).toBe(false);
+  });
+
+  test('rect tools are the zoning/terraforming area tools', () => {
+    expect([...RECT_TOOLS].sort()).toEqual([
+      'bulldoze',
+      'park',
+      'terraForest',
+      'terraGrass',
+      'terraLower',
+      'terraRaise',
+      'terraWater',
+      'zoneC',
+      'zoneI',
+      'zoneR',
+    ]);
   });
 });
