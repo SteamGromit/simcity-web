@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { TRANSIT_SPECS, TRANSIT_ZONES, isTransit, transitUnlocked } from '../src/sim/transit';
 import { deserialize, serialize } from '../src/sim/save';
+import { applyTool } from '../src/sim/city';
+import { updatePower } from '../src/sim/power';
 import { updateCoverage } from '../src/sim/services';
 import { updateTraffic } from '../src/sim/traffic';
 import { Zone } from '../src/sim/types';
@@ -106,6 +108,31 @@ describe('transit coverage and traffic', () => {
     updateCoverage(city);
     updateTraffic(city);
     expect(city.tiles[idx96(7, 6)].traffic).toBeCloseTo(0.11, 5);
+  });
+});
+
+describe('transit placement and power', () => {
+  it('rejects a locked station with the unlock population', () => {
+    const city = makeCity();
+    clearLand(city);
+    city.funds = 100000;
+    city.population = 29999;
+    expect(applyTool(city, 'subway', 10, 10).err).toMatch(/unlocks at population/);
+    city.population = 30000;
+    expect(applyTool(city, 'subway', 10, 10).ok).toBe(true);
+    expect(city.tiles[idx96(10, 10)].zone).toBe(Zone.SubwayStation);
+  });
+
+  it('stations draw from the plant pool like any service building', () => {
+    const city = makeCity();
+    clearLand(city);
+    city.tiles[idx96(0, 0)].zone = Zone.WindTurbine;
+    city.tiles[idx96(1, 0)].zone = Zone.SubwayStation;
+    for (let x = 2; x <= 51; x++) city.tiles[idx96(x, 0)].zone = Zone.Residential;
+    updatePower(city);
+    // 51 consumers against a 50-tile pool: the farthest goes dark
+    expect(city.brownouts).toBe(1);
+    expect(city.tiles[idx96(51, 0)].powered).toBe(false);
   });
 });
 
