@@ -121,8 +121,12 @@ describe('terrain rules', () => {
 
 describe('terrain density at 96×96', () => {
   // Feature counts scale with area; loose floors so seeds can't flake.
+  // Seeds 163 and 198 are guard seeds: without the AREA_SCALE multiplier in
+  // generateTerrain, their forest counts (55 and 56) fall below the floor
+  // below, so they're the ones that actually catch a regression if the
+  // scaling is ever removed. Seeds 2, 3, 5 pass either way.
   test('temperate maps keep their feature density on the bigger grid', () => {
-    for (const seed of [2, 3, 5]) {
+    for (const seed of [2, 3, 5, 163, 198]) {
       const city = newCity(seed);
       if (city.biome !== 'temperate') continue;
       const water = city.tiles.filter((t) => t.terrain === Terrain.Water).length;
