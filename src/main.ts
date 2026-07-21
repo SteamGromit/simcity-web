@@ -15,7 +15,14 @@ import { buildMinimap } from './ui/minimap';
 import { buildCityHall } from './ui/cityhall';
 import { buildDisplay } from './ui/display';
 import { makeDraggable } from './ui/drag';
-import { isFormControl, LINE_TOOLS, OVERLAY_KEYS, RECT_TOOLS, TOOL_KEYS } from './ui/shortcuts';
+import {
+  HALO_RADII,
+  isFormControl,
+  LINE_TOOLS,
+  OVERLAY_KEYS,
+  RECT_TOOLS,
+  TOOL_KEYS,
+} from './ui/shortcuts';
 import { setSkin } from './render/skins';
 import { setWeatherFx } from './render/fx';
 import { setDayNight } from './render/daynight';
@@ -52,6 +59,7 @@ const view: ViewState = {
   rect: null,
   line: null,
   lineTool: null,
+  halo: null,
 };
 let activeTool: ActiveTool = null;
 let activeDensity: Density = 1;
@@ -102,6 +110,7 @@ const toolbar = buildToolbar(
   uiRoot,
   (tool) => {
     activeTool = tool;
+    syncHalo();
     if (tool !== 'query') query.hide();
     if (tool) sound.play(UI_SOUNDS.select);
   },
@@ -232,6 +241,12 @@ function toolAllowed(tool: ActiveTool, x: number, y: number): boolean {
   return canApply(city, tool, x, y, activeDensity);
 }
 
+/** Show the coverage footprint while a service tool hovers the map. */
+function syncHalo() {
+  const radius = activeTool && activeTool !== 'query' ? HALO_RADII[activeTool] : undefined;
+  view.halo = radius && view.hover ? { x: view.hover.x, y: view.hover.y, radius } : null;
+}
+
 let painting = false;
 let lastPainted = -1;
 let rectAnchor: { x: number; y: number } | null = null;
@@ -309,6 +324,7 @@ canvas.addEventListener('pointermove', (e) => {
   const tile = renderer.pick(e.clientX, e.clientY);
   view.hover = tile;
   view.hoverValid = tile ? toolAllowed(activeTool, tile.x, tile.y) : true;
+  syncHalo();
   if (rectAnchor && tile) {
     view.rect = { x0: rectAnchor.x, y0: rectAnchor.y, x1: tile.x, y1: tile.y };
   }

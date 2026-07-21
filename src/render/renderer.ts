@@ -1,4 +1,4 @@
-import { idx, inBounds, neighbors4 } from '../sim/grid';
+import { idx, inBounds, neighbors4, tilesWithin } from '../sim/grid';
 import { mulberry32 } from '../sim/city';
 import { CityState, GRID, MAX_ELEV, Terrain, ToolId, Zone } from '../sim/types';
 import { Automata } from './automata';
@@ -29,6 +29,8 @@ export interface ViewState {
   line: [number, number][] | null;
   /** Tool the pending line will build (road / power line / pipe). */
   lineTool: ToolId | null;
+  /** Coverage footprint preview while placing a service building. */
+  halo: { x: number; y: number; radius: number } | null;
 }
 
 const TAU = Math.PI * 2;
@@ -228,6 +230,15 @@ export class Renderer {
     this.disasterFx.drawScreen(ctx, city, now);
 
     const elevOf = (x: number, y: number) => city.tiles[idx(x, y)].elevation;
+    if (view.halo) {
+      const { x: hx, y: hy, radius } = view.halo;
+      for (const [nx, ny] of tilesWithin(hx, hy, radius)) {
+        const d = Math.max(Math.abs(nx - hx), Math.abs(ny - hy));
+        const cov = 1 - d / (radius + 1);
+        // same tint the coverage data views use for covered tiles
+        fillTile(ctx, tileGeom(nx, ny, elevOf(nx, ny)), `rgba(80,220,100,${0.15 + 0.4 * cov})`);
+      }
+    }
     if (view.rect) {
       const { x0, y0, x1, y1 } = view.rect;
       for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) {
