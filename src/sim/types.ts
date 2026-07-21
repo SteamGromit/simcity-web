@@ -16,6 +16,11 @@ export enum Zone {
   BusStop,
   WaterPump,
   WaterPipe,
+  // appended for save compatibility — energy tiers (v0.31)
+  SolarPlant,
+  WindTurbine,
+  HydroPlant,
+  NuclearPlant,
 }
 
 export type Stage = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -167,6 +172,8 @@ export interface CityState {
   jobs: number;
   /** Share of developed R tiles with school coverage, 0..1. Gates high-tech. */
   eduLevel: number;
+  /** Consumers denied power last tick because the plant pool ran dry. */
+  brownouts: number;
   lastBudget: BudgetReport;
   /** Enacted city policies; each charges monthly and tweaks the sim. */
   ordinances: Record<OrdinanceId, boolean>;
@@ -209,6 +216,10 @@ export type ToolId =
   | 'bus'
   | 'pump'
   | 'pipe'
+  | 'solar'
+  | 'wind'
+  | 'hydro'
+  | 'nuclear'
   | 'terraWater'
   | 'terraForest'
   | 'terraGrass'
@@ -231,6 +242,10 @@ export const COSTS: Record<ToolId, number> = {
   bus: 150,
   pump: 300,
   pipe: 5,
+  solar: 2500,
+  wind: 1200,
+  hydro: 5000,
+  nuclear: 12000,
   terraWater: 25,
   terraForest: 10,
   terraGrass: 5,

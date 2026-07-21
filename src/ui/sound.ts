@@ -24,6 +24,11 @@ const TOOL_SOUNDS: Record<ToolId, SoundSpec> = {
   bus: { wave: 'triangle', freq: 380, freqEnd: 300, dur: 0.12, vol: 0.45 },
   pump: { wave: 'triangle', freq: 220, freqEnd: 160, dur: 0.18, vol: 0.5 },
   pipe: { wave: 'sine', freq: 340, freqEnd: 300, dur: 0.05, vol: 0.3 },
+  // plant family: same low thunk as coal, pitched apart per source
+  solar: { wave: 'triangle', freq: 90, freqEnd: 55, dur: 0.3, vol: 0.65 },
+  wind: { wave: 'triangle', freq: 110, freqEnd: 70, dur: 0.25, vol: 0.6 },
+  hydro: { wave: 'triangle', freq: 80, freqEnd: 45, dur: 0.32, vol: 0.68 },
+  nuclear: { wave: 'triangle', freq: 60, freqEnd: 35, dur: 0.4, vol: 0.75 },
   terraWater: { wave: 'noise', freq: 0, dur: 0.18, vol: 0.35 },
   terraForest: { wave: 'noise', freq: 0, dur: 0.13, vol: 0.25 },
   terraGrass: { wave: 'noise', freq: 0, dur: 0.1, vol: 0.2 },

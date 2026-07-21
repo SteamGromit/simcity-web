@@ -18,6 +18,10 @@ const ZONE_NAMES: Record<Zone, string> = {
   [Zone.BusStop]: 'Bus Stop',
   [Zone.WaterPump]: 'Water Pump',
   [Zone.WaterPipe]: 'Water Pipe',
+  [Zone.SolarPlant]: 'Solar Farm',
+  [Zone.WindTurbine]: 'Wind Turbine',
+  [Zone.HydroPlant]: 'Hydro Plant',
+  [Zone.NuclearPlant]: 'Nuclear Plant',
 };
 
 export function buildQuery(root: HTMLElement) {
