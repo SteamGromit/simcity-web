@@ -465,6 +465,16 @@ export function drawPole(ctx: CanvasRenderingContext2D, cx: number, cy: number) 
   ctx.stroke();
 }
 
+/** Soft ground shadow: the footprint diamond nudged SE. The sun is fixed
+ * in screen space, so shadows swing with camera rotation — an accepted
+ * stylization that keeps every frame consistent. */
+export function drawShadow(ctx: CanvasRenderingContext2D, geom: TileGeom, f: number) {
+  const pts = geom.corners.map(
+    ([px, py]) => [geom.cx + (px - geom.cx) * f + 5, geom.cy + (py - geom.cy) * f + 3] as Pt,
+  );
+  fillPoly(ctx, pts, 'rgba(20, 24, 18, 0.30)');
+}
+
 /** Yellow "no power" bolt centered at (bx, by). */
 export function drawNoPowerBolt(ctx: CanvasRenderingContext2D, bx: number, by: number) {
   ctx.fillStyle = '#ffd23f';
@@ -658,6 +668,7 @@ export function drawBuilding(
   }
 
   if (zone === Zone.PowerPlant) {
+    drawShadow(ctx, geom, 0.85);
     box(ctx, geom, 0.85, 20, 15, 12, 38);
     smokestack(ctx, cx - 16, cy - 16, 22);
     smokestack(ctx, cx - 4, cy - 16, 26);
@@ -666,6 +677,7 @@ export function drawBuilding(
 
   if (zone === Zone.SolarPlant) {
     // low plinth under three angled panel rows catching the sky
+    drawShadow(ctx, geom, 0.8);
     box(ctx, geom, 0.8, 3, 220, 12, 28);
     for (let k = -1; k <= 1; k++) {
       fillPoly(
@@ -684,6 +696,7 @@ export function drawBuilding(
 
   if (zone === Zone.WindTurbine) {
     // concrete pad, white mast, three-blade rotor
+    drawShadow(ctx, geom, 0.3);
     box(ctx, geom, 0.3, 4, 0, 0, 55);
     ctx.strokeStyle = '#e8eaec';
     ctx.lineWidth = 2;
@@ -705,6 +718,7 @@ export function drawBuilding(
 
   if (zone === Zone.HydroPlant) {
     // blue powerhouse with twin penstocks and a spill of white water
+    drawShadow(ctx, geom, 0.7);
     box(ctx, geom, 0.7, 14, 210, 48, 38);
     ctx.strokeStyle = '#9fb2c2';
     ctx.lineWidth = 3;
@@ -728,6 +742,7 @@ export function drawBuilding(
 
   if (zone === Zone.NuclearPlant) {
     // pale reactor hall beside the waisted cooling tower and its steam
+    drawShadow(ctx, geom, 0.8);
     box(ctx, geom, 0.8, 11, 45, 8, 60);
     fillPoly(
       ctx,
@@ -764,6 +779,7 @@ export function drawBuilding(
 
   if (zone === Zone.WaterPump) {
     // squat blue pumphouse with an intake stack
+    drawShadow(ctx, geom, 0.6);
     box(ctx, geom, 0.6, 12, 210, 45, 45);
     ctx.fillStyle = '#7fb3d8';
     ctx.fillRect(cx - 3, cy - 24, 6, 12);
@@ -790,6 +806,7 @@ export function drawBuilding(
 
   if (zone === Zone.BusStop) {
     // small teal shelter with a stop-sign post
+    drawShadow(ctx, geom, 0.45);
     box(ctx, geom, 0.45, 7, 178, 40, 42);
     ctx.strokeStyle = '#cfd6d4';
     ctx.lineWidth = 1.5;
@@ -805,6 +822,7 @@ export function drawBuilding(
 
   if (zone === Zone.StreetcarStop) {
     // teal shelter under a catenary pole and its contact wire
+    drawShadow(ctx, geom, 0.5);
     box(ctx, geom, 0.5, 8, 178, 42, 44);
     ctx.strokeStyle = '#cfd6d4';
     ctx.lineWidth = 1.5;
@@ -825,6 +843,7 @@ export function drawBuilding(
 
   if (zone === Zone.MonorailStation) {
     // concrete pylon carrying a beam with a white car parked on it
+    drawShadow(ctx, geom, 0.5);
     box(ctx, geom, 0.5, 6, 178, 30, 46);
     ctx.fillStyle = '#9aa0a2';
     ctx.fillRect(cx - 2, cy - 22, 4, 20);
@@ -847,6 +866,7 @@ export function drawBuilding(
 
   if (zone === Zone.SubwayStation) {
     // stair kiosk descending underground, lit M sign on a post
+    drawShadow(ctx, geom, 0.5);
     box(ctx, geom, 0.5, 7, 220, 18, 38);
     ctx.fillStyle = '#1e2226';
     fillPoly(
@@ -876,6 +896,7 @@ export function drawBuilding(
 
   if (zone === Zone.RailTerminal) {
     // brick terminal hall with a white clock face on the gable
+    drawShadow(ctx, geom, 0.8);
     box(ctx, geom, 0.8, 16, 12, 45, 40);
     fillPoly(
       ctx,
@@ -916,6 +937,7 @@ export function drawBuilding(
           : zone === Zone.Hospital
             ? { h: 22, f: 0.82, hue: 190, sat: 12, lit: 68 }
             : { h: 12, f: 0.85, hue: 45, sat: 42, lit: 56 };
+    drawShadow(ctx, geom, style.f);
     const { faces } = box(ctx, geom, style.f, style.h, style.hue, style.sat, style.lit);
     // white service band across the visible walls
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';
@@ -981,6 +1003,7 @@ export function drawBuilding(
     sat = 6;
     lit = 32;
   }
+  drawShadow(ctx, geom, footprintBudget(stage));
   const primary = drawArchetype(ctx, geom, arch, stage, zone, h, hue, sat, lit, abandoned, night, chan);
   if (primary && !abandoned) drawTierAccents(ctx, primary, zone, kind, stage, h);
   // Only smoky industry gets stacks; high-tech is clean and farms have none.
