@@ -222,10 +222,15 @@ export function createMusicPlayer(sound: { context(): AudioContext | null; muted
   let barIndex = 0;
   let timer: number | null = null;
 
+  let musicVolume = (() => {
+    const v = parseFloat(localStorage.getItem('simcity.musicvol') ?? '1');
+    return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 1;
+  })();
+
   function ensureGraph(c: AudioContext) {
     if (master) return;
     master = c.createGain();
-    master.gain.value = 0.06;
+    master.gain.value = 0.06 * musicVolume;
     master.connect(c.destination);
     noiseBuf = c.createBuffer(1, c.sampleRate, c.sampleRate);
     const data = noiseBuf.getChannelData(0);
@@ -300,6 +305,15 @@ export function createMusicPlayer(sound: { context(): AudioContext | null; muted
     update(city: CityState) {
       mood = moodFrom(city);
       setRunning(on && !sound.muted && sound.context() !== null);
+    },
+    get musicVolume() {
+      return musicVolume;
+    },
+    setMusicVolume(v: number) {
+      musicVolume = Math.max(0, Math.min(1, v));
+      localStorage.setItem('simcity.musicvol', String(musicVolume));
+      const c = sound.context();
+      if (master && c) master.gain.setTargetAtTime(0.06 * musicVolume, c.currentTime, 0.2);
     },
   };
 }

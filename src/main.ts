@@ -175,7 +175,20 @@ const cityHall = buildCityHall(
 );
 const display = buildDisplay(
   uiRoot,
-  { isOn: () => music.on, toggle: () => music.toggle() },
+  {
+    isOn: () => music.on,
+    toggle: () => music.toggle(),
+    get musicVolume() {
+      return music.musicVolume;
+    },
+    setMusicVolume: (v: number) => music.setMusicVolume(v),
+  },
+  {
+    get sfxVolume() {
+      return sound.sfxVolume;
+    },
+    setSfxVolume: (v: number) => sound.setSfxVolume(v),
+  },
   () => sound.play(UI_SOUNDS.select),
 );
 const hud = buildHud(

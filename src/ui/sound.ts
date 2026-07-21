@@ -149,15 +149,27 @@ export function createSoundPlayer() {
 
   function applyAmbient() {
     if (!ctx || !ambientGain) return;
-    const level = muted ? 0 : ambientTarget * 0.045;
+    const level = muted ? 0 : ambientTarget * 0.045 * sfxVolume;
     ambientGain.gain.setTargetAtTime(level, ctx.currentTime, 0.5);
   }
 
   const lastEvent: Partial<Record<EventId, number>> = {};
+  let sfxVolume = (() => {
+    const v = parseFloat(localStorage.getItem('simcity.sfxvol') ?? '1');
+    return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 1;
+  })();
 
   return {
     get muted() {
       return muted;
+    },
+    get sfxVolume() {
+      return sfxVolume;
+    },
+    setSfxVolume(v: number) {
+      sfxVolume = Math.max(0, Math.min(1, v));
+      localStorage.setItem('simcity.sfxvol', String(sfxVolume));
+      applyAmbient();
     },
     /** The lazily created AudioContext; null until the first play(). */
     context(): AudioContext | null {
@@ -192,7 +204,7 @@ export function createSoundPlayer() {
       applyAmbient();
 
       const gain = c.createGain();
-      gain.gain.setValueAtTime(spec.vol * 0.25, c.currentTime);
+      gain.gain.setValueAtTime(Math.max(0.001, spec.vol * 0.25 * sfxVolume), c.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + spec.dur);
       gain.connect(c.destination);
 

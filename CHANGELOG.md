@@ -4,6 +4,13 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.39.0] — 2026-07-21 · Config panel
+
+### Changed
+- The Display panel is now **Config**, and gains a Volume section:
+  an Effects slider (tool clicks, event cues, ambient hum) and a
+  Music slider, both persisted. M still mutes everything.
+
 ## [0.38.0] — 2026-07-21 · Unique businesses
 
 ### Added
