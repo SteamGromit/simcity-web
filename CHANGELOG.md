@@ -4,6 +4,18 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.38.0] — 2026-07-21 · Unique businesses
+
+### Added
+- Named homage businesses flavor about 40% of developed commercial
+  and industrial lots — Krusty Krab, Mo's Tavern, Mega Lo Mart,
+  Los Pollos Hermanos, Dunder Mifflin Paper, WKRP Radio, Cheers,
+  Trader Joe's, Bank of Simness, Massive Dynamic, Strickland
+  Propane, Wonka Candy Factory, The Bluth Company, Initech, and
+  Anthropic — matched to wealth and industry tier. Each hangs a
+  colored sign (initials lettered at close zoom), and the Query tool
+  names the business. Assignment is seeded and stable per lot.
+
 ## [0.37.0] — 2026-07-21 · Event sounds
 
 ### Added
