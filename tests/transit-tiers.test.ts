@@ -3,6 +3,7 @@ import { TRANSIT_SPECS, TRANSIT_ZONES, isTransit, transitUnlocked } from '../src
 import { deserialize, serialize } from '../src/sim/save';
 import { collectBudget } from '../src/sim/budget';
 import { applyTool } from '../src/sim/city';
+import { buildLine, rasterizePath } from '../src/sim/transitlines';
 import { updatePower } from '../src/sim/power';
 import { updateCoverage } from '../src/sim/services';
 import { updateTraffic } from '../src/sim/traffic';
@@ -114,14 +115,22 @@ describe('transit coverage and traffic', () => {
 });
 
 describe('transit placement and power', () => {
-  it('rejects a locked station with the unlock population', () => {
+  it('station tools are gone — stations arrive via the wizard/buildLine', () => {
     const city = makeCity();
     clearLand(city);
     city.funds = 100000;
-    city.population = 29999;
-    expect(applyTool(city, 'subway', 10, 10).err).toMatch(/unlocks at population/);
     city.population = 30000;
-    expect(applyTool(city, 'subway', 10, 10).ok).toBe(true);
+    expect(applyTool(city, 'subway', 10, 10).err).toBe('placed via the transit wizard');
+    const ok = buildLine(city, {
+      mode: Zone.SubwayStation,
+      color: '#3d6ea8',
+      path: rasterizePath([
+        [10, 10],
+        [13, 10],
+      ]),
+      stops: [[10, 10]],
+    });
+    expect(ok).toBe(true);
     expect(city.tiles[idx96(10, 10)].zone).toBe(Zone.SubwayStation);
   });
 

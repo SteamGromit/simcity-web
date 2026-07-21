@@ -33,6 +33,13 @@ export interface ViewState {
   lineTool: ToolId | null;
   /** Coverage footprint preview while placing a service building. */
   halo: { x: number; y: number; radius: number } | null;
+  /** Live transit-wizard preview: drawn path, stops, pending segment. */
+  transitDraft: {
+    color: string;
+    path: [number, number][];
+    stops: [number, number][];
+    pending: [number, number][] | null;
+  } | null;
 }
 
 const TAU = Math.PI * 2;

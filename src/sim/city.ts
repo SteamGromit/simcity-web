@@ -9,8 +9,7 @@ import { updateWater } from './water';
 import { pandemicMonthly, rollForDisaster, rubbleMonthly, updateDisasters } from './disasters';
 import { defaultWeather, updateWeatherMonthly } from './weather';
 import { fireRisk, updateCoverage, updateFires } from './services';
-import { PLANT_SPECS, isPlant } from './energy';
-import { TRANSIT_SPECS, isTransit } from './transit';
+import { PLANT_SPECS, isPlant, plantUnlocked } from './energy';
 import { retierMonthly, updateEducation } from './tiers';
 import { updateTraffic } from './traffic';
 import {
@@ -186,17 +185,14 @@ const TOOL_ZONE: Partial<Record<ToolId, Zone>> = {
   police: Zone.PoliceStation,
   school: Zone.School,
   hospital: Zone.Hospital,
-  bus: Zone.BusStop,
   pump: Zone.WaterPump,
   pipe: Zone.WaterPipe,
   solar: Zone.SolarPlant,
   wind: Zone.WindTurbine,
   hydro: Zone.HydroPlant,
   nuclear: Zone.NuclearPlant,
-  streetcar: Zone.StreetcarStop,
-  monorail: Zone.MonorailStation,
-  subway: Zone.SubwayStation,
-  rail: Zone.RailTerminal,
+  // transit stations have no direct tools — the wizard places them
+  // atomically via buildLine (sim/transitlines.ts)
 };
 
 export const ZONE_TOOLS: ToolId[] = ['zoneR', 'zoneC', 'zoneI'];
@@ -272,16 +268,9 @@ function validateTool(
     }
   }
   const built = TOOL_ZONE[tool];
-  if (built !== undefined) {
-    // growth-gated tools: energy plants and the transit ladder
-    const gate = isPlant(built)
-      ? PLANT_SPECS[built]!.unlockPop
-      : isTransit(built)
-        ? TRANSIT_SPECS[built]!.unlockPop
-        : 0;
-    if (city.population < gate) {
-      return `unlocks at population ${gate.toLocaleString('en-US')}`;
-    }
+  if (built === undefined) return 'placed via the transit wizard';
+  if (isPlant(built) && !plantUnlocked(built, city.population)) {
+    return `unlocks at population ${PLANT_SPECS[built]!.unlockPop.toLocaleString('en-US')}`;
   }
   if (tool === 'hydro') {
     const wet = neighbors4(x, y).some(

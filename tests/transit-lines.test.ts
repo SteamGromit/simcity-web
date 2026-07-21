@@ -91,6 +91,7 @@ describe('lineCost and buildLine', () => {
     const city = makeCity();
     clearLand(city);
     city.funds = 10000;
+    city.population = 10000; // streetcar unlocked
     const draft = {
       mode: Zone.StreetcarStop,
       color: LINE_COLORS[1],
@@ -110,6 +111,24 @@ describe('lineCost and buildLine', () => {
     expect(city.tiles[idx96(14, 10)].zone).toBe(Zone.StreetcarStop);
     expect(city.transitLines).toHaveLength(1);
     expect(city.transitLines[0].color).toBe(LINE_COLORS[1]);
+  });
+
+  it('refuses a locked mode regardless of funds', () => {
+    const city = makeCity();
+    clearLand(city);
+    city.funds = 100000;
+    city.population = 4999; // streetcar locks below 5,000
+    const ok = buildLine(city, {
+      mode: Zone.StreetcarStop,
+      color: LINE_COLORS[0],
+      path: rasterizePath([
+        [10, 10],
+        [12, 10],
+      ]),
+      stops: [[11, 10]],
+    });
+    expect(ok).toBe(false);
+    expect(city.transitLines).toHaveLength(0);
   });
 
   it('does nothing when funds are short', () => {

@@ -11,7 +11,7 @@ import { updatePower } from '../src/sim/power';
 import { updateCoverage } from '../src/sim/services';
 import { updateTraffic } from '../src/sim/traffic';
 import { collectBudget } from '../src/sim/budget';
-import { applyTool } from '../src/sim/city';
+import { buildLine, rasterizePath } from '../src/sim/transitlines';
 import { deserialize, serialize } from '../src/sim/save';
 import { adviseTips } from '../src/sim/tips';
 import { clearLand, makeCity, road, zone } from './helpers';
@@ -93,11 +93,20 @@ describe('bus stops', () => {
     expect(city.lastBudget.expenses).toBe(SERVICE_UPKEEP.bus);
   });
 
-  test('the bus tool places a stop and busCov survives a save round-trip', () => {
+  test('a bus line places its stop and busCov survives a save round-trip', () => {
     const city = makeCity();
     clearLand(city);
     city.funds = 1000;
-    expect(applyTool(city, 'bus', 20, 20).ok).toBe(true);
+    const ok = buildLine(city, {
+      mode: Zone.BusStop,
+      color: '#e05548',
+      path: rasterizePath([
+        [20, 20],
+        [23, 20],
+      ]),
+      stops: [[20, 20]],
+    });
+    expect(ok).toBe(true);
     city.tiles[idx(20, 20)].busCov = 0.7;
     const revived = deserialize(serialize(city))!;
     expect(revived.tiles[idx(20, 20)].zone).toBe(Zone.BusStop);
