@@ -40,10 +40,33 @@ decides what happens next:
 
 ## Run it
 
+You need two things installed:
+
+1. **Node.js 18 or newer** — grab the LTS installer from
+   [nodejs.org](https://nodejs.org). (Works on macOS 10.15+ — a
+   2013-era MacBook Pro is fine.)
+2. **A current browser** — recent Chrome or Firefox recommended.
+   Safari works from version 16 on.
+
+Get the code either way:
+
+- **Download ZIP** — on the GitHub repo page, click **Code → Download
+  ZIP**, then unzip it (no git needed), or
+- **Clone** — `git clone <repo URL>` if you have git set up.
+
+Then, in Terminal, from inside the project folder:
+
 ```sh
-npm install
-npm run dev      # open the printed localhost URL
+npm install      # one time, downloads dependencies
+npm run dev      # starts the game server
 ```
+
+Open the printed `http://localhost:5173` URL in your browser. That's
+it — the game runs entirely locally.
+
+On older machines: if the frame rate dips, open the **Display** panel
+and turn off weather effects (day/night lighting is already off by
+default).
 
 `npm test` runs the simulation's unit suite; `npm run build` makes a
 production bundle.

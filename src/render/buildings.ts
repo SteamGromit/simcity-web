@@ -831,9 +831,14 @@ export function drawBuilding(
     ctx.fillStyle = '#7d8486';
     ctx.fillRect(cx - 14, cy - 24, 28, 3);
     ctx.fillStyle = '#e8ecee';
-    ctx.beginPath();
-    ctx.roundRect(cx - 10, cy - 32, 20, 8, 3);
-    ctx.fill();
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(cx - 10, cy - 32, 20, 8, 3);
+      ctx.fill();
+    } else {
+      // Safari ≤ 15 (pre-2022 Macs) has no roundRect; square car is fine
+      ctx.fillRect(cx - 10, cy - 32, 20, 8);
+    }
     ctx.fillStyle = '#3f8f8a';
     ctx.fillRect(cx - 7, cy - 30, 14, 2.5);
     if (!powered) drawNoPowerBolt(ctx, cx, cy - 38);
