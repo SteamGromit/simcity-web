@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
-import { BUS_TRAFFIC_SHARE, ROAD_CAPACITY, SERVICE_UPKEEP, Zone } from '../src/sim/types';
+import {
+  BUS_TRAFFIC_SHARE,
+  ROAD_CAPACITY,
+  SERVICE_RADII,
+  SERVICE_UPKEEP,
+  Zone,
+} from '../src/sim/types';
 import { updatePower } from '../src/sim/power';
 import { updateCoverage } from '../src/sim/services';
 import { updateTraffic } from '../src/sim/traffic';
@@ -57,7 +63,7 @@ describe('bus stops', () => {
     updateCoverage(city);
     expect(city.tiles[idx(20, 20)].busCov).toBeCloseTo(1, 5);
     expect(city.tiles[idx(20, 23)].busCov).toBeGreaterThan(0);
-    expect(city.tiles[idx(20, 28)].busCov).toBe(0);
+    expect(city.tiles[idx(20, 20 + SERVICE_RADII.bus + 1)].busCov).toBe(0);
   });
 
   test('coverage at both ends puts fewer cars on the road', () => {

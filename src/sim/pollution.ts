@@ -1,8 +1,8 @@
 import { tilesWithin } from './grid';
 import { pollutionScaleFor } from './tiers';
-import { CityState, GRID, Zone } from './types';
+import { CityState, GRID, Zone, mapScaled } from './types';
 
-const SPREAD = 5; // Chebyshev radius an emitter reaches
+const SPREAD = mapScaled(5); // Chebyshev radius an emitter reaches, 64-era base
 
 function emission(city: CityState, i: number): number {
   const t = city.tiles[i];

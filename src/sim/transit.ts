@@ -1,4 +1,4 @@
-import { Zone } from './types';
+import { Zone, mapScaled } from './types';
 
 export interface TransitSpec {
   /** Chebyshev coverage radius, same convention as SERVICE_RADII. */
@@ -14,10 +14,11 @@ export interface TransitSpec {
  * service (SERVICE_RADII.bus, BUS_TRAFFIC_SHARE) — these are its
  * upgrades, unlocked by growth like the energy roster. */
 export const TRANSIT_SPECS: Partial<Record<Zone, TransitSpec>> = {
-  [Zone.StreetcarStop]: { radius: 7, share: 0.4, unlockPop: 5000, name: 'Streetcar Stop' },
-  [Zone.MonorailStation]: { radius: 9, share: 0.3, unlockPop: 15000, name: 'Monorail Station' },
-  [Zone.SubwayStation]: { radius: 11, share: 0.22, unlockPop: 30000, name: 'Subway Station' },
-  [Zone.RailTerminal]: { radius: 13, share: 0.15, unlockPop: 50000, name: 'Rail Terminal' },
+  // 64-era bases keep the ladder strictly above the scaled bus at any map size
+  [Zone.StreetcarStop]: { radius: mapScaled(6.5), share: 0.4, unlockPop: 5000, name: 'Streetcar Stop' },
+  [Zone.MonorailStation]: { radius: mapScaled(8.5), share: 0.3, unlockPop: 15000, name: 'Monorail Station' },
+  [Zone.SubwayStation]: { radius: mapScaled(10.5), share: 0.22, unlockPop: 30000, name: 'Subway Station' },
+  [Zone.RailTerminal]: { radius: mapScaled(13), share: 0.15, unlockPop: 50000, name: 'Rail Terminal' },
 };
 
 export const TRANSIT_ZONES: Zone[] = Object.keys(TRANSIT_SPECS).map(Number) as Zone[];

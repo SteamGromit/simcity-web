@@ -42,15 +42,16 @@ describe('transit roster', () => {
 });
 
 describe('transit coverage and traffic', () => {
-  it('a powered subway spreads busCov to radius 11 and stamps its share', () => {
+  it('a powered subway spreads busCov to its radius and stamps its share', () => {
+    const R = TRANSIT_SPECS[Zone.SubwayStation]!.radius;
     const city = makeCity();
     zone(city, 40, 40, Zone.SubwayStation);
     city.tiles[idx96(40, 40)].powered = true;
     updateCoverage(city);
-    expect(city.tiles[idx96(40, 51)].busCov).toBeGreaterThan(0);
-    expect(city.tiles[idx96(40, 51)].transitShare).toBeCloseTo(0.22, 5);
-    expect(city.tiles[idx96(40, 52)].busCov).toBe(0);
-    expect(city.tiles[idx96(40, 52)].transitShare).toBe(1);
+    expect(city.tiles[idx96(40, 40 + R)].busCov).toBeGreaterThan(0);
+    expect(city.tiles[idx96(40, 40 + R)].transitShare).toBeCloseTo(0.22, 5);
+    expect(city.tiles[idx96(40, 40 + R + 1)].busCov).toBe(0);
+    expect(city.tiles[idx96(40, 40 + R + 1)].transitShare).toBe(1);
   });
 
   it('overlapping bus and subway: the better share wins', () => {

@@ -1,10 +1,15 @@
 import { tilesWithin } from './grid';
-import { CityState, GRID, Terrain, Zone } from './types';
+import { CityState, GRID, Terrain, Zone, mapScaled } from './types';
 
 const BASE = 0.3;
-const PARK_RADIUS = 3;
-const WATER_RADIUS = 2;
-const FOREST_RADIUS = 1;
+// 64-era bases — bonuses keep their share of a district on any map
+const PARK_RADIUS = mapScaled(3);
+const WATER_RADIUS = mapScaled(2);
+const FOREST_RADIUS = mapScaled(1);
+// commutes are physically longer on a bigger map; the painless band
+// and the penalty ramp stretch with it
+const COMMUTE_GRACE = mapScaled(8);
+const COMMUTE_RAMP = mapScaled(40);
 
 /** Land value = base + parks + service coverage − pollution − commute drag, clamped 0..1. */
 export function updateLandValue(city: CityState): void {
@@ -35,11 +40,11 @@ export function updateLandValue(city: CityState): void {
     const t = city.tiles[i];
     const zoned =
       t.zone === Zone.Residential || t.zone === Zone.Commercial || t.zone === Zone.Industrial;
-    // Commutes up to 8 tiles are painless; only long hauls drag value down.
+    // Commutes inside the grace band are painless; only long hauls drag value down.
     const commutePenalty = !zoned
       ? 0
       : Number.isFinite(t.commute)
-        ? Math.min(0.25, Math.max(0, t.commute - 8) / 40)
+        ? Math.min(0.25, Math.max(0, t.commute - COMMUTE_GRACE) / COMMUTE_RAMP)
         : 0.15;
     const serviceBonus = 0.12 * ((t.fireCov + t.policeCov + t.schoolCov) / 3);
     const viewBonus = 0.03 * t.elevation; // hillside views
