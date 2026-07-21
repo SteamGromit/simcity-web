@@ -4,6 +4,23 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.31.0] — 2026-07-21 · Tiers of energy
+
+### Added
+- Tiers of energy: wind ($1,200, pop 2,000), solar ($2,500, pop 5,000),
+  hydro ($5,000, pop 10,000, must sit beside water), and nuclear
+  ($12,000, pop 25,000) join the coal plant, each with its own glyph,
+  upkeep, and pollution profile (clean renewables; nuclear a trace).
+- Plants now carry capacity (coal 240 consumers, wind 50, solar 100,
+  hydro 280, nuclear 700) pooled city-wide: an overloaded grid browns
+  out its farthest buildings, a new advisor tip flags it, and the
+  City's growth stalls until more plants come online.
+
+### Fixed
+- The save reader's zone bound now tracks the end of the enum, so
+  crafted or future saves with appended zones no longer silently drop
+  them to empty land.
+
 ## [0.30.0] — 2026-07-21 · Per-tier visuals
 
 ### Added
