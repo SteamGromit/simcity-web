@@ -1,4 +1,6 @@
-import { Density, DENSITY_COST_MULT, ToolId } from '../sim/types';
+import { Density, DENSITY_COST_MULT, ToolId, Zone } from '../sim/types';
+import { PLANT_SPECS } from '../sim/energy';
+import { TRANSIT_SPECS } from '../sim/transit';
 import { toolCost, ZONE_TOOLS } from '../sim/city';
 import { OVERLAY_LABELS, OverlayId } from '../render/overlays';
 import { clampDensity, KEY_OF, OVERLAY_KEY_OF } from './shortcuts';
@@ -10,13 +12,54 @@ const BUILD_TOOLS: { id: ToolId | 'query'; label: string; title?: string }[] = [
   { id: 'query', label: 'Query' },
   { id: 'bulldoze', label: 'Bulldoze' },
   { id: 'road', label: 'Road' },
-  { id: 'plant', label: 'Coal Plant' },
-  { id: 'wind', label: 'Wind Turbine', title: 'Unlocks at population 2,000' },
-  { id: 'solar', label: 'Solar Farm', title: 'Unlocks at population 5,000' },
-  { id: 'hydro', label: 'Hydro Plant', title: 'Unlocks at population 10,000 · needs adjacent water' },
-  { id: 'nuclear', label: 'Nuclear Plant', title: 'Unlocks at population 25,000' },
   { id: 'line', label: 'Power Line' },
   { id: 'park', label: 'Park' },
+];
+
+interface Bundle {
+  id: string;
+  label: string;
+  members: { id: ToolId; label: string; unlockPop: number; title?: string }[];
+}
+
+/** Growth-gated tool families collapse behind one button; locked
+ * members stay hidden until the city earns them. */
+const BUNDLES: Bundle[] = [
+  {
+    id: 'energy',
+    label: 'Power Plant',
+    members: [
+      { id: 'plant', label: 'Coal Plant', unlockPop: 0 },
+      { id: 'wind', label: 'Wind Turbine', unlockPop: PLANT_SPECS[Zone.WindTurbine]!.unlockPop },
+      { id: 'solar', label: 'Solar Farm', unlockPop: PLANT_SPECS[Zone.SolarPlant]!.unlockPop },
+      {
+        id: 'hydro',
+        label: 'Hydro Plant',
+        unlockPop: PLANT_SPECS[Zone.HydroPlant]!.unlockPop,
+        title: 'Needs adjacent water',
+      },
+      { id: 'nuclear', label: 'Nuclear Plant', unlockPop: PLANT_SPECS[Zone.NuclearPlant]!.unlockPop },
+    ],
+  },
+  {
+    id: 'transit',
+    label: 'Transit Line',
+    members: [
+      { id: 'bus', label: 'Bus Line', unlockPop: 0, title: 'Draw a route, then place stops' },
+      {
+        id: 'streetcar',
+        label: 'Streetcar Line',
+        unlockPop: TRANSIT_SPECS[Zone.StreetcarStop]!.unlockPop,
+      },
+      {
+        id: 'monorail',
+        label: 'Monorail Line',
+        unlockPop: TRANSIT_SPECS[Zone.MonorailStation]!.unlockPop,
+      },
+      { id: 'subway', label: 'Subway Line', unlockPop: TRANSIT_SPECS[Zone.SubwayStation]!.unlockPop },
+      { id: 'rail', label: 'Rail Line', unlockPop: TRANSIT_SPECS[Zone.RailTerminal]!.unlockPop },
+    ],
+  },
 ];
 
 const ZONING_TOOLS: { id: ToolId; label: string }[] = [
@@ -30,11 +73,6 @@ const CIVIC_TOOLS: { id: ToolId; label: string; title?: string }[] = [
   { id: 'police', label: 'Police Station' },
   { id: 'school', label: 'School' },
   { id: 'hospital', label: 'Hospital' },
-  { id: 'bus', label: 'Bus Line', title: 'Draw a route, then place stops' },
-  { id: 'streetcar', label: 'Streetcar Line', title: 'Unlocks at population 5,000' },
-  { id: 'monorail', label: 'Monorail Line', title: 'Unlocks at population 15,000' },
-  { id: 'subway', label: 'Subway Line', title: 'Unlocks at population 30,000' },
-  { id: 'rail', label: 'Rail Line', title: 'Unlocks at population 50,000' },
   { id: 'pump', label: 'Water Pump' },
   { id: 'pipe', label: 'Water Pipe' },
 ];
@@ -68,6 +106,7 @@ export function buildToolbar(
   onTool: (tool: ActiveTool) => void,
   onOverlay: (overlay: OverlayId | null) => void,
   onDensity: (density: Density) => void,
+  getPop: () => number = () => 0,
 ) {
   const el = document.createElement('div');
   el.id = 'toolbar';
@@ -99,7 +138,7 @@ export function buildToolbar(
   flyout.id = 'density-flyout';
   flyout.className = 'panel hidden';
   el.appendChild(flyout);
-  let flyoutFor: ToolId | null = null;
+  let flyoutFor: string | null = null;
 
   function closeFlyout() {
     flyout.classList.add('hidden');
@@ -141,13 +180,20 @@ export function buildToolbar(
   // clicking anywhere outside the flyout (or its zoning button) closes it
   document.addEventListener('pointerdown', (e) => {
     const t = e.target as HTMLElement;
-    if (flyoutFor && !flyout.contains(t) && !t.closest('.zoning-btn')) closeFlyout();
+    if (flyoutFor && !flyout.contains(t) && !t.closest('.zoning-btn') && !t.closest('.bundle-btn')) {
+      closeFlyout();
+    }
   });
+
+  const bundleButtons: { btn: HTMLButtonElement; members: Set<ToolId | 'query'> }[] = [];
 
   function applyTool(tool: ActiveTool) {
     active = tool;
     if (flyoutFor && flyoutFor !== active) closeFlyout();
     for (const [tid, b] of toolButtons) b.classList.toggle('active', tid === active);
+    for (const bb of bundleButtons) {
+      bb.btn.classList.toggle('active', tool !== null && bb.members.has(tool));
+    }
     if (isZone(tool)) onDensity(densityOf(tool));
     onTool(active);
   }
@@ -160,6 +206,49 @@ export function buildToolbar(
     toolButtons.set(id, btn);
     parent.appendChild(btn);
     return btn;
+  }
+
+  /** A bundle button opens a flyout listing only the unlocked members. */
+  function bundleButton(bundle: Bundle, parent: HTMLElement) {
+    const btn = document.createElement('button');
+    btn.className = 'bundle-btn';
+    btn.innerHTML = `<span>${bundle.label}</span><span class="meta"><span class="cost">▸</span></span>`;
+    btn.addEventListener('click', () => {
+      if (flyoutFor === bundle.id) {
+        closeFlyout();
+        return;
+      }
+      flyout.innerHTML = '';
+      flyoutFor = bundle.id;
+      const pop = getPop();
+      for (const m of bundle.members) {
+        if (pop < m.unlockPop) continue; // hidden until the city earns it
+        const mb = document.createElement('button');
+        mb.innerHTML = `<span>${m.label}</span><span class="cost">${costLabel(m.id)}</span>`;
+        if (m.title) mb.title = m.title;
+        mb.classList.toggle('active', active === m.id);
+        mb.addEventListener('click', (e) => {
+          e.stopPropagation();
+          applyTool(active === m.id ? null : m.id);
+          closeFlyout();
+        });
+        flyout.appendChild(mb);
+      }
+      const next = bundle.members.find((m) => pop < m.unlockPop);
+      if (next) {
+        const hint = document.createElement('div');
+        hint.className = 'bundle-hint';
+        hint.textContent = `${next.label} at pop ${next.unlockPop.toLocaleString('en-US')}`;
+        flyout.appendChild(hint);
+      }
+      const host = (btn.closest('.tool-panel') as HTMLElement) ?? el;
+      host.appendChild(flyout);
+      flyout.style.left = `${btn.offsetLeft + btn.offsetWidth + 6}px`;
+      flyout.style.top = `${btn.offsetTop}px`;
+      flyout.classList.remove('hidden');
+    });
+    bundleButtons.push({ btn, members: new Set(bundle.members.map((m) => m.id)) });
+    parent.appendChild(btn);
   }
 
   /** Zoning buttons open the density flyout beside them when activated. */
@@ -205,6 +294,7 @@ export function buildToolbar(
   for (const { id, label, title } of BUILD_TOOLS) {
     const btn = toolButton(id, label, buildBody);
     if (title) btn.title = title;
+    if (id === 'road') bundleButton(BUNDLES[0], buildBody);
   }
 
   const zoningBody = section('zoning', 'Zoning');
@@ -214,6 +304,7 @@ export function buildToolbar(
   for (const { id, label, title } of CIVIC_TOOLS) {
     const btn = toolButton(id, label, civicBody);
     if (title) btn.title = title;
+    if (id === 'hospital') bundleButton(BUNDLES[1], civicBody);
   }
 
   const terraBody = section('terrain', 'Terrain · free until founded');

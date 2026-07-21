@@ -107,7 +107,8 @@ what's connected.
 
 Plants have **limited capacity** (in powered buildings) and pool it across
 the grid; overload the pool and the farthest buildings brown out until you
-add plants. Growth unlocks cleaner sources in the Build section: **Wind
+add plants. Growth unlocks cleaner sources in the Build section's **Power Plant**
+menu — locked plants stay hidden until the city earns them: **Wind
 Turbine** (pop 2,000), **Solar Farm** (pop 5,000), **Hydro Plant** (pop
 10,000, must sit beside water), and **Nuclear Plant** (pop 25,000).
 
@@ -121,8 +122,9 @@ residential land value. Parks raise it.
 
 Roads have **capacity** — a jammed artery makes every commute through it
 longer, which drags down desirability and land value. Relieve it with
-parallel routes — or plan **transit lines**: click a line tool (Bus
-Line is always available), draw the route point by point on the map
+parallel routes — or plan **transit lines**: open the **Transit Line**
+menu in the Civic section (only unlocked modes appear; Bus is always
+available), draw the route point by point on the map
 (double-click to finish it), click tiles on or beside the route to
 place stops, pick the line's color, and press **Done**. Stops near
 homes *and* jobs take cars off the road. Growth unlocks the ladder —

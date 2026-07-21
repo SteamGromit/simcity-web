@@ -644,3 +644,12 @@ button.detach:hover {
 .volume-row input[type='range'] {
   flex: 1;
 }
+
+/* bundle flyout unlock hint */
+.bundle-hint {
+  font-size: 10px;
+  color: #8fa0b4;
+  padding: 4px 8px;
+  border-top: 1px solid #3b4a5e;
+  white-space: nowrap;
+}

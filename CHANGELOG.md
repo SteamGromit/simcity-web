@@ -4,6 +4,15 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.41.0] — 2026-07-21 · Bundled controls
+
+### Changed
+- The five power plants collapse into one **Power Plant** menu and
+  the five transit lines into one **Transit Line** menu (the zoning
+  flyout pattern). Locked options no longer appear at all — each menu
+  shows only what the city has unlocked, plus a hint naming the next
+  unlock and its population.
+
 ## [0.40.0] — 2026-07-21 · Pixel look
 
 ### Added
