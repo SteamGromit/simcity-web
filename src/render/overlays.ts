@@ -1,5 +1,6 @@
 import { CityState, ROAD_CAPACITY, Zone } from '../sim/types';
 import { GRID } from '../sim/types';
+import { demandReading } from '../sim/develop';
 import { fillTile } from './buildings';
 import { tileGeom } from './iso';
 
@@ -8,6 +9,7 @@ export type OverlayId =
   | 'pollution'
   | 'landvalue'
   | 'traffic'
+  | 'demand'
   | 'fire'
   | 'police'
   | 'school'
@@ -19,6 +21,7 @@ export const OVERLAY_LABELS: Record<OverlayId, string> = {
   pollution: 'Pollution',
   landvalue: 'Land Value',
   traffic: 'Traffic',
+  demand: 'Demand',
   fire: 'Fire Cover',
   police: 'Police Cover',
   school: 'School Cover',
@@ -53,6 +56,15 @@ function tint(city: CityState, i: number, overlay: OverlayId): string | null {
       if (t.zone !== Zone.Road) return null;
       const v = Math.min(1, t.traffic / (ROAD_CAPACITY * 2));
       return `hsl(${120 - 120 * v} 80% 45% / 0.6)`;
+    }
+    case 'demand': {
+      const reading = demandReading(city, i % GRID, (i / GRID) | 0);
+      if (!reading) return null;
+      if (reading.blocked) return 'rgba(100,116,139,0.5)';
+      if (reading.collapsing) return 'rgba(230,60,50,0.5)';
+      if (reading.pressure > 0)
+        return `rgba(80,220,100,${0.15 + Math.min(0.45, reading.pressure)})`;
+      return 'rgba(255,235,150,0.25)';
     }
     case 'fire':
     case 'police':

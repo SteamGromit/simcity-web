@@ -35,6 +35,7 @@ export const OVERLAY_KEYS: Record<string, OverlayId> = {
   o: 'pollution',
   l: 'landvalue',
   t: 'traffic',
+  d: 'demand', // growth pressure; hospital keeps bare D, views are shifted
   f: 'fire',
   v: 'police', // matches the V police-station tool key
   s: 'school',

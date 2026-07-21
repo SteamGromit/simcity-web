@@ -52,6 +52,31 @@ function sectorDemand(city: CityState, zone: Zone): number {
   return city.demand.i;
 }
 
+/** What the Demand data view shows for one tile. */
+export interface DemandReading {
+  /** Grow-roll probability for this sweep (0 when blocked or demand ≤ 0). */
+  pressure: number;
+  /** Tile cannot develop: unpowered or no road within reach. */
+  blocked: boolean;
+  /** Sector demand sits below the abandonment threshold. */
+  collapsing: boolean;
+}
+
+/** Growth pressure the development sweep applies at (x, y); null off-RCI. */
+export function demandReading(city: CityState, x: number, y: number): DemandReading | null {
+  const t = city.tiles[idx(x, y)];
+  if (t.zone !== Zone.Residential && t.zone !== Zone.Commercial && t.zone !== Zone.Industrial) {
+    return null;
+  }
+  const demand = sectorDemand(city, t.zone);
+  const blocked = !t.powered || roadAccess(city, x, y) === null;
+  return {
+    pressure: blocked || demand <= 0 ? 0 : demand * desirability(t) * GROW_SCALE,
+    blocked,
+    collapsing: demand < DEMAND_COLLAPSE,
+  };
+}
+
 /**
  * The heart of the simulation: one zoned tile either constructs, grows,
  * holds, downgrades, or abandons based on demand and desirability. Called

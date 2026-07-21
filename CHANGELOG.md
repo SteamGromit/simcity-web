@@ -4,6 +4,13 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.28.0] — 2026-07-20 · Demand data view
+
+### Added
+- Demand data view (⇧D): per-tile growth pressure — green where zones
+  will grow, yellow where stagnant, red under collapsing demand, slate
+  where blocked by missing power or road access.
+
 ## [0.27.0] — 2026-07-20 · Coverage halo
 
 ### Added

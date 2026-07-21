@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
 import { CityState, Zone } from '../src/sim/types';
-import { developTile } from '../src/sim/develop';
+import { developTile, demandReading } from '../src/sim/develop';
 import { makeCity, zone } from './helpers';
 
 const always = () => 0; // rand() < p always fires for any p > 0
@@ -138,5 +138,49 @@ describe('developTile', () => {
     developTile(city, 5, 5, always);
     expect(city.tiles[idx(5, 5)].stage).toBe(2);
     expect(city.tiles[idx(5, 5)].abandoned).toBe(false);
+  });
+});
+
+describe('demandReading', () => {
+  test('null off the RCI zones', () => {
+    const city = setup(Zone.Residential);
+    expect(demandReading(city, 5, 6)).toBeNull(); // road
+    expect(demandReading(city, 8, 8)).toBeNull(); // empty land
+  });
+
+  test('positive pressure for a powered, road-adjacent zone in demand', () => {
+    const city = setup(Zone.Residential);
+    city.demand.r = 0.5;
+    const r = demandReading(city, 5, 5)!;
+    expect(r.blocked).toBe(false);
+    expect(r.collapsing).toBe(false);
+    expect(r.pressure).toBeGreaterThan(0);
+  });
+
+  test('blocked when unpowered, with zero pressure', () => {
+    const city = setup(Zone.Residential);
+    city.demand.r = 0.5;
+    city.tiles[idx(5, 5)].powered = false;
+    const r = demandReading(city, 5, 5)!;
+    expect(r.blocked).toBe(true);
+    expect(r.pressure).toBe(0);
+  });
+
+  test('collapsing below the abandonment threshold', () => {
+    const city = setup(Zone.Commercial, 2);
+    city.demand.c = -0.5;
+    const r = demandReading(city, 5, 5)!;
+    expect(r.collapsing).toBe(true);
+    expect(r.pressure).toBe(0);
+  });
+
+  test('mildly negative demand stagnates without collapsing', () => {
+    const city = setup(Zone.Industrial, 1);
+    city.demand.i = -0.1;
+    expect(demandReading(city, 5, 5)).toEqual({
+      pressure: 0,
+      blocked: false,
+      collapsing: false,
+    });
   });
 });
