@@ -33,7 +33,7 @@ export function buildHelp(root: HTMLElement) {
           <li><b>Middle-drag or Space+drag</b> — pan · <b>Wheel</b> — zoom</li>
           <li><b>Q / E</b> — rotate the view · <b>Arrows</b> — pan</li>
           <li><b>⇧ + letter</b> — toggle data views: ⇧P power, ⇧O pollution,
-              ⇧L land value, ⇧T traffic, ⇧F fire, ⇧V police, ⇧S school,
+              ⇧L land value, ⇧T traffic, ⇧D demand, ⇧F fire, ⇧V police, ⇧S school,
               ⇧H health, ⇧W water</li>
           <li><b>Esc</b> — cancel tool · <b>H</b> or <b>?</b> — this help</li>
           <li><b>M</b> — mute · <b>⠿</b> — drag panels · <b>⇱</b> — pop a
