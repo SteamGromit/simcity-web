@@ -31,7 +31,8 @@ import {
   Zone,
 } from './types';
 
-const DEV_SLICE = 512; // tiles given a development roll per tick
+/** Tiles per development roll; the whole grid is swept once per month. */
+export const DEV_SLICE = (GRID * GRID) / TICKS_PER_MONTH;
 const FIELD_INTERVAL = 4; // ticks between field recomputes
 
 /** Grow an organic blob of `terrain` from a random start; deterministic. */
@@ -90,9 +91,11 @@ function generateTerrain(tiles: CityState['tiles'], seed: number): Biome {
   const rand = mulberry32(seed ^ 0x7e44a1);
   const biome: Biome = rand() < 0.25 ? 'desert' : 'temperate';
 
+  const AREA_SCALE = (GRID * GRID) / 4096; // 1 at the original 64×64
+
   // rolling hills first: broad base blobs with smaller caps stacked on top.
   // The first hill is always a true mountain — stacked to the snowcap.
-  const hills = 2 + Math.floor(rand() * 3);
+  const hills = Math.round((2 + Math.floor(rand() * 3)) * AREA_SCALE);
   for (let i = 0; i < hills; i++) {
     const base = raiseBlob(tiles, rand, 80 + Math.floor(rand() * 120));
     if (base.length === 0) continue;
@@ -111,13 +114,19 @@ function generateTerrain(tiles: CityState['tiles'], seed: number): Biome {
   }
 
   if (biome === 'desert') {
-    // an oasis and a scrub patch — pumps and shade are precious out here
-    growBlob(tiles, rand, Terrain.Water, 18 + Math.floor(rand() * 20));
-    growBlob(tiles, rand, Terrain.Forest, 8 + Math.floor(rand() * 12));
+    // oases and scrub patches — pumps and shade are precious out here
+    const patches = Math.max(1, Math.round(AREA_SCALE));
+    for (let i = 0; i < patches; i++) {
+      growBlob(tiles, rand, Terrain.Water, 18 + Math.floor(rand() * 20));
+      growBlob(tiles, rand, Terrain.Forest, 8 + Math.floor(rand() * 12));
+    }
   } else {
     growBlob(tiles, rand, Terrain.Water, 70 + Math.floor(rand() * 90));
-    if (rand() < 0.5) growBlob(tiles, rand, Terrain.Water, 40 + Math.floor(rand() * 50));
-    const forests = 3 + Math.floor(rand() * 3);
+    const extraLakes = Math.round(AREA_SCALE);
+    for (let i = 0; i < extraLakes; i++) {
+      if (rand() < 0.5) growBlob(tiles, rand, Terrain.Water, 40 + Math.floor(rand() * 50));
+    }
+    const forests = Math.round((3 + Math.floor(rand() * 3)) * AREA_SCALE);
     for (let i = 0; i < forests; i++) {
       growBlob(tiles, rand, Terrain.Forest, 15 + Math.floor(rand() * 35));
     }

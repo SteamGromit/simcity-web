@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
-import { GRID, START_FUNDS, Zone, COSTS } from '../src/sim/types';
-import { applyTool, applyToolLine, mulberry32, newCity, simTick } from '../src/sim/city';
+import { GRID, START_FUNDS, TICKS_PER_MONTH, Zone, COSTS } from '../src/sim/types';
+import { applyTool, applyToolLine, DEV_SLICE, mulberry32, newCity, simTick } from '../src/sim/city';
 import { deserialize, serialize } from '../src/sim/save';
 import { clearLand } from './helpers';
 
@@ -208,6 +208,39 @@ describe('save round-trip', () => {
   });
 });
 
+describe('legacy 64×64 save migration', () => {
+  /** Build a minimal legacy save: a 64² city JSON with one road at (5,5). */
+  function legacySave(extra: Record<string, unknown> = {}): string {
+    const city = JSON.parse(serialize(newCity(1)));
+    const LEGACY = 64;
+    // shrink the tile grid to 64² blank-ish tiles with one road marker
+    const tiles = Array.from({ length: LEGACY * LEGACY }, () => ({ zone: 0 }));
+    tiles[5 * LEGACY + 5] = { zone: Zone.Road };
+    return JSON.stringify({ ...city, tiles, ...extra });
+  }
+
+  test('a legacy save loads centered on the bigger grid', () => {
+    const revived = deserialize(legacySave());
+    expect(revived).not.toBeNull();
+    expect(revived!.tiles).toHaveLength(GRID * GRID);
+    expect(revived!.tiles[idx(5 + 16, 5 + 16)].zone).toBe(Zone.Road);
+    expect(revived!.tiles[idx(5, 5)].zone).toBe(Zone.None); // outside stays blank
+  });
+
+  test('an active tornado shifts with the embed', () => {
+    const revived = deserialize(
+      legacySave({ disasters: { tornado: { x: 10, y: 12, ticksLeft: 5 }, hurricaneTicks: 0, pandemicMonths: 0 } }),
+    );
+    expect(revived!.disasters.tornado).toEqual({ x: 26, y: 28, ticksLeft: 5 });
+  });
+
+  test('other lengths still fail closed', () => {
+    const city = JSON.parse(serialize(newCity(1)));
+    city.tiles = Array.from({ length: 5000 }, () => ({ zone: 0 }));
+    expect(deserialize(JSON.stringify(city))).toBeNull();
+  });
+});
+
 describe('applyToolLine', () => {
   test('builds a run of power lines and pays per tile', () => {
     const city = newFlatCity(7);
@@ -268,5 +301,11 @@ describe('applyToolLine', () => {
     ]);
     expect(res).toEqual({ applied: 2, brokeFunds: false });
     expect(city.tiles[idx(2, 8)].zone).toBe(Zone.Residential);
+  });
+});
+
+describe('development sweep pacing', () => {
+  test('a month of ticks sweeps the whole grid exactly once', () => {
+    expect(DEV_SLICE * TICKS_PER_MONTH).toBe(GRID * GRID);
   });
 });

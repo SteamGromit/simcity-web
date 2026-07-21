@@ -122,6 +122,28 @@ function reviveWeather(raw: unknown): CityState['weather'] {
   return out;
 }
 
+/** Grid size of pre-v0.29 saves; they embed centered on today's grid. */
+const LEGACY_GRID = 64;
+const LEGACY_OFFSET = (GRID - LEGACY_GRID) / 2;
+
+/** Mutate parsed legacy-save JSON in place: recenter tiles + tornado. */
+function migrateLegacy(data: { tiles: unknown[]; disasters?: unknown }): void {
+  const big: unknown[] = Array.from({ length: GRID * GRID }, () => ({}));
+  for (let y = 0; y < LEGACY_GRID; y++) {
+    for (let x = 0; x < LEGACY_GRID; x++) {
+      big[(y + LEGACY_OFFSET) * GRID + (x + LEGACY_OFFSET)] =
+        data.tiles[y * LEGACY_GRID + x];
+    }
+  }
+  data.tiles = big;
+  const d = data.disasters as { tornado?: { x?: unknown; y?: unknown } } | undefined;
+  if (d?.tornado && typeof d.tornado === 'object') {
+    const t = d.tornado as { x?: unknown; y?: unknown };
+    if (typeof t.x === 'number') t.x += LEGACY_OFFSET;
+    if (typeof t.y === 'number') t.y += LEGACY_OFFSET;
+  }
+}
+
 function reviveHistory(raw: unknown): CityState['history'] {
   const empty = { pop: [], funds: [] };
   if (!raw || typeof raw !== 'object') return empty;
@@ -145,7 +167,9 @@ export function deserialize(json: string): CityState | null {
   try {
     const data = JSON.parse(json);
     if (!data || data.version !== 1) return null;
-    if (!Array.isArray(data.tiles) || data.tiles.length !== GRID * GRID) return null;
+    if (!Array.isArray(data.tiles)) return null;
+    if (data.tiles.length === LEGACY_GRID * LEGACY_GRID) migrateLegacy(data);
+    if (data.tiles.length !== GRID * GRID) return null;
     if (![data.funds, data.tick, data.month].every((v) => Number.isFinite(v))) return null;
     const taxes = data.taxes ?? {};
     if (![taxes.r, taxes.c, taxes.i].every((v: unknown) => Number.isFinite(v))) return null;

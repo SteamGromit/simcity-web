@@ -4,6 +4,13 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.29.0] — 2026-07-20 · Bigger map
+
+### Added
+- Bigger map: the city grid grows 64×64 → 96×96 (2.25× the land). Old
+  saves load centered on the new map. Terrain features scale with the
+  area; development pacing is unchanged (full sweep once per month).
+
 ## [0.28.0] — 2026-07-20 · Demand data view
 
 ### Added
