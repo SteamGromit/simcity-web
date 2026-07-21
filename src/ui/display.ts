@@ -1,6 +1,7 @@
 import { getSkin, setSkin, SKINS } from '../render/skins';
 import { getWeatherFx, setWeatherFx } from '../render/fx';
 import { getDayNight, setDayNight } from '../render/daynight';
+import { getPixelMode, setPixelMode } from '../render/pixelmode';
 
 /** Config panel: presentation and audio preferences — city style,
  * weather visuals, music, lighting, and volume levels. No city state. */
@@ -30,6 +31,9 @@ export function buildDisplay(
     </label>
     <label class="ordinance" id="daynight-row" title="90-second visual day/night cycle: night wash, window glow, streetlights. Off keeps permanent daylight.">
       <input type="checkbox" id="daynight-box"><span>Day/night lighting</span>
+    </label>
+    <label class="ordinance" id="pixel-row" title="Render at a chunky internal resolution for a retro sprite look (also faster). Off draws at full resolution.">
+      <input type="checkbox" id="pixel-box"><span>Pixel look</span>
     </label>
     <h4>Volume</h4>
     <label class="volume-row" title="Tool clicks, event cues, and the ambient city hum.">
@@ -83,6 +87,13 @@ export function buildDisplay(
   dnBox.addEventListener('change', () => {
     setDayNight(dnBox.checked);
     localStorage.setItem('simcity.daynight', dnBox.checked ? '1' : '0');
+    onToggle();
+  });
+
+  const pixelBox = panel.querySelector('#pixel-box') as HTMLInputElement;
+  pixelBox.checked = getPixelMode();
+  pixelBox.addEventListener('change', () => {
+    setPixelMode(pixelBox.checked);
     onToggle();
   });
 
