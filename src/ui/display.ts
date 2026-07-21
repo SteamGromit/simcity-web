@@ -2,18 +2,24 @@ import { getSkin, setSkin, SKINS } from '../render/skins';
 import { getWeatherFx, setWeatherFx } from '../render/fx';
 import { getDayNight, setDayNight } from '../render/daynight';
 
-/** Display panel: presentation preferences only — city style, weather
- * visuals, music, and the day/night lighting cycle. No city state. */
+/** Config panel: presentation and audio preferences — city style,
+ * weather visuals, music, lighting, and volume levels. No city state. */
 export function buildDisplay(
   root: HTMLElement,
-  music: { isOn(): boolean; toggle(): boolean },
+  music: {
+    isOn(): boolean;
+    toggle(): boolean;
+    musicVolume: number;
+    setMusicVolume(v: number): void;
+  },
+  sound: { sfxVolume: number; setSfxVolume(v: number): void },
   onToggle: () => void,
 ) {
   const panel = document.createElement('div');
   panel.id = 'display-panel';
   panel.className = 'panel hidden';
   panel.innerHTML = `
-    <h3>Display</h3>
+    <h3>Config</h3>
     <h4>City style</h4>
     <div id="skin-list"></div>
     <label class="ordinance" id="weatherfx-row" title="Rain, snow, and cloud visuals. The simulation (and hurricane rain) is unaffected.">
@@ -24,6 +30,15 @@ export function buildDisplay(
     </label>
     <label class="ordinance" id="daynight-row" title="90-second visual day/night cycle: night wash, window glow, streetlights. Off keeps permanent daylight.">
       <input type="checkbox" id="daynight-box"><span>Day/night lighting</span>
+    </label>
+    <h4>Volume</h4>
+    <label class="volume-row" title="Tool clicks, event cues, and the ambient city hum.">
+      <span>Effects</span>
+      <input type="range" id="sfx-vol" min="0" max="100" step="5">
+    </label>
+    <label class="volume-row" title="The procedural soundtrack's level.">
+      <span>Music</span>
+      <input type="range" id="music-vol" min="0" max="100" step="5">
     </label>
   `;
   root.appendChild(panel);
@@ -69,6 +84,17 @@ export function buildDisplay(
     setDayNight(dnBox.checked);
     localStorage.setItem('simcity.daynight', dnBox.checked ? '1' : '0');
     onToggle();
+  });
+
+  const sfxVol = panel.querySelector('#sfx-vol') as HTMLInputElement;
+  sfxVol.value = String(Math.round(sound.sfxVolume * 100));
+  sfxVol.addEventListener('input', () => {
+    sound.setSfxVolume(Number(sfxVol.value) / 100);
+  });
+  const musicVol = panel.querySelector('#music-vol') as HTMLInputElement;
+  musicVol.value = String(Math.round(music.musicVolume * 100));
+  musicVol.addEventListener('input', () => {
+    music.setMusicVolume(Number(musicVol.value) / 100);
   });
 
   return {

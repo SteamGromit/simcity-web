@@ -629,3 +629,18 @@ button.detach:hover {
 #tw-actions #tw-done {
   background: #2f5d3f;
 }
+
+/* config panel volume sliders */
+.volume-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+  font-size: 12px;
+}
+.volume-row span {
+  width: 52px;
+}
+.volume-row input[type='range'] {
+  flex: 1;
+}

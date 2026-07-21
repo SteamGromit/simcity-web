@@ -67,9 +67,9 @@ npm run dev      # starts the game server
 Open the printed `http://localhost:5173` URL in your browser. That's
 it — the game runs entirely locally.
 
-On older machines: if the frame rate dips, open the **Display** panel
-and turn off weather effects (day/night lighting is already off by
-default).
+On older machines: if the frame rate dips, open the **Config** panel
+and turn off weather effects in the Config panel (day/night lighting
+is already off by default).
 
 `npm test` runs the simulation's unit suite; `npm run build` makes a
 production bundle.
@@ -153,14 +153,14 @@ the blaze). Watch for the flames and the advisor warning; if the fire
 department can't cope, bulldoze a firebreak before the whole block goes.
 
 Watch the budget — roads, plants, and services cost upkeep monthly; taxes
-above 9% suppress demand. Pick a **city style** in the **Display panel** — Classic, cartoon **Springfield**
+above 9% suppress demand. Pick a **city style** in the **Config panel** — Classic, cartoon **Springfield**
 (ink outlines, loud colors), or muted brownstone **NYC** — all drawn
 procedurally, switchable live. Listen for the **adaptive soundtrack** —
 a fully synthesized score that follows your city: desert maps play a
 different scale, winter turns it minor and slow, rain thins it out, an
 industrial skyline darkens it, and the band grows as the village becomes
-a metropolis (toggle in Display; M mutes everything). The Display panel
-also gathers weather effects and a day/night lighting toggle (off by
+a metropolis (toggle in Config; M mutes everything — volume sliders live there too). The Config panel
+also gathers weather effects, volume sliders, and a day/night lighting toggle (off by
 default). Open **City Hall** for the advisor board (every
 current warning at a glance) and to enact **ordinances** — monthly-cost
 policies like the Clean Air Act or Free Bus Service that bend the
