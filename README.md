@@ -67,8 +67,10 @@ npm run dev      # starts the game server
 Open the printed `http://localhost:5173` URL in your browser. That's
 it — the game runs entirely locally.
 
-The game ships with a retro **Pixel look** (toggle in Config) — the whole
-scene renders as chunky sprite art, which also draws far fewer pixels.
+Pick a **render style** in Config: retro **Pixel** sprite art (the
+default — it also draws far fewer pixels), plain **Smooth**, or
+**Realistic** with soft shadows, grounded walls, deep water, and
+atmospheric haze.
 
 On older machines: if the frame rate dips, open the **Config** panel
 and turn off weather effects in the Config panel (day/night lighting

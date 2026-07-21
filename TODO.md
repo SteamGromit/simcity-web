@@ -17,6 +17,10 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Done
 
+- **Realistic render style** — shipped v0.43.0 (`renderstyle.ts`
+  three-way Pixel/Smooth/Realistic; soft shadows, wall AO, interior
+  water depth, atmospheric haze; legacy pixel pref migrates).
+
 - **Seasons** — shipped v0.42.0 (seasonal vegetation tints via
   `render/seasonfx.ts` + shared `seasonOf`; Config "Seasonal colors"
   toggle; seasonal disaster odds — tornado spring, hurricane autumn,

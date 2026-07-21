@@ -1,7 +1,7 @@
 import { getSkin, setSkin, SKINS } from '../render/skins';
 import { getWeatherFx, setWeatherFx } from '../render/fx';
 import { getDayNight, setDayNight } from '../render/daynight';
-import { getPixelMode, setPixelMode } from '../render/pixelmode';
+import { RenderStyle, getRenderStyle, setRenderStyle } from '../render/renderstyle';
 import { getSeasonFx, setSeasonFx } from '../render/seasonfx';
 
 /** Config panel: presentation and audio preferences — city style,
@@ -33,9 +33,8 @@ export function buildDisplay(
     <label class="ordinance" id="daynight-row" title="90-second visual day/night cycle: night wash, window glow, streetlights. Off keeps permanent daylight.">
       <input type="checkbox" id="daynight-box"><span>Day/night lighting</span>
     </label>
-    <label class="ordinance" id="pixel-row" title="Render at a chunky internal resolution for a retro sprite look (also faster). Off draws at full resolution.">
-      <input type="checkbox" id="pixel-box"><span>Pixel look</span>
-    </label>
+    <h4>Render style</h4>
+    <div id="style-list"></div>
     <label class="ordinance" id="seasons-row" title="Vegetation follows the calendar: spring greens, autumn oranges, winter frost. Off keeps summer looks year-round (weather and the sim are unaffected).">
       <input type="checkbox" id="seasons-box"><span>Seasonal colors</span>
     </label>
@@ -94,12 +93,32 @@ export function buildDisplay(
     onToggle();
   });
 
-  const pixelBox = panel.querySelector('#pixel-box') as HTMLInputElement;
-  pixelBox.checked = getPixelMode();
-  pixelBox.addEventListener('change', () => {
-    setPixelMode(pixelBox.checked);
-    onToggle();
-  });
+  const styleList = panel.querySelector('#style-list') as HTMLElement;
+  const STYLES: { id: RenderStyle; label: string; blurb: string }[] = [
+    { id: 'pixel', label: 'Pixel', blurb: 'Chunky retro sprite look — also the fastest.' },
+    { id: 'smooth', label: 'Smooth', blurb: 'Plain full-resolution drawing.' },
+    {
+      id: 'realistic',
+      label: 'Realistic',
+      blurb: 'Soft shadows, grounded walls, deep water, atmospheric haze.',
+    },
+  ];
+  const styleButtons: HTMLButtonElement[] = [];
+  const syncStyles = () =>
+    STYLES.forEach((st, i) => styleButtons[i].classList.toggle('active', getRenderStyle() === st.id));
+  for (const st of STYLES) {
+    const b = document.createElement('button');
+    b.textContent = st.label;
+    b.title = st.blurb;
+    b.addEventListener('click', () => {
+      setRenderStyle(st.id);
+      syncStyles();
+      onToggle();
+    });
+    styleButtons.push(b);
+    styleList.appendChild(b);
+  }
+  syncStyles();
 
   const seasonsBox = panel.querySelector('#seasons-box') as HTMLInputElement;
   seasonsBox.checked = getSeasonFx();

@@ -5,7 +5,9 @@ import { Season } from '../sim/weather';
 
 const KEY = 'simcity.seasons';
 
-let on = localStorage.getItem(KEY) !== '0'; // default on
+const store = typeof localStorage !== 'undefined' ? localStorage : null;
+
+let on = store?.getItem(KEY) !== '0'; // default on
 
 export function getSeasonFx(): boolean {
   return on;
@@ -13,7 +15,7 @@ export function getSeasonFx(): boolean {
 
 export function setSeasonFx(v: boolean): void {
   on = v;
-  localStorage.setItem(KEY, v ? '1' : '0');
+  store?.setItem(KEY, v ? '1' : '0');
 }
 
 export interface VegTint {

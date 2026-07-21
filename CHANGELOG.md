@@ -4,6 +4,15 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.43.0] — 2026-07-21 · Realistic render style
+
+### Added
+- A third render style joins Pixel and Smooth in Config:
+  **Realistic** — soft two-layer shadows, walls that darken where
+  they meet the ground, water grading from sandy shallows to dark
+  depths, and a cool atmospheric haze over the distance. Pixel stays
+  the default; the old Pixel-look preference migrates automatically.
+
 ## [0.42.0] — 2026-07-21 · Seasons
 
 ### Added

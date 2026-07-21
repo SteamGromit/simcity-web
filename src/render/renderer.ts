@@ -19,7 +19,7 @@ import { getDayNight, nightFactor, nightTint } from './daynight';
 import { groundShade } from './terrainshade';
 import { detailLevel } from './detail';
 import { drawLineVehicles } from './linevehicles';
-import { PIXEL_SCALE, getPixelMode } from './pixelmode';
+import { PIXEL_SCALE, getRenderStyle } from './renderstyle';
 import { VegTint, vegTint } from './seasonfx';
 import { seasonOf } from '../sim/weather';
 import { setCanopyColor } from './buildings';
@@ -159,7 +159,8 @@ export class Renderer {
   draw(city: CityState, view: ViewState) {
     // Pixel look: draw the frame on a smaller buffer, then blit it up
     // with nearest-neighbor so every mark lands on chunky pixels.
-    const ps = getPixelMode() ? PIXEL_SCALE : 1;
+    const style = getRenderStyle();
+    const ps = style === 'pixel' ? PIXEL_SCALE : 1;
     if (ps < 1) {
       const bw = Math.max(1, Math.ceil(this.canvas.width * ps));
       const bh = Math.max(1, Math.ceil(this.canvas.height * ps));
@@ -230,6 +231,19 @@ export class Renderer {
       }
       if (t.burning > 0) drawFire(ctx, geom, now, this.variants[i]);
       this.automata.drawTile(ctx, i);
+    }
+
+    if (style === 'realistic') {
+      // atmospheric depth: the far half of the frame cools and hazes
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const H = this.ctx.canvas.height;
+      const haze = ctx.createLinearGradient(0, 0, 0, H * 0.55);
+      haze.addColorStop(0, 'rgba(185, 200, 222, 0.16)');
+      haze.addColorStop(1, 'rgba(185, 200, 222, 0)');
+      ctx.fillStyle = haze;
+      ctx.fillRect(0, 0, this.ctx.canvas.width, H * 0.55);
+      ctx.restore();
     }
 
     this.drawTransitLines(city, view);
@@ -456,6 +470,10 @@ export class Renderer {
         const pulse = 0.25 + 0.2 * Math.sin(this.frameNow / 160 + (x + y) * 1.7);
         fillTile(this.ctx, geom, `rgba(230, 240, 250, ${pulse.toFixed(3)})`);
       } else if (!this.storm) {
+        if (getRenderStyle() === 'realistic' && !this.shoreline(city, x, y)) {
+          // depth shading: interior water sits darker than the shallows
+          fillTile(this.ctx, geom, `hsla(${209 + v * 6} 60% 22% / 0.55)`);
+        }
         // calm shore: a sand strip and foam line along every land edge
         for (let k = 0; k < 4; k++) {
           const [dx, dy] = Renderer.EDGE_DIRS[k];
