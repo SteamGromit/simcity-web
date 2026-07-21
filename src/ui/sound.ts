@@ -7,7 +7,50 @@ export interface SoundSpec {
   freqEnd?: number; // sweep target
   dur: number; // seconds
   vol: number; // 0..1
+  /** Noise lowpass cutoff (Hz); default 900. Ignored for oscillators. */
+  filterHz?: number;
 }
+
+export type EventId =
+  | 'tornado'
+  | 'hurricane'
+  | 'pandemic'
+  | 'fire-start'
+  | 'building-lost'
+  | 'brownout';
+
+/** Multi-step event cues, scheduled at ms offsets through play(). */
+export const EVENT_SOUNDS: Record<EventId, { at: number; spec: SoundSpec }[]> = {
+  tornado: [0, 700, 1400, 2100].flatMap((at) => [
+    { at, spec: { wave: 'square', freq: 600, dur: 0.32, vol: 0.5 } as SoundSpec },
+    { at: at + 350, spec: { wave: 'square', freq: 450, dur: 0.32, vol: 0.5 } as SoundSpec },
+  ]),
+  hurricane: [
+    { at: 0, spec: { wave: 'noise', freq: 0, dur: 2.0, vol: 0.55, filterHz: 400 } },
+    { at: 0, spec: { wave: 'sawtooth', freq: 60, freqEnd: 110, dur: 2.0, vol: 0.3 } },
+  ],
+  pandemic: [
+    { at: 0, spec: { wave: 'sine', freq: 520, dur: 1.2, vol: 0.45 } },
+    { at: 900, spec: { wave: 'sine', freq: 392, dur: 1.6, vol: 0.45 } },
+  ],
+  'fire-start': [
+    { at: 0, spec: { wave: 'noise', freq: 0, dur: 0.08, vol: 0.5, filterHz: 1400 } },
+    { at: 120, spec: { wave: 'noise', freq: 0, dur: 0.06, vol: 0.4, filterHz: 1400 } },
+    { at: 230, spec: { wave: 'noise', freq: 0, dur: 0.1, vol: 0.45, filterHz: 1400 } },
+  ],
+  'building-lost': [
+    { at: 0, spec: { wave: 'noise', freq: 0, dur: 0.5, vol: 0.65, filterHz: 300 } },
+    { at: 40, spec: { wave: 'sine', freq: 130, freqEnd: 35, dur: 0.6, vol: 0.55 } },
+  ],
+  brownout: [{ at: 0, spec: { wave: 'sawtooth', freq: 220, freqEnd: 55, dur: 0.5, vol: 0.4 } }],
+};
+
+/** Events that may fire often keep a minimum gap; disasters always play. */
+const EVENT_GAP_MS: Partial<Record<EventId, number>> = {
+  'fire-start': 4000,
+  'building-lost': 4000,
+  brownout: 4000,
+};
 
 const TOOL_SOUNDS: Record<ToolId, SoundSpec> = {
   road: { wave: 'triangle', freq: 130, freqEnd: 80, dur: 0.07, vol: 0.5 },
@@ -110,6 +153,8 @@ export function createSoundPlayer() {
     ambientGain.gain.setTargetAtTime(level, ctx.currentTime, 0.5);
   }
 
+  const lastEvent: Partial<Record<EventId, number>> = {};
+
   return {
     get muted() {
       return muted;
@@ -117,6 +162,17 @@ export function createSoundPlayer() {
     /** The lazily created AudioContext; null until the first play(). */
     context(): AudioContext | null {
       return ctx;
+    },
+    /** Play an event cue's steps; frequent events keep a minimum gap. */
+    playEvent(id: EventId) {
+      if (muted) return;
+      const now = performance.now();
+      const gap = EVENT_GAP_MS[id] ?? 0;
+      if (gap > 0 && lastEvent[id] !== undefined && now - lastEvent[id]! < gap) return;
+      lastEvent[id] = now;
+      for (const step of EVENT_SOUNDS[id]) {
+        window.setTimeout(() => this.play(step.spec), step.at);
+      }
     },
     toggleMute(): boolean {
       muted = !muted;
@@ -145,7 +201,7 @@ export function createSoundPlayer() {
         src.buffer = noiseBuf;
         const filter = c.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = 900;
+        filter.frequency.value = spec.filterHz ?? 900;
         src.connect(filter).connect(gain);
         src.start(c.currentTime, Math.random(), spec.dur);
       } else {

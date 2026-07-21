@@ -29,6 +29,7 @@ import { setWeatherFx } from './render/fx';
 import { setDayNight } from './render/daynight';
 import { buildHelp, buildTipBar } from './ui/help';
 import { buildTransitWizard } from './ui/transitwizard';
+import { detectEvents, freshSnapshot } from './ui/events';
 import { adviseTips } from './sim/tips';
 import { ambientLevel, createSoundPlayer, soundFor, UI_SOUNDS } from './ui/sound';
 import { createMusicPlayer } from './ui/music';
@@ -95,6 +96,9 @@ function setSpeed(speed: 0 | 1 | 2 | 3) {
 function tickSafely() {
   try {
     simTick(city, rand);
+    const r = detectEvents(eventSnap, city);
+    eventSnap = r.next;
+    for (const ev of r.events) sound.playEvent(ev);
   } catch (err) {
     window.clearInterval(timer);
     renderer.simSpeed = 0;
@@ -106,6 +110,7 @@ function tickSafely() {
 // --- sound --- (before the UI: Display reads the music pref as it builds)
 const sound = createSoundPlayer();
 const music = createMusicPlayer(sound);
+let eventSnap = freshSnapshot(city);
 
 // --- UI ---
 const query = buildQuery(uiRoot);
@@ -196,6 +201,7 @@ const hud = buildHud(
       }
       city = revived;
       rand = mulberry32(city.seed + city.tick);
+      eventSnap = freshSnapshot(city);
       renderer.reseed(city.seed);
       minimap.invalidate();
       hud.syncTaxes(city);
@@ -208,6 +214,7 @@ const hud = buildHud(
       if (!window.confirm('Start a new city? Unsaved progress is lost.')) return;
       city = newCity(Date.now() % 2 ** 31);
       rand = mulberry32(city.seed);
+      eventSnap = freshSnapshot(city);
       renderer.reseed(city.seed);
       minimap.invalidate();
       hud.syncTaxes(city);
