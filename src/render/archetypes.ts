@@ -232,6 +232,21 @@ export function paletteFamily(zone: Zone, tier: Tier, pick: number): [number, nu
   return fams[Math.min(fams.length - 1, Math.floor(pick * fams.length))];
 }
 
+/** Per-tier height multiplier over the stage ramp: wealth builds up,
+ * dirty industry sprawls low, tech rises to a mid-campus profile. */
+const HEIGHT_SCALE: Record<FamilyKey, number> = {
+  R1: 0.85, R2: 1.0, R3: 1.2,
+  C1: 0.85, C2: 1.0, C3: 1.35,
+  dirty: 0.85, manu: 1.0, tech: 1.15,
+};
+
+export function heightScaleFor(zone: Zone, tier: Tier): number {
+  if (zone !== Zone.Residential && zone !== Zone.Commercial && zone !== Zone.Industrial) {
+    return 1;
+  }
+  return HEIGHT_SCALE[familyKey(zone, tier)];
+}
+
 export interface FarmLayout {
   barnOx: number; // barn center offset, tile-fraction units
   barnOy: number;

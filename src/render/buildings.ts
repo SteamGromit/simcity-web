@@ -6,6 +6,7 @@ import {
   Archetype,
   channels,
   footprintBudget,
+  heightScaleFor,
   pickArchetype,
   pickFarmLayout,
   paletteFamily,
@@ -715,7 +716,11 @@ export function drawBuilding(
     return;
   }
 
-  const h = (HEIGHTS[zone]?.[stage] ?? 12) * (0.92 + variant * 0.16) * getSkin().heightScale;
+  const h =
+    (HEIGHTS[zone]?.[stage] ?? 12) *
+    heightScaleFor(zone, tier) *
+    (0.92 + variant * 0.16) *
+    getSkin().heightScale;
   const chan = channels(variant);
   const arch = pickArchetype(zone, tier, stage, chan());
   const [fh, fs, fl] = paletteFamily(zone, tier, chan());
