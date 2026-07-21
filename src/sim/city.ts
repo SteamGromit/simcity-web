@@ -159,6 +159,7 @@ export function newCity(seed: number): CityState {
     weather: defaultWeather(),
     notices: [],
     history: { pop: [], funds: [] },
+    transitLines: [],
   };
 }
 

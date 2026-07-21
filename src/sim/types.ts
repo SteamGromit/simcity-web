@@ -208,6 +208,8 @@ export interface CityState {
   notices: string[];
   /** Monthly samples for the charts panel, newest last, capped at HISTORY_MAX. */
   history: { pop: number[]; funds: number[] };
+  /** Player-drawn transit routes; stops are ordinary station tiles. */
+  transitLines: import('./transitlines').TransitLine[];
 }
 
 export const HISTORY_MAX = 240; // 20 years of monthly samples
