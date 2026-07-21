@@ -4,6 +4,20 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.34.0] — 2026-07-21 · Graphics pass
+
+### Added
+- Scene grounding: drop shadows under every structure, sand-and-foam
+  shorelines on calm water edges, meadow-scale terrain shading in
+  place of the per-tile checker, softened cliffs with strata and a lip
+  highlight, and curb lines along road edges.
+- Street-level detail: doors on houses and shops, entry bands on
+  towers, storefront strips on commercial (with hanging signs up
+  close), and window mullions at close zoom.
+- Zoom-scaled detail (`detailLevel`): far views draw clean masses and
+  roofs only (fewer draw calls exactly when the whole map is on
+  screen); close views gain the extra trim.
+
 ## [0.33.1] — 2026-07-21 · Radius balance pass
 
 ### Changed

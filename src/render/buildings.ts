@@ -465,6 +465,16 @@ export function drawPole(ctx: CanvasRenderingContext2D, cx: number, cy: number) 
   ctx.stroke();
 }
 
+/** Soft ground shadow: the footprint diamond nudged SE. The sun is fixed
+ * in screen space, so shadows swing with camera rotation — an accepted
+ * stylization that keeps every frame consistent. */
+export function drawShadow(ctx: CanvasRenderingContext2D, geom: TileGeom, f: number) {
+  const pts = geom.corners.map(
+    ([px, py]) => [geom.cx + (px - geom.cx) * f + 5, geom.cy + (py - geom.cy) * f + 3] as Pt,
+  );
+  fillPoly(ctx, pts, 'rgba(20, 24, 18, 0.30)');
+}
+
 /** Yellow "no power" bolt centered at (bx, by). */
 export function drawNoPowerBolt(ctx: CanvasRenderingContext2D, bx: number, by: number) {
   ctx.fillStyle = '#ffd23f';
@@ -537,6 +547,7 @@ function drawArchetype(
   abandoned: boolean,
   night: number,
   chan: () => number,
+  detail: 0 | 1 | 2 = 1,
 ): { faces: Face[]; foot: Pt[] } | null {
   const budget = footprintBudget(stage);
   // draw masses back-to-front under the current rotation
@@ -553,11 +564,26 @@ function drawArchetype(
   // decorations run through the skin exactly like walls do
   const [dh, ds, dl] = getSkin().building(hue, sat, lit);
   drawRoof(ctx, primary.foot, baseH, arch.roof, dh, ds, dl);
-  if (stage >= 2 && zone !== Zone.Industrial) {
+  if (detail >= 1 && stage >= 2 && zone !== Zone.Industrial) {
     windows(ctx, primary.faces, baseH, !abandoned, night, arch.windows);
+    if (detail === 2) {
+      // mullions: vertical splits through the window stripes
+      ctx.strokeStyle = 'rgba(30, 32, 38, 0.35)';
+      ctx.lineWidth = 0.8;
+      for (const face of primary.faces) {
+        for (const u of [1 / 3, 2 / 3]) {
+          const p = lerp2(face.a, face.b, u);
+          ctx.beginPath();
+          ctx.moveTo(p[0], p[1] - 4);
+          ctx.lineTo(p[0], p[1] - baseH + 3);
+          ctx.stroke();
+        }
+      }
+    }
   }
 
   if (abandoned) return primary; // ruins keep walls and roof, lose the trimmings
+  if (detail === 0) return primary; // far zoom: masses and roofs carry the read
   let spot = 0;
   for (const kind of arch.props) {
     if (chan() > 0.85) continue; // most lots carry the prop; some go without
@@ -582,6 +608,62 @@ function drawArchetype(
     }
   }
   return primary;
+}
+
+/** Street-level life: doors on houses and shops, an entry band on
+ * towers, a storefront strip (plus close-up signage) on commercial.
+ * Expects a non-abandoned lot at detail ≥ 1. */
+function drawStreetLevel(
+  ctx: CanvasRenderingContext2D,
+  primary: { faces: Face[]; foot: Pt[] },
+  zone: Zone,
+  stage: Stage,
+  detail: 0 | 1 | 2,
+  chan: () => number,
+) {
+  if (zone !== Zone.Residential && zone !== Zone.Commercial) return;
+  if (primary.faces.length === 0) return;
+  const front = primary.faces.reduce(
+    (p, f) => (f.a[1] + f.b[1] > p.a[1] + p.b[1] ? f : p),
+    primary.faces[0],
+  );
+  if (zone === Zone.Commercial && stage >= 2) {
+    // storefront strip along the base of every visible wall
+    ctx.strokeStyle = 'rgba(240, 235, 210, 0.5)';
+    ctx.lineWidth = 2.5;
+    for (const face of primary.faces) {
+      ctx.beginPath();
+      ctx.moveTo(face.a[0], face.a[1] - 2);
+      ctx.lineTo(face.b[0], face.b[1] - 2);
+      ctx.stroke();
+    }
+    if (detail === 2) {
+      // a seeded-color sign hung over the storefront
+      const p = lerp2(front.a, front.b, 0.68);
+      ctx.fillStyle = `hsl(${Math.floor(chan() * 360)} 60% 55%)`;
+      ctx.fillRect(p[0] - 3, p[1] - 10, 6, 3.5);
+    }
+  }
+  if (stage >= 5) {
+    // tower entry: a dark full-width band at the base of the front wall
+    ctx.strokeStyle = 'rgba(20, 22, 26, 0.65)';
+    ctx.lineWidth = 3;
+    const a = lerp2(front.a, front.b, 0.15);
+    const b = lerp2(front.a, front.b, 0.85);
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1] - 1.5);
+    ctx.lineTo(b[0], b[1] - 1.5);
+    ctx.stroke();
+    return;
+  }
+  const m = mid(front.a, front.b);
+  ctx.fillStyle = 'rgba(25, 22, 20, 0.85)';
+  ctx.fillRect(m[0] - 2, m[1] - 6, 4, 6);
+  if (detail === 2) {
+    ctx.strokeStyle = 'rgba(235, 228, 210, 0.5)';
+    ctx.lineWidth = 0.8;
+    ctx.strokeRect(m[0] - 2, m[1] - 6, 4, 6);
+  }
 }
 
 /** Small marks that make a lot's tier legible: §§§ roofline trim and
@@ -647,6 +729,7 @@ export function drawBuilding(
   powered: boolean,
   variant: number, // 0..1 stable per tile
   night = 0, // 0 day .. 1 midnight, brightens lit windows
+  detail: 0 | 1 | 2 = 1, // zoom LOD: 0 far (masses only), 2 close (extra trim)
 ) {
   const { cx, cy } = geom;
 
@@ -658,6 +741,7 @@ export function drawBuilding(
   }
 
   if (zone === Zone.PowerPlant) {
+    drawShadow(ctx, geom, 0.85);
     box(ctx, geom, 0.85, 20, 15, 12, 38);
     smokestack(ctx, cx - 16, cy - 16, 22);
     smokestack(ctx, cx - 4, cy - 16, 26);
@@ -666,6 +750,7 @@ export function drawBuilding(
 
   if (zone === Zone.SolarPlant) {
     // low plinth under three angled panel rows catching the sky
+    drawShadow(ctx, geom, 0.8);
     box(ctx, geom, 0.8, 3, 220, 12, 28);
     for (let k = -1; k <= 1; k++) {
       fillPoly(
@@ -684,6 +769,7 @@ export function drawBuilding(
 
   if (zone === Zone.WindTurbine) {
     // concrete pad, white mast, three-blade rotor
+    drawShadow(ctx, geom, 0.3);
     box(ctx, geom, 0.3, 4, 0, 0, 55);
     ctx.strokeStyle = '#e8eaec';
     ctx.lineWidth = 2;
@@ -705,6 +791,7 @@ export function drawBuilding(
 
   if (zone === Zone.HydroPlant) {
     // blue powerhouse with twin penstocks and a spill of white water
+    drawShadow(ctx, geom, 0.7);
     box(ctx, geom, 0.7, 14, 210, 48, 38);
     ctx.strokeStyle = '#9fb2c2';
     ctx.lineWidth = 3;
@@ -728,6 +815,7 @@ export function drawBuilding(
 
   if (zone === Zone.NuclearPlant) {
     // pale reactor hall beside the waisted cooling tower and its steam
+    drawShadow(ctx, geom, 0.8);
     box(ctx, geom, 0.8, 11, 45, 8, 60);
     fillPoly(
       ctx,
@@ -764,6 +852,7 @@ export function drawBuilding(
 
   if (zone === Zone.WaterPump) {
     // squat blue pumphouse with an intake stack
+    drawShadow(ctx, geom, 0.6);
     box(ctx, geom, 0.6, 12, 210, 45, 45);
     ctx.fillStyle = '#7fb3d8';
     ctx.fillRect(cx - 3, cy - 24, 6, 12);
@@ -790,6 +879,7 @@ export function drawBuilding(
 
   if (zone === Zone.BusStop) {
     // small teal shelter with a stop-sign post
+    drawShadow(ctx, geom, 0.45);
     box(ctx, geom, 0.45, 7, 178, 40, 42);
     ctx.strokeStyle = '#cfd6d4';
     ctx.lineWidth = 1.5;
@@ -805,6 +895,7 @@ export function drawBuilding(
 
   if (zone === Zone.StreetcarStop) {
     // teal shelter under a catenary pole and its contact wire
+    drawShadow(ctx, geom, 0.5);
     box(ctx, geom, 0.5, 8, 178, 42, 44);
     ctx.strokeStyle = '#cfd6d4';
     ctx.lineWidth = 1.5;
@@ -825,6 +916,7 @@ export function drawBuilding(
 
   if (zone === Zone.MonorailStation) {
     // concrete pylon carrying a beam with a white car parked on it
+    drawShadow(ctx, geom, 0.5);
     box(ctx, geom, 0.5, 6, 178, 30, 46);
     ctx.fillStyle = '#9aa0a2';
     ctx.fillRect(cx - 2, cy - 22, 4, 20);
@@ -847,6 +939,7 @@ export function drawBuilding(
 
   if (zone === Zone.SubwayStation) {
     // stair kiosk descending underground, lit M sign on a post
+    drawShadow(ctx, geom, 0.5);
     box(ctx, geom, 0.5, 7, 220, 18, 38);
     ctx.fillStyle = '#1e2226';
     fillPoly(
@@ -876,6 +969,7 @@ export function drawBuilding(
 
   if (zone === Zone.RailTerminal) {
     // brick terminal hall with a white clock face on the gable
+    drawShadow(ctx, geom, 0.8);
     box(ctx, geom, 0.8, 16, 12, 45, 40);
     fillPoly(
       ctx,
@@ -916,6 +1010,7 @@ export function drawBuilding(
           : zone === Zone.Hospital
             ? { h: 22, f: 0.82, hue: 190, sat: 12, lit: 68 }
             : { h: 12, f: 0.85, hue: 45, sat: 42, lit: 56 };
+    drawShadow(ctx, geom, style.f);
     const { faces } = box(ctx, geom, style.f, style.h, style.hue, style.sat, style.lit);
     // white service band across the visible walls
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';
@@ -981,8 +1076,12 @@ export function drawBuilding(
     sat = 6;
     lit = 32;
   }
-  const primary = drawArchetype(ctx, geom, arch, stage, zone, h, hue, sat, lit, abandoned, night, chan);
-  if (primary && !abandoned) drawTierAccents(ctx, primary, zone, kind, stage, h);
+  drawShadow(ctx, geom, footprintBudget(stage));
+  const primary = drawArchetype(ctx, geom, arch, stage, zone, h, hue, sat, lit, abandoned, night, chan, detail);
+  if (primary && !abandoned && detail >= 1) {
+    drawTierAccents(ctx, primary, zone, kind, stage, h);
+    drawStreetLevel(ctx, primary, zone, stage, detail, chan);
+  }
   // Only smoky industry gets stacks; high-tech is clean and farms have none.
   if (zone === Zone.Industrial && stage >= 2 && !abandoned && (kind === 'dirty' || kind === 'manu')) {
     smokestack(ctx, cx + 8, cy - 8, h + 8);

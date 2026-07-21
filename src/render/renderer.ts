@@ -16,6 +16,8 @@ import { ELEV_PX, TileGeom, isoToScreen, screenToIso, setViewAngle, tileDepth, t
 import { DisasterFx } from './disasterfx';
 import { OverlayId, drawOverlay } from './overlays';
 import { getDayNight, nightFactor, nightTint } from './daynight';
+import { groundShade } from './terrainshade';
+import { detailLevel } from './detail';
 import { getSkin } from './skins';
 import { getWeatherFx } from './fx';
 
@@ -162,6 +164,7 @@ export class Renderer {
     // Depth-sorted painter's order: valid at every view angle. Buildings
     // stay inside their tile footprint (see buildings.ts), so tile depth
     // alone decides occlusion.
+    const detail = detailLevel(this.camera.zoom);
     for (let n = 0; n < this.order.length; n++) {
       const i = this.order[n];
       const x = i % GRID;
@@ -182,6 +185,7 @@ export class Renderer {
           t.powered,
           this.variants[i],
           this.night,
+          detail,
         );
       }
       if (t.burning > 0) drawFire(ctx, geom, now, this.variants[i]);
@@ -330,12 +334,26 @@ export class Renderer {
       const midY = (c1[1] + c2[1]) / 2;
       if (midY <= geom.cy) continue; // back edge, hidden
       const midX = (c1[0] + c2[0]) / 2;
-      const lit = midX < geom.cx ? 24 : 32; // two faces, two shades
+      const lit = midX < geom.cx ? 26 : 32; // two faces, two shades
       fillPoly(
         this.ctx,
         [c1, c2, [c2[0], c2[1] + drop], [c1[0], c1[1] + drop]],
         `hsl(28 32% ${lit}%)`,
       );
+      // strata soften the raw wedge; a lip highlight catches the edge
+      this.ctx.strokeStyle = 'rgba(60, 45, 30, 0.35)';
+      this.ctx.lineWidth = 1;
+      for (const fr of [1 / 3, 2 / 3]) {
+        this.ctx.beginPath();
+        this.ctx.moveTo(c1[0], c1[1] + drop * fr);
+        this.ctx.lineTo(c2[0], c2[1] + drop * fr);
+        this.ctx.stroke();
+      }
+      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      this.ctx.beginPath();
+      this.ctx.moveTo(c1[0], c1[1]);
+      this.ctx.lineTo(c2[0], c2[1]);
+      this.ctx.stroke();
     }
   }
 
@@ -353,6 +371,21 @@ export class Renderer {
         fillTile(this.ctx, geom, '#4a4e55');
       } else {
         fillTile(this.ctx, geom, getSkin().roadFill);
+        // curb line along every edge that borders non-road land
+        this.ctx.strokeStyle = 'rgba(150, 155, 160, 0.8)';
+        this.ctx.lineWidth = 1.5;
+        for (let k = 0; k < 4; k++) {
+          const [dx, dy] = Renderer.EDGE_DIRS[k];
+          if (inBounds(x + dx, y + dy) && city.tiles[idx(x + dx, y + dy)].zone === Zone.Road) {
+            continue;
+          }
+          const c1 = geom.corners[k];
+          const c2 = geom.corners[(k + 1) % 4];
+          this.ctx.beginPath();
+          this.ctx.moveTo(c1[0], c1[1]);
+          this.ctx.lineTo(c2[0], c2[1]);
+          this.ctx.stroke();
+        }
       }
       this.drawRoadLinks(geom, city, x, y);
       if (t.wire) drawPole(this.ctx, geom.cx, geom.cy);
@@ -372,6 +405,26 @@ export class Renderer {
         // storm surge: whitecaps churning against the shore
         const pulse = 0.25 + 0.2 * Math.sin(this.frameNow / 160 + (x + y) * 1.7);
         fillTile(this.ctx, geom, `rgba(230, 240, 250, ${pulse.toFixed(3)})`);
+      } else if (!this.storm) {
+        // calm shore: a sand strip and foam line along every land edge
+        for (let k = 0; k < 4; k++) {
+          const [dx, dy] = Renderer.EDGE_DIRS[k];
+          if (!inBounds(x + dx, y + dy)) continue;
+          if (city.tiles[idx(x + dx, y + dy)].terrain === Terrain.Water) continue;
+          const c1 = geom.corners[k];
+          const c2 = geom.corners[(k + 1) % 4];
+          const inward = (p: [number, number]): [number, number] => [
+            p[0] + (geom.cx - p[0]) * 0.22,
+            p[1] + (geom.cy - p[1]) * 0.22,
+          ];
+          fillPoly(this.ctx, [c1, c2, inward(c2), inward(c1)], 'hsl(45 38% 62%)');
+          this.ctx.strokeStyle = 'rgba(235, 244, 250, 0.5)';
+          this.ctx.lineWidth = 1;
+          this.ctx.beginPath();
+          this.ctx.moveTo(c1[0], c1[1]);
+          this.ctx.lineTo(c2[0], c2[1]);
+          this.ctx.stroke();
+        }
       }
       return;
     }
@@ -383,10 +436,10 @@ export class Renderer {
       fillTile(this.ctx, geom, `hsl(28 ${10 + v * 6}% ${42 + v * 6}%)`);
     } else if (city.biome === 'desert') {
       const gs = Math.min(95, (40 + v * 8) * getSkin().grassSat);
-      fillTile(this.ctx, geom, `hsl(${42 + v * 8} ${gs}% ${56 + v * 6}%)`);
+      fillTile(this.ctx, geom, `hsl(${42 + v * 8} ${gs}% ${56 + groundShade(x, y, v)}%)`);
     } else {
       const gs = Math.min(95, (30 + v * 8) * getSkin().grassSat);
-      fillTile(this.ctx, geom, `hsl(${96 + v * 10} ${gs}% ${34 + v * 6}%)`);
+      fillTile(this.ctx, geom, `hsl(${96 + v * 10} ${gs}% ${34 + groundShade(x, y, v)}%)`);
     }
     if (this.storm && this.shoreline(city, x, y)) {
       // surge sloshing up onto the waterfront
