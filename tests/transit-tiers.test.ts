@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { TRANSIT_SPECS, TRANSIT_ZONES, isTransit, transitUnlocked } from '../src/sim/transit';
 import { deserialize, serialize } from '../src/sim/save';
+import { collectBudget } from '../src/sim/budget';
 import { applyTool } from '../src/sim/city';
 import { updatePower } from '../src/sim/power';
 import { updateCoverage } from '../src/sim/services';
@@ -133,6 +134,17 @@ describe('transit placement and power', () => {
     // 51 consumers against a 50-tile pool: the farthest goes dark
     expect(city.brownouts).toBe(1);
     expect(city.tiles[idx96(51, 0)].powered).toBe(false);
+  });
+});
+
+describe('transit economics', () => {
+  it('charges each station its monthly upkeep', () => {
+    const city = makeCity();
+    clearLand(city);
+    city.tiles[idx96(0, 0)].zone = Zone.StreetcarStop;
+    city.tiles[idx96(2, 0)].zone = Zone.RailTerminal;
+    collectBudget(city);
+    expect(city.lastBudget.expenses).toBe(25 + 150);
   });
 });
 

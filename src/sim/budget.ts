@@ -15,6 +15,10 @@ const UPKEEP = {
   wind: 15,
   hydro: 60,
   nuclear: 300,
+  streetcar: 25,
+  monorail: 60,
+  subway: 100,
+  rail: 150,
 };
 
 /** Monthly close: collect taxes on developed capacity, pay upkeep, move funds. */
@@ -65,6 +69,18 @@ export function collectBudget(city: CityState): BudgetReport {
         break;
       case Zone.NuclearPlant:
         expenses += UPKEEP.nuclear;
+        break;
+      case Zone.StreetcarStop:
+        expenses += UPKEEP.streetcar;
+        break;
+      case Zone.MonorailStation:
+        expenses += UPKEEP.monorail;
+        break;
+      case Zone.SubwayStation:
+        expenses += UPKEEP.subway;
+        break;
+      case Zone.RailTerminal:
+        expenses += UPKEEP.rail;
         break;
       case Zone.Park:
         expenses += UPKEEP.park;

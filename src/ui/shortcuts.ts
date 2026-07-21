@@ -1,4 +1,5 @@
-import { Density, SERVICE_RADII, ToolId } from '../sim/types';
+import { Density, SERVICE_RADII, ToolId, Zone } from '../sim/types';
+import { TRANSIT_SPECS } from '../sim/transit';
 import { OverlayId } from '../render/overlays';
 
 /** Keys already claimed by camera/help/sound bindings — never map tools here. */
@@ -75,6 +76,10 @@ export const HALO_RADII: Partial<Record<ToolId, number>> = {
   school: SERVICE_RADII.school,
   hospital: SERVICE_RADII.health,
   bus: SERVICE_RADII.bus,
+  streetcar: TRANSIT_SPECS[Zone.StreetcarStop]!.radius,
+  monorail: TRANSIT_SPECS[Zone.MonorailStation]!.radius,
+  subway: TRANSIT_SPECS[Zone.SubwayStation]!.radius,
+  rail: TRANSIT_SPECS[Zone.RailTerminal]!.radius,
 };
 
 /**
