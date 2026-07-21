@@ -15,7 +15,7 @@ import { buildMinimap } from './ui/minimap';
 import { buildCityHall } from './ui/cityhall';
 import { buildDisplay } from './ui/display';
 import { makeDraggable } from './ui/drag';
-import { OVERLAY_KEYS, TOOL_KEYS } from './ui/shortcuts';
+import { isFormControl, OVERLAY_KEYS, TOOL_KEYS } from './ui/shortcuts';
 import { setSkin } from './render/skins';
 import { setWeatherFx } from './render/fx';
 import { setDayNight } from './render/daynight';
@@ -371,6 +371,7 @@ canvas.addEventListener('wheel', (e) => {
 const rotateKeys = new Set<string>();
 
 window.addEventListener('keydown', (e) => {
+  if (isFormControl(e.target)) return; // a focused slider owns its arrow keys
   const pan = 60 / renderer.camera.zoom;
   switch (e.key) {
     case 'q':
@@ -420,7 +421,7 @@ window.addEventListener('keydown', (e) => {
 });
 window.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
-  if (e.target instanceof HTMLInputElement) return;
+  if (isFormControl(e.target)) return;
   if (e.shiftKey) {
     // Shift is the data-views hold-key; shifted presses never reach tools
     const overlayKey = OVERLAY_KEYS[e.key.toLowerCase()];
