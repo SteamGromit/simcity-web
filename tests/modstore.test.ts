@@ -152,4 +152,61 @@ describe('mod store — import/export', () => {
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.errors.join(' ')).toContain('eco');
   });
+
+  test('import surfaces a registerPack failure (cross-pack pinned-slot collision) and does not add the mod', () => {
+    const store = createModStore(fakeStorage());
+    const a = JSON.stringify({
+      id: 'a',
+      name: 'A',
+      version: '1',
+      buildings: [{ id: 'a:x', name: 'X', slot: 1000, cost: 1, upkeep: 0 }],
+    });
+    const ra = store.importMod(a);
+    expect(ra.ok).toBe(true);
+
+    const b = JSON.stringify({
+      id: 'b',
+      name: 'B',
+      version: '1',
+      buildings: [{ id: 'b:y', name: 'Y', slot: 1000, cost: 1, upkeep: 0 }],
+    });
+    const rb = store.importMod(b);
+    expect(rb.ok).toBe(false);
+    if (!rb.ok) expect(rb.errors.join(' ')).toContain('1000');
+
+    expect(store.list().map((m) => m.pack.id)).toEqual(['a']);
+  });
+
+  test('exportMod on an unknown id returns an empty string', () => {
+    const store = createModStore(fakeStorage());
+    expect(store.exportMod('nope')).toBe('');
+  });
+});
+
+describe('mod store — setEnabled no-op', () => {
+  test('setEnabled to the current value does not fire onChange or change the list', () => {
+    const store = createModStore(fakeStorage());
+    const m = store.create('Eco'); // enabled: true
+    let n = 0;
+    store.onChange(() => n++);
+    store.setEnabled(m.pack.id, true); // already true
+    expect(n).toBe(0);
+    expect(store.list()).toEqual([m]);
+  });
+});
+
+describe('mod store — load drops malformed entries', () => {
+  test('a malformed entry is dropped while a good one still loads', () => {
+    const good = { enabled: true, pack: { id: 'eco', name: 'Eco', version: '1.0.0', ordinances: [] } };
+    const seed = JSON.stringify([good, { enabled: 'yes', pack: { id: 'bad', name: 'Bad', version: '1', ordinances: [] } }]);
+    const store = createModStore(fakeStorage(seed));
+    expect(store.list().map((m) => m.pack.id)).toEqual(['eco']);
+  });
+
+  test('a non-object entry (a number) is dropped while a good one still loads', () => {
+    const good = { enabled: true, pack: { id: 'eco', name: 'Eco', version: '1.0.0', ordinances: [] } };
+    const seed = JSON.stringify([good, 5]);
+    const store = createModStore(fakeStorage(seed));
+    expect(store.list().map((m) => m.pack.id)).toEqual(['eco']);
+  });
 });

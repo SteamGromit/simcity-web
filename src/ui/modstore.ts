@@ -31,8 +31,8 @@ export function slugify(name: string): string {
 }
 
 export interface ModStore {
-  list(): readonly StoredMod[];
-  create(name: string): StoredMod;
+  list(): readonly Readonly<StoredMod>[];
+  create(name: string): Readonly<StoredMod>;
   rename(id: string, name: string): void;
   remove(id: string): void;
   setEnabled(id: string, on: boolean): void;
@@ -150,9 +150,10 @@ export function createModStore(storage: StorageLike): ModStore {
       if (find(pack.id)) {
         return { ok: false, errors: [`a mod with id "${pack.id}" already exists`] };
       }
+      const registered = registerPack(pack);
+      if (!registered.ok) return { ok: false, errors: registered.errors };
       const mod: StoredMod = { enabled: true, pack };
       mods.push(mod);
-      registerPack(pack);
       persist();
       fire();
       return { ok: true, id: pack.id };
