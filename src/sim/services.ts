@@ -1,34 +1,56 @@
+import { allBuildings } from '../content/registry';
 import { idx, neighbors4, tilesWithin } from './grid';
-import { TRANSIT_SPECS, TRANSIT_ZONES } from './transit';
 import {
-  BUS_TRAFFIC_SHARE,
   CityState,
   FIRE_BURN_TICKS,
   FIRE_EXTINGUISH,
   FIRE_RISK,
   FIRE_SPREAD,
   GRID,
-  SERVICE_RADII,
   Zone,
 } from './types';
 
 type CovField = 'fireCov' | 'policeCov' | 'schoolCov' | 'healthCov' | 'busCov';
 
-const SERVICES: { zone: Zone; radius: number; field: CovField; share?: number }[] = [
-  { zone: Zone.FireStation, radius: SERVICE_RADII.fire, field: 'fireCov' },
-  { zone: Zone.PoliceStation, radius: SERVICE_RADII.police, field: 'policeCov' },
-  { zone: Zone.School, radius: SERVICE_RADII.school, field: 'schoolCov' },
-  { zone: Zone.Hospital, radius: SERVICE_RADII.health, field: 'healthCov' },
-  { zone: Zone.BusStop, radius: SERVICE_RADII.bus, field: 'busCov', share: BUS_TRAFFIC_SHARE },
-  // the transit ladder rides the bus machinery: same coverage field,
-  // wider radius, fewer cars per covered trip (Tile.transitShare)
-  ...TRANSIT_ZONES.map((zone) => ({
-    zone,
-    radius: TRANSIT_SPECS[zone]!.radius,
-    field: 'busCov' as CovField,
-    share: TRANSIT_SPECS[zone]!.share,
-  })),
-];
+const COV_FIELD: Record<string, CovField> = {
+  fire: 'fireCov',
+  police: 'policeCov',
+  school: 'schoolCov',
+  health: 'healthCov',
+  bus: 'busCov',
+};
+
+interface ServiceEntry {
+  zone: Zone;
+  radius: number;
+  field: CovField;
+  share?: number;
+}
+
+/** Derived per call: content can be registered after this module is imported. */
+function services(): ServiceEntry[] {
+  const out: ServiceEntry[] = [];
+  for (const b of allBuildings()) {
+    if (b.service) {
+      out.push({
+        zone: b.slot as Zone,
+        radius: b.service.radius,
+        field: COV_FIELD[b.service.kind],
+        share: b.service.share,
+      });
+    } else if (b.transit) {
+      // the transit ladder rides the bus machinery: same coverage field,
+      // wider radius, fewer cars per covered trip (Tile.transitShare)
+      out.push({
+        zone: b.slot as Zone,
+        radius: b.transit.radius,
+        field: 'busCov',
+        share: b.transit.share,
+      });
+    }
+  }
+  return out;
+}
 
 /**
  * Refresh service coverage: linear falloff from each powered station,
@@ -43,9 +65,10 @@ export function updateCoverage(city: CityState): void {
     t.busCov = 0;
     t.transitShare = 1;
   }
+  const table = services();
   for (let i = 0; i < city.tiles.length; i++) {
     const station = city.tiles[i];
-    const service = SERVICES.find((s) => s.zone === station.zone);
+    const service = table.find((s) => s.zone === station.zone);
     if (!service || !station.powered) continue;
     const x = i % GRID;
     const y = (i / GRID) | 0;

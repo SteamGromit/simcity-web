@@ -10,7 +10,7 @@ import { updateWater } from './water';
 import { pandemicMonthly, rollForDisaster, rubbleMonthly, updateDisasters } from './disasters';
 import { defaultWeather, updateWeatherMonthly } from './weather';
 import { fireRisk, updateCoverage, updateFires } from './services';
-import { PLANT_SPECS, isPlant, plantUnlocked } from './energy';
+import { isPlant, plantUnlockLabel, plantUnlocked } from './energy';
 import { retierMonthly, updateEducation } from './tiers';
 import { updateTraffic } from './traffic';
 import {
@@ -271,8 +271,8 @@ function validateTool(
   }
   const built = TOOL_ZONE[tool];
   if (built === undefined) return 'placed via the transit wizard';
-  if (isPlant(built) && !plantUnlocked(built, city.population)) {
-    return `unlocks at population ${PLANT_SPECS[built]!.unlockPop.toLocaleString('en-US')}`;
+  if (isPlant(built) && !plantUnlocked(built, city)) {
+    return `unlocks at ${plantUnlockLabel(built) ?? 'a larger population'}`;
   }
   if (tool === 'hydro') {
     const wet = neighbors4(x, y).some(

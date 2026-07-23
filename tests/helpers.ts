@@ -1,4 +1,5 @@
 import { blankTile, idx } from '../src/sim/grid';
+import { ensureCoreContent } from '../src/sim/content';
 import { CityState, defaultDisasters, defaultOrdinances, GRID, Stage, Terrain, Tier, Zone } from '../src/sim/types';
 import { defaultWeather } from '../src/sim/weather';
 
@@ -7,7 +8,15 @@ export function clearLand(city: CityState): void {
   for (const t of city.tiles) t.terrain = Terrain.Grass;
 }
 
+/**
+ * A CityState built by hand rather than through newCity/deserialize — tests
+ * use this to skip terrain generation. Energy/transit/services now read the
+ * content registry (Task 8), so this still has to seed it, exactly as
+ * newCity does, or every registry-backed lookup (isPlant, coverage radii...)
+ * would see an empty registry.
+ */
 export function makeCity(): CityState {
+  ensureCoreContent();
   return {
     version: 1,
     seed: 1,

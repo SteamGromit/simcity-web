@@ -97,7 +97,7 @@ export function lineCost(mode: Zone, path: [number, number][], stops: [number, n
  * false (changing nothing) when funds are short or the draft is empty. */
 export function buildLine(city: CityState, draft: LineDraft): boolean {
   if (draft.path.length < 2 || draft.stops.length === 0) return false;
-  if (draft.mode !== Zone.BusStop && !transitUnlocked(draft.mode, city.population)) return false;
+  if (draft.mode !== Zone.BusStop && !transitUnlocked(draft.mode, city)) return false;
   const cost = lineCost(draft.mode, draft.path, draft.stops);
   if (city.funds < cost) return false;
   city.funds -= cost;
