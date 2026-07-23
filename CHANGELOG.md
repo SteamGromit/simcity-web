@@ -4,6 +4,60 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.46.0] — 2026-07-23 · Modding hooks
+
+### Added
+- The game's own buildings, ordinances, and skins now load through a
+  real **content registry** (`src/content/`): a parse → validate →
+  register pipeline, exercised by our own content on every boot rather
+  than only when a mod finally exists. Adding a building, ordinance, or
+  skin is a data edit to a pack, not a multi-file balance-table change.
+- **Pinned-slot identity.** Every building carries a stable string id
+  (`core:coal_plant`) alongside the numeric `Zone` slot the sim and
+  every save actually store. Core content pins its slots to today's
+  historic `Zone` numbers forever; a mod building omits `slot` and gets
+  one allocated from 1000 upward. Ordinance and skin ids are pinned
+  outright (saves key `ordinances` by id; `localStorage` stores the
+  active skin id directly), so the five core ordinance ids and three
+  core skin ids are permanent.
+- **Save legend.** Saves now carry an optional `zoneIds` map (slot → id)
+  for every slot the city uses, so a save opens correctly even when a
+  different set of packs is loaded later; an id the current session
+  doesn't recognize clears just that tile rather than misrendering.
+- **A tiny expression language** (`src/content/expr.ts`) for unlock
+  conditions: number literals, `population`/`funds`/`jobs`/`month`/
+  `year`/`eduLevel`/`demandR`/`demandC`/`demandI`/`brownouts`,
+  `|| && == != < <= > >= + - * / %`, unary `-`/`!`, no functions, no
+  strings, no `eval` — a stranger's pack can't run code through it.
+  Replaces the old hardcoded `unlockPop` checks.
+- **The modifier vocabulary** (`src/content/modifiers.ts`): seven named
+  knobs (`pollution.industry`, `pollution.traffic`, `fire.ignition`,
+  `transit.share`, `coverage.school`, `disaster.pandemicOdds`,
+  `disaster.pandemicToll`) that ordinance `effects` may set, accumulating
+  multiplicatively across every enacted ordinance. Replaces five
+  hardcoded `if (city.ordinances.xyz)` branches scattered across
+  `pollution.ts`, `services.ts`, `traffic.ts`, and `disasters.ts`.
+- **Skins as data.** The three shipped city styles (Classic, Springfield,
+  NYC) are now declarative HSL transforms (`SkinDef`) compiled back into
+  the renderer's existing function shape, instead of hand-written
+  palette functions — a mod skin is just another entry in the pack.
+- **`window.__simcity.loadPack(jsonOrObject)`** — a debug hook, matching
+  the existing `localStorage.simcity.nightlock` convention, that runs an
+  untrusted pack through the same validate → register path and returns
+  `{ ok: true }` or `{ ok: false, errors: string[] }` naming every
+  problem found. See `docs/modding.md` for the full authoring guide,
+  including a worked example pack and an honest accounting of what
+  isn't built yet (no player-facing mod manager, no pack distribution,
+  no authoring UI — that's TODO #2).
+
+### Changed
+- Nothing about how the game plays. This is a pure refactor + pipeline:
+  every cost, upkeep, capacity, pollution figure, radius, transit
+  share, and unlock threshold for every core building is byte-for-byte
+  identical to before, held in place by a dedicated balance-parity test
+  written from the old hardcoded tables before they were deleted. No
+  player-visible behavior changed.
+
 ## [0.45.0] — 2026-07-23 · Interface: Utility Locate
 
 ### Changed

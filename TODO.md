@@ -6,16 +6,28 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Backlog (in order)
 
-1. **Modding hooks** — data-driven building/balance definitions; folds in user-made skins from the skins item. 
-2. **Modding editor** - UI for creating/drawing buildings, assigning properties to them, their local and city-wide impact & for editing sim behavior
-3. **Region play** — multiple city tiles, neighbor deals (SC4 headline; deferred until single-city play is deep enough).
-4. **Rewards** — special buildings the mayor's office can purchase after city milestones are hit (e.g. Ballpark -> Arena -> Stadium -> Colesium, Library, Museum, Monument, College -> University -> Research University), They occupy > square. They provide jobs. They mpact the surrounding area (+ and/or -, context dependent) and sometimes the whole city (e.g. Research university unlocks access to Cold fusion power plant)
-5. **Garabage** - residents produce garabage. garabage pickup is a city service requiring a way to dispose of or process the trash. mayor can buy a trash dump. when city advances past some threshold of advancement, some trash can be recycled.
-6. **Crime** - crime can happen anywhere, but is more common in certain areas and conditions
-7. **traffic accidents** - occasionally a road is blocked due to an accident. Accident prob depends on traffic flow. reduce likelihood of accidends with driver education program. Reduce severity/duration of accident impact with fire depts with upgraded EMT program. animate accident and fallout.
-8. **building safety** - buildings can collapse resulting in loss of building and casualties. Probability increases with age of building. Baseline: It is _very_ rare, and only becomes possible after building hits a predefined age (default = 100 years). Probability adjusted by: city program of a. requiring building permit (slight increase in zoning price) and b. City program to hire and deploy infastructure inspectors, who monitor buildings, roads, bridges, utilities. Create animation for building collapse. Once a building has been repaired, its base prob of collapse goes back to 0 and progresses again as if it were newly built
+1. **Modding editor** - UI for creating/drawing buildings, assigning properties to them, their local and city-wide impact & for editing sim behavior
+2. **Region play** — multiple city tiles, neighbor deals (SC4 headline; deferred until single-city play is deep enough).
+3. **Rewards** — special buildings the mayor's office can purchase after city milestones are hit (e.g. Ballpark -> Arena -> Stadium -> Colesium, Library, Museum, Monument, College -> University -> Research University), They occupy > square. They provide jobs. They mpact the surrounding area (+ and/or -, context dependent) and sometimes the whole city (e.g. Research university unlocks access to Cold fusion power plant)
+4. **Garabage** - residents produce garabage. garabage pickup is a city service requiring a way to dispose of or process the trash. mayor can buy a trash dump. when city advances past some threshold of advancement, some trash can be recycled.
+5. **Crime** - crime can happen anywhere, but is more common in certain areas and conditions
+6. **traffic accidents** - occasionally a road is blocked due to an accident. Accident prob depends on traffic flow. reduce likelihood of accidends with driver education program. Reduce severity/duration of accident impact with fire depts with upgraded EMT program. animate accident and fallout.
+7. **building safety** - buildings can collapse resulting in loss of building and casualties. Probability increases with age of building. Baseline: It is _very_ rare, and only becomes possible after building hits a predefined age (default = 100 years). Probability adjusted by: city program of a. requiring building permit (slight increase in zoning price) and b. City program to hire and deploy infastructure inspectors, who monitor buildings, roads, bridges, utilities. Create animation for building collapse. Once a building has been repaired, its base prob of collapse goes back to 0 and progresses again as if it were newly built
 
 ## Done
+
+- **Modding hooks** — shipped v0.46.0 (content registry with pinned-slot
+  identity for buildings + a save legend, an expression language for
+  unlock conditions, a seven-key modifier vocabulary for ordinance
+  effects, skins as data, and a `window.__simcity.loadPack` debug hook;
+  `docs/modding.md` is the authoring guide). No player-visible behavior
+  changed — a balance-parity test guards every core number. Leaves for
+  #1 (the mod editor): a player-facing mod manager, pack distribution/
+  sharing, and an authoring UI — today a pack only loads via the debug
+  hook for the current tab, and the existing panels (toolbar, City Hall,
+  Config) don't yet render newly-registered content. Growable R/C/I
+  ladders (population/jobs tables, stage heights, archetypes) stayed
+  hardcoded this pass — out of scope.
 
 - **Interface: Utility Locate** — shipped v0.45.0 (APWA locate-code
   spines on every tool, survey-pink selection, narrow signage face +
