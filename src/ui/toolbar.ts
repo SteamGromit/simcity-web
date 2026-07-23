@@ -1,5 +1,7 @@
-import { Density, DENSITY_COST_MULT, ToolId } from '../sim/types';
+import { CityState, Density, DENSITY_COST_MULT, ToolId } from '../sim/types';
 import { toolCost, ZONE_TOOLS } from '../sim/city';
+import { buildingByTool } from '../content/registry';
+import { unlockedFor } from '../sim/content';
 import { OVERLAY_LABELS, OverlayId } from '../render/overlays';
 import { clampDensity, KEY_OF, OVERLAY_KEY_OF } from './shortcuts';
 import { makeDraggable } from './drag';
@@ -17,48 +19,37 @@ const BUILD_TOOLS: { id: ToolId | 'query'; label: string; title?: string }[] = [
 interface Bundle {
   id: string;
   label: string;
-  members: { id: ToolId; label: string; unlockPop: number; title?: string }[];
+  members: { id: ToolId; label: string; title?: string }[];
 }
 
 /**
  * Growth-gated tool families collapse behind one button; locked members stay
- * hidden until the city earns them.
- *
- * unlockPop is a plain population threshold (matching the historic energy
- * and transit spec tables those buildings are now defined in — see
- * src/content/packs/core.ts). Gating here still works off the raw
- * population number returned by getPop() rather than the registry's general
- * unlockedFor(def, city) expression, so it's hardcoded rather than read back
- * out of a building's unlock.expr string. TODO(later task): switch the
- * toolbar to a full CityState so this can call plantUnlocked/transitUnlocked
- * directly, same as city.ts's validateTool.
+ * hidden until the city earns them. Unlock gating reads each member's
+ * building definition from the content registry (src/content/packs/core.ts)
+ * and evaluates it against the live CityState via unlockedFor, so the
+ * thresholds live in one place instead of being duplicated here.
  */
 const BUNDLES: Bundle[] = [
   {
     id: 'energy',
     label: 'Power Plant',
     members: [
-      { id: 'plant', label: 'Coal Plant', unlockPop: 0 },
-      { id: 'wind', label: 'Wind Turbine', unlockPop: 2000 },
-      { id: 'solar', label: 'Solar Farm', unlockPop: 5000 },
-      {
-        id: 'hydro',
-        label: 'Hydro Plant',
-        unlockPop: 10000,
-        title: 'Needs adjacent water',
-      },
-      { id: 'nuclear', label: 'Nuclear Plant', unlockPop: 25000 },
+      { id: 'plant', label: 'Coal Plant' },
+      { id: 'wind', label: 'Wind Turbine' },
+      { id: 'solar', label: 'Solar Farm' },
+      { id: 'hydro', label: 'Hydro Plant', title: 'Needs adjacent water' },
+      { id: 'nuclear', label: 'Nuclear Plant' },
     ],
   },
   {
     id: 'transit',
     label: 'Transit Line',
     members: [
-      { id: 'bus', label: 'Bus Line', unlockPop: 0, title: 'Draw a route, then place stops' },
-      { id: 'streetcar', label: 'Streetcar Line', unlockPop: 5000 },
-      { id: 'monorail', label: 'Monorail Line', unlockPop: 15000 },
-      { id: 'subway', label: 'Subway Line', unlockPop: 30000 },
-      { id: 'rail', label: 'Rail Line', unlockPop: 50000 },
+      { id: 'bus', label: 'Bus Line', title: 'Draw a route, then place stops' },
+      { id: 'streetcar', label: 'Streetcar Line' },
+      { id: 'monorail', label: 'Monorail Line' },
+      { id: 'subway', label: 'Subway Line' },
+      { id: 'rail', label: 'Rail Line' },
     ],
   },
 ];
@@ -107,7 +98,7 @@ export function buildToolbar(
   onTool: (tool: ActiveTool) => void,
   onOverlay: (overlay: OverlayId | null) => void,
   onDensity: (density: Density) => void,
-  getPop: () => number = () => 0,
+  getCity: () => CityState,
 ) {
   const el = document.createElement('div');
   el.id = 'toolbar';
@@ -223,9 +214,10 @@ export function buildToolbar(
       }
       flyout.innerHTML = '';
       flyoutFor = bundle.id;
-      const pop = getPop();
+      const city = getCity();
       for (const m of bundle.members) {
-        if (pop < m.unlockPop) continue; // hidden until the city earns it
+        const def = buildingByTool(m.id);
+        if (def && !unlockedFor(def, city)) continue; // hidden until the city earns it
         const mb = document.createElement('button');
         mb.dataset.tool = m.id;
         mb.innerHTML = `<span>${m.label}</span><span class="cost">${costLabel(m.id)}</span>`;
@@ -238,11 +230,13 @@ export function buildToolbar(
         });
         flyout.appendChild(mb);
       }
-      const next = bundle.members.find((m) => pop < m.unlockPop);
-      if (next) {
+      const nextLocked = bundle.members
+        .map((m) => ({ m, def: buildingByTool(m.id) }))
+        .find(({ def }) => def && !unlockedFor(def, city));
+      if (nextLocked?.def?.unlock) {
         const hint = document.createElement('div');
         hint.className = 'bundle-hint';
-        hint.textContent = `${next.label} at pop ${next.unlockPop.toLocaleString('en-US')}`;
+        hint.textContent = `${nextLocked.m.label} at ${nextLocked.def.unlock.label}`;
         flyout.appendChild(hint);
       }
       const host = (btn.closest('.tool-panel') as HTMLElement) ?? el;
