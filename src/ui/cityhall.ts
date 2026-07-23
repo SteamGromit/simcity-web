@@ -1,4 +1,5 @@
-import { CityState, DisasterKind, ORDINANCES } from '../sim/types';
+import { allOrdinances } from '../content/registry';
+import { CityState, DisasterKind } from '../sim/types';
 import { adviseTips } from '../sim/tips';
 import { tierBreakdown } from '../sim/tierstats';
 
@@ -29,7 +30,7 @@ export function buildCityHall(
   const tierPanel = panel.querySelector('#tier-breakdown') as HTMLElement;
   const ordinanceList = panel.querySelector('#ordinance-list') as HTMLElement;
 
-  for (const o of ORDINANCES) {
+  for (const o of allOrdinances()) {
     const row = document.createElement('label');
     row.className = 'ordinance';
     row.title = o.blurb;
@@ -61,7 +62,7 @@ export function buildCityHall(
   let lastTipRender = 0;
   const syncBoxes = () => {
     const boxes = ordinanceList.querySelectorAll<HTMLInputElement>('input');
-    ORDINANCES.forEach((o, i) => {
+    allOrdinances().forEach((o, i) => {
       boxes[i].checked = city().ordinances[o.id];
     });
   };

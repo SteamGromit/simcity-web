@@ -46,13 +46,14 @@ export function unlockedFor(def: BuildingDef, city: CityState): boolean {
 /** Product of every enacted ordinance's value for this knob; 1 when none apply. */
 export function modifier(city: CityState, key: ModifierKey): number {
   const sets: ModifierSet[] = [];
-  // OrdinanceDef.id is a plain string (packs mint their own ids) while
-  // city.ordinances is still keyed by the fixed OrdinanceId union — Task 9
-  // widens that type. Cast here rather than at the CityState boundary so
-  // this stays the one place that knows about the mismatch.
-  const enacted = city.ordinances as Record<string, boolean>;
   for (const o of allOrdinances()) {
-    if (enacted[o.id]) sets.push(o.effects);
+    if (city.ordinances[o.id]) sets.push(o.effects);
   }
   return combineModifiers(sets)[key];
+}
+
+/** Every registered ordinance, off by default. */
+export function defaultOrdinances(): Record<string, boolean> {
+  ensureCoreContent();
+  return Object.fromEntries(allOrdinances().map((o) => [o.id, false]));
 }

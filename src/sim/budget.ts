@@ -1,25 +1,10 @@
+import { buildingBySlot, allOrdinances } from '../content/registry';
 import { capacityFor, taxYieldFor } from './tiers';
-import { BudgetReport, CityState, ORDINANCES, SERVICE_UPKEEP, Zone } from './types';
+import { BudgetReport, CityState, Zone } from './types';
 
 const R_YIELD = 10;
 const C_YIELD = 16;
 const I_YIELD = 14;
-const UPKEEP = {
-  road: 1,
-  line: 0.2,
-  plant: 150,
-  park: 2,
-  pump: 25,
-  pipe: 0.2,
-  solar: 20,
-  wind: 15,
-  hydro: 60,
-  nuclear: 300,
-  streetcar: 25,
-  monorail: 60,
-  subway: 100,
-  rail: 150,
-};
 
 /** Monthly close: collect taxes on developed capacity, pay upkeep, move funds. */
 export function collectBudget(city: CityState): BudgetReport {
@@ -40,70 +25,16 @@ export function collectBudget(city: CityState): BudgetReport {
       }
     }
 
-    switch (t.zone) {
-      case Zone.Road:
-        expenses += UPKEEP.road;
-        if (t.wire) expenses += UPKEEP.line;
-        if (t.pipe) expenses += UPKEEP.pipe;
-        break;
-      case Zone.PowerLine:
-        expenses += UPKEEP.line;
-        break;
-      case Zone.WaterPump:
-        expenses += UPKEEP.pump;
-        break;
-      case Zone.WaterPipe:
-        expenses += UPKEEP.pipe;
-        break;
-      case Zone.PowerPlant:
-        expenses += UPKEEP.plant;
-        break;
-      case Zone.SolarPlant:
-        expenses += UPKEEP.solar;
-        break;
-      case Zone.WindTurbine:
-        expenses += UPKEEP.wind;
-        break;
-      case Zone.HydroPlant:
-        expenses += UPKEEP.hydro;
-        break;
-      case Zone.NuclearPlant:
-        expenses += UPKEEP.nuclear;
-        break;
-      case Zone.StreetcarStop:
-        expenses += UPKEEP.streetcar;
-        break;
-      case Zone.MonorailStation:
-        expenses += UPKEEP.monorail;
-        break;
-      case Zone.SubwayStation:
-        expenses += UPKEEP.subway;
-        break;
-      case Zone.RailTerminal:
-        expenses += UPKEEP.rail;
-        break;
-      case Zone.Park:
-        expenses += UPKEEP.park;
-        break;
-      case Zone.FireStation:
-        expenses += SERVICE_UPKEEP.fire;
-        break;
-      case Zone.PoliceStation:
-        expenses += SERVICE_UPKEEP.police;
-        break;
-      case Zone.School:
-        expenses += SERVICE_UPKEEP.school;
-        break;
-      case Zone.Hospital:
-        expenses += SERVICE_UPKEEP.health;
-        break;
-      case Zone.BusStop:
-        expenses += SERVICE_UPKEEP.bus;
-        break;
+    const def = buildingBySlot(t.zone);
+    if (def) expenses += def.upkeep;
+    // wires and mains ride on road tiles, so they are flags rather than zones
+    if (t.zone === Zone.Road) {
+      if (t.wire) expenses += buildingBySlot(Zone.PowerLine)?.upkeep ?? 0;
+      if (t.pipe) expenses += buildingBySlot(Zone.WaterPipe)?.upkeep ?? 0;
     }
   }
 
-  for (const o of ORDINANCES) {
+  for (const o of allOrdinances()) {
     if (city.ordinances[o.id]) expenses += o.cost;
   }
 

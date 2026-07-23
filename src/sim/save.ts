@@ -1,11 +1,10 @@
-import { ensureCoreContent } from './content';
+import { defaultOrdinances, ensureCoreContent } from './content';
 import { blankTile } from './grid';
 import { INDUSTRY_KINDS } from './tiers';
 import { defaultWeather, WEATHER_KINDS, WeatherKind } from './weather';
 import {
   CityState,
   defaultDisasters,
-  defaultOrdinances,
   FIRE_BURN_TICKS,
   GRID,
   MAX_ELEV,
@@ -89,8 +88,8 @@ function reviveTile(raw: unknown): Tile {
 function reviveOrdinances(raw: unknown): CityState['ordinances'] {
   const out = defaultOrdinances();
   if (raw && typeof raw === 'object') {
-    for (const key of Object.keys(out) as (keyof typeof out)[]) {
-      if ((raw as Record<string, unknown>)[key] === true) out[key] = true;
+    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+      if (k in out) out[k] = v === true;
     }
   }
   return out;

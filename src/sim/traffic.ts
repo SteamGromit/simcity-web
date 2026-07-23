@@ -1,3 +1,4 @@
+import { modifier } from './content';
 import { idx, inBounds, neighbors4 } from './grid';
 import {
   CityState,
@@ -203,7 +204,7 @@ export function updateTraffic(city: CityState): void {
     let share = 1;
     if (rides) {
       share = Math.max(t.transitShare, arrival.transitShare);
-      if (city.ordinances.freeBus) share /= 2;
+      share *= modifier(city, 'transit.share');
     }
     for (const p of path) city.tiles[p].traffic += share;
   }

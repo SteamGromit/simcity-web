@@ -1,6 +1,6 @@
 import { blankTile, idx } from '../src/sim/grid';
-import { ensureCoreContent } from '../src/sim/content';
-import { CityState, defaultDisasters, defaultOrdinances, GRID, Stage, Terrain, Tier, Zone } from '../src/sim/types';
+import { defaultOrdinances, ensureCoreContent } from '../src/sim/content';
+import { CityState, defaultDisasters, GRID, Stage, Terrain, Tier, Zone } from '../src/sim/types';
 import { defaultWeather } from '../src/sim/weather';
 
 /** Flatten generated terrain to grass so tests can build anywhere. */

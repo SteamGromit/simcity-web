@@ -1,3 +1,4 @@
+import { modifier } from './content';
 import { tilesWithin } from './grid';
 import { pollutionScaleFor } from './tiers';
 import { CityState, GRID, Zone } from './types';
@@ -8,11 +9,10 @@ import { CityState, GRID, Zone } from './types';
 // physics — the per-tile 64-era balance holds by keeping it absolute.
 const SPREAD = 5; // Chebyshev radius an emitter reaches
 
-function emission(city: CityState, i: number): number {
+function emission(city: CityState, i: number, industryScrub: number, trafficScrub: number): number {
   const t = city.tiles[i];
   // Clean Air Act scrubs industry and traffic (the coal plant is exempt —
   // replace it, don't regulate it)
-  const scrub = city.ordinances.cleanAir ? 0.7 : 1;
   if (t.zone === Zone.PowerPlant) return 1.0;
   if (t.zone === Zone.NuclearPlant) return 0.15;
   if (t.zone === Zone.SolarPlant || t.zone === Zone.WindTurbine || t.zone === Zone.HydroPlant) {
@@ -20,19 +20,21 @@ function emission(city: CityState, i: number): number {
   }
   if (t.abandoned && t.stage > 0) return 0.1;
   if (t.zone === Zone.Industrial && t.stage > 0) {
-    return (0.3 + 0.15 * t.stage) * scrub * pollutionScaleFor(t.tier);
+    return (0.3 + 0.15 * t.stage) * industryScrub * pollutionScaleFor(t.tier);
   }
   // Roads are line sources — plumes from adjacent tiles stack, so the
   // per-tile cap must stay small or busy corridors saturate to 1.0.
-  if (t.zone === Zone.Road && t.traffic > 0) return Math.min(0.06, t.traffic * 0.005) * scrub;
+  if (t.zone === Zone.Road && t.traffic > 0) return Math.min(0.06, t.traffic * 0.005) * trafficScrub;
   return 0;
 }
 
 /** Splat each emitter with linear falloff; sum overlapping plumes, clamp to 1. */
 export function updatePollution(city: CityState): void {
   const field = new Float64Array(GRID * GRID);
+  const industryScrub = modifier(city, 'pollution.industry');
+  const trafficScrub = modifier(city, 'pollution.traffic');
   for (let i = 0; i < city.tiles.length; i++) {
-    const e = emission(city, i);
+    const e = emission(city, i, industryScrub, trafficScrub);
     if (e === 0) continue;
     const x = i % GRID;
     const y = (i / GRID) | 0;

@@ -1,5 +1,5 @@
 import { collectBudget } from './budget';
-import { ensureCoreContent } from './content';
+import { defaultOrdinances, ensureCoreContent } from './content';
 import { updateDemand } from './demand';
 import { developTile } from './develop';
 import { blankTile, idx, inBounds, neighbors4 } from './grid';
@@ -20,7 +20,6 @@ import {
   COSTS,
   DEFAULT_TAX,
   defaultDisasters,
-  defaultOrdinances,
   Density,
   DENSITY_COST_MULT,
   GRID,

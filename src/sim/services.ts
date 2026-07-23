@@ -1,4 +1,5 @@
 import { allBuildings } from '../content/registry';
+import { modifier } from './content';
 import { idx, neighbors4, tilesWithin } from './grid';
 import {
   CityState,
@@ -66,6 +67,7 @@ export function updateCoverage(city: CityState): void {
     t.transitShare = 1;
   }
   const table = services();
+  const schoolBoost = modifier(city, 'coverage.school');
   for (let i = 0; i < city.tiles.length; i++) {
     const station = city.tiles[i];
     const service = table.find((s) => s.zone === station.zone);
@@ -76,8 +78,8 @@ export function updateCoverage(city: CityState): void {
       const d = Math.max(Math.abs(nx - x), Math.abs(ny - y));
       // R+1 denominator keeps the rim ring covered (same convention as parks)
       let cov = 1 - d / (service.radius + 1);
-      if (service.field === 'schoolCov' && city.ordinances.eduGrant) {
-        cov = Math.min(1, cov * 1.25); // Education Grant stretches reach
+      if (service.field === 'schoolCov' && schoolBoost !== 1) {
+        cov = Math.min(1, cov * schoolBoost); // Education Grant stretches reach
       }
       const t = city.tiles[idx(nx, ny)];
       if (cov > t[service.field]) t[service.field] = cov;
@@ -99,7 +101,7 @@ export function fireRisk(city: CityState, rand: () => number): void {
   for (let i = 0; i < city.tiles.length; i++) {
     const t = city.tiles[i];
     if (!isBuilding(t) || t.stage === 0 || t.abandoned || t.fireCov > 0 || t.burning > 0) continue;
-    let risk = city.ordinances.fireCode ? FIRE_RISK / 2 : FIRE_RISK;
+    let risk = FIRE_RISK * modifier(city, 'fire.ignition');
     if (city.weather.kind === 'rain' || city.weather.kind === 'snow') risk /= 2; // wet roofs
     if (city.biome === 'desert') risk *= 1.5; // dry air, drier timber
     if (rand() < risk) {

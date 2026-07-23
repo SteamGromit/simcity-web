@@ -112,52 +112,10 @@ export interface BudgetReport {
   net: number;
 }
 
-export type OrdinanceId = 'cleanAir' | 'freeBus' | 'fireCode' | 'eduGrant' | 'healthDrive';
-
-export interface Ordinance {
-  id: OrdinanceId;
-  label: string;
-  blurb: string;
-  /** Monthly cost while enacted. */
-  cost: number;
-}
-
-export const ORDINANCES: Ordinance[] = [
-  {
-    id: 'cleanAir',
-    label: 'Clean Air Act',
-    blurb: 'Scrubbers and emission checks: industry and traffic pollute 30% less.',
-    cost: 100,
-  },
-  {
-    id: 'freeBus',
-    label: 'Free Bus Service',
-    blurb: 'Fare-free transit: bus-served commutes put only a quarter of the cars on the road.',
-    cost: 150,
-  },
-  {
-    id: 'fireCode',
-    label: 'Fire Safety Code',
-    blurb: 'Inspections and sprinklers: buildings are half as likely to catch fire.',
-    cost: 80,
-  },
-  {
-    id: 'eduGrant',
-    label: 'Education Grant',
-    blurb: 'Extra school funding: school coverage counts 25% stronger across its reach.',
-    cost: 120,
-  },
-  {
-    id: 'healthDrive',
-    label: 'Public Health Campaign',
-    blurb: 'Vaccination drives and free clinics: pandemics strike half as often and hit half as hard.',
-    cost: 200,
-  },
-];
-
-export function defaultOrdinances(): Record<OrdinanceId, boolean> {
-  return { cleanAir: false, freeBus: false, fireCode: false, eduGrant: false, healthDrive: false };
-}
+/** Ordinance ids are content-defined, so this is a plain string. Core ids are
+ * pinned (cleanAir, freeBus, fireCode, eduGrant, healthDrive) because saves
+ * store them as the keys of city.ordinances. */
+export type OrdinanceId = string;
 
 export type DisasterKind = 'tornado' | 'hurricane' | 'pandemic';
 
@@ -199,7 +157,7 @@ export interface CityState {
   brownouts: number;
   lastBudget: BudgetReport;
   /** Enacted city policies; each charges monthly and tweaks the sim. */
-  ordinances: Record<OrdinanceId, boolean>;
+  ordinances: Record<string, boolean>;
   /** Active disasters (spawned randomly or summoned from City Hall). */
   disasters: Disasters;
   /** Current weather; visual plus light sim effects (fire, traffic). */
