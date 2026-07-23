@@ -1,4 +1,5 @@
 import { collectBudget } from './budget';
+import { ensureCoreContent } from './content';
 import { updateDemand } from './demand';
 import { developTile } from './develop';
 import { blankTile, idx, inBounds, neighbors4 } from './grid';
@@ -136,6 +137,7 @@ function generateTerrain(tiles: CityState['tiles'], seed: number): Biome {
 }
 
 export function newCity(seed: number): CityState {
+  ensureCoreContent();
   const tiles = Array.from({ length: GRID * GRID }, blankTile);
   const biome = generateTerrain(tiles, seed);
   return {

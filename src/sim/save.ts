@@ -1,3 +1,4 @@
+import { ensureCoreContent } from './content';
 import { blankTile } from './grid';
 import { INDUSTRY_KINDS } from './tiers';
 import { defaultWeather, WEATHER_KINDS, WeatherKind } from './weather';
@@ -198,6 +199,7 @@ function reviveHistory(raw: unknown): CityState['history'] {
  * NaN-poison the simulation.
  */
 export function deserialize(json: string): CityState | null {
+  ensureCoreContent();
   try {
     const data = JSON.parse(json);
     if (!data || data.version !== 1) return null;
