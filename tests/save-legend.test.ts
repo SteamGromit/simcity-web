@@ -49,4 +49,17 @@ describe('save legend', () => {
     const back = deserialize(JSON.stringify(raw))!;
     expect(back.tiles[idx(5, 5)].zone).toBe(Zone.PowerPlant);
   });
+
+  test('a Zone.None-keyed legend entry is ignored, leaving blank tiles blank', () => {
+    const city = newCity(1);
+    city.tiles[idx(6, 5)].zone = Zone.Road;
+    const raw = JSON.parse(serialize(city));
+    // a hand-edited / third-party save claiming slot 0 (Zone.None) means
+    // something — legendFor never emits this, so a reader that honored it
+    // would remap every blank tile in the grid to the claimed building
+    raw.zoneIds = { ...raw.zoneIds, 0: 'core:coal_plant' };
+    const back = deserialize(JSON.stringify(raw))!;
+    expect(back.tiles[idx(0, 0)].zone).toBe(Zone.None);
+    expect(back.tiles[idx(6, 5)].zone).toBe(Zone.Road);
+  });
 });

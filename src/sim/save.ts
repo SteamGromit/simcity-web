@@ -67,6 +67,10 @@ function slotRemap(raw: unknown): Map<number, number> | null {
   for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
     const from = Number(k);
     if (!Number.isInteger(from) || typeof v !== 'string') continue;
+    // Zone.None (0) is never a legend entry — legendFor never emits one — so
+    // a foreign/corrupt save that claims one is ignored, not honored; blank
+    // tiles must stay blank regardless of what a 0 key claims.
+    if (from === Zone.None) continue;
     const to = slotOf(v);
     // an id this session does not know maps to None, clearing the tile
     out.set(from, to ?? Zone.None);
