@@ -26,9 +26,9 @@ export function buildHud(root: HTMLElement, city: () => CityState, actions: HudA
   el.id = 'hud';
   el.className = 'panel';
   el.innerHTML = `
-    <span class="stat" id="funds">§ <b>0</b></span>
-    <span class="stat">Pop <b id="pop">0</b></span>
-    <span class="stat"><b id="date">Jan 2000</b></span>
+    <span class="stat" id="funds"><span class="k">Funds</span><b>0</b></span>
+    <span class="stat"><span class="k">Population</span><b id="pop">0</b></span>
+    <span class="stat"><span class="k">Date</span><b id="date">Jan 2000</b></span>
     <canvas id="rci" width="66" height="44"></canvas>
     <span class="speed-group" id="speeds"></span>
     <button id="budget-btn">Budget</button>
@@ -118,13 +118,13 @@ export function buildHud(root: HTMLElement, city: () => CityState, actions: HudA
       if (h >= 0) rci.fillRect(x, mid - h, 12, Math.max(1, h));
       else rci.fillRect(x, mid, 12, -h);
     });
-    rci.strokeStyle = '#8ea0b8';
+    rci.strokeStyle = '#5a6664';
     rci.beginPath();
     rci.moveTo(2, mid);
     rci.lineTo(64, mid);
     rci.stroke();
-    rci.fillStyle = '#9fb2c8';
-    rci.font = '9px sans-serif';
+    rci.fillStyle = '#8b9793';
+    rci.font = '600 9px "Arial Narrow", "Liberation Sans Narrow", sans-serif';
     ['R', 'C', 'I'].forEach((l, i) => rci.fillText(l, 12 + i * 20, 43));
   }
 

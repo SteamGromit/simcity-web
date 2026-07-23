@@ -1,3 +1,52 @@
+/* ============================================================================
+   SimCity Web — "Utility Locate"
+
+   The chrome borrows the visual language of the people who actually mark up a
+   city: survey crews and utility locators. Sprayed locate paint, stencilled
+   narrow lettering, engineering annotation on a dark asphalt plate.
+
+   Color is semantic, not decorative. Tool spines follow the APWA Uniform Color
+   Code — red electric, blue water, orange communications, white proposed
+   excavation — so the toolbar reads as a legend. Zoning borrows the RCI meter's
+   own colors. Survey pink marks the armed tool, because pink locate paint means
+   "temporary survey marking: proposed work here."
+   ========================================================================== */
+
+:root {
+  /* surfaces */
+  --asphalt: #14181a;
+  --plate: #1e2426;
+  --plate-hi: #29312f;
+  --keyline: #37413f;
+  --keyline-soft: #262e2d;
+
+  /* ink */
+  --chalk: #dde3df;
+  --dim: #8b9793;
+  --faint: #616c6a;
+
+  /* locate code */
+  --electric: #ee4a2c; /* power */
+  --water: #2e7fd6; /* water */
+  --comms: #f2911f; /* transit */
+  --greenspace: #3ea05b; /* parks */
+  --brass: #c9a227; /* civic services */
+  --survey: #ff4fa3; /* armed tool / selection */
+
+  /* zoning — matches the RCI meter drawn in hud.ts */
+  --zone-r: #4dc464;
+  --zone-c: #5b8ff0;
+  --zone-i: #e8cf4a;
+
+  /* type roles */
+  --f-display: 'Arial Narrow', 'Helvetica Neue Condensed', 'Liberation Sans Narrow',
+    'Roboto Condensed', 'Segoe UI', sans-serif;
+  --f-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+  --f-data: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+
+  --lift: 0 10px 24px -10px rgba(0, 0, 0, 0.75);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -8,11 +57,12 @@ html,
 body {
   height: 100%;
   overflow: hidden;
-  background: #10151c;
-  font-family: 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
-  font-size: 13px;
-  color: #d8dee6;
+  background: var(--asphalt);
+  font-family: var(--f-body);
+  font-size: 12px;
+  color: var(--chalk);
   user-select: none;
+  -webkit-font-smoothing: antialiased;
 }
 
 #city {
@@ -23,118 +73,233 @@ body {
   cursor: crosshair;
 }
 
-.panel {
-  background: rgba(24, 30, 40, 0.92);
-  border: 1px solid #3b4a5e;
-  border-radius: 6px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+/* ---- type roles -------------------------------------------------------- */
+
+/* stencilled signage: panel titles, section heads, grips, HUD labels */
+.panel h3,
+.panel h4,
+.tool-panel .section,
+.drag-grip,
+#hud .stat .k,
+#hud > button,
+.bundle-hint {
+  font-family: var(--f-display);
+  text-transform: uppercase;
+  font-weight: 600;
 }
 
-/* ---- top HUD ---- */
+/* engineering annotation: every number the player reads */
+.cost,
+.key,
+#hud .stat b,
+#budget-panel .report,
+#budget-panel .pct,
+#query-panel .val,
+.tier-row,
+.speed-group button {
+  font-family: var(--f-data);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- the plate --------------------------------------------------------- */
+
+.panel {
+  background: linear-gradient(180deg, rgba(32, 39, 40, 0.93), rgba(19, 23, 25, 0.95));
+  border: 1px solid var(--keyline);
+  border-radius: 0;
+  box-shadow:
+    var(--lift),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+@supports (backdrop-filter: blur(4px)) or (-webkit-backdrop-filter: blur(4px)) {
+  .panel {
+    -webkit-backdrop-filter: blur(9px) saturate(0.8);
+    backdrop-filter: blur(9px) saturate(0.8);
+  }
+}
+
+.panel h3 {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--chalk);
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--keyline);
+}
+
+.panel h4 {
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: var(--dim);
+  margin: 10px 0 5px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ---- top HUD: a control-room readout ----------------------------------- */
+
 #hud {
   position: fixed;
   top: 8px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 6px 14px;
+  align-items: stretch;
+  gap: 0;
+  height: 56px;
+  padding: 0 6px 0 0;
+  max-width: calc(100vw - 16px);
+  overflow-x: auto;
+  overflow-y: hidden;
   white-space: nowrap;
+  scrollbar-width: none;
+}
+
+#hud::-webkit-scrollbar {
+  display: none;
+}
+
+#hud .stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 0 13px;
+  border-right: 1px solid var(--keyline-soft);
+}
+
+#hud .stat .k {
+  font-size: 9px;
+  letter-spacing: 0.17em;
+  color: var(--faint);
+  line-height: 1;
 }
 
 #hud .stat b {
-  color: #fff;
-  font-variant-numeric: tabular-nums;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--chalk);
 }
 
-#hud .stat.deficit b {
-  color: #ff6a5e;
+#funds b::before {
+  content: '§';
+  color: var(--faint);
+  margin-right: 1px;
+}
+
+#hud .stat.deficit b,
+#hud .stat.deficit b::before {
+  color: var(--electric);
 }
 
 #rci {
   display: block;
-}
-
-#hud button,
-.tool-panel button,
-#budget-panel button,
-#query-panel button {
-  background: #2a3648;
-  color: #d8dee6;
-  border: 1px solid #465870;
-  border-radius: 4px;
-  padding: 4px 8px;
-  cursor: pointer;
-  font: inherit;
-}
-
-#hud button:hover,
-.tool-panel button:hover {
-  background: #3a4a62;
-}
-
-#hud button.active,
-.tool-panel button.active {
-  background: #4d7cc7;
-  border-color: #7aa5e8;
-  color: #fff;
+  align-self: center;
+  margin: 0 12px 0 8px;
 }
 
 .speed-group {
   display: flex;
+  align-self: center;
   gap: 2px;
+  padding-left: 10px;
+  border-left: 1px solid var(--keyline-soft);
 }
 
-/* ---- toolbar ---- */
+.speed-group button {
+  min-width: 26px;
+  padding: 5px 4px;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--dim);
+  background: var(--plate);
+  border: 1px solid var(--keyline);
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.speed-group button:hover {
+  background: var(--plate-hi);
+  color: var(--chalk);
+}
+
+#hud > button {
+  align-self: center;
+  margin-left: 5px;
+  padding: 6px 8px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+#hud > button:hover {
+  color: var(--chalk);
+  background: var(--plate);
+  border-color: var(--keyline);
+}
+
+/* ---- toolbar ----------------------------------------------------------- */
+
 #toolbar {
   position: fixed;
-  top: 70px;
+  top: 72px;
   left: 8px;
 }
 
 .tool-panel {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   padding: 8px;
-  width: 128px;
+  width: 148px;
 }
 
-.tool-panel button {
+.tool-panel button,
+#budget-panel button,
+#query-panel button {
+  position: relative;
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 6px;
   text-align: left;
+  padding: 5px 7px 5px 12px;
+  /* the narrow signage face, sentence case: it keeps two-word tools like
+     "Police Station" on one line in a 148px column, which the body face cannot */
+  font: 13px/1.25 var(--f-display);
+  color: var(--chalk);
+  background: var(--plate);
+  border: 1px solid var(--keyline);
+  border-radius: 0;
+  cursor: pointer;
+}
+
+/* the locate spine — a painted mark down the left edge of every tool */
+.tool-panel button::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -1px;
+  bottom: -1px;
+  width: 3px;
+  background: var(--spine, transparent);
+}
+
+.tool-panel button:hover {
+  background: var(--plate-hi);
 }
 
 .tool-panel button .cost {
-  color: #9fb2c8;
-  font-size: 11px;
-}
-
-.tool-panel .section {
-  margin-top: 6px;
   font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #7d8fa5;
-}
-
-.tool-panel .section.collapsible {
-  cursor: pointer;
-  user-select: none;
-}
-
-.tool-panel .section.collapsible:hover {
-  color: #aabfec;
-}
-
-.tool-panel .section-body {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 4px;
+  color: var(--faint);
 }
 
 .tool-panel button .meta {
@@ -145,23 +310,144 @@ body {
 
 .tool-panel button .key {
   font-size: 9px;
-  color: #8ea0b8;
-  border: 1px solid #465870;
-  border-radius: 3px;
+  line-height: 1.5;
+  color: var(--dim);
+  border: 1px solid var(--keyline);
+  border-radius: 0;
   padding: 0 3px;
-  line-height: 1.4;
+}
+
+/* --- locate code assignments ---
+   Specificity note: these are (0,2,1), the same as `.tool-panel button.active`
+   below. The active rules are placed AFTER this block on purpose so they win on
+   source order. Do not move them above. */
+
+.tool-panel button[data-tool='line'],
+.tool-panel button[data-tool='plant'],
+.tool-panel button[data-tool='wind'],
+.tool-panel button[data-tool='solar'],
+.tool-panel button[data-tool='hydro'],
+.tool-panel button[data-tool='nuclear'],
+.tool-panel button[data-bundle='energy'] {
+  --spine: var(--electric);
+}
+
+.tool-panel button[data-tool='pump'],
+.tool-panel button[data-tool='pipe'] {
+  --spine: var(--water);
+}
+
+.tool-panel button[data-tool='bus'],
+.tool-panel button[data-tool='streetcar'],
+.tool-panel button[data-tool='monorail'],
+.tool-panel button[data-tool='subway'],
+.tool-panel button[data-tool='rail'],
+.tool-panel button[data-bundle='transit'] {
+  --spine: var(--comms);
+}
+
+.tool-panel button[data-tool='fire'],
+.tool-panel button[data-tool='police'],
+.tool-panel button[data-tool='school'],
+.tool-panel button[data-tool='hospital'] {
+  --spine: var(--brass);
+}
+
+.tool-panel button[data-tool='park'] {
+  --spine: var(--greenspace);
+}
+
+/* APWA white: proposed excavation — which is exactly what terraforming is */
+.tool-panel button[data-tool^='terra'] {
+  --spine: var(--chalk);
+}
+
+.tool-panel button[data-tool='zoneR'] {
+  --spine: var(--zone-r);
+}
+.tool-panel button[data-tool='zoneC'] {
+  --spine: var(--zone-c);
+}
+.tool-panel button[data-tool='zoneI'] {
+  --spine: var(--zone-i);
+}
+
+/* the substrate and the wrecking ball carry no utility code */
+.tool-panel button[data-tool='road'],
+.tool-panel button[data-tool='bulldoze'] {
+  --spine: var(--keyline);
+}
+
+/* --- armed tool: survey pink. Must follow the locate block. --- */
+
+.tool-panel button.active,
+#skin-list button.active,
+.speed-group button.active {
+  --spine: var(--survey);
+  color: #fff;
+  background: rgba(255, 79, 163, 0.13);
+  border-color: rgba(255, 79, 163, 0.55);
+}
+
+.tool-panel button.active .cost,
+.tool-panel button.active .key {
+  color: var(--survey);
+  border-color: rgba(255, 79, 163, 0.45);
+}
+
+.tool-panel button.active:hover {
+  background: rgba(255, 79, 163, 0.2);
+}
+
+/* ---- sections ---------------------------------------------------------- */
+
+.tool-section {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tool-panel .section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--keyline-soft);
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: var(--dim);
+}
+
+.tool-panel .section.collapsible {
+  cursor: pointer;
+  user-select: none;
+}
+
+.tool-panel .section.collapsible:hover {
+  color: var(--survey);
+  border-bottom-color: rgba(255, 79, 163, 0.4);
+}
+
+.tool-panel .section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 4px;
 }
 
 .drag-grip {
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #7d8fa5;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: var(--dim);
   cursor: move;
   user-select: none;
-  padding-bottom: 2px;
-  border-bottom: 1px solid #3b4a5e;
-  margin-bottom: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--keyline);
+  margin-bottom: 5px;
 }
 
 .draggable {
@@ -169,96 +455,154 @@ body {
   user-select: none;
 }
 
-/* ---- floating panels ---- */
-#budget-panel {
-  position: fixed;
-  top: 70px;
-  right: 8px;
-  width: 230px;
-  padding: 10px;
+button.detach {
+  background: none;
+  border: none;
+  color: var(--faint);
+  padding: 0 2px;
+  cursor: pointer;
+  font-size: 11px;
 }
 
-#budget-panel h3,
-#query-panel h3 {
-  font-size: 13px;
-  margin-bottom: 8px;
-  color: #fff;
+button.detach:hover {
+  color: var(--survey);
+}
+
+/* a floating section's grip already carries the re-dock control */
+.tool-float .section .detach {
+  display: none;
+}
+
+.tool-float {
+  position: fixed;
+  top: 72px;
+  left: 190px;
+  z-index: 20;
+}
+
+#density-flyout {
+  position: absolute;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px;
+  width: 156px;
+}
+
+#density-flyout.hidden {
+  display: none;
+}
+
+.bundle-hint {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--faint);
+  padding: 5px 6px 1px;
+  margin-top: 3px;
+  border-top: 1px solid var(--keyline-soft);
+  white-space: nowrap;
+}
+
+/* ---- budget ------------------------------------------------------------ */
+
+#budget-panel {
+  position: fixed;
+  top: 72px;
+  right: 8px;
+  width: 232px;
+  padding: 10px 12px;
 }
 
 #budget-panel .tax-row {
   display: grid;
-  grid-template-columns: 16px 1fr 44px;
+  grid-template-columns: 14px 1fr 40px;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+#budget-panel .tax-row > span:first-child {
+  font: 600 10px var(--f-display);
+  letter-spacing: 0.1em;
+  color: var(--dim);
+}
+
+#budget-panel .pct {
+  font-size: 11px;
+  text-align: right;
+  color: var(--chalk);
 }
 
 #budget-panel .report {
-  margin-top: 8px;
-  border-top: 1px solid #3b4a5e;
-  padding-top: 6px;
-  font-variant-numeric: tabular-nums;
+  margin-top: 10px;
+  border-top: 1px solid var(--keyline);
+  padding-top: 8px;
+  font-size: 11px;
 }
 
 #budget-panel .report div {
   display: flex;
   justify-content: space-between;
+  padding: 2px 0;
+  color: var(--dim);
 }
+
+#budget-panel .report div span:last-child {
+  color: var(--chalk);
+}
+
+#budget-panel .report div:last-child {
+  margin-top: 4px;
+  padding-top: 5px;
+  border-top: 1px solid var(--keyline-soft);
+  color: var(--chalk);
+}
+
+#budget-panel .report div:last-child b:last-child {
+  color: var(--greenspace);
+}
+
+/* ---- query ------------------------------------------------------------- */
 
 #query-panel {
   position: fixed;
-  width: 190px;
-  padding: 10px;
+  width: 194px;
+  padding: 10px 12px;
   pointer-events: auto;
+  font-size: 11px;
 }
 
 #query-panel div {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 3px;
+  gap: 10px;
+  padding: 2px 0;
+  color: var(--dim);
 }
 
 #query-panel .val {
-  color: #fff;
+  color: var(--chalk);
 }
 
-.hidden {
-  display: none !important;
-}
+/* ---- city hall & config ------------------------------------------------ */
 
-/* ---- city hall ---- */
 #display-panel {
   position: fixed;
-  top: 70px;
-  left: 146px;
-  width: 220px;
+  top: 72px;
+  left: 166px;
+  width: 222px;
   padding: 10px 12px;
 }
 
 #cityhall-panel {
   position: fixed;
-  top: 70px;
-  left: 146px;
-  width: 270px;
-  max-height: calc(100vh - 90px);
+  top: 72px;
+  left: 166px;
+  width: 272px;
+  max-height: calc(100vh - 92px);
   overflow-y: auto;
   padding: 10px 12px;
-}
-
-#cityhall-panel h3,
-#display-panel h3 {
-  font-size: 13px;
-  margin-bottom: 6px;
-  color: #fff;
-}
-
-#cityhall-panel h4,
-#display-panel h4 {
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #7d8fa5;
-  margin: 8px 0 4px;
 }
 
 #cityhall-panel ul {
@@ -266,127 +610,203 @@ body {
 }
 
 #cityhall-panel li {
-  margin-bottom: 5px;
-  line-height: 1.3;
-  padding-left: 18px;
+  margin-bottom: 6px;
+  line-height: 1.35;
+  padding-left: 17px;
   position: relative;
+  color: var(--chalk);
 }
 
+/* survey crews plant flags on open work; a check means the site is cleared */
 #cityhall-panel li::before {
-  content: '💡';
+  content: '⚑';
   position: absolute;
   left: 0;
+  top: -1px;
   font-size: 11px;
+  color: var(--brass);
+}
+
+#cityhall-panel li.quiet {
+  color: var(--dim);
 }
 
 #cityhall-panel li.quiet::before {
   content: '✓';
-  color: #4dc464;
+  color: var(--greenspace);
 }
 
 #cityhall-panel .ordinance,
 #display-panel .ordinance {
   display: flex;
   align-items: center;
-  gap: 7px;
-  margin-bottom: 5px;
+  gap: 8px;
+  margin-bottom: 6px;
   cursor: pointer;
+}
+
+#cityhall-panel .ordinance .cost {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--faint);
 }
 
 .tier-row {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  font-size: 0.85em;
-  padding: 0.1rem 0;
-}
-
-#cityhall-panel #disaster-list {
-  display: flex;
-  gap: 5px;
-}
-
-#cityhall-panel #disaster-list button {
-  flex: 1;
-  background: #3a2a30;
-  color: #d8dee6;
-  border: 1px solid #6b4550;
-  border-radius: 4px;
-  padding: 4px 2px;
-  cursor: pointer;
-  font: inherit;
   font-size: 11px;
+  padding: 2px 0;
+  color: var(--dim);
 }
 
-#cityhall-panel #disaster-list button:hover {
-  background: #55323c;
-}
-
-#display-panel #skin-list {
+#disaster-list,
+#skin-list {
   display: flex;
-  gap: 5px;
+  gap: 4px;
 }
 
-#display-panel #skin-list button {
+/* deliberately NOT prefixed with the panel id: a two-id selector here would
+   outrank `#skin-list button.active` and swallow the survey-pink active state */
+#disaster-list button {
   flex: 1;
-  background: #2a3648;
-  color: #d8dee6;
-  border: 1px solid #465870;
-  border-radius: 4px;
-  padding: 4px 2px;
+  padding: 5px 2px;
+  font: 600 10px var(--f-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #e9b6ae;
+  background: rgba(238, 74, 44, 0.12);
+  border: 1px solid rgba(238, 74, 44, 0.45);
+  border-radius: 0;
   cursor: pointer;
-  font: inherit;
-  font-size: 11px;
 }
 
-#display-panel #skin-list button.active {
-  background: #4d7cc7;
-  border-color: #7aa5e8;
+#disaster-list button:hover {
+  background: rgba(238, 74, 44, 0.26);
   color: #fff;
 }
 
-#cityhall-panel .ordinance .cost {
-  margin-left: auto;
-  color: #9fb2c8;
-  font-size: 11px;
-}
-
-/* ---- help ---- */
-#help-btn {
-  position: fixed;
-  top: 8px;
-  right: 8px;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: #2a3648;
-  color: #d8dee6;
-  border: 1px solid #465870;
+#skin-list button {
+  flex: 1;
+  padding: 5px 2px;
+  font: 600 10px var(--f-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+  background: var(--plate);
+  border: 1px solid var(--keyline);
+  border-radius: 0;
   cursor: pointer;
-  font: inherit;
-  font-weight: bold;
 }
 
-#help-btn:hover {
-  background: #3a4a62;
+#skin-list button:hover {
+  background: var(--plate-hi);
+  color: var(--chalk);
 }
 
+.volume-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 5px 0;
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.volume-row span {
+  width: 52px;
+}
+
+.volume-row input[type='range'] {
+  flex: 1;
+}
+
+/* the pink runs through every control the player sets */
+input[type='range'] {
+  accent-color: var(--survey);
+  cursor: pointer;
+}
+
+/* default checkboxes and radios blow bright white holes in the plate, so they
+   are rebuilt as unlit switches that light up survey pink when set */
+input[type='checkbox'],
+input[type='radio'] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  display: grid;
+  place-content: center;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  background: var(--plate);
+  border: 1px solid var(--keyline);
+  cursor: pointer;
+}
+
+input[type='radio'] {
+  border-radius: 50%;
+}
+
+input[type='checkbox']:hover,
+input[type='radio']:hover {
+  border-color: var(--dim);
+}
+
+input[type='checkbox']:checked,
+input[type='radio']:checked {
+  background: var(--survey);
+  border-color: var(--survey);
+}
+
+input[type='checkbox']:checked::after {
+  content: '';
+  width: 7px;
+  height: 4px;
+  border: 2px solid var(--asphalt);
+  border-top: 0;
+  border-right: 0;
+  transform: translateY(-1px) rotate(-45deg);
+}
+
+input[type='radio']:checked::after {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--asphalt);
+}
+
+/* ---- help, tips, toast ------------------------------------------------- */
+
+#help-btn,
 #mute-btn {
   position: fixed;
   top: 8px;
-  right: 44px;
   width: 28px;
   height: 28px;
-  border-radius: 50%;
-  background: #2a3648;
-  border: 1px solid #465870;
+  border-radius: 0;
+  color: var(--dim);
+  background: linear-gradient(180deg, rgba(32, 39, 40, 0.93), rgba(19, 23, 25, 0.95));
+  border: 1px solid var(--keyline);
   cursor: pointer;
-  font-size: 13px;
+}
+
+#help-btn {
+  right: 8px;
+  font: 700 13px var(--f-display);
+}
+
+#mute-btn {
+  right: 44px;
+  font-size: 12px;
   line-height: 1;
 }
 
+#help-btn:hover,
 #mute-btn:hover {
-  background: #3a4a62;
+  color: var(--survey);
+  border-color: rgba(255, 79, 163, 0.5);
 }
 
 #help-panel {
@@ -397,7 +817,7 @@ body {
   width: min(680px, calc(100vw - 40px));
   max-height: calc(100vh - 60px);
   overflow-y: auto;
-  padding: 14px 18px;
+  padding: 16px 20px;
   z-index: 10;
 }
 
@@ -405,62 +825,83 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 15px;
-  color: #fff;
-  margin-bottom: 10px;
+  font-size: 13px;
+  letter-spacing: 0.16em;
 }
 
 #help-panel h4 {
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #7d8fa5;
-  margin: 10px 0 4px;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  margin: 14px 0 5px;
 }
 
 #help-panel .cols {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0 18px;
+  gap: 0 22px;
 }
 
 #help-panel ul,
 #help-panel ol {
-  padding-left: 18px;
+  padding-left: 16px;
 }
 
 #help-panel li {
-  margin-bottom: 4px;
-  line-height: 1.35;
+  margin-bottom: 5px;
+  line-height: 1.45;
+  color: var(--dim);
+}
+
+#help-panel li b,
+#help-panel li strong {
+  color: var(--chalk);
+  font-weight: 600;
 }
 
 #help-panel #help-close {
   background: none;
   border: none;
-  color: #9fb2c8;
+  color: var(--faint);
   font-size: 18px;
+  line-height: 1;
   cursor: pointer;
 }
 
+#help-panel #help-close:hover {
+  color: var(--survey);
+}
+
+/* the advisor speaks in the same brass as an open City Hall flag */
 #tip-bar {
   position: fixed;
   bottom: 12px;
-  left: 148px; /* clear of the 128px toolbar column */
+  left: 168px; /* clear of the 148px toolbar column */
   max-width: 360px;
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  padding: 8px 10px;
-  line-height: 1.35;
+  gap: 9px;
+  padding: 9px 11px 9px 13px;
+  line-height: 1.4;
+  border-left: 3px solid var(--brass);
+  color: var(--chalk);
+}
+
+#tip-bar > span {
+  flex: 1;
 }
 
 #tip-bar button {
   background: none;
   border: none;
-  color: #9fb2c8;
+  color: var(--faint);
   font-size: 15px;
+  line-height: 1;
   cursor: pointer;
   padding: 0;
+}
+
+#tip-bar button:hover {
+  color: var(--chalk);
 }
 
 #toast {
@@ -468,18 +909,27 @@ body {
   bottom: 18px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(160, 40, 30, 0.95);
-  color: #fff;
-  padding: 8px 16px;
-  border-radius: 6px;
+  padding: 9px 16px 9px 15px;
+  color: var(--chalk);
+  background: rgba(22, 26, 28, 0.96);
+  border: 1px solid var(--keyline);
+  border-left: 3px solid var(--electric);
+  border-radius: 0;
+  box-shadow: var(--lift);
   opacity: 0;
   transition: opacity 0.25s;
   pointer-events: none;
 }
 
 #toast.info {
-  background: rgba(40, 110, 60, 0.95);
+  border-left-color: var(--greenspace);
 }
+
+#toast.show {
+  opacity: 1;
+}
+
+/* ---- minimap & charts -------------------------------------------------- */
 
 #minimap {
   position: fixed;
@@ -489,19 +939,15 @@ body {
   height: 128px;
   cursor: pointer;
   image-rendering: pixelated;
+  border: 1px solid var(--keyline);
+  box-shadow: var(--lift);
 }
 
 #charts-panel {
   position: fixed;
-  top: 70px;
+  top: 72px;
   right: 250px;
-  padding: 10px;
-}
-
-#charts-panel h3 {
-  font-size: 13px;
-  margin-bottom: 8px;
-  color: #fff;
+  padding: 10px 12px;
 }
 
 #charts-panel canvas {
@@ -509,98 +955,44 @@ body {
   margin-bottom: 8px;
 }
 
-#toast.show {
-  opacity: 1;
-}
+/* ---- transit wizard ---------------------------------------------------- */
 
-.tool-section {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-#density-flyout {
-  position: absolute;
-  z-index: 40;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 6px;
-  width: 132px;
-}
-
-#density-flyout.hidden {
-  display: none;
-}
-
-.tool-float {
-  position: fixed;
-  top: 70px;
-  left: 170px;
-  z-index: 20;
-}
-
-.tool-panel .section.collapsible {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.drag-grip {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-button.detach {
-  background: none;
-  border: none;
-  color: #7d8fa5;
-  padding: 0 2px;
-  cursor: pointer;
-  font-size: 11px;
-}
-
-button.detach:hover {
-  color: #aabfec;
-}
-
-/* a floating section's grip already carries the re-dock control */
-.tool-float .section .detach {
-  display: none;
-}
-
-/* ---- transit line wizard ---- */
 #transit-wizard {
   position: fixed;
-  top: 90px;
+  top: 92px;
   right: 16px;
-  width: 240px;
+  width: 242px;
   padding: 10px 14px 12px;
   z-index: 30;
 }
+
 #transit-wizard.hidden {
   display: none;
 }
+
 #transit-wizard h3 {
-  margin: 0 0 6px;
-  font-size: 14px;
   cursor: grab;
 }
+
 #transit-wizard p {
-  margin: 6px 0;
-  font-size: 12px;
-  color: #c8d2de;
+  margin: 7px 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--dim);
 }
+
 #transit-wizard #tw-error {
-  color: #e08a80;
+  color: var(--electric);
   min-height: 14px;
 }
+
 #tw-colors {
   display: flex;
-  gap: 6px;
-  margin: 8px 0;
+  gap: 7px;
+  margin: 10px 0;
 }
+
+/* stops stay round: that is how a transit diagram draws a station */
 .tw-swatch {
   width: 22px;
   height: 22px;
@@ -609,47 +1001,70 @@ button.detach:hover {
   cursor: pointer;
   padding: 0;
 }
+
 .tw-swatch.selected {
-  border-color: #f2f5f9;
+  border-color: var(--chalk);
+  box-shadow: 0 0 0 1px var(--asphalt);
 }
+
 #tw-actions {
   display: flex;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 10px;
 }
+
 #tw-actions button {
   flex: 1;
-  padding: 5px 0;
-  border-radius: 4px;
-  border: 1px solid #3b4a5e;
-  background: #2a3646;
-  color: #e8edf4;
+  padding: 6px 0;
+  font: 600 10px var(--f-display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--chalk);
+  background: var(--plate);
+  border: 1px solid var(--keyline);
+  border-radius: 0;
   cursor: pointer;
 }
+
+#tw-actions button:hover {
+  background: var(--plate-hi);
+}
+
 #tw-actions #tw-done {
-  background: #2f5d3f;
+  color: #d8f2e0;
+  background: rgba(62, 160, 91, 0.16);
+  border-color: rgba(62, 160, 91, 0.55);
 }
 
-/* config panel volume sliders */
-.volume-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 4px 0;
-  font-size: 12px;
-}
-.volume-row span {
-  width: 52px;
-}
-.volume-row input[type='range'] {
-  flex: 1;
+#tw-actions #tw-done:hover {
+  background: rgba(62, 160, 91, 0.3);
 }
 
-/* bundle flyout unlock hint */
-.bundle-hint {
-  font-size: 10px;
-  color: #8fa0b4;
-  padding: 4px 8px;
-  border-top: 1px solid #3b4a5e;
-  white-space: nowrap;
+/* ---- quality floor ----------------------------------------------------- */
+
+:focus-visible {
+  outline: 2px solid var(--survey);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #toast {
+    transition: none;
+  }
+}
+
+/* narrow viewports: tighten the readout so it still fits the strip */
+@media (max-width: 720px) {
+  #hud {
+    height: 50px;
+  }
+  #hud .stat {
+    padding: 0 9px;
+  }
+  #hud .stat b {
+    font-size: 14px;
+  }
+  #rci {
+    margin: 0 8px 0 5px;
+  }
 }

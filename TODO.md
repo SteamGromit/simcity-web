@@ -17,6 +17,12 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Done
 
+- **Interface: Utility Locate** — shipped v0.45.0 (APWA locate-code
+  spines on every tool, survey-pink selection, narrow signage face +
+  mono engineering numerals, HUD readout strip, custom checkboxes/
+  radios, focus rings; `data-tool`/`data-bundle`/`data-view` hooks
+  added in `toolbar.ts` to drive the spines).
+
 - **Night lighting** — shipped v0.44.0 (darkness layer with punched
   glow: roads/buildings/civic/plants light radii; unpowered lots stay
   dark; realistic default style; Config style radios; nightlock debug

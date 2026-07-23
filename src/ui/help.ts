@@ -108,7 +108,8 @@ export function buildTipBar(root: HTMLElement) {
   const close = document.createElement('button');
   close.textContent = '×';
   close.title = 'Dismiss tip';
-  el.append('💡', text, close);
+  // no glyph: the brass rule down the strip's edge already marks it an advisory
+  el.append(text, close);
   root.appendChild(el);
 
   const dismissed = new Set<string>();

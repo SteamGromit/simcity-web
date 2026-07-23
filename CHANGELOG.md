@@ -4,6 +4,38 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.45.0] — 2026-07-23 · Interface: Utility Locate
+
+### Changed
+- The whole interface is redrawn in the visual language of the crews
+  who mark up a real city. Panels are dark asphalt plates with square
+  corners and hairline keylines; labels are set in a narrow signage
+  face, and every number the player reads — funds, costs, tax rates,
+  the budget report — is set in a monospace engineering face with
+  tabular figures.
+- **Tools carry a locate-code spine.** Every toolbar button gets a
+  colored mark down its left edge following the APWA Uniform Color
+  Code: red for power, blue for water, orange for transit, brass for
+  civic services, white for terrain (the code's "proposed
+  excavation"). Zoning reuses the RCI meter's own green/blue/yellow.
+  The toolbar now reads as a legend instead of forty identical rows.
+- **The armed tool is survey pink.** Selection moved off the old
+  generic blue to the pink of temporary survey marking — the paint
+  that means "proposed work here". The same pink runs through
+  checkboxes, radios, sliders, and the keyboard focus ring.
+- The top HUD is now a readout strip: micro uppercase labels over
+  large mono values, divided by hairlines, with a deficit turning
+  electric red. Navigation buttons recede so the numbers lead.
+- Checkboxes and radios are custom-drawn, so they no longer punch
+  bright white holes in the dark panels.
+- The advisor tip strip drops its 💡 for a brass rule down its edge,
+  matching the brass flags on open City Hall advisories.
+
+### Fixed
+- Interactive controls now show a visible keyboard focus ring; there
+  was none before.
+- `prefers-reduced-motion` is respected.
+
 ## [0.44.0] — 2026-07-21 · Night lighting
 
 ### Changed

@@ -199,9 +199,16 @@ their title bars. Toolbar sections pop out into draggable floating panels
 and re-dock; positions and detached state persist. Click a toolbar
 section header to fold that group away — everything is remembered.
 
+**Reading the toolbar.** Each tool carries a colored spine down its left
+edge, following the color code utility crews paint on real streets: red
+for power, blue for water, orange for transit, brass for civic services,
+white for terrain work. Zoning uses the same green/blue/yellow as the RCI
+meter. The tool you have armed turns **survey pink** — the color of
+temporary survey marking, the paint that means "proposed work here."
+
 Save/Load keeps one city in your browser's localStorage.
 
-Stuck? Press **H** for the in-game help panel, and keep an eye on the 💡
+Stuck? Press **H** for the in-game help panel, and keep an eye on the
 **advisor tip** in the bottom-left corner — it watches the city and points
 out the most pressing problem (no power, no road access, deficits, fires,
 pollution…). Dismiss a tip with × and it stays quiet unless the problem
