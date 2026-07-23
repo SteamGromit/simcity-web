@@ -82,4 +82,23 @@ describe('registry', () => {
   test('ordinances are registered and keep their ids', () => {
     expect(allOrdinances().map((o) => o.id)).toContain('cleanAir');
   });
+
+  test('a pack declaring a slot already pinned by another pack is rejected', () => {
+    const COLLIDING_PACK = {
+      id: 'colliding',
+      name: 'Colliding Pack',
+      version: '1.0.0',
+      buildings: [
+        { id: 'colliding:thing', name: 'Thing', slot: Zone.PowerPlant, cost: 10, upkeep: 1 },
+      ],
+    };
+    const r = registerPack(COLLIDING_PACK);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors.some((e) => e.includes('colliding:thing') && e.includes('core:coal_plant'))).toBe(
+        true,
+      );
+    }
+    expect(buildingBySlot(Zone.PowerPlant)!.id).toBe('core:coal_plant');
+  });
 });

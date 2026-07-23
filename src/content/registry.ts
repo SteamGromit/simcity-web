@@ -18,6 +18,13 @@ interface Registered {
   ordinances: OrdinanceDef[];
   skins: SkinDef[];
   unlocks: Map<string, CompiledExpr>;
+  /**
+   * Slots this pack's author declared explicitly, by building id — captured
+   * at registration time, before reindex() mutates `slot` on auto-allocated
+   * buildings. Used to detect cross-pack pinned-slot collisions; an
+   * auto-allocated slot is never "pinned" for this purpose.
+   */
+  declaredSlots: Map<string, number>;
 }
 
 /** Insertion-ordered so re-registration and slot allocation stay deterministic. */
@@ -39,12 +46,42 @@ export function registerPack(raw: unknown): RegisterResult {
   if (!result.ok) return { ok: false, errors: result.errors };
 
   const { pack, unlocks: packUnlocks } = result.value;
+
+  const declaredSlots = new Map<string, number>();
+  for (const b of pack.buildings ?? []) {
+    if (b.slot !== undefined) declaredSlots.set(b.id, b.slot);
+  }
+
+  // Reject cross-pack pinned-slot collisions before touching the registry.
+  // validatePack only rules out duplicate slots *within* this pack; a slot
+  // this pack declares could still collide with one already pinned by a
+  // different, already-registered pack. Re-registering the SAME pack id is
+  // fine (it replaces its own content), so that pack is excluded here.
+  const pinnedElsewhere = new Map<number, string>(); // slot -> owning building id
+  for (const [otherId, other] of packs) {
+    if (otherId === pack.id) continue;
+    for (const [buildingId, slot] of other.declaredSlots) {
+      pinnedElsewhere.set(slot, buildingId);
+    }
+  }
+  const collisionErrors: string[] = [];
+  for (const [id, slot] of declaredSlots) {
+    const heldBy = pinnedElsewhere.get(slot);
+    if (heldBy !== undefined) {
+      collisionErrors.push(
+        `pack "${pack.id}": building "${id}" declares slot ${slot}, already pinned by "${heldBy}"`,
+      );
+    }
+  }
+  if (collisionErrors.length > 0) return { ok: false, errors: collisionErrors };
+
   packs.set(pack.id, {
     // clone so a caller mutating its literal cannot reach into the registry
     buildings: (pack.buildings ?? []).map((b) => ({ ...b })),
     ordinances: pack.ordinances ?? [],
     skins: pack.skins ?? [],
     unlocks: packUnlocks,
+    declaredSlots,
   });
   reindex();
   return { ok: true };
@@ -56,6 +93,21 @@ export function resetRegistry(): void {
   reindex();
 }
 
+/**
+ * Rebuild every derived index from `packs`, mutating `b.slot` in place for
+ * any building that didn't declare one and treating any building with a
+ * defined `slot` — declared or previously auto-allocated — as pinned so
+ * allocation never collides.
+ *
+ * That's deterministic for the add-only path the game actually exercises:
+ * reset the registry, then register each pack once, in a fixed order. It is
+ * NOT sound for replacing an already-registered pack with a different-sized
+ * building list mid-session — an old auto-allocated slot would read as
+ * "pinned" even though nobody declared it, and the free-slot search could
+ * land differently than a fresh registration would. Supporting that needs
+ * declared and allocated slots tracked separately rather than collapsed
+ * onto `b.slot`; deferred to the mod-manager work (TODO #2).
+ */
 function reindex(): void {
   bySlot = new Map();
   byId = new Map();
