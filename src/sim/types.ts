@@ -214,29 +214,24 @@ export type ToolId =
   | 'terraLower'
   | 'bulldoze';
 
-export const COSTS: Record<ToolId, number> = {
-  road: 10,
+/** Tools that are actions or zoning rather than a placed building; their
+ * prices stay here because no content definition owns them. Building prices
+ * come from the registry (see toolCost). */
+export type ActionToolId =
+  | 'zoneR'
+  | 'zoneC'
+  | 'zoneI'
+  | 'terraWater'
+  | 'terraForest'
+  | 'terraGrass'
+  | 'terraRaise'
+  | 'terraLower'
+  | 'bulldoze';
+
+export const COSTS: Record<ActionToolId, number> = {
   zoneR: 5,
   zoneC: 5,
   zoneI: 5,
-  plant: 3000,
-  line: 5,
-  park: 50,
-  fire: 500,
-  police: 500,
-  school: 400,
-  hospital: 600,
-  bus: 150,
-  pump: 300,
-  pipe: 5,
-  solar: 2500,
-  wind: 1200,
-  hydro: 5000,
-  nuclear: 12000,
-  streetcar: 400,
-  monorail: 900,
-  subway: 1500,
-  rail: 2500,
   terraWater: 25,
   terraForest: 10,
   terraGrass: 5,

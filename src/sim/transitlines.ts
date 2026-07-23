@@ -1,6 +1,7 @@
+import { buildingByTool } from '../content/registry';
 import { idx, inBounds, neighbors4, roadLine } from './grid';
 import { transitUnlocked } from './transit';
-import { COSTS, CityState, Terrain, ToolId, Zone } from './types';
+import { CityState, Terrain, ToolId, Zone } from './types';
 
 /** A planned transit route: the drawn path, its stops, and its color.
  * Stops are ordinary station tiles — coverage, power, and upkeep flow
@@ -88,7 +89,7 @@ export function validStopSite(
 
 export function lineCost(mode: Zone, path: [number, number][], stops: [number, number][]): number {
   const track = TRACK_COST[mode] ?? 0;
-  const stopPrice = COSTS[STOP_TOOL[mode] ?? 'bus'];
+  const stopPrice = buildingByTool(STOP_TOOL[mode] ?? 'bus')?.cost ?? 0;
   return path.length * track + stops.length * stopPrice;
 }
 

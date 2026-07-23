@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
+import { buildingByTool } from '../src/content/registry';
 import { idx } from '../src/sim/grid';
-import { GRID, START_FUNDS, TICKS_PER_MONTH, Zone, COSTS } from '../src/sim/types';
+import { GRID, START_FUNDS, TICKS_PER_MONTH, Zone } from '../src/sim/types';
 import { applyTool, applyToolLine, DEV_SLICE, mulberry32, newCity, simTick } from '../src/sim/city';
 import { deserialize, serialize } from '../src/sim/save';
 import { clearLand } from './helpers';
@@ -252,7 +253,7 @@ describe('applyToolLine', () => {
     const res = applyToolLine(city, 'line', line);
     expect(res).toEqual({ applied: 3, brokeFunds: false });
     for (const [x, y] of line) expect(city.tiles[idx(x, y)].zone).toBe(Zone.PowerLine);
-    expect(city.funds).toBe(START_FUNDS - 3 * COSTS.line);
+    expect(city.funds).toBe(START_FUNDS - 3 * buildingByTool('line')!.cost);
   });
 
   test('wires and pipes cross roads as flags, not replacements', () => {
@@ -280,7 +281,7 @@ describe('applyToolLine', () => {
 
   test('reports brokeFunds and partial count when money runs out', () => {
     const city = newFlatCity(7);
-    city.funds = COSTS.line * 2 + 1; // afford exactly two tiles
+    city.funds = buildingByTool('line')!.cost * 2 + 1; // afford exactly two tiles
     const res = applyToolLine(city, 'line', [
       [1, 1],
       [2, 1],

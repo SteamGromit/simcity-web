@@ -1,3 +1,4 @@
+import { buildingByTool } from '../content/registry';
 import { collectBudget } from './budget';
 import { defaultOrdinances, ensureCoreContent } from './content';
 import { updateDemand } from './demand';
@@ -14,6 +15,7 @@ import { isPlant, plantUnlockLabel, plantUnlocked } from './energy';
 import { retierMonthly, updateEducation } from './tiers';
 import { updateTraffic } from './traffic';
 import {
+  ActionToolId,
   Biome,
   BRIDGE_COST,
   CityState,
@@ -214,10 +216,13 @@ function isPristine(city: CityState): boolean {
   return city.tiles.every((t) => t.stage === 0);
 }
 
-/** Zone tools cost more at higher density; everything else has a flat cost. */
+/** Zone tools cost more at higher density; everything else has a flat cost.
+ * Building prices come from content; actions and zoning keep theirs in COSTS. */
 export function toolCost(tool: ToolId, density: Density): number {
+  const def = buildingByTool(tool);
+  if (def) return def.cost;
   const mult = ZONE_TOOLS.includes(tool) ? DENSITY_COST_MULT[density] : 1;
-  return COSTS[tool] * mult;
+  return COSTS[tool as ActionToolId] * mult;
 }
 
 function isBareTerrainDoze(tool: ToolId, t: { zone: Zone; terrain: Terrain }): boolean {

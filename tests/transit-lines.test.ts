@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
   LINE_COLORS,
   TRACK_COST,
@@ -8,13 +8,19 @@ import {
   validPathTile,
   validStopSite,
 } from '../src/sim/transitlines';
+import { buildingByTool } from '../src/content/registry';
+import { ensureCoreContent } from '../src/sim/content';
 import { deserialize, serialize } from '../src/sim/save';
-import { COSTS, Terrain, Zone } from '../src/sim/types';
+import { Terrain, Zone } from '../src/sim/types';
 import { clearLand, makeCity, zone } from './helpers';
 
 function idx96(x: number, y: number): number {
   return y * 96 + x;
 }
+
+beforeAll(() => {
+  ensureCoreContent();
+});
 
 describe('rasterizePath', () => {
   it('connects consecutive vertices without duplicating joints', () => {
@@ -82,9 +88,9 @@ describe('lineCost and buildLine', () => {
       [14, 10],
     ]); // 5 tiles
     expect(lineCost(Zone.StreetcarStop, path, [[11, 10]])).toBe(
-      5 * TRACK_COST[Zone.StreetcarStop]! + COSTS.streetcar,
+      5 * TRACK_COST[Zone.StreetcarStop]! + buildingByTool('streetcar')!.cost,
     );
-    expect(lineCost(Zone.BusStop, path, [[11, 10]])).toBe(COSTS.bus); // free streets
+    expect(lineCost(Zone.BusStop, path, [[11, 10]])).toBe(buildingByTool('bus')!.cost); // free streets
   });
 
   it('builds atomically: funds, stop zones, and the saved line', () => {
