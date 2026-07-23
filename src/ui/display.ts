@@ -53,7 +53,11 @@ export function buildDisplay(
   const skinList = panel.querySelector('#skin-list') as HTMLElement;
   const skinButtons: HTMLButtonElement[] = [];
   const syncSkins = () =>
-    skins().forEach((sk, i) => skinButtons[i].classList.toggle('active', getSkin().id === sk.id));
+    skins().forEach((sk, i) => {
+      const btn = skinButtons[i];
+      if (!btn) return; // a runtime-loaded pack can add more skins than we have buttons for
+      btn.classList.toggle('active', getSkin().id === sk.id);
+    });
   for (const sk of skins()) {
     const btn = document.createElement('button');
     btn.textContent = sk.label;

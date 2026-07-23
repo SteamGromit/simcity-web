@@ -73,8 +73,7 @@ export const RECT_TOOLS: Set<ToolId> = new Set<ToolId>([
  * the registry's core content uses (src/content/packs/core.ts) rather than
  * read from the registry itself: this module is imported (and HALO_RADII
  * built) before any city has called ensureCoreContent, so a registry lookup
- * here would race the content bootstrap. Revisit alongside the toolbar's
- * getPop-based unlock gating (TODO: later task).
+ * here would race the content bootstrap.
  */
 export const HALO_RADII: Partial<Record<ToolId, number>> = {
   fire: SERVICE_RADII.fire,

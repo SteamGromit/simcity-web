@@ -1,4 +1,6 @@
+import { buildingBySlot } from '../content/registry';
 import { modifier } from './content';
+import { isPlant } from './energy';
 import { tilesWithin } from './grid';
 import { pollutionScaleFor } from './tiers';
 import { CityState, GRID, Zone } from './types';
@@ -13,11 +15,7 @@ function emission(city: CityState, i: number, industryScrub: number, trafficScru
   const t = city.tiles[i];
   // Clean Air Act scrubs industry and traffic (the coal plant is exempt —
   // replace it, don't regulate it)
-  if (t.zone === Zone.PowerPlant) return 1.0;
-  if (t.zone === Zone.NuclearPlant) return 0.15;
-  if (t.zone === Zone.SolarPlant || t.zone === Zone.WindTurbine || t.zone === Zone.HydroPlant) {
-    return 0;
-  }
+  if (isPlant(t.zone)) return buildingBySlot(t.zone)?.power?.pollution ?? 0;
   if (t.abandoned && t.stage > 0) return 0.1;
   if (t.zone === Zone.Industrial && t.stage > 0) {
     return (0.3 + 0.15 * t.stage) * industryScrub * pollutionScaleFor(t.tier);

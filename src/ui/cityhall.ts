@@ -63,7 +63,9 @@ export function buildCityHall(
   const syncBoxes = () => {
     const boxes = ordinanceList.querySelectorAll<HTMLInputElement>('input');
     allOrdinances().forEach((o, i) => {
-      boxes[i].checked = city().ordinances[o.id];
+      const box = boxes[i];
+      if (!box) return; // a runtime-loaded pack can add more ordinances than we have checkboxes for
+      box.checked = city().ordinances[o.id];
     });
   };
 

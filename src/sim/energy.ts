@@ -17,10 +17,6 @@ export function plantCapacity(zone: Zone): number {
   return buildingBySlot(zone)?.power?.capacity ?? 0;
 }
 
-export function plantPollution(zone: Zone): number {
-  return buildingBySlot(zone)?.power?.pollution ?? 0;
-}
-
 export function plantUnlocked(zone: Zone, city: CityState): boolean {
   const def = buildingBySlot(zone);
   return def?.power !== undefined && unlockedFor(def, city);
