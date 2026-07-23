@@ -1,3 +1,4 @@
+import { modifier } from './content';
 import { idx, inBounds, neighbors4, tilesWithin } from './grid';
 import { Season, seasonOf } from './weather';
 import {
@@ -103,7 +104,7 @@ export function rubbleMonthly(city: CityState): void {
 export function pandemicMonthly(city: CityState, rand: () => number): void {
   if (city.disasters.pandemicMonths <= 0) return;
   // the Public Health Campaign blunts both the panic and the toll
-  const relief = city.ordinances.healthDrive ? 0.5 : 1;
+  const relief = modifier(city, 'disaster.pandemicToll');
   city.demand.r = Math.max(-1, city.demand.r - 0.5 * relief);
   for (const t of city.tiles) {
     if (t.zone !== Zone.Residential || t.stage === 0 || t.abandoned) continue;
@@ -127,7 +128,7 @@ export function rollForDisaster(city: CityState, rand: () => number): void {
   for (const kind of Object.keys(DISASTER_ODDS) as DisasterKind[]) {
     let odds = DISASTER_ODDS[kind] * SEASON_ODDS[kind][season];
     // vaccination drives make outbreaks rarer, not the weather calmer
-    if (kind === 'pandemic' && city.ordinances.healthDrive) odds /= 2;
+    if (kind === 'pandemic') odds *= modifier(city, 'disaster.pandemicOdds');
     if (rand() < odds) {
       spawnDisaster(city, kind, rand);
       return;

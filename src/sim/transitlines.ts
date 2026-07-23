@@ -1,6 +1,7 @@
+import { buildingByTool } from '../content/registry';
 import { idx, inBounds, neighbors4, roadLine } from './grid';
 import { transitUnlocked } from './transit';
-import { COSTS, CityState, Terrain, ToolId, Zone } from './types';
+import { CityState, Terrain, ToolId, Zone } from './types';
 
 /** A planned transit route: the drawn path, its stops, and its color.
  * Stops are ordinary station tiles — coverage, power, and upkeep flow
@@ -88,7 +89,7 @@ export function validStopSite(
 
 export function lineCost(mode: Zone, path: [number, number][], stops: [number, number][]): number {
   const track = TRACK_COST[mode] ?? 0;
-  const stopPrice = COSTS[STOP_TOOL[mode] ?? 'bus'];
+  const stopPrice = buildingByTool(STOP_TOOL[mode] ?? 'bus')?.cost ?? 0;
   return path.length * track + stops.length * stopPrice;
 }
 
@@ -97,7 +98,7 @@ export function lineCost(mode: Zone, path: [number, number][], stops: [number, n
  * false (changing nothing) when funds are short or the draft is empty. */
 export function buildLine(city: CityState, draft: LineDraft): boolean {
   if (draft.path.length < 2 || draft.stops.length === 0) return false;
-  if (draft.mode !== Zone.BusStop && !transitUnlocked(draft.mode, city.population)) return false;
+  if (draft.mode !== Zone.BusStop && !transitUnlocked(draft.mode, city)) return false;
   const cost = lineCost(draft.mode, draft.path, draft.stops);
   if (city.funds < cost) return false;
   city.funds -= cost;

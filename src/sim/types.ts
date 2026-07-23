@@ -112,52 +112,10 @@ export interface BudgetReport {
   net: number;
 }
 
-export type OrdinanceId = 'cleanAir' | 'freeBus' | 'fireCode' | 'eduGrant' | 'healthDrive';
-
-export interface Ordinance {
-  id: OrdinanceId;
-  label: string;
-  blurb: string;
-  /** Monthly cost while enacted. */
-  cost: number;
-}
-
-export const ORDINANCES: Ordinance[] = [
-  {
-    id: 'cleanAir',
-    label: 'Clean Air Act',
-    blurb: 'Scrubbers and emission checks: industry and traffic pollute 30% less.',
-    cost: 100,
-  },
-  {
-    id: 'freeBus',
-    label: 'Free Bus Service',
-    blurb: 'Fare-free transit: bus-served commutes put only a quarter of the cars on the road.',
-    cost: 150,
-  },
-  {
-    id: 'fireCode',
-    label: 'Fire Safety Code',
-    blurb: 'Inspections and sprinklers: buildings are half as likely to catch fire.',
-    cost: 80,
-  },
-  {
-    id: 'eduGrant',
-    label: 'Education Grant',
-    blurb: 'Extra school funding: school coverage counts 25% stronger across its reach.',
-    cost: 120,
-  },
-  {
-    id: 'healthDrive',
-    label: 'Public Health Campaign',
-    blurb: 'Vaccination drives and free clinics: pandemics strike half as often and hit half as hard.',
-    cost: 200,
-  },
-];
-
-export function defaultOrdinances(): Record<OrdinanceId, boolean> {
-  return { cleanAir: false, freeBus: false, fireCode: false, eduGrant: false, healthDrive: false };
-}
+/** Ordinance ids are content-defined, so this is a plain string. Core ids are
+ * pinned (cleanAir, freeBus, fireCode, eduGrant, healthDrive) because saves
+ * store them as the keys of city.ordinances. */
+export type OrdinanceId = string;
 
 export type DisasterKind = 'tornado' | 'hurricane' | 'pandemic';
 
@@ -199,7 +157,7 @@ export interface CityState {
   brownouts: number;
   lastBudget: BudgetReport;
   /** Enacted city policies; each charges monthly and tweaks the sim. */
-  ordinances: Record<OrdinanceId, boolean>;
+  ordinances: Record<string, boolean>;
   /** Active disasters (spawned randomly or summoned from City Hall). */
   disasters: Disasters;
   /** Current weather; visual plus light sim effects (fire, traffic). */
@@ -210,6 +168,10 @@ export interface CityState {
   history: { pop: number[]; funds: number[] };
   /** Player-drawn transit routes; stops are ordinary station tiles. */
   transitLines: import('./transitlines').TransitLine[];
+  /** Slot → content id for every slot this city uses, so a save survives
+   * being opened with a different set of packs loaded. Absent in legacy
+   * saves, which are read with an identity mapping. */
+  zoneIds?: Record<number, string>;
 }
 
 export const HISTORY_MAX = 240; // 20 years of monthly samples
@@ -256,29 +218,24 @@ export type ToolId =
   | 'terraLower'
   | 'bulldoze';
 
-export const COSTS: Record<ToolId, number> = {
-  road: 10,
+/** Tools that are actions or zoning rather than a placed building; their
+ * prices stay here because no content definition owns them. Building prices
+ * come from the registry (see toolCost). */
+export type ActionToolId =
+  | 'zoneR'
+  | 'zoneC'
+  | 'zoneI'
+  | 'terraWater'
+  | 'terraForest'
+  | 'terraGrass'
+  | 'terraRaise'
+  | 'terraLower'
+  | 'bulldoze';
+
+export const COSTS: Record<ActionToolId, number> = {
   zoneR: 5,
   zoneC: 5,
   zoneI: 5,
-  plant: 3000,
-  line: 5,
-  park: 50,
-  fire: 500,
-  police: 500,
-  school: 400,
-  hospital: 600,
-  bus: 150,
-  pump: 300,
-  pipe: 5,
-  solar: 2500,
-  wind: 1200,
-  hydro: 5000,
-  nuclear: 12000,
-  streetcar: 400,
-  monorail: 900,
-  subway: 1500,
-  rail: 2500,
   terraWater: 25,
   terraForest: 10,
   terraGrass: 5,

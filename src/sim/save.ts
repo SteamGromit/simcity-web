@@ -1,10 +1,11 @@
+import { defaultOrdinances, ensureCoreContent } from './content';
+import { idOfSlot, slotOf } from '../content/registry';
 import { blankTile } from './grid';
 import { INDUSTRY_KINDS } from './tiers';
 import { defaultWeather, WEATHER_KINDS, WeatherKind } from './weather';
 import {
   CityState,
   defaultDisasters,
-  defaultOrdinances,
   FIRE_BURN_TICKS,
   GRID,
   MAX_ELEV,
@@ -29,9 +30,23 @@ function isTierShape(v: unknown): v is Tier {
   return v === 1 || v === 2 || v === 3 || (typeof v === 'string' && (INDUSTRY_KINDS as readonly string[]).includes(v));
 }
 
-/** JSON can't hold Infinity; commute uses −1 on the wire. */
+/** Slot → id for every slot the city actually uses. */
+function legendFor(city: CityState): Record<number, string> {
+  const out: Record<number, string> = {};
+  for (const t of city.tiles) {
+    if (t.zone === Zone.None || out[t.zone] !== undefined) continue;
+    const id = idOfSlot(t.zone);
+    if (id) out[t.zone] = id;
+  }
+  return out;
+}
+
+/** JSON can't hold Infinity; commute uses −1 on the wire. Every save also
+ * carries a zoneIds legend (slot → content id) so it survives being opened
+ * with a different set of packs loaded. */
 export function serialize(city: CityState): string {
-  return JSON.stringify(city, (key, value) =>
+  const withLegend: CityState = { ...city, zoneIds: legendFor(city) };
+  return JSON.stringify(withLegend, (key, value) =>
     key === 'commute' && value === Infinity ? -1 : value,
   );
 }
@@ -44,15 +59,45 @@ function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
 }
 
+/** Old slot → this session's slot. Null when the save has no legend
+ * (legacy save), so revival applies no remapping at all. */
+function slotRemap(raw: unknown): Map<number, number> | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const out = new Map<number, number>();
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    const from = Number(k);
+    if (!Number.isInteger(from) || typeof v !== 'string') continue;
+    // Zone.None (0) is never a legend entry — legendFor never emits one — so
+    // a foreign/corrupt save that claims one is ignored, not honored; blank
+    // tiles must stay blank regardless of what a 0 key claims.
+    if (from === Zone.None) continue;
+    const to = slotOf(v);
+    // an id this session does not know maps to None, clearing the tile
+    out.set(from, to ?? Zone.None);
+  }
+  return out;
+}
+
 /** Rebuild a tile from untrusted data; anything malformed falls back to blank. */
-function reviveTile(raw: unknown): Tile {
+function reviveTile(raw: unknown, remap: Map<number, number> | null): Tile {
   const t = blankTile();
   if (!raw || typeof raw !== 'object') return t;
   const r = raw as Record<string, unknown>;
-  // RailTerminal is the last Zone member — keep this bound at the enum's
-  // tail when new zones are appended, or saves silently drop them.
-  if (typeof r.zone === 'number' && r.zone >= Zone.None && r.zone <= Zone.RailTerminal) {
-    t.zone = r.zone;
+  if (typeof r.zone === 'number') {
+    // The legend, when present, is authoritative for slots it mentions —
+    // slotRemap already resolved each id through the live registry, so a
+    // mapped value (including a mod slot far above RailTerminal, or Zone.None
+    // for an id nobody registers anymore) is trusted as-is. A slot the
+    // legend doesn't mention (or a legacy save with no legend at all) falls
+    // back to the plain range check: RailTerminal is the last Zone member —
+    // keep this bound at the enum's tail when new zones are appended, or
+    // saves silently drop them.
+    const mapped = remap?.get(r.zone);
+    if (mapped !== undefined) {
+      t.zone = mapped;
+    } else if (r.zone >= Zone.None && r.zone <= Zone.RailTerminal) {
+      t.zone = r.zone;
+    }
   }
   if (r.terrain === Terrain.Water || r.terrain === Terrain.Forest) t.terrain = r.terrain;
   if (r.density === 2 || r.density === 3) t.density = r.density;
@@ -88,8 +133,8 @@ function reviveTile(raw: unknown): Tile {
 function reviveOrdinances(raw: unknown): CityState['ordinances'] {
   const out = defaultOrdinances();
   if (raw && typeof raw === 'object') {
-    for (const key of Object.keys(out) as (keyof typeof out)[]) {
-      if ((raw as Record<string, unknown>)[key] === true) out[key] = true;
+    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+      if (k in out) out[k] = v === true;
     }
   }
   return out;
@@ -198,6 +243,7 @@ function reviveHistory(raw: unknown): CityState['history'] {
  * NaN-poison the simulation.
  */
 export function deserialize(json: string): CityState | null {
+  ensureCoreContent();
   try {
     const data = JSON.parse(json);
     if (!data || data.version !== 1) return null;
@@ -210,11 +256,12 @@ export function deserialize(json: string): CityState | null {
 
     const demand = data.demand ?? {};
     const budget = data.lastBudget ?? {};
+    const remap = slotRemap(data.zoneIds);
     return {
       version: 1,
       seed: finite(data.seed, 1),
       biome: data.biome === 'desert' ? 'desert' : 'temperate',
-      tiles: data.tiles.map(reviveTile),
+      tiles: data.tiles.map((t: unknown) => reviveTile(t, remap)),
       funds: data.funds,
       tick: data.tick,
       month: data.month,

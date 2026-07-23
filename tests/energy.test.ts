@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { PLANT_SPECS, PLANT_ZONES, isPlant, plantUnlocked } from '../src/sim/energy';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { plantCapacity, plantZones, isPlant, plantUnlocked } from '../src/sim/energy';
+import { ensureCoreContent } from '../src/sim/content';
 import { collectBudget } from '../src/sim/budget';
 import { applyTool, canApply } from '../src/sim/city';
 import { updatePollution } from '../src/sim/pollution';
@@ -12,41 +13,53 @@ function idx96(x: number, y: number): number {
   return y * 96 + x;
 }
 
+beforeAll(() => {
+  ensureCoreContent();
+});
+
 describe('plant roster', () => {
   it('covers all five plant zones', () => {
-    expect(PLANT_ZONES).toContain(Zone.PowerPlant);
-    expect(PLANT_ZONES).toContain(Zone.SolarPlant);
-    expect(PLANT_ZONES).toContain(Zone.WindTurbine);
-    expect(PLANT_ZONES).toContain(Zone.HydroPlant);
-    expect(PLANT_ZONES).toContain(Zone.NuclearPlant);
-    expect(PLANT_ZONES).toHaveLength(5);
+    expect(plantZones()).toContain(Zone.PowerPlant);
+    expect(plantZones()).toContain(Zone.SolarPlant);
+    expect(plantZones()).toContain(Zone.WindTurbine);
+    expect(plantZones()).toContain(Zone.HydroPlant);
+    expect(plantZones()).toContain(Zone.NuclearPlant);
+    expect(plantZones()).toHaveLength(5);
   });
 
   it('isPlant separates plants from other structures', () => {
-    for (const z of PLANT_ZONES) expect(isPlant(z)).toBe(true);
+    for (const z of plantZones()) expect(isPlant(z)).toBe(true);
     expect(isPlant(Zone.WaterPump)).toBe(false);
     expect(isPlant(Zone.None)).toBe(false);
   });
 
   it('carries the spec capacities at the extremes', () => {
-    expect(PLANT_SPECS[Zone.PowerPlant]!.capacity).toBe(240);
-    expect(PLANT_SPECS[Zone.NuclearPlant]!.capacity).toBe(700);
+    expect(plantCapacity(Zone.PowerPlant)).toBe(240);
+    expect(plantCapacity(Zone.NuclearPlant)).toBe(700);
   });
 });
 
 describe('plantUnlocked', () => {
   it('coal is always available', () => {
-    expect(plantUnlocked(Zone.PowerPlant, 0)).toBe(true);
+    const city = makeCity();
+    city.population = 0;
+    expect(plantUnlocked(Zone.PowerPlant, city)).toBe(true);
   });
 
   it('wind unlocks exactly at pop 2,000', () => {
-    expect(plantUnlocked(Zone.WindTurbine, 1999)).toBe(false);
-    expect(plantUnlocked(Zone.WindTurbine, 2000)).toBe(true);
+    const city = makeCity();
+    city.population = 1999;
+    expect(plantUnlocked(Zone.WindTurbine, city)).toBe(false);
+    city.population = 2000;
+    expect(plantUnlocked(Zone.WindTurbine, city)).toBe(true);
   });
 
   it('nuclear unlocks at pop 25,000', () => {
-    expect(plantUnlocked(Zone.NuclearPlant, 24999)).toBe(false);
-    expect(plantUnlocked(Zone.NuclearPlant, 25000)).toBe(true);
+    const city = makeCity();
+    city.population = 24999;
+    expect(plantUnlocked(Zone.NuclearPlant, city)).toBe(false);
+    city.population = 25000;
+    expect(plantUnlocked(Zone.NuclearPlant, city)).toBe(true);
   });
 });
 
@@ -57,7 +70,7 @@ describe('plant placement rules', () => {
     city.funds = 100000;
     city.population = 1999;
     expect(canApply(city, 'wind', 10, 10)).toBe(false);
-    expect(applyTool(city, 'wind', 10, 10).err).toMatch(/unlocks at population/);
+    expect(applyTool(city, 'wind', 10, 10).err).toBe('unlocks at pop 2,000');
     city.population = 2000;
     expect(applyTool(city, 'wind', 10, 10).ok).toBe(true);
     expect(city.tiles[idx96(10, 10)].zone).toBe(Zone.WindTurbine);

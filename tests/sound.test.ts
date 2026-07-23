@@ -1,8 +1,14 @@
 import { describe, expect, test } from 'vitest';
+import { allBuildings } from '../src/content/registry';
+import { ensureCoreContent } from '../src/sim/content';
 import { COSTS, ToolId } from '../src/sim/types';
 import { ambientLevel, soundFor, UI_SOUNDS } from '../src/ui/sound';
 
-const ALL_TOOLS = Object.keys(COSTS) as ToolId[];
+ensureCoreContent();
+const ALL_TOOLS = [
+  ...Object.keys(COSTS),
+  ...allBuildings().map((b) => b.tool).filter((t): t is string => !!t),
+] as ToolId[];
 
 describe('soundFor', () => {
   test('every build tool has a playable spec', () => {

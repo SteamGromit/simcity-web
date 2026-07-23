@@ -1,6 +1,8 @@
-import { describe, expect, test } from 'vitest';
+import { beforeAll, describe, expect, test } from 'vitest';
+import { allOrdinances } from '../src/content/registry';
+import { ensureCoreContent } from '../src/sim/content';
 import { idx } from '../src/sim/grid';
-import { BUS_TRAFFIC_SHARE, FIRE_RISK, ORDINANCES, Zone } from '../src/sim/types';
+import { BUS_TRAFFIC_SHARE, FIRE_RISK, Zone } from '../src/sim/types';
 import { newCity } from '../src/sim/city';
 import { updatePollution } from '../src/sim/pollution';
 import { fireRisk, updateCoverage } from '../src/sim/services';
@@ -9,10 +11,14 @@ import { collectBudget } from '../src/sim/budget';
 import { deserialize, serialize } from '../src/sim/save';
 import { makeCity, road, zone } from './helpers';
 
+beforeAll(() => {
+  ensureCoreContent();
+});
+
 describe('ordinance metadata', () => {
   test('every ordinance has a label, blurb and monthly cost', () => {
-    expect(ORDINANCES.length).toBeGreaterThanOrEqual(4);
-    for (const o of ORDINANCES) {
+    expect(allOrdinances().length).toBeGreaterThanOrEqual(4);
+    for (const o of allOrdinances()) {
       expect(o.label.length).toBeGreaterThan(3);
       expect(o.blurb.length).toBeGreaterThan(10);
       expect(o.cost).toBeGreaterThan(0);
@@ -21,7 +27,7 @@ describe('ordinance metadata', () => {
 
   test('a new city starts with every ordinance off', () => {
     const city = newCity(1);
-    for (const o of ORDINANCES) expect(city.ordinances[o.id]).toBe(false);
+    for (const o of allOrdinances()) expect(city.ordinances[o.id]).toBe(false);
   });
 });
 
@@ -92,8 +98,8 @@ describe('ordinance effects', () => {
     city.ordinances.cleanAir = true;
     city.ordinances.fireCode = true;
     collectBudget(city);
-    const cleanAir = ORDINANCES.find((o) => o.id === 'cleanAir')!;
-    const fireCode = ORDINANCES.find((o) => o.id === 'fireCode')!;
+    const cleanAir = allOrdinances().find((o) => o.id === 'cleanAir')!;
+    const fireCode = allOrdinances().find((o) => o.id === 'fireCode')!;
     expect(city.lastBudget.expenses).toBe(cleanAir.cost + fireCode.cost);
   });
 });
@@ -109,6 +115,6 @@ describe('persistence', () => {
     const raw = JSON.parse(serialize(city));
     delete raw.ordinances;
     const legacy = deserialize(JSON.stringify(raw))!;
-    for (const o of ORDINANCES) expect(legacy.ordinances[o.id]).toBe(false);
+    for (const o of allOrdinances()) expect(legacy.ordinances[o.id]).toBe(false);
   });
 });

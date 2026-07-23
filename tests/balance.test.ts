@@ -1,9 +1,14 @@
-import { describe, expect, it } from 'vitest';
-import { TRANSIT_SPECS } from '../src/sim/transit';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { transitRadius } from '../src/sim/transit';
+import { ensureCoreContent } from '../src/sim/content';
 import { GRID, SERVICE_RADII, Zone, mapScaled } from '../src/sim/types';
 import { HALO_RADII } from '../src/ui/shortcuts';
 
 describe('map-relative balance', () => {
+  beforeAll(() => {
+    ensureCoreContent();
+  });
+
   it('mapScaled applies the GRID/64 factor with rounding', () => {
     expect(GRID).toBe(96); // the table below assumes the 1.5× factor
     expect(mapScaled(5)).toBe(8);
@@ -16,16 +21,16 @@ describe('map-relative balance', () => {
   });
 
   it('the transit ladder rides above the scaled bus', () => {
-    expect(TRANSIT_SPECS[Zone.StreetcarStop]!.radius).toBe(10);
-    expect(TRANSIT_SPECS[Zone.MonorailStation]!.radius).toBe(13);
-    expect(TRANSIT_SPECS[Zone.SubwayStation]!.radius).toBe(16);
-    expect(TRANSIT_SPECS[Zone.RailTerminal]!.radius).toBe(20);
+    expect(transitRadius(Zone.StreetcarStop)).toBe(10);
+    expect(transitRadius(Zone.MonorailStation)).toBe(13);
+    expect(transitRadius(Zone.SubwayStation)).toBe(16);
+    expect(transitRadius(Zone.RailTerminal)).toBe(20);
     const ladder = [
       SERVICE_RADII.bus,
-      TRANSIT_SPECS[Zone.StreetcarStop]!.radius,
-      TRANSIT_SPECS[Zone.MonorailStation]!.radius,
-      TRANSIT_SPECS[Zone.SubwayStation]!.radius,
-      TRANSIT_SPECS[Zone.RailTerminal]!.radius,
+      transitRadius(Zone.StreetcarStop),
+      transitRadius(Zone.MonorailStation),
+      transitRadius(Zone.SubwayStation),
+      transitRadius(Zone.RailTerminal),
     ];
     for (let i = 1; i < ladder.length; i++) {
       expect(ladder[i]).toBeGreaterThan(ladder[i - 1]);
@@ -35,7 +40,7 @@ describe('map-relative balance', () => {
   it('placement halos track the live tables', () => {
     expect(HALO_RADII.fire).toBe(SERVICE_RADII.fire);
     expect(HALO_RADII.bus).toBe(SERVICE_RADII.bus);
-    expect(HALO_RADII.subway).toBe(TRANSIT_SPECS[Zone.SubwayStation]!.radius);
-    expect(HALO_RADII.rail).toBe(TRANSIT_SPECS[Zone.RailTerminal]!.radius);
+    expect(HALO_RADII.subway).toBe(transitRadius(Zone.SubwayStation));
+    expect(HALO_RADII.rail).toBe(transitRadius(Zone.RailTerminal));
   });
 });

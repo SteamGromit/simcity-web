@@ -214,8 +214,17 @@ out the most pressing problem (no power, no road access, deficits, fires,
 pollution…). Dismiss a tip with × and it stays quiet unless the problem
 comes back.
 
+## Modding
+
+Buildings, ordinances, and skins are authored content loaded through a
+validate → register pipeline — the game's own content goes through the same
+path. There's no in-game mod manager yet, but the pipeline and a debug
+console hook (`window.__simcity.loadPack(...)`) are there today; see
+`docs/modding.md` for the full authoring guide and a worked example pack.
+
 ## Design docs
 
 - Spec: `docs/superpowers/specs/2026-07-18-simcity-web-design.md`
 - Plan: `docs/superpowers/plans/2026-07-18-simcity-v1.md`
+- Modding: `docs/modding.md`
 - Backlog: `TODO.md`

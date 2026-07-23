@@ -1,4 +1,6 @@
+import { buildingByTool } from '../content/registry';
 import { collectBudget } from './budget';
+import { defaultOrdinances, ensureCoreContent } from './content';
 import { updateDemand } from './demand';
 import { developTile } from './develop';
 import { blankTile, idx, inBounds, neighbors4 } from './grid';
@@ -9,17 +11,17 @@ import { updateWater } from './water';
 import { pandemicMonthly, rollForDisaster, rubbleMonthly, updateDisasters } from './disasters';
 import { defaultWeather, updateWeatherMonthly } from './weather';
 import { fireRisk, updateCoverage, updateFires } from './services';
-import { PLANT_SPECS, isPlant, plantUnlocked } from './energy';
+import { isPlant, plantUnlockLabel, plantUnlocked } from './energy';
 import { retierMonthly, updateEducation } from './tiers';
 import { updateTraffic } from './traffic';
 import {
+  ActionToolId,
   Biome,
   BRIDGE_COST,
   CityState,
   COSTS,
   DEFAULT_TAX,
   defaultDisasters,
-  defaultOrdinances,
   Density,
   DENSITY_COST_MULT,
   GRID,
@@ -136,6 +138,7 @@ function generateTerrain(tiles: CityState['tiles'], seed: number): Biome {
 }
 
 export function newCity(seed: number): CityState {
+  ensureCoreContent();
   const tiles = Array.from({ length: GRID * GRID }, blankTile);
   const biome = generateTerrain(tiles, seed);
   return {
@@ -213,10 +216,13 @@ function isPristine(city: CityState): boolean {
   return city.tiles.every((t) => t.stage === 0);
 }
 
-/** Zone tools cost more at higher density; everything else has a flat cost. */
+/** Zone tools cost more at higher density; everything else has a flat cost.
+ * Building prices come from content; actions and zoning keep theirs in COSTS. */
 export function toolCost(tool: ToolId, density: Density): number {
+  const def = buildingByTool(tool);
+  if (def) return def.cost;
   const mult = ZONE_TOOLS.includes(tool) ? DENSITY_COST_MULT[density] : 1;
-  return COSTS[tool] * mult;
+  return COSTS[tool as ActionToolId] * mult;
 }
 
 function isBareTerrainDoze(tool: ToolId, t: { zone: Zone; terrain: Terrain }): boolean {
@@ -269,8 +275,8 @@ function validateTool(
   }
   const built = TOOL_ZONE[tool];
   if (built === undefined) return 'placed via the transit wizard';
-  if (isPlant(built) && !plantUnlocked(built, city.population)) {
-    return `unlocks at population ${PLANT_SPECS[built]!.unlockPop.toLocaleString('en-US')}`;
+  if (isPlant(built) && !plantUnlocked(built, city)) {
+    return `unlocks at ${plantUnlockLabel(built) ?? 'a larger population'}`;
   }
   if (tool === 'hydro') {
     const wet = neighbors4(x, y).some(

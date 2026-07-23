@@ -1,6 +1,6 @@
 import { idx, neighbors4 } from './grid';
 import { CityState, GRID, Tile, Zone } from './types';
-import { PLANT_SPECS, isPlant } from './energy';
+import { plantCapacity, isPlant } from './energy';
 
 /** Roads don't carry power unless a wire is strung over them. */
 function conducts(t: Tile): boolean {
@@ -49,7 +49,7 @@ export function updatePower(city: CityState): void {
       seen[i] = 1;
       powered[i] = 1;
       queue.push(i);
-      pool += PLANT_SPECS[city.tiles[i].zone]!.capacity;
+      pool += plantCapacity(city.tiles[i].zone);
     }
   }
 

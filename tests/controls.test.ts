@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { beforeAll, describe, expect, test } from 'vitest';
 import { roadLine } from '../src/sim/grid';
 import {
   clampDensity,
@@ -11,8 +11,14 @@ import {
   RESERVED_KEYS,
   TOOL_KEYS,
 } from '../src/ui/shortcuts';
-import { COSTS, SERVICE_RADII } from '../src/sim/types';
+import { buildingByTool } from '../src/content/registry';
+import { ensureCoreContent } from '../src/sim/content';
+import { ActionToolId, COSTS, SERVICE_RADII } from '../src/sim/types';
 import { OVERLAY_LABELS } from '../src/render/overlays';
+
+beforeAll(() => {
+  ensureCoreContent();
+});
 
 describe('roadLine', () => {
   test('straight lines include both endpoints', () => {
@@ -63,7 +69,8 @@ describe('TOOL_KEYS', () => {
   test('every mapping targets a real tool (or the query tool)', () => {
     for (const tool of Object.values(TOOL_KEYS)) {
       if (tool === 'query') continue;
-      expect(COSTS[tool]).toBeDefined();
+      const price = buildingByTool(tool)?.cost ?? COSTS[tool as ActionToolId];
+      expect(price, tool).toBeDefined();
     }
   });
 

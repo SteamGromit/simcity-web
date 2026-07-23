@@ -1,4 +1,4 @@
-import { TRANSIT_SPECS, transitUnlocked } from '../sim/transit';
+import { transitUnlockLabel, transitUnlocked } from '../sim/transit';
 import {
   LINE_COLORS,
   buildLine,
@@ -146,9 +146,8 @@ export function buildTransitWizard(
   return {
     open(m: Zone) {
       const city = getCity();
-      if (!transitUnlocked(m, city.population) && m !== Zone.BusStop) {
-        const pop = TRANSIT_SPECS[m]!.unlockPop.toLocaleString('en-US');
-        onError(`${MODE_NAMES[m]} unlocks at population ${pop}`);
+      if (!transitUnlocked(m, city) && m !== Zone.BusStop) {
+        onError(`${MODE_NAMES[m]} unlocks at ${transitUnlockLabel(m) ?? 'a larger population'}`);
         return;
       }
       mode = m;

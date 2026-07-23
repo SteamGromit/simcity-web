@@ -1,5 +1,4 @@
-import { Density, SERVICE_RADII, ToolId, Zone } from '../sim/types';
-import { TRANSIT_SPECS } from '../sim/transit';
+import { Density, SERVICE_RADII, ToolId, mapScaled } from '../sim/types';
 import { OverlayId } from '../render/overlays';
 
 /** Keys already claimed by camera/help/sound bindings — never map tools here. */
@@ -69,6 +68,12 @@ export const RECT_TOOLS: Set<ToolId> = new Set<ToolId>([
 /**
  * Service tools that preview their coverage footprint while placing.
  * Values come from SERVICE_RADII (hospital covers via the health field).
+ *
+ * The transit ladder's radii are computed with the same mapScaled formula
+ * the registry's core content uses (src/content/packs/core.ts) rather than
+ * read from the registry itself: this module is imported (and HALO_RADII
+ * built) before any city has called ensureCoreContent, so a registry lookup
+ * here would race the content bootstrap.
  */
 export const HALO_RADII: Partial<Record<ToolId, number>> = {
   fire: SERVICE_RADII.fire,
@@ -76,10 +81,10 @@ export const HALO_RADII: Partial<Record<ToolId, number>> = {
   school: SERVICE_RADII.school,
   hospital: SERVICE_RADII.health,
   bus: SERVICE_RADII.bus,
-  streetcar: TRANSIT_SPECS[Zone.StreetcarStop]!.radius,
-  monorail: TRANSIT_SPECS[Zone.MonorailStation]!.radius,
-  subway: TRANSIT_SPECS[Zone.SubwayStation]!.radius,
-  rail: TRANSIT_SPECS[Zone.RailTerminal]!.radius,
+  streetcar: mapScaled(6.5),
+  monorail: mapScaled(8.5),
+  subway: mapScaled(10.5),
+  rail: mapScaled(13),
 };
 
 /**

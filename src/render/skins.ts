@@ -1,7 +1,15 @@
 /** Visual skins: everything stays procedurally drawn — a skin restyles
- * palette, outlines, and proportions. Client preference, not save data. */
+ * palette, outlines, and proportions. Client preference, not save data.
+ *
+ * Skins are content: the shipped three come from the core pack, and a mod
+ * can add more. The declarative HSL transform is compiled back into the
+ * function shape the renderer already consumes, so nothing downstream moves.
+ */
 
-export type SkinId = 'classic' | 'springfield' | 'nyc';
+import { allSkins } from '../content/registry';
+import type { SkinDef } from '../content/types';
+
+export type SkinId = string;
 
 export interface Skin {
   id: SkinId;
@@ -20,43 +28,47 @@ export interface Skin {
 
 const clamp = (v: number) => Math.max(0, Math.min(100, v));
 
-export const SKINS: Skin[] = [
-  {
-    id: 'classic',
-    label: 'Classic',
-    blurb: 'The standard look.',
-    building: (h, s, l) => [h, s, l],
-    outline: 0,
-    heightScale: 1,
-    grassSat: 1,
-    roadFill: '#3a3d42',
-  },
-  {
-    id: 'springfield',
-    label: 'Springfield',
-    blurb: 'Saturday-morning cartoon: bold outlines, loud colors, squat little buildings.',
-    building: (h, s, l) => [h, clamp(s * 1.6 + 10), clamp(l * 1.05 + 6)],
-    outline: 1.6,
-    heightScale: 0.9,
-    grassSat: 1.35,
-    roadFill: '#4a4450',
-  },
-  {
-    id: 'nyc',
-    label: 'NYC',
-    blurb: 'Brownstone and brick: muted tones, taller silhouettes, asphalt grey.',
-    building: (h, s, l) => [15 + (h % 40), clamp(s * 0.55 + 8), clamp(l * 0.92)],
-    outline: 0,
-    heightScale: 1.2,
-    grassSat: 0.7,
-    roadFill: '#33353a',
-  },
-];
+/** Turn a declarative definition into the function-shaped Skin the renderer wants. */
+export function compileSkin(def: SkinDef): Skin {
+  const { hue, sat, light } = def;
+  return {
+    id: def.id,
+    label: def.label,
+    blurb: def.blurb,
+    building: (h, s, l) => [
+      hue.mode === 'wrap' ? hue.base + (h % hue.span) : h,
+      clamp(s * (sat.mul ?? 1) + (sat.add ?? 0)),
+      clamp(l * (light.mul ?? 1) + (light.add ?? 0)),
+    ],
+    outline: def.outline,
+    heightScale: def.heightScale,
+    grassSat: def.grassSat,
+    roadFill: def.roadFill,
+  };
+}
 
-let active: Skin = SKINS[0];
+/** Every registered skin, compiled. Derived per call: content loads at runtime. */
+export function skins(): Skin[] {
+  return allSkins().map(compileSkin);
+}
+
+const FALLBACK: Skin = compileSkin({
+  id: 'classic',
+  label: 'Classic',
+  blurb: 'The standard look.',
+  hue: { mode: 'identity' },
+  sat: {},
+  light: {},
+  outline: 0,
+  heightScale: 1,
+  grassSat: 1,
+  roadFill: '#3a3d42',
+});
+
+let active: Skin = FALLBACK;
 
 export function setSkin(id: string): void {
-  active = SKINS.find((s) => s.id === id) ?? SKINS[0];
+  active = skins().find((s) => s.id === id) ?? skins()[0] ?? FALLBACK;
 }
 
 export function getSkin(): Skin {
