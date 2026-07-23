@@ -201,6 +201,7 @@ export function buildToolbar(
   function toolButton(id: ToolId | 'query', label: string, parent: HTMLElement) {
     const btn = document.createElement('button');
     const key = KEY_OF[id] ? `<span class="key">${KEY_OF[id]}</span>` : '';
+    btn.dataset.tool = id; // drives the locate-code spine in the stylesheet
     btn.innerHTML = `<span>${label}</span><span class="meta">${key}<span class="cost">${costLabel(id)}</span></span>`;
     btn.addEventListener('click', () => applyTool(active === id ? null : id));
     toolButtons.set(id, btn);
@@ -212,6 +213,7 @@ export function buildToolbar(
   function bundleButton(bundle: Bundle, parent: HTMLElement) {
     const btn = document.createElement('button');
     btn.className = 'bundle-btn';
+    btn.dataset.bundle = bundle.id;
     btn.innerHTML = `<span>${bundle.label}</span><span class="meta"><span class="cost">▸</span></span>`;
     btn.addEventListener('click', () => {
       if (flyoutFor === bundle.id) {
@@ -224,6 +226,7 @@ export function buildToolbar(
       for (const m of bundle.members) {
         if (pop < m.unlockPop) continue; // hidden until the city earns it
         const mb = document.createElement('button');
+        mb.dataset.tool = m.id;
         mb.innerHTML = `<span>${m.label}</span><span class="cost">${costLabel(m.id)}</span>`;
         if (m.title) mb.title = m.title;
         mb.classList.toggle('active', active === m.id);
@@ -321,6 +324,7 @@ export function buildToolbar(
   for (const id of Object.keys(OVERLAY_LABELS) as OverlayId[]) {
     const btn = document.createElement('button');
     const key = OVERLAY_KEY_OF[id] ? `<span class="key">${OVERLAY_KEY_OF[id]}</span>` : '';
+    btn.dataset.view = id;
     btn.innerHTML = `<span>${OVERLAY_LABELS[id]}</span><span class="meta">${key}</span>`;
     btn.addEventListener('click', () => toggleOverlay(id));
     overlayButtons.set(id, btn);
