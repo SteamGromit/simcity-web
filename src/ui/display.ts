@@ -1,4 +1,4 @@
-import { getSkin, setSkin, SKINS } from '../render/skins';
+import { getSkin, setSkin, skins } from '../render/skins';
 import { getWeatherFx, setWeatherFx } from '../render/fx';
 import { getDayNight, setDayNight } from '../render/daynight';
 import { RenderStyle, getRenderStyle, setRenderStyle } from '../render/renderstyle';
@@ -53,8 +53,8 @@ export function buildDisplay(
   const skinList = panel.querySelector('#skin-list') as HTMLElement;
   const skinButtons: HTMLButtonElement[] = [];
   const syncSkins = () =>
-    SKINS.forEach((sk, i) => skinButtons[i].classList.toggle('active', getSkin().id === sk.id));
-  for (const sk of SKINS) {
+    skins().forEach((sk, i) => skinButtons[i].classList.toggle('active', getSkin().id === sk.id));
+  for (const sk of skins()) {
     const btn = document.createElement('button');
     btn.textContent = sk.label;
     btn.title = sk.blurb;
