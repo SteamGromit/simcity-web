@@ -5,7 +5,8 @@
  */
 
 import { registerPack, unregisterPack } from '../content/registry';
-import type { Pack } from '../content/types';
+import type { ModifierKey } from '../content/modifiers';
+import type { OrdinanceDef, Pack } from '../content/types';
 import { validatePack } from '../content/validate';
 
 const STORAGE_KEY = 'simcity.mods';
@@ -18,6 +19,13 @@ export interface StoredMod {
 export interface StorageLike {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
+}
+
+export interface OrdinanceDraft {
+  label: string;
+  blurb: string;
+  cost: number;
+  effects: Array<{ key: ModifierKey; value: number }>;
 }
 
 /** URL/id-safe slug; never empty. */
@@ -38,6 +46,9 @@ export interface ModStore {
   setEnabled(id: string, on: boolean): void;
   exportMod(id: string): string;
   importMod(json: string): { ok: true; id: string } | { ok: false; errors: string[] };
+  addOrdinance(id: string, draft: OrdinanceDraft): { ok: true } | { ok: false; errors: string[] };
+  updateOrdinance(id: string, ordId: string, draft: OrdinanceDraft): { ok: true } | { ok: false; errors: string[] };
+  removeOrdinance(id: string, ordId: string): void;
   onChange(cb: () => void): void;
 }
 
@@ -84,6 +95,12 @@ export function createModStore(storage: StorageLike): ModStore {
     return id;
   }
 
+  function draftToOrdinance(packId: string, draft: OrdinanceDraft, id?: string): OrdinanceDef {
+    const effects: Partial<Record<ModifierKey, number>> = {};
+    for (const e of draft.effects) effects[e.key] = e.value;
+    return { id: id ?? `${packId}:${slugify(draft.label)}`, label: draft.label, blurb: draft.blurb, cost: draft.cost, effects };
+  }
+
   // apply enabled mods to the registry at construction
   for (const m of mods) if (m.enabled) registerPack(m.pack);
 
@@ -128,6 +145,46 @@ export function createModStore(storage: StorageLike): ModStore {
       m.enabled = on;
       if (on) registerPack(m.pack);
       else unregisterPack(id);
+      persist();
+      fire();
+    },
+
+    addOrdinance(id, draft) {
+      const m = find(id);
+      if (!m) return { ok: false, errors: [`no mod "${id}"`] };
+      const ord = draftToOrdinance(m.pack.id, draft);
+      const next = [...(m.pack.ordinances ?? []), ord];
+      const result = validatePack({ ...m.pack, ordinances: next });
+      if (!result.ok) return { ok: false, errors: result.errors };
+      m.pack.ordinances = next;
+      if (m.enabled) registerPack(m.pack);
+      persist();
+      fire();
+      return { ok: true };
+    },
+
+    updateOrdinance(id, ordId, draft) {
+      const m = find(id);
+      if (!m) return { ok: false, errors: [`no mod "${id}"`] };
+      const list = m.pack.ordinances ?? [];
+      const i = list.findIndex((o) => o.id === ordId);
+      if (i < 0) return { ok: false, errors: [`no ordinance "${ordId}"`] };
+      const next = list.slice();
+      next[i] = draftToOrdinance(m.pack.id, draft, ordId); // id stays stable
+      const result = validatePack({ ...m.pack, ordinances: next });
+      if (!result.ok) return { ok: false, errors: result.errors };
+      m.pack.ordinances = next;
+      if (m.enabled) registerPack(m.pack);
+      persist();
+      fire();
+      return { ok: true };
+    },
+
+    removeOrdinance(id, ordId) {
+      const m = find(id);
+      if (!m) return;
+      m.pack.ordinances = (m.pack.ordinances ?? []).filter((o) => o.id !== ordId);
+      if (m.enabled) registerPack(m.pack);
       persist();
       fire();
     },

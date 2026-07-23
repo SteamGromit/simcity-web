@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import { createModStore, slugify, type StorageLike } from '../src/ui/modstore';
-import { allOrdinances, resetRegistry } from '../src/content/registry';
+import { allOrdinances, ordinanceById, resetRegistry } from '../src/content/registry';
 
 /** In-memory StorageLike; the store never sees a real localStorage in Node. */
 function fakeStorage(seed?: string): StorageLike {
@@ -208,5 +208,68 @@ describe('mod store — load drops malformed entries', () => {
     const seed = JSON.stringify([good, 5]);
     const store = createModStore(fakeStorage(seed));
     expect(store.list().map((m) => m.pack.id)).toEqual(['eco']);
+  });
+});
+
+const DRAFT = {
+  label: 'Carbon Tax',
+  blurb: 'Industry pollutes less.',
+  cost: 50,
+  effects: [{ key: 'pollution.industry' as const, value: 0.5 }],
+};
+
+describe('mod store — ordinance authoring', () => {
+  test('addOrdinance namespaces the id and registers it', () => {
+    resetRegistry();
+    const store = createModStore(fakeStorage());
+    const m = store.create('Eco');
+    const r = store.addOrdinance(m.pack.id, DRAFT);
+    expect(r.ok).toBe(true);
+    const ord = ordinanceById('eco:carbon-tax');
+    expect(ord).toBeDefined();
+    expect(ord!.cost).toBe(50);
+    expect(ord!.effects).toEqual({ 'pollution.industry': 0.5 });
+  });
+
+  test('addOrdinance rejects a negative cost and changes nothing', () => {
+    resetRegistry();
+    const store = createModStore(fakeStorage());
+    const m = store.create('Eco');
+    const r = store.addOrdinance(m.pack.id, { ...DRAFT, cost: -1 });
+    expect(r.ok).toBe(false);
+    expect(store.list()[0].pack.ordinances).toHaveLength(0);
+  });
+
+  test('updateOrdinance keeps the id stable across a label change', () => {
+    resetRegistry();
+    const store = createModStore(fakeStorage());
+    const m = store.create('Eco');
+    store.addOrdinance(m.pack.id, DRAFT);
+    const r = store.updateOrdinance(m.pack.id, 'eco:carbon-tax', { ...DRAFT, label: 'Carbon Levy', cost: 60 });
+    expect(r.ok).toBe(true);
+    const ord = ordinanceById('eco:carbon-tax');
+    expect(ord!.label).toBe('Carbon Levy');
+    expect(ord!.cost).toBe(60);
+    // no second ordinance under a new id
+    expect(store.list()[0].pack.ordinances).toHaveLength(1);
+  });
+
+  test('removeOrdinance unregisters it', () => {
+    resetRegistry();
+    const store = createModStore(fakeStorage());
+    const m = store.create('Eco');
+    store.addOrdinance(m.pack.id, DRAFT);
+    store.removeOrdinance(m.pack.id, 'eco:carbon-tax');
+    expect(ordinanceById('eco:carbon-tax')).toBeUndefined();
+  });
+
+  test('two ordinances whose labels slug the same are rejected as a duplicate id', () => {
+    resetRegistry();
+    const store = createModStore(fakeStorage());
+    const m = store.create('Eco');
+    store.addOrdinance(m.pack.id, DRAFT);
+    const r = store.addOrdinance(m.pack.id, { ...DRAFT, cost: 10 }); // same label → same slug
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('duplicate');
   });
 });
