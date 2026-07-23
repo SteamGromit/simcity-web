@@ -168,6 +168,10 @@ export interface CityState {
   history: { pop: number[]; funds: number[] };
   /** Player-drawn transit routes; stops are ordinary station tiles. */
   transitLines: import('./transitlines').TransitLine[];
+  /** Slot → content id for every slot this city uses, so a save survives
+   * being opened with a different set of packs loaded. Absent in legacy
+   * saves, which are read with an identity mapping. */
+  zoneIds?: Record<number, string>;
 }
 
 export const HISTORY_MAX = 240; // 20 years of monthly samples
