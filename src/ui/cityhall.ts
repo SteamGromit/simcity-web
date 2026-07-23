@@ -1,4 +1,5 @@
 import { allOrdinances } from '../content/registry';
+import type { OrdinanceDef } from '../content/types';
 import { CityState, DisasterKind } from '../sim/types';
 import { adviseTips } from '../sim/tips';
 import { tierBreakdown } from '../sim/tierstats';
@@ -30,7 +31,7 @@ export function buildCityHall(
   const tierPanel = panel.querySelector('#tier-breakdown') as HTMLElement;
   const ordinanceList = panel.querySelector('#ordinance-list') as HTMLElement;
 
-  for (const o of allOrdinances()) {
+  function buildOrdinanceRow(o: OrdinanceDef): HTMLElement {
     const row = document.createElement('label');
     row.className = 'ordinance';
     row.title = o.blurb;
@@ -46,8 +47,15 @@ export function buildCityHall(
     cost.className = 'cost';
     cost.textContent = `§${o.cost}`;
     row.append(box, text, cost);
-    ordinanceList.appendChild(row);
+    return row;
   }
+
+  function renderOrdinances(): void {
+    ordinanceList.innerHTML = '';
+    for (const o of allOrdinances()) ordinanceList.appendChild(buildOrdinanceRow(o));
+  }
+
+  renderOrdinances();
 
   const disasterList = panel.querySelector('#disaster-list') as HTMLElement;
   for (const kind of ['tornado', 'hurricane', 'pandemic'] as DisasterKind[]) {
@@ -101,5 +109,10 @@ export function buildCityHall(
     },
     /** Re-sync checkboxes after loading a different city. */
     syncBoxes,
+    /** Re-render the ordinance rows from the registry (a mod was enabled/edited). */
+    rebuildOrdinances() {
+      renderOrdinances();
+      syncBoxes();
+    },
   };
 }
