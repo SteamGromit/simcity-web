@@ -1,4 +1,5 @@
 import './ui/style.css';
+import { registerPack } from './content/registry';
 import { applyTool, applyToolLine, canApply, mulberry32, newCity, simTick } from './sim/city';
 import { roadLine } from './sim/grid';
 import { spawnDisaster } from './sim/disasters';
@@ -54,6 +55,20 @@ setWeatherFx(localStorage.getItem('simcity.weatherfx') !== '0');
 setDayNight(localStorage.getItem('simcity.daynight') === '1');
 let rand = mulberry32(city.seed + city.tick);
 const renderer = new Renderer(canvas, city.seed);
+
+/**
+ * Debug hook for the mod pipeline, matching the localStorage.simcity.nightlock
+ * convention. There is no player-facing mod manager yet; this is how the
+ * untrusted path gets exercised. Returns errors rather than throwing.
+ */
+(window as unknown as Record<string, unknown>).__simcity = {
+  loadPack(input: string | object) {
+    const raw = typeof input === 'string' ? JSON.parse(input) : input;
+    const result = registerPack(raw);
+    if (result.ok) renderer.reseed(city.seed); // pick up any new content
+    return result;
+  },
+};
 
 const view: ViewState = {
   hover: null,
