@@ -47,6 +47,7 @@ let unlocks = new Map<string, CompiledExpr>();
 let buildings: BuildingDef[] = [];
 let ordinances: OrdinanceDef[] = [];
 let skins: SkinDef[] = [];
+let byOrdinanceId = new Map<string, OrdinanceDef>();
 
 export type RegisterResult = { ok: true } | { ok: false; errors: string[] };
 
@@ -76,7 +77,10 @@ export function registerPack(raw: unknown): RegisterResult {
   const collisionErrors: string[] = [];
   for (const [id, slot] of declaredSlots) {
     const heldBy = pinnedElsewhere.get(slot);
-    if (heldBy !== undefined) {
+    // Re-declaring a slot for the SAME building id is an override of that
+    // building, which is legal and must keep the slot — that's the whole point
+    // of pinned identity. Only a different id claiming the slot is a theft.
+    if (heldBy !== undefined && heldBy !== id) {
       collisionErrors.push(
         `pack "${pack.id}": building "${id}" declares slot ${slot}, already pinned by "${heldBy}"`,
       );
@@ -131,47 +135,56 @@ function reindex(): void {
   byId = new Map();
   byTool = new Map();
   unlocks = new Map();
-  buildings = [];
-  ordinances = [];
-  skins = [];
+
+  // Resolve to one definition per id first, in pack order, so a later pack
+  // replaces an earlier one rather than sitting beside it. Every index and
+  // every list is built from these maps, which is what keeps `allOrdinances()`
+  // and `ordinanceById()` agreeing about which definition actually won.
+  const buildingsById = new Map<string, BuildingDef>();
+  const ordinancesById = new Map<string, OrdinanceDef>();
+  const skinsById = new Map<string, SkinDef>();
+
+  for (const reg of packs.values()) {
+    for (const b of reg.buildings) buildingsById.set(b.id, b);
+    for (const o of reg.ordinances) ordinancesById.set(o.id, o);
+    for (const s of reg.skins) skinsById.set(s.id, s);
+    for (const [id, expr] of reg.unlocks) unlocks.set(id, expr);
+  }
 
   // Reserve every declared slot before allocating, so an allocation can never
   // land on one no matter what order the packs come in.
   const declared = new Set<number>();
-  for (const reg of packs.values()) {
-    for (const b of reg.buildings) {
-      if (b.slot !== undefined) declared.add(b.slot);
-    }
+  for (const b of buildingsById.values()) {
+    if (b.slot !== undefined) declared.add(b.slot);
   }
 
   const inUse = new Set(allocated.values());
   let next = MOD_SLOT_BASE;
 
-  for (const reg of packs.values()) {
-    for (const b of reg.buildings) {
-      let slot = b.slot;
+  for (const b of buildingsById.values()) {
+    let slot = b.slot;
+    if (slot === undefined) {
+      slot = allocated.get(b.id);
       if (slot === undefined) {
-        slot = allocated.get(b.id);
-        if (slot === undefined) {
-          while (declared.has(next) || inUse.has(next)) next++;
-          slot = next;
-          allocated.set(b.id, slot);
-          inUse.add(slot);
-        }
+        while (declared.has(next) || inUse.has(next)) next++;
+        slot = next;
+        allocated.set(b.id, slot);
+        inUse.add(slot);
       }
-      // One derived def per building, carrying its resolved slot, shared by
-      // every index so the lookups agree by identity. A declaring building is
-      // already correct and is indexed as-is.
-      const def = b.slot === slot ? b : { ...b, slot };
-      bySlot.set(slot, def);
-      byId.set(def.id, def);
-      if (def.tool !== undefined) byTool.set(def.tool, def);
-      buildings.push(def);
     }
-    for (const [id, expr] of reg.unlocks) unlocks.set(id, expr);
-    ordinances.push(...reg.ordinances);
-    skins.push(...reg.skins);
+    // One derived def per building, carrying its resolved slot, shared by
+    // every index so the lookups agree by identity. A declaring building is
+    // already correct and is indexed as-is.
+    const def = b.slot === slot ? b : { ...b, slot };
+    bySlot.set(slot, def);
+    byId.set(def.id, def);
+    if (def.tool !== undefined) byTool.set(def.tool, def);
   }
+
+  buildings = [...byId.values()];
+  ordinances = [...ordinancesById.values()];
+  skins = [...skinsById.values()];
+  byOrdinanceId = ordinancesById;
 }
 
 export function buildingBySlot(slot: number): BuildingDef | undefined {
@@ -207,7 +220,7 @@ export function allOrdinances(): readonly OrdinanceDef[] {
 }
 
 export function ordinanceById(id: string): OrdinanceDef | undefined {
-  return ordinances.find((o) => o.id === id);
+  return byOrdinanceId.get(id);
 }
 
 export function allSkins(): readonly SkinDef[] {
