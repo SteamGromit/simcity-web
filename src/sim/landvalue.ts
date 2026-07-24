@@ -2,6 +2,8 @@ import { tilesWithin } from './grid';
 import { CityState, GRID, Terrain, Zone, mapScaled } from './types';
 
 const BASE = 0.3;
+/** How hard uncollected refuse on the lot drags its value down. */
+const GARBAGE_PENALTY = 0.35;
 // 64-era bases — bonuses keep their share of a district on any map
 const PARK_RADIUS = mapScaled(3);
 const WATER_RADIUS = mapScaled(2);
@@ -48,7 +50,9 @@ export function updateLandValue(city: CityState): void {
         : 0.15;
     const serviceBonus = 0.12 * ((t.fireCov + t.policeCov + t.schoolCov) / 3);
     const viewBonus = 0.03 * t.elevation; // hillside views
-    const v = BASE + parkBonus[i] + serviceBonus + viewBonus - 0.5 * t.pollution - commutePenalty;
+    const v =
+      BASE + parkBonus[i] + serviceBonus + viewBonus -
+      0.5 * t.pollution - commutePenalty - GARBAGE_PENALTY * t.garbage;
     t.landValue = Math.max(0, Math.min(1, v));
   }
 }

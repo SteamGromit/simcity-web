@@ -4,6 +4,9 @@ import { ensureCoreContent } from '../src/sim/content';
 import { idx } from '../src/sim/grid';
 import { updateCoverage } from '../src/sim/services';
 import { updatePower } from '../src/sim/power';
+import { updatePollution } from '../src/sim/pollution';
+import { updateLandValue } from '../src/sim/landvalue';
+import { demandReading, developTile } from '../src/sim/develop';
 import { garbageOf, updateWasteMonthly } from '../src/sim/waste';
 import { CityState, Zone } from '../src/sim/types';
 import { clearLand, makeCity, zone } from './helpers';
@@ -284,5 +287,115 @@ describe('the waste ledger', () => {
     expect(city.waste).toEqual({
       produced: 0, diverted: 0, capacity: 0, collected: 0, uncollected: 0,
     });
+  });
+});
+
+describe('what a heap does to the neighbourhood', () => {
+  /** Two identical cities; only the heap differs. */
+  function pair(): [CityState, CityState] {
+    const mk = () => {
+      const c = base();
+      home(c, 10, 10);
+      return c;
+    };
+    return [mk(), mk()];
+  }
+
+  test('rubbish in the street pollutes', () => {
+    const [clean, dirty] = pair();
+    dirty.tiles[idx(10, 10)].garbage = 1;
+    updatePollution(clean);
+    updatePollution(dirty);
+    expect(dirty.tiles[idx(10, 10)].pollution).toBeGreaterThan(
+      clean.tiles[idx(10, 10)].pollution,
+    );
+  });
+
+  test('a landfill pollutes on its own account, heap or no heap', () => {
+    const city = base();
+    zone(city, 9, 10, Zone.PowerPlant);
+    zone(city, 10, 10, Zone.Landfill);
+    updatePollution(city);
+    expect(city.tiles[idx(10, 10)].pollution).toBeGreaterThan(0);
+  });
+
+  test('it drags land value down', () => {
+    const [clean, dirty] = pair();
+    dirty.tiles[idx(10, 10)].garbage = 1;
+    for (const c of [clean, dirty]) {
+      updatePollution(c);
+      updateLandValue(c);
+    }
+    expect(dirty.tiles[idx(10, 10)].landValue).toBeLessThan(
+      clean.tiles[idx(10, 10)].landValue,
+    );
+  });
+
+  test('it takes the pressure out of growth', () => {
+    const [clean, dirty] = pair();
+    dirty.tiles[idx(10, 10)].garbage = 1;
+    for (const c of [clean, dirty]) {
+      c.demand.r = 1;
+      c.tiles[idx(10, 10)].powered = true;
+      zone(c, 10, 11, Zone.Road);
+      updatePollution(c);
+      updateLandValue(c);
+    }
+    const a = demandReading(clean, 10, 10)!.pressure;
+    const b = demandReading(dirty, 10, 10)!.pressure;
+    expect(b).toBeLessThan(a);
+  });
+
+  test('a clean, collected city is not penalised at all', () => {
+    const city = base();
+    const slot = dump(10_000);
+    zone(city, 9, 10, Zone.PowerPlant);
+    zone(city, 10, 10, slot);
+    home(city, 11, 10);
+    settle(city);
+    expect(city.tiles[idx(11, 10)].garbage).toBe(0);
+  });
+});
+
+describe('growth needs a collection round', () => {
+  /** A well-served block at stage 3, ready to reach for stage 4. */
+  function servedBlock(withPickup: boolean): CityState {
+    const city = base();
+    zone(city, 9, 10, Zone.PowerPlant);
+    zone(city, 10, 10, Zone.FireStation);
+    zone(city, 10, 11, Zone.PoliceStation);
+    zone(city, 10, 12, Zone.School);
+    zone(city, 10, 13, Zone.Hospital);
+    if (withPickup) zone(city, 10, 14, Zone.Landfill);
+    zone(city, 11, 9, Zone.Road);
+    home(city, 11, 10, 3);
+    const t = city.tiles[idx(11, 10)];
+    t.density = 3; // low-density zoning caps at stage 3 on its own
+    t.watered = true;
+    t.landValue = 1;
+    city.demand.r = 1;
+    updatePower(city);
+    updateCoverage(city);
+    return city;
+  }
+
+  test('stage 4 is refused with no rubbish collection', () => {
+    const city = servedBlock(false);
+    const t = city.tiles[idx(11, 10)];
+    expect(t.garbageCov).toBe(0);
+    for (let i = 0; i < 200; i++) developTile(city, 11, 10, () => 0.01);
+    expect(t.stage).toBe(3);
+  });
+
+  test('and allowed once a landfill covers the block', () => {
+    const city = servedBlock(true);
+    const t = city.tiles[idx(11, 10)];
+    expect(t.garbageCov).toBeGreaterThan(0);
+    for (let i = 0; i < 200; i++) {
+      developTile(city, 11, 10, () => 0.01);
+      t.watered = true;
+      t.landValue = 1;
+    }
+    expect(t.stage).toBeGreaterThan(3);
   });
 });

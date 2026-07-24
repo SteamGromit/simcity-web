@@ -14,14 +14,17 @@ const HIGH_STAGE_COV = 0.2;
 function desirability(t: Tile): number {
   const jobAccess = 1 - Math.min(1, t.commute / 30);
   const services = (t.fireCov + t.policeCov + t.schoolCov) / 3;
+  // Nobody wants to move in next to a heap, over and above what it has
+  // already done to the land value.
+  const refuse = 0.25 * t.garbage;
   switch (t.zone) {
     case Zone.Residential:
-      return (
+      return Math.max(0,
         0.7 * t.landValue + 0.3 * jobAccess + 0.12 * services + 0.06 * t.healthCov +
-        0.04 * t.busCov
+        0.04 * t.busCov - refuse,
       );
     case Zone.Commercial:
-      return 0.5 * t.landValue + 0.5 * jobAccess + 0.12 * services;
+      return Math.max(0, 0.5 * t.landValue + 0.5 * jobAccess + 0.12 * services - refuse);
     case Zone.Industrial:
       return 0.45 + 0.2 * (1 - Math.min(1, t.commute / 40)) + 0.05 * t.fireCov;
     default:
@@ -41,6 +44,9 @@ function servicesAllow(t: Tile, next: number): boolean {
     if (t.fireCov <= HIGH_STAGE_COV || t.policeCov <= HIGH_STAGE_COV) return false;
     if (t.zone !== Zone.Industrial && t.schoolCov <= HIGH_STAGE_COV) return false;
   }
+  // density past a point means refuse nobody can ignore: a block only builds
+  // up if something is coming to take the bins away
+  if (next >= 4 && t.garbageCov <= 0) return false;
   // towers need a hospital in reach (industry exempt, as with schools)
   if (next >= 5 && t.zone !== Zone.Industrial && t.healthCov <= 0) return false;
   return true;
