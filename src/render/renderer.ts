@@ -5,6 +5,7 @@ import { Automata } from './automata';
 import {
   drawBuilding,
   drawFire,
+  drawCrimeFlash,
   drawPole,
   drawRubble,
   fillPoly,
@@ -231,6 +232,10 @@ export class Renderer {
         );
       }
       if (t.burning > 0) drawFire(ctx, geom, now, this.variants[i]);
+      if (t.crimeFlash > 0) {
+        drawCrimeFlash(ctx, geom, now, Math.min(1, t.crimeFlash / 90));
+        t.crimeFlash -= 1; // render-only decay; not part of the sim tick
+      }
       this.automata.drawTile(ctx, i);
     }
 
