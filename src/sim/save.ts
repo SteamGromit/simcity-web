@@ -12,6 +12,7 @@ import {
   MAX_ELEV,
   HISTORY_MAX,
   MAX_STAGE_BY_DENSITY,
+  ACCIDENT_MAX,
   RUBBLE_MONTHS,
   Terrain,
   Tier,
@@ -127,6 +128,7 @@ function reviveTile(raw: unknown, remap: Map<number, number> | null): Tile {
   t.garbageCov = finite(r.garbageCov, 0);
   t.garbage = clamp(finite(r.garbage, 0), 0, 1);
   t.crime = clamp(finite(r.crime, 0), 0, 1);
+  t.accident = Math.min(ACCIDENT_MAX, Math.max(0, Math.floor(finite(r.accident, 0))));
   t.burning = Math.min(FIRE_BURN_TICKS, Math.max(0, Math.floor(finite(r.burning, 0))));
   t.rubble = Math.min(RUBBLE_MONTHS, Math.max(0, Math.floor(finite(r.rubble, 0))));
   t.pollution = finite(r.pollution, 0);

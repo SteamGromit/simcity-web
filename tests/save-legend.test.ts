@@ -198,3 +198,29 @@ describe('crime state in a save', () => {
     expect(raw.tiles[idx(5, 5)].crimeFlash).toBeUndefined();
   });
 });
+
+describe('accident state in a save', () => {
+  test('a blocked road round-trips', () => {
+    const city = newCity(1);
+    city.tiles[idx(5, 5)].zone = Zone.Road;
+    city.tiles[idx(5, 5)].accident = 12;
+    const back = deserialize(serialize(city))!;
+    expect(back.tiles[idx(5, 5)].accident).toBe(12);
+  });
+
+  test('a wild accident value is clamped', () => {
+    const city = newCity(1);
+    const raw = JSON.parse(serialize(city));
+    raw.tiles[idx(5, 5)].accident = 9999;
+    const back = deserialize(JSON.stringify(raw))!;
+    expect(back.tiles[idx(5, 5)].accident).toBe(40);
+  });
+
+  test('a save from before accidents existed loads clear', () => {
+    const city = newCity(1);
+    const raw = JSON.parse(serialize(city));
+    for (const t of raw.tiles) delete t.accident;
+    const back = deserialize(JSON.stringify(raw))!;
+    expect(back.tiles[idx(5, 5)].accident).toBe(0);
+  });
+});
