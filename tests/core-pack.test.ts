@@ -34,7 +34,7 @@ describe('core pack', () => {
 
   test('core ordinance ids keep their historic strings, unnamespaced', () => {
     expect(CORE_PACK.ordinances!.map((o) => o.id).sort()).toEqual(
-      ['cleanAir', 'eduGrant', 'fireCode', 'freeBus', 'healthDrive', 'recycling', 'watch'].sort(),
+      ['cleanAir', 'driverEd', 'eduGrant', 'emt', 'fireCode', 'freeBus', 'healthDrive', 'recycling', 'watch'].sort(),
     );
   });
 
@@ -102,5 +102,19 @@ describe('crime content', () => {
     const o = CORE_PACK.ordinances!.find((x) => x.id === 'watch')!;
     expect(o.effects['crime.rate']).toBeLessThan(1);
     expect(o.cost).toBe(90);
+  });
+});
+
+describe('accident content', () => {
+  const ord = (id: string) => CORE_PACK.ordinances!.find((o) => o.id === id)!;
+
+  test('Driver Education lowers the accident rate', () => {
+    expect(ord('driverEd').effects['accident.rate']).toBeLessThan(1);
+    expect(ord('driverEd').cost).toBe(70);
+  });
+
+  test('the EMT Program shortens accidents', () => {
+    expect(ord('emt').effects['accident.duration']).toBeLessThan(1);
+    expect(ord('emt').cost).toBe(110);
   });
 });

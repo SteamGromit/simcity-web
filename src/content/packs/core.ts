@@ -261,6 +261,20 @@ export const CORE_PACK: Pack = {
       effects: { 'crime.rate': 0.7 },
     },
     {
+      id: 'driverEd',
+      label: 'Driver Education',
+      blurb: 'Licensing courses and road-safety campaigns: crashes happen far less often.',
+      cost: 70,
+      effects: { 'accident.rate': 0.6 },
+    },
+    {
+      id: 'emt',
+      label: 'EMT Program',
+      blurb: 'Trained paramedics on every engine: fire crews clear a wreck in a fraction of the time.',
+      cost: 110,
+      effects: { 'accident.duration': 0.6 },
+    },
+    {
       id: 'healthDrive',
       label: 'Public Health Campaign',
       blurb: 'Vaccination drives and free clinics: pandemics strike half as often and hit half as hard.',
