@@ -6,6 +6,7 @@ import { defaultWeather, WEATHER_KINDS, WeatherKind } from './weather';
 import {
   CityState,
   defaultDisasters,
+  defaultWaste,
   FIRE_BURN_TICKS,
   GRID,
   MAX_ELEV,
@@ -121,6 +122,8 @@ function reviveTile(raw: unknown, remap: Map<number, number> | null): Tile {
   t.schoolCov = finite(r.schoolCov, 0);
   t.healthCov = finite(r.healthCov, 0);
   t.busCov = finite(r.busCov, 0);
+  t.garbageCov = finite(r.garbageCov, 0);
+  t.garbage = clamp(finite(r.garbage, 0), 0, 1);
   t.burning = Math.min(FIRE_BURN_TICKS, Math.max(0, Math.floor(finite(r.burning, 0))));
   t.rubble = Math.min(RUBBLE_MONTHS, Math.max(0, Math.floor(finite(r.rubble, 0))));
   t.pollution = finite(r.pollution, 0);
@@ -284,6 +287,9 @@ export function deserialize(json: string): CityState | null {
         expenses: finite(budget.expenses, 0),
         net: finite(budget.net, 0),
       },
+      // A summary, not state: the next month close recomputes it, and a save
+      // from before garbage existed simply starts empty.
+      waste: defaultWaste(),
       ordinances: reviveOrdinances(data.ordinances),
       disasters: reviveDisasters(data.disasters),
       weather: reviveWeather(data.weather),
