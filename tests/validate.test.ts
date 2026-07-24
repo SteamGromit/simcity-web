@@ -310,3 +310,69 @@ describe('overrides', () => {
     expect(r.ok).toBe(false);
   });
 });
+
+describe('waste and the garbage service', () => {
+  function withBuilding(patch: Record<string, unknown>) {
+    const p = goodPack();
+    Object.assign((p.buildings as Record<string, unknown>[])[0], patch);
+    return p;
+  }
+
+  test('a garbage service kind validates', () => {
+    const r = validatePack(withBuilding({ service: { kind: 'garbage', radius: 8 } }));
+    expect(r.ok).toBe(true);
+  });
+
+  test('a waste block validates', () => {
+    expect(validatePack(withBuilding({ waste: { capacity: 500 } })).ok).toBe(true);
+    expect(validatePack(withBuilding({ waste: { capacity: 500, divert: 0.25 } })).ok).toBe(true);
+  });
+
+  test('a negative capacity is refused', () => {
+    const r = validatePack(withBuilding({ waste: { capacity: -1 } }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('waste.capacity');
+  });
+
+  test('a non-numeric capacity is refused', () => {
+    const r = validatePack(withBuilding({ waste: { capacity: 'lots' } }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('waste.capacity');
+  });
+
+  test('divert outside 0..1 is refused', () => {
+    for (const divert of [-0.1, 1.5]) {
+      const r = validatePack(withBuilding({ waste: { capacity: 10, divert } }));
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.errors.join(' ')).toContain('waste.divert');
+    }
+  });
+
+  test('garbage.production is a recognised modifier key', () => {
+    const p = goodPack();
+    (p.ordinances as Record<string, unknown>[])[0].effects = { 'garbage.production': 0.75 };
+    expect(validatePack(p).ok).toBe(true);
+  });
+
+  test('an invented garbage key is still refused', () => {
+    const p = goodPack();
+    (p.ordinances as Record<string, unknown>[])[0].effects = { 'garbage.smell': 0.5 };
+    const r = validatePack(p);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('garbage.smell');
+  });
+
+  test('waste is patchable through an override', () => {
+    const p = goodPack();
+    p.overrides = { buildings: [{ id: 'test:shed', waste: { capacity: 900 } }] };
+    expect(validatePack(p).ok).toBe(true);
+  });
+
+  test('a bad patched capacity is refused', () => {
+    const p = goodPack();
+    p.overrides = { buildings: [{ id: 'test:shed', waste: { capacity: -5 } }] };
+    const r = validatePack(p);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('waste.capacity');
+  });
+});

@@ -21,6 +21,7 @@ const MODIFIER_LABELS: Record<ModifierKey, string> = {
   'coverage.school': 'School coverage',
   'disaster.pandemicOdds': 'Pandemic odds',
   'disaster.pandemicToll': 'Pandemic severity',
+  'garbage.production': 'Garbage produced',
 };
 
 export function buildModsPanel(
