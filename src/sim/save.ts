@@ -47,9 +47,11 @@ function legendFor(city: CityState): Record<number, string> {
  * with a different set of packs loaded. */
 export function serialize(city: CityState): string {
   const withLegend: CityState = { ...city, zoneIds: legendFor(city) };
-  return JSON.stringify(withLegend, (key, value) =>
-    key === 'commute' && value === Infinity ? -1 : value,
-  );
+  return JSON.stringify(withLegend, (key, value) => {
+    if (key === 'commute' && value === Infinity) return -1; // JSON can't hold Infinity
+    if (key === 'crimeFlash') return undefined; // render-only incident timer
+    return value;
+  });
 }
 
 function finite(v: unknown, fallback: number): number {
@@ -124,6 +126,7 @@ function reviveTile(raw: unknown, remap: Map<number, number> | null): Tile {
   t.busCov = finite(r.busCov, 0);
   t.garbageCov = finite(r.garbageCov, 0);
   t.garbage = clamp(finite(r.garbage, 0), 0, 1);
+  t.crime = clamp(finite(r.crime, 0), 0, 1);
   t.burning = Math.min(FIRE_BURN_TICKS, Math.max(0, Math.floor(finite(r.burning, 0))));
   t.rubble = Math.min(RUBBLE_MONTHS, Math.max(0, Math.floor(finite(r.rubble, 0))));
   t.pollution = finite(r.pollution, 0);

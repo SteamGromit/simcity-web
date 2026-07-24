@@ -150,6 +150,7 @@ function validateBuildings(
     }
 
     if (entry.waste !== undefined) validateWaste(entry.waste, `${where} (${id})`, errors);
+    if (entry.blight !== undefined) validateBlight(entry.blight, `${where} (${id})`, errors);
 
     if (entry.visual !== undefined) validateVisual(entry.visual, `${where} (${id})`, errors);
 
@@ -254,6 +255,7 @@ function validateOverrides(
           }
         }
         if (entry.waste !== undefined) validateWaste(entry.waste, at, errors, true);
+        if (entry.blight !== undefined) validateBlight(entry.blight, at, errors, true);
         if (entry.siting !== undefined && !isObj(entry.siting)) {
           errors.push(`${at}: "siting" must be an object`);
         }
@@ -305,6 +307,24 @@ function validateWaste(raw: unknown, at: string, errors: string[], partial = fal
   }
   if (raw.pollution !== undefined && (!isNum(raw.pollution) || raw.pollution < 0)) {
     errors.push(`${at}: "waste.pollution" must be a number >= 0`);
+  }
+}
+
+/** Check a blight block; `partial` relaxes required fields for an override. */
+function validateBlight(raw: unknown, at: string, errors: string[], partial = false): void {
+  if (!isObj(raw)) {
+    errors.push(`${at}: "blight" must be an object`);
+    return;
+  }
+  const amount = raw.amount;
+  if (partial ? amount !== undefined : true) {
+    if (!isNum(amount) || amount < 0 || amount > 1) {
+      errors.push(`${at}: "blight.amount" must be a number 0..1`);
+    }
+  }
+  const radius = raw.radius;
+  if (partial ? radius !== undefined : true) {
+    if (!isNum(radius) || radius < 0) errors.push(`${at}: "blight.radius" must be a number >= 0`);
   }
 }
 

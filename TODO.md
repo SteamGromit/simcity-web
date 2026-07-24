@@ -8,11 +8,10 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 1. **Region play** — multiple city tiles, neighbor deals (SC4 headline; deferred until single-city play is deep enough).
 2. **Rewards** — special buildings the mayor's office can purchase after city milestones are hit (e.g. Ballpark -> Arena -> Stadium -> Colesium, Library, Museum, Monument, College -> University -> Research University), They occupy > square. They provide jobs. They mpact the surrounding area (+ and/or -, context dependent) and sometimes the whole city (e.g. Research university unlocks access to Cold fusion power plant)
-3. **Crime** - crime can happen anywhere, but is more common in certain areas and conditions
-4. **traffic accidents** - occasionally a road is blocked due to an accident. Accident prob depends on traffic flow. reduce likelihood of accidends with driver education program. Reduce severity/duration of accident impact with fire depts with upgraded EMT program. animate accident and fallout.
-5. **building safety** - buildings can collapse resulting in loss of building and casualties. Probability increases with age of building. Baseline: It is _very_ rare, and only becomes possible after building hits a predefined age (default = 100 years). Probability adjusted by: city program of a. requiring building permit (slight increase in zoning price) and b. City program to hire and deploy infastructure inspectors, who monitor buildings, roads, bridges, utilities. Create animation for building collapse. Once a building has been repaired, its base prob of collapse goes back to 0 and progresses again as if it were newly built
+3. **traffic accidents** - occasionally a road is blocked due to an accident. Accident prob depends on traffic flow. reduce likelihood of accidends with driver education program. Reduce severity/duration of accident impact with fire depts with upgraded EMT program. animate accident and fallout.
+4. **building safety** - buildings can collapse resulting in loss of building and casualties. Probability increases with age of building. Baseline: It is _very_ rare, and only becomes possible after building hits a predefined age (default = 100 years). Probability adjusted by: city program of a. requiring building permit (slight increase in zoning price) and b. City program to hire and deploy infastructure inspectors, who monitor buildings, roads, bridges, utilities. Create animation for building collapse. Once a building has been repaired, its base prob of collapse goes back to 0 and progresses again as if it were newly built
 
-6. **Modding: the parts the editor doesn't cover yet** — freehand/pixel
+5. **Modding: the parts the editor doesn't cover yet** — freehand/pixel
    drawing of buildings (today's look is composed from a mass, roof and
    props, not drawn), multi-tile footprints, modding the growable R/C/I
    ladders (population/jobs tables, stage heights, archetypes are still
@@ -20,6 +19,16 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    hosted). Low priority — the editor is usable without them.
 
 ## Done
+
+- **Crime** — shipped v0.51.0 (a per-tile crime rate from poverty, density,
+  joblessness and blighted neighbours, held down by police coverage — which
+  finally does something; drags land value in a feedback loop and slows
+  growth, but is deliberately NOT a growth gate; Prison and Neighborhood
+  Watch content, a Crime ⇧C view, incidents with a marker and cue, advisor
+  tips splitting unpoliced hotspots from a stretched force; `crime.rate` is
+  the vocabulary's ninth knob and `blight` a reusable "ugly neighbour"
+  content block). On an existing save, poor under-policed districts cool
+  off — a soft pressure, not a wall.
 
 - **Garbage** — shipped v0.50.0 (developed lots produce refuse monthly;
   collection is a coverage service *and* a citywide capacity constraint,

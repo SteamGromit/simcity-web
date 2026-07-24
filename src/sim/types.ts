@@ -39,6 +39,8 @@ export enum Zone {
   Landfill,
   Incinerator,
   RecyclingCentre,
+  // appended for save compatibility — crime (v0.51)
+  Prison,
 }
 
 export type Stage = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -93,6 +95,13 @@ export interface Tile {
    * and only clears as collection catches up.
    */
   garbage: number;
+  /**
+   * Standing crime rate, 0..1. Persisted, and feeds back on itself through
+   * land value, so it is real state rather than a reading recomputed cold.
+   */
+  crime: number;
+  /** Frames of incident flash left; render-only, never saved. */
+  crimeFlash: number;
   /** Ticks of fire left on this tile; 0 = not burning. */
   burning: number;
   /** Months of disaster debris on the lot; blocks development while > 0. */
@@ -242,6 +251,7 @@ export type ToolId =
   | 'landfill'
   | 'incinerator'
   | 'recycling'
+  | 'prison'
   | 'streetcar'
   | 'monorail'
   | 'subway'
@@ -314,6 +324,7 @@ export const SERVICE_RADII = {
   landfill: mapScaled(11),
   incinerator: mapScaled(12),
   recycling: mapScaled(10),
+  prison: mapScaled(14),
 };
 /** Monthly upkeep per service building. */
 export const SERVICE_UPKEEP = { fire: 50, police: 50, school: 40, health: 60, bus: 15 };

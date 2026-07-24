@@ -15,6 +15,8 @@ export type TipId =
   | 'no-health'
   | 'no-garbage-pickup'
   | 'garbage-over-capacity'
+  | 'crime-unpoliced'
+  | 'crime-stretched'
   | 'congestion'
   | 'deficit'
   | 'high-taxes'
@@ -39,6 +41,10 @@ const TIP_TEXT: Record<TipId, string> = {
     'Refuse is piling up in streets no collection reaches — a Landfill nearby will clear them, and blocks need pickup to grow past stage 3.',
   'garbage-over-capacity':
     'The city is throwing out more than it can process, so rubbish is mounting everywhere — add disposal capacity or enact the Recycling Program.',
+  'crime-unpoliced':
+    'Crime is high where no police patrol — build a Police Station near the hotspots, or a Prison to cover a wider area.',
+  'crime-stretched':
+    'Crime is creeping up even under police coverage — your force is stretched. Add stations, or enact the Neighborhood Watch.',
   congestion:
     'Roads are jamming and commutes are suffering — add parallel routes or Bus Stops.',
   welcome:
@@ -79,6 +85,8 @@ export function adviseTips(city: CityState): Tip[] {
   let abandonedCount = 0;
   let heapsWithPickup = 0;
   let heapsWithoutPickup = 0;
+  let crimeUnpoliced = 0;
+  let crimeUnderPolice = 0;
   let burningCount = 0;
   let jammedRoads = 0;
 
@@ -102,6 +110,11 @@ export function adviseTips(city: CityState): Tip[] {
       if (t.garbage > 0.05) {
         if (t.garbageCov > 0) heapsWithPickup++;
         else heapsWithoutPickup++;
+      }
+      // crime reads the same way: unpoliced hotspot vs stretched force
+      if (t.crime > 0.35) {
+        if (t.policeCov > 0) crimeUnderPolice++;
+        else crimeUnpoliced++;
       }
     }
   }
@@ -128,6 +141,8 @@ export function adviseTips(city: CityState): Tip[] {
   // the two failures need different fixes, so never blur them into one tip
   if (heapsWithoutPickup > 0) add('no-garbage-pickup');
   if (overCapacity) add('garbage-over-capacity');
+  if (crimeUnpoliced > 0) add('crime-unpoliced');
+  else if (crimeUnderPolice > 0) add('crime-stretched');
   if (jammedRoads >= 5) add('congestion');
   if (city.lastBudget.net < 0) add('deficit');
   if (city.taxes.r > 0.12 || city.taxes.c > 0.12 || city.taxes.i > 0.12) add('high-taxes');

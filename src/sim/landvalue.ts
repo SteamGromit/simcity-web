@@ -1,9 +1,13 @@
 import { tilesWithin } from './grid';
+import { buildingBySlot } from '../content/registry';
 import { CityState, GRID, Terrain, Zone, mapScaled } from './types';
 
 const BASE = 0.3;
 /** How hard uncollected refuse on the lot drags its value down. */
 const GARBAGE_PENALTY = 0.35;
+/** How hard a tile's crime rate drags its value down — the loop that lets a
+ * neglected district spiral, and that police coverage breaks. */
+const CRIME_PENALTY = 0.35;
 // 64-era bases — bonuses keep their share of a district on any map
 const PARK_RADIUS = mapScaled(3);
 const WATER_RADIUS = mapScaled(2);
@@ -36,6 +40,15 @@ export function updateLandValue(city: CityState): void {
         parkBonus[ny * GRID + nx] += 0.05 * (1 - d / (FOREST_RADIUS + 1));
       }
     }
+    // An unpleasant neighbour — a prison, a dump — poisons the value around it,
+    // negative park bonus, driven entirely by content's blight block.
+    const blight = buildingBySlot(tile.zone)?.blight;
+    if (blight && blight.radius > 0) {
+      for (const [nx, ny] of tilesWithin(x, y, blight.radius)) {
+        const d = Math.max(Math.abs(nx - x), Math.abs(ny - y));
+        parkBonus[ny * GRID + nx] -= blight.amount * (1 - d / (blight.radius + 1));
+      }
+    }
   }
 
   for (let i = 0; i < city.tiles.length; i++) {
@@ -52,7 +65,7 @@ export function updateLandValue(city: CityState): void {
     const viewBonus = 0.03 * t.elevation; // hillside views
     const v =
       BASE + parkBonus[i] + serviceBonus + viewBonus -
-      0.5 * t.pollution - commutePenalty - GARBAGE_PENALTY * t.garbage;
+      0.5 * t.pollution - commutePenalty - GARBAGE_PENALTY * t.garbage - CRIME_PENALTY * t.crime;
     t.landValue = Math.max(0, Math.min(1, v));
   }
 }

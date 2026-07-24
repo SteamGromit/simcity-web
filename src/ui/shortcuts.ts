@@ -41,7 +41,8 @@ export const OVERLAY_KEYS: Record<string, OverlayId> = {
   s: 'school',
   h: 'health',
   g: 'garbage',
-  r: 'garbagecov', // R for refuse; bare R is the road tool
+  r: 'garbagecov',
+  c: 'crime', // R for refuse; bare R is the road tool
   w: 'water',
 };
 
@@ -90,6 +91,7 @@ export const HALO_RADII: Partial<Record<BuildTool, number>> = {
   landfill: SERVICE_RADII.landfill,
   incinerator: SERVICE_RADII.incinerator,
   recycling: SERVICE_RADII.recycling,
+  prison: SERVICE_RADII.prison,
 };
 
 /**

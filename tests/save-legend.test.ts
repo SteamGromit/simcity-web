@@ -165,3 +165,36 @@ describe('garbage state in a save', () => {
     });
   });
 });
+
+describe('crime state in a save', () => {
+  test("a tile's crime rate round-trips", () => {
+    const city = newCity(1);
+    city.tiles[idx(5, 5)].zone = Zone.Residential;
+    city.tiles[idx(5, 5)].crime = 0.6;
+    const back = deserialize(serialize(city))!;
+    expect(back.tiles[idx(5, 5)].crime).toBeCloseTo(0.6);
+  });
+
+  test('a rate outside 0..1 is clamped, not trusted', () => {
+    const city = newCity(1);
+    const raw = JSON.parse(serialize(city));
+    raw.tiles[idx(5, 5)].crime = -3;
+    const back = deserialize(JSON.stringify(raw))!;
+    expect(back.tiles[idx(5, 5)].crime).toBe(0);
+  });
+
+  test('a save from before crime existed loads crime-free', () => {
+    const city = newCity(1);
+    const raw = JSON.parse(serialize(city));
+    for (const t of raw.tiles) delete t.crime;
+    const back = deserialize(JSON.stringify(raw))!;
+    expect(back.tiles[idx(5, 5)].crime).toBe(0);
+  });
+
+  test('crimeFlash is render-only and not persisted', () => {
+    const city = newCity(1);
+    city.tiles[idx(5, 5)].crimeFlash = 30;
+    const raw = JSON.parse(serialize(city));
+    expect(raw.tiles[idx(5, 5)].crimeFlash).toBeUndefined();
+  });
+});

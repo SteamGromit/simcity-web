@@ -200,6 +200,20 @@ export const CORE_PACK: Pack = {
         label: 'pop 20,000 and an educated city',
       },
     },
+
+    {
+      id: 'core:prison',
+      slot: Zone.Prison,
+      name: 'Prison',
+      tool: 'prison',
+      cost: 2000,
+      upkeep: 130,
+      // the force's high-capacity option: wide police reach, but a grim
+      // neighbour nobody wants to live beside
+      service: { kind: 'police', radius: SERVICE_RADII.prison },
+      blight: { amount: 0.25, radius: 4 },
+      unlock: { expr: 'population >= 15000', label: 'pop 15,000' },
+    },
   ],
 
   // ids pinned: saves store these strings as the keys of city.ordinances
@@ -238,6 +252,13 @@ export const CORE_PACK: Pack = {
       blurb: 'Kerbside sorting and deposit returns: the city throws out a quarter less.',
       cost: 150,
       effects: { 'garbage.production': 0.75 },
+    },
+    {
+      id: 'watch',
+      label: 'Neighborhood Watch',
+      blurb: 'Residents keep an eye on the block: crime runs about a third lower everywhere.',
+      cost: 90,
+      effects: { 'crime.rate': 0.7 },
     },
     {
       id: 'healthDrive',

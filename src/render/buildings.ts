@@ -1216,6 +1216,41 @@ export function drawBuilding(
     return;
   }
 
+  if (zone === Zone.Prison) {
+    // a walled yard with a low block and a corner watchtower
+    drawShadow(ctx, geom, 0.85);
+    box(ctx, geom, 0.85, 10, 210, 6, 40); // grey perimeter block
+    // inner cell block, slightly taller and colder
+    fillPoly(
+      ctx,
+      [
+        [cx - 12, cy - 2],
+        [cx + 2, cy - 9],
+        [cx + 14, cy - 3],
+        [cx, cy + 4],
+      ],
+      'hsl(210 6% 46%)',
+    );
+    // watchtower on the near corner
+    ctx.fillStyle = 'hsl(210 8% 38%)';
+    ctx.fillRect(cx - 20, cy - 20, 6, 18);
+    ctx.fillStyle = 'hsl(48 30% 60%)';
+    ctx.fillRect(cx - 21, cy - 23, 8, 4); // lit cap
+    if (detail >= 1) {
+      // window slits along the block
+      ctx.strokeStyle = 'rgba(20,24,28,0.7)';
+      ctx.lineWidth = 1;
+      for (let k = -1; k <= 2; k++) {
+        ctx.beginPath();
+        ctx.moveTo(cx - 8 + k * 5, cy - 4 - k * 1.4);
+        ctx.lineTo(cx - 8 + k * 5, cy - 8 - k * 1.4);
+        ctx.stroke();
+      }
+    }
+    if (!powered) drawNoPowerBolt(ctx, cx, cy - 26);
+    return;
+  }
+
   if (
     zone === Zone.FireStation ||
     zone === Zone.PoliceStation ||
@@ -1355,6 +1390,29 @@ export function drawRubble(ctx: CanvasRenderingContext2D, geom: TileGeom, varian
 }
 
 /** Animated flames over a burning building; flicker driven by time. */
+/** A brief pulsing "!" over a tile where crime just struck. `life` is 0..1,
+ * fading out; kept small and quiet — crime is texture, not a set-piece. */
+export function drawCrimeFlash(
+  ctx: CanvasRenderingContext2D,
+  geom: TileGeom,
+  timeMs: number,
+  life: number,
+) {
+  const { cx, cy } = geom;
+  const pulse = 0.6 + 0.4 * Math.sin(timeMs / 90);
+  const y = cy - 24 - (1 - life) * 8; // drifts up as it fades
+  ctx.globalAlpha = Math.min(1, life * 1.5) * pulse;
+  ctx.fillStyle = '#ffd23f';
+  ctx.strokeStyle = 'rgba(30,20,0,0.8)';
+  ctx.lineWidth = 2;
+  ctx.font = 'bold 15px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.strokeText('!', cx, y);
+  ctx.fillText('!', cx, y);
+  ctx.textAlign = 'left';
+  ctx.globalAlpha = 1;
+}
+
 export function drawFire(
   ctx: CanvasRenderingContext2D,
   geom: TileGeom,

@@ -14,6 +14,7 @@ export const MODIFIER_KEYS = [
   'disaster.pandemicOdds',
   'disaster.pandemicToll',
   'garbage.production',
+  'crime.rate',
 ] as const;
 
 export type ModifierKey = (typeof MODIFIER_KEYS)[number];
