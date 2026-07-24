@@ -30,6 +30,15 @@ interface Registered {
 /** Insertion-ordered so re-registration and slot allocation stay deterministic. */
 const packs = new Map<string, Registered>();
 
+/**
+ * Slots handed to buildings that didn't declare one, by building id. This only
+ * ever grows (until resetRegistry), which is what makes a slot stable: a tile
+ * stores a slot number, so once an id owns one it must keep it for the life of
+ * the session — through re-registration, through a sibling being added or
+ * removed, and through the mod being disabled and re-enabled.
+ */
+const allocated = new Map<string, number>();
+
 // derived indices, rebuilt whenever packs change
 let bySlot = new Map<number, BuildingDef>();
 let byId = new Map<string, BuildingDef>();
@@ -90,6 +99,7 @@ export function registerPack(raw: unknown): RegisterResult {
 /** Drop all registered content. Tests use this; the game never does. */
 export function resetRegistry(): void {
   packs.clear();
+  allocated.clear();
   reindex();
 }
 
@@ -100,19 +110,21 @@ export function unregisterPack(id: string): void {
 }
 
 /**
- * Rebuild every derived index from `packs`, mutating `b.slot` in place for
- * any building that didn't declare one and treating any building with a
- * defined `slot` — declared or previously auto-allocated — as pinned so
- * allocation never collides.
+ * Rebuild every derived index from `packs`.
  *
- * That's deterministic for the add-only path the game actually exercises:
- * reset the registry, then register each pack once, in a fixed order. It is
- * NOT sound for replacing an already-registered pack with a different-sized
- * building list mid-session — an old auto-allocated slot would read as
- * "pinned" even though nobody declared it, and the free-slot search could
- * land differently than a fresh registration would. Supporting that needs
- * declared and allocated slots tracked separately rather than collapsed
- * onto `b.slot`; deferred to the mod-manager work (TODO #2).
+ * Declared and allocated slots are kept strictly separate: a stored building's
+ * `slot` is only ever the one its author declared (core content), and a
+ * building that declared none gets its slot from the `allocated` ledger, which
+ * remembers the assignment by id. Nothing here mutates the stored defs, so
+ * re-registering a pack recomputes from the ledger rather than from a slot a
+ * previous pass wrote back.
+ *
+ * That makes the whole thing sound for the path the mod manager exercises —
+ * replacing an already-registered pack with a different-sized building list
+ * mid-session. An id's slot cannot move while the session lives, which matters
+ * because tiles store the slot number: if removing one building shifted its
+ * sibling's slot, every already-placed copy of that sibling would silently
+ * rebind to different content.
  */
 function reindex(): void {
   bySlot = new Map();
@@ -123,24 +135,38 @@ function reindex(): void {
   ordinances = [];
   skins = [];
 
-  // pinned slots first, so allocation can never land on one
+  // Reserve every declared slot before allocating, so an allocation can never
+  // land on one no matter what order the packs come in.
+  const declared = new Set<number>();
   for (const reg of packs.values()) {
     for (const b of reg.buildings) {
-      if (b.slot !== undefined) bySlot.set(b.slot, b);
+      if (b.slot !== undefined) declared.add(b.slot);
     }
   }
 
+  const inUse = new Set(allocated.values());
   let next = MOD_SLOT_BASE;
+
   for (const reg of packs.values()) {
     for (const b of reg.buildings) {
-      if (b.slot === undefined) {
-        while (bySlot.has(next)) next++;
-        b.slot = next;
-        bySlot.set(next, b);
+      let slot = b.slot;
+      if (slot === undefined) {
+        slot = allocated.get(b.id);
+        if (slot === undefined) {
+          while (declared.has(next) || inUse.has(next)) next++;
+          slot = next;
+          allocated.set(b.id, slot);
+          inUse.add(slot);
+        }
       }
-      byId.set(b.id, b);
-      if (b.tool !== undefined) byTool.set(b.tool, b);
-      buildings.push(b);
+      // One derived def per building, carrying its resolved slot, shared by
+      // every index so the lookups agree by identity. A declaring building is
+      // already correct and is indexed as-is.
+      const def = b.slot === slot ? b : { ...b, slot };
+      bySlot.set(slot, def);
+      byId.set(def.id, def);
+      if (def.tool !== undefined) byTool.set(def.tool, def);
+      buildings.push(def);
     }
     for (const [id, expr] of reg.unlocks) unlocks.set(id, expr);
     ordinances.push(...reg.ordinances);
