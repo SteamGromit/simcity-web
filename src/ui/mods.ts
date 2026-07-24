@@ -155,7 +155,12 @@ export function buildModsPanel(
         renderOrdinanceForm(m, o.id);
       });
       const rm = el('button', { textContent: 'Remove', className: 'mods-danger' });
-      rm.addEventListener('click', () => store.removeOrdinance(m.pack.id, o.id));
+      rm.addEventListener('click', () => {
+        // Drop the form first if it is editing this ordinance, or the re-render
+        // below would rebuild it bound to an id that no longer exists.
+        if (editingOrdId === o.id) editingOrdId = undefined;
+        store.removeOrdinance(m.pack.id, o.id);
+      });
       ordList.append(el('div', { className: 'mod-ord-row' }, [label, edit, rm]));
     }
     panel.append(ordList);
@@ -226,14 +231,20 @@ export function buildModsPanel(
         cost: Number(cost.value),
         effects: effectRows.map((e) => ({ key: e.key.value as ModifierKey, value: Number(e.val.value) })),
       };
+      // Close the form *before* the store call: a successful mutation fires
+      // onChange synchronously and that re-render reads editingOrdId, so it has
+      // to already say "not editing" or the form comes back blank.
+      const wasEditing = editingOrdId;
+      editingOrdId = undefined;
       const r = ordId
         ? store.updateOrdinance(m.pack.id, ordId, draft)
         : store.addOrdinance(m.pack.id, draft);
       if (r.ok) {
-        editingOrdId = undefined;
         opts.toast('Ordinance saved', 'info');
-        // onChange re-renders the panel
+        // onChange already re-rendered the panel, without the form
       } else {
+        // nothing fired, so this form is still mounted — reopen it and explain
+        editingOrdId = wasEditing;
         err.textContent = r.errors.join('; ');
       }
     });
