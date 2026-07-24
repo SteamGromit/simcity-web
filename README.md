@@ -244,6 +244,17 @@ primitives rather than imported art, so authored buildings pick up
 skins, render styles, and lighting automatically. Freehand drawing and
 multi-tile buildings aren't supported yet.
 
+Finally, a mod can **retune the game's own content**. The Overrides
+section lists every registered building and ordinance and edits its
+balance numbers — make the coal plant cost §500, widen a fire station's
+reach, soften an ordinance's effect, or give a core building one of the
+composed looks. Edits are sparse: only the fields you change are stored,
+each one showing the inherited value until you override it, and **Reset**
+puts it back. Overrides ride along with the mod when you export it, and
+disabling the mod restores the original numbers. A building's identity
+(the slot every save stores) is never touched, so your cities keep
+opening whatever mods you have loaded.
+
 ## Design docs
 
 - Spec: `docs/superpowers/specs/2026-07-18-simcity-web-design.md`

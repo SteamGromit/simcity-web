@@ -4,6 +4,55 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.49.0] — 2026-07-24 · Core overrides & balance
+
+Completes the modding editor (the last of its three parts): mods can now
+add content, *and* change the content that's already there.
+
+### Added
+- **Retune anything from the Mods panel.** A new Overrides section lists
+  every registered building and ordinance, and edits its balance
+  numbers — a building's cost, upkeep, plant capacity and pollution,
+  service or transit radius; an ordinance's monthly cost and each of its
+  effect multipliers. Change the coal plant to §500 and the toolbar says
+  §500; change an ordinance and City Hall says so immediately.
+- **Edits are sparse patches, not copies.** A patch stores only the
+  fields you actually changed, so retuning a price doesn't quietly
+  freeze that building's capacity and pollution at whatever they were
+  the day you edited — everything untouched keeps tracking the game.
+  Each field shows its inherited value as a placeholder and stays blank
+  until you override it, so "inherited" and "set to the same number"
+  never get confused. **Reset** drops a patch and the core value returns.
+- **A patch can restyle core content too** — give the coal plant one of
+  v0.48's composed looks and the generic renderer draws it instead.
+- **Overrides travel with the mod** through the same export/import, and
+  stack predictably: the last enabled mod wins, disabling it reveals the
+  one underneath, and disabling everything restores core.
+
+### Fixed
+- **Two packs defining the same content id no longer disagree with
+  themselves.** Each content type resolved duplicates differently:
+  buildings kept the last definition in the id lookup but listed *both*,
+  ordinances kept the **first** while City Hall rendered two rows with
+  the same checkbox target, and skins simply doubled in the Config
+  picker. The registry now resolves every type through one id-keyed map
+  before building any list, so the lookups and the lists always name the
+  same winner. Reachable before only by hand-loading a pack through the
+  debug hook; now that the panel can author overrides, it would have
+  been reachable in normal play.
+
+### Changed
+- Overriding a building **cannot** move its slot — patches that try are
+  refused with an error saying why. A slot is the identity every save
+  stores, so redefining `core:coal_plant` keeps slot 5 and every
+  existing city still opens. Nothing about saves or the simulation
+  changed to support any of this; the sim already read its numbers from
+  the registry.
+- Nothing changes for a player with no mods enabled: with core alone
+  there is exactly one definition per id, so deduplication is an
+  identity operation, and the balance-parity test still pins every core
+  number.
+
 ## [0.48.0] — 2026-07-24 · Building authoring
 
 ### Added
