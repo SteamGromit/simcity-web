@@ -6,6 +6,7 @@ describe('modifier vocabulary', () => {
     expect([...MODIFIER_KEYS].sort()).toEqual(
       [
         'coverage.school',
+        'crime.rate',
         'disaster.pandemicOdds',
         'disaster.pandemicToll',
         'fire.ignition',

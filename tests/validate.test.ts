@@ -376,3 +376,49 @@ describe('waste and the garbage service', () => {
     if (!r.ok) expect(r.errors.join(' ')).toContain('waste.capacity');
   });
 });
+
+describe('blight and the crime.rate knob', () => {
+  function withBuilding(patch: Record<string, unknown>) {
+    const p = goodPack();
+    Object.assign((p.buildings as Record<string, unknown>[])[0], patch);
+    return p;
+  }
+
+  test('a blight block validates', () => {
+    expect(validatePack(withBuilding({ blight: { amount: 0.2, radius: 4 } })).ok).toBe(true);
+  });
+
+  test('a negative blight amount or radius is refused', () => {
+    for (const patch of [{ amount: -0.1, radius: 4 }, { amount: 0.2, radius: -1 }]) {
+      const r = validatePack(withBuilding({ blight: patch }));
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.errors.join(' ')).toContain('blight');
+    }
+  });
+
+  test('a non-numeric blight field is refused', () => {
+    const r = validatePack(withBuilding({ blight: { amount: 'lots', radius: 4 } }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('blight.amount');
+  });
+
+  test('crime.rate is a recognised modifier key', () => {
+    const p = goodPack();
+    (p.ordinances as Record<string, unknown>[])[0].effects = { 'crime.rate': 0.7 };
+    expect(validatePack(p).ok).toBe(true);
+  });
+
+  test('an invented crime key is still refused', () => {
+    const p = goodPack();
+    (p.ordinances as Record<string, unknown>[])[0].effects = { 'crime.vibes': 0.5 };
+    const r = validatePack(p);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('crime.vibes');
+  });
+
+  test('blight is patchable through an override', () => {
+    const p = goodPack();
+    p.overrides = { buildings: [{ id: 'test:shed', blight: { amount: 0.3 } }] };
+    expect(validatePack(p).ok).toBe(true);
+  });
+});

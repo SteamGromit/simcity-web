@@ -30,6 +30,17 @@ export type ServiceKind = 'fire' | 'police' | 'school' | 'health' | 'bus' | 'gar
  * any other city service; this block is the other half — what the city can
  * actually process once the trucks arrive.
  */
+/**
+ * A building nobody wants to live near — a prison, a dump. It depresses land
+ * value within a radius, additive to the vocabulary like every other
+ * capability so it is validated, patchable, and available to mods.
+ */
+export interface BlightDef {
+  /** Land value removed at the building's own tile, 0..1; falls off with distance. */
+  amount: number;
+  radius: number;
+}
+
 export interface WasteDef {
   /** Tonnes per month this building can dispose of. */
   capacity: number;
@@ -100,6 +111,7 @@ export interface BuildingDef {
   transit?: { radius: number; share: number };
   siting?: { needsWater?: boolean };
   waste?: WasteDef;
+  blight?: BlightDef;
   /** Present ⇒ the generic renderer draws this building from the spec. */
   visual?: VisualDef;
 }
@@ -147,6 +159,7 @@ export interface BuildingOverride {
   service?: Partial<{ kind: ServiceKind; radius: number; share: number }>;
   transit?: Partial<{ radius: number; share: number }>;
   waste?: Partial<WasteDef>;
+  blight?: Partial<BlightDef>;
   siting?: { needsWater?: boolean };
   visual?: VisualDef;
 }
