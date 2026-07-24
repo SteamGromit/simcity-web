@@ -11,6 +11,7 @@ import { updatePower } from './power';
 import { updateWater } from './water';
 import { updateWasteMonthly } from './waste';
 import { crimeIncidents, updateCrime } from './crime';
+import { accidentRoll, updateAccidents } from './accidents';
 import { pandemicMonthly, rollForDisaster, rubbleMonthly, updateDisasters } from './disasters';
 import { defaultWeather, updateWeatherMonthly } from './weather';
 import { fireRisk, updateCoverage, updateFires } from './services';
@@ -416,6 +417,7 @@ export function simTick(city: CityState, rand: () => number): void {
   }
 
   updateFires(city, rand);
+  updateAccidents(city);
   updateDisasters(city, rand);
 
   const start = (city.tick * DEV_SLICE) % (GRID * GRID);
@@ -427,6 +429,7 @@ export function simTick(city: CityState, rand: () => number): void {
   if (city.tick % TICKS_PER_MONTH === 0) {
     city.month += 1;
     fireRisk(city, rand);
+    accidentRoll(city, rand);
     pandemicMonthly(city, rand);
     rubbleMonthly(city);
     updateWasteMonthly(city);

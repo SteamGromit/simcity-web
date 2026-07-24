@@ -17,6 +17,7 @@ export type TipId =
   | 'garbage-over-capacity'
   | 'crime-unpoliced'
   | 'crime-stretched'
+  | 'accident-snarl'
   | 'congestion'
   | 'deficit'
   | 'high-taxes'
@@ -45,6 +46,8 @@ const TIP_TEXT: Record<TipId, string> = {
     'Crime is high where no police patrol — build a Police Station near the hotspots, or a Prison to cover a wider area.',
   'crime-stretched':
     'Crime is creeping up even under police coverage — your force is stretched. Add stations, or enact the Neighborhood Watch.',
+  'accident-snarl':
+    'A crash is blocking traffic — fire crews clear wrecks faster with coverage nearby and the EMT Program. Driver Education means fewer of them.',
   congestion:
     'Roads are jamming and commutes are suffering — add parallel routes or Bus Stops.',
   welcome:
@@ -87,6 +90,7 @@ export function adviseTips(city: CityState): Tip[] {
   let heapsWithoutPickup = 0;
   let crimeUnpoliced = 0;
   let crimeUnderPolice = 0;
+  let accidents = 0;
   let burningCount = 0;
   let jammedRoads = 0;
 
@@ -95,6 +99,7 @@ export function adviseTips(city: CityState): Tip[] {
     if (t.zone !== Zone.None) builtAnything = true;
     if (isPlant(t.zone)) hasPlant = true;
     if (t.zone === Zone.Road && t.traffic > ROAD_CAPACITY) jammedRoads++;
+    if (t.zone === Zone.Road && t.accident > 0) accidents++;
     if (!isRci(t.zone)) continue;
     zonedTiles++;
     if (t.burning > 0) burningCount++;
@@ -143,6 +148,7 @@ export function adviseTips(city: CityState): Tip[] {
   if (overCapacity) add('garbage-over-capacity');
   if (crimeUnpoliced > 0) add('crime-unpoliced');
   else if (crimeUnderPolice > 0) add('crime-stretched');
+  if (accidents > 0) add('accident-snarl');
   if (jammedRoads >= 5) add('congestion');
   if (city.lastBudget.net < 0) add('deficit');
   if (city.taxes.r > 0.12 || city.taxes.c > 0.12 || city.taxes.i > 0.12) add('high-taxes');

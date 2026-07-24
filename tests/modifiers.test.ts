@@ -5,6 +5,8 @@ describe('modifier vocabulary', () => {
   test('exposes every knob the sim reads', () => {
     expect([...MODIFIER_KEYS].sort()).toEqual(
       [
+        'accident.duration',
+        'accident.rate',
         'coverage.school',
         'crime.rate',
         'disaster.pandemicOdds',

@@ -23,6 +23,8 @@ const MODIFIER_LABELS: Record<ModifierKey, string> = {
   'disaster.pandemicToll': 'Pandemic severity',
   'garbage.production': 'Garbage produced',
   'crime.rate': 'Crime rate',
+  'accident.rate': 'Accident rate',
+  'accident.duration': 'Accident duration',
 };
 
 export function buildModsPanel(

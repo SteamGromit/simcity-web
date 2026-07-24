@@ -1390,6 +1390,33 @@ export function drawRubble(ctx: CanvasRenderingContext2D, geom: TileGeom, varian
 }
 
 /** Animated flames over a burning building; flicker driven by time. */
+/** A crashed-car marker over a blocked road: hazard cones and a flashing
+ * amber/blue bar. Drawn while the block is live (a real sim state). */
+export function drawAccident(ctx: CanvasRenderingContext2D, geom: TileGeom, timeMs: number) {
+  const { cx, cy } = geom;
+  // two orange cones flanking the lane
+  ctx.fillStyle = '#e8721f';
+  for (const dx of [-9, 9]) {
+    fillPoly(ctx, [
+      [cx + dx - 3, cy + 3],
+      [cx + dx + 3, cy + 3],
+      [cx + dx, cy - 6],
+    ], '#e8721f');
+    ctx.fillStyle = '#f4f0ea';
+    ctx.fillRect(cx + dx - 2, cy - 1, 4, 1.5); // reflective band
+    ctx.fillStyle = '#e8721f';
+  }
+  // a stalled vehicle
+  ctx.fillStyle = '#b53a34';
+  ctx.fillRect(cx - 6, cy - 5, 12, 6);
+  // flashing emergency bar, amber↔blue
+  const on = Math.sin(timeMs / 140) > 0;
+  ctx.fillStyle = on ? '#3aa0ff' : '#ffcf3f';
+  ctx.fillRect(cx - 5, cy - 8, 4, 2.5);
+  ctx.fillStyle = on ? '#ffcf3f' : '#3aa0ff';
+  ctx.fillRect(cx + 1, cy - 8, 4, 2.5);
+}
+
 /** A brief pulsing "!" over a tile where crime just struck. `life` is 0..1,
  * fading out; kept small and quiet — crime is texture, not a set-piece. */
 export function drawCrimeFlash(

@@ -4,6 +4,35 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.52.0] — 2026-07-24 · Traffic accidents
+
+### Added
+- **Busy roads now throw accidents.** A crash blocks a road tile for a
+  short while, and traffic **routes around it** — the congestion-aware
+  road network you were already commuting over simply detours. A city
+  with parallel routes barely notices; a single artery stalls until the
+  wreck clears, which is the nudge toward building redundancy, transit,
+  and the two new ordinances. Probability scales with traffic, so
+  accidents land on exactly the arteries you most want to protect.
+- **Driver Education** (§70/mo) makes crashes rarer; the **EMT Program**
+  (§110/mo) clears them faster. The EMT effect stacks with **fire
+  coverage at the scene** — fire crews are the first responders, so a
+  crash near a powered fire station is cleared in a fraction of the time.
+- **You see and hear it.** A crashed-car marker — hazard cones, a stalled
+  vehicle, a flashing amber/blue bar — sits on the blocked tile; the
+  **Traffic** data view flags it bright red; Query shows the tile is
+  blocked; a short skid-and-thud cue plays; and the advisor names the
+  fix.
+
+### Changed
+- Transient and gentle, in the spirit of crime (v0.51): an accident is a
+  brief block, never destroys a building, and adds no growth gate. On an
+  existing save nothing changes until a road gets genuinely busy; then
+  the occasional snarl appears.
+- The modifier vocabulary gains two knobs — `accident.rate` and
+  `accident.duration` — the levers behind Driver Education and the EMT
+  Program, available to mods like the rest.
+
 ## [0.51.0] — 2026-07-24 · Crime
 
 ### Added

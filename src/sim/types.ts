@@ -102,6 +102,9 @@ export interface Tile {
   crime: number;
   /** Frames of incident flash left; render-only, never saved. */
   crimeFlash: number;
+  /** Ticks a crash blocks this road tile; 0 = clear. Like `burning`, real
+   * state — traffic reroutes around it until it counts down. */
+  accident: number;
   /** Ticks of fire left on this tile; 0 = not burning. */
   burning: number;
   /** Months of disaster debris on the lot; blocks development while > 0. */
@@ -338,6 +341,8 @@ export const FIRE_SPREAD = 0.25;
 export const FIRE_EXTINGUISH = 0.35;
 /** Months a wrecked lot stays buried in debris before crews clear it. */
 export const RUBBLE_MONTHS = 4;
+/** Longest a crash can block a road tile (ticks). */
+export const ACCIDENT_MAX = 40;
 
 export const START_FUNDS = 50_000;
 export const DEFAULT_TAX = 0.09;

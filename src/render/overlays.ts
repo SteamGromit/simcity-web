@@ -61,6 +61,8 @@ function tint(city: CityState, i: number, overlay: OverlayId): string | null {
     }
     case 'traffic': {
       if (t.zone !== Zone.Road) return null;
+      // a crash flags red before any congestion colour
+      if (t.accident > 0) return 'rgba(230,40,40,0.7)';
       const v = Math.min(1, t.traffic / (ROAD_CAPACITY * 2));
       return `hsl(${120 - 120 * v} 80% 45% / 0.6)`;
     }

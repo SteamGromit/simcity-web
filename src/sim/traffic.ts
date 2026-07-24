@@ -49,6 +49,11 @@ export function roadAccess(
   return null;
 }
 
+/** A road tile a crash has closed to through-traffic; routing skips it. */
+function blocked(t: { zone: Zone; accident: number }): boolean {
+  return t.zone === Zone.Road && t.accident > 0;
+}
+
 function developed(city: CityState, x: number, y: number, zones: Zone[]): boolean {
   const t = city.tiles[idx(x, y)];
   return zones.includes(t.zone) && t.stage > 0 && !t.abandoned;
@@ -109,7 +114,7 @@ function roadDistanceTo(city: CityState, zones: Zone[]): Float64Array {
   const dist = new Float64Array(GRID * GRID).fill(Infinity);
   const heap = new Heap(dist);
   for (let i = 0; i < city.tiles.length; i++) {
-    if (city.tiles[i].zone !== Zone.Road) continue;
+    if (city.tiles[i].zone !== Zone.Road || blocked(city.tiles[i])) continue;
     const x = i % GRID;
     const y = (i / GRID) | 0;
     const seeds = neighbors4(x, y).some(
@@ -129,7 +134,7 @@ function roadDistanceTo(city: CityState, zones: Zone[]): Float64Array {
     const y = (i / GRID) | 0;
     for (const [nx, ny] of neighbors4(x, y)) {
       const ni = idx(nx, ny);
-      if (city.tiles[ni].zone !== Zone.Road || settled[ni]) continue;
+      if (city.tiles[ni].zone !== Zone.Road || settled[ni] || blocked(city.tiles[ni])) continue;
       if (!climbable(city, ni, i)) continue;
       const nd = dist[i] + tileCost(city.tiles[ni], snow);
       if (nd < dist[ni]) {
@@ -189,7 +194,12 @@ export function updateTraffic(city: CityState): void {
       let best = jobDist[cur];
       for (const [nx, ny] of neighbors4(cx, cy)) {
         const ni = idx(nx, ny);
-        if (city.tiles[ni].zone === Zone.Road && jobDist[ni] < best && climbable(city, ni, cur)) {
+        if (
+          city.tiles[ni].zone === Zone.Road &&
+          !blocked(city.tiles[ni]) &&
+          jobDist[ni] < best &&
+          climbable(city, ni, cur)
+        ) {
           best = jobDist[ni];
           next = ni;
         }
