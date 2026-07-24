@@ -31,6 +31,7 @@ const ZONE_NAMES: Record<Zone, string> = {
   [Zone.Landfill]: 'Landfill',
   [Zone.Incinerator]: 'Incinerator',
   [Zone.RecyclingCentre]: 'Recycling Centre',
+  [Zone.Prison]: 'Prison',
 };
 
 export function buildQuery(root: HTMLElement) {

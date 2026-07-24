@@ -30,6 +30,7 @@ const ZONE_COLORS: Record<Zone, string> = {
   [Zone.Landfill]: '#6b6250',
   [Zone.Incinerator]: '#7a6f66',
   [Zone.RecyclingCentre]: '#4f8f5a',
+  [Zone.Prison]: '#6d7075',
 };
 
 export interface Camera {

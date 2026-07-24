@@ -76,6 +76,7 @@ const TOOL_SOUNDS: Record<ToolId, SoundSpec> = {
   landfill: { wave: 'square', freq: 90, freqEnd: 55, dur: 0.22, vol: 0.6 },
   incinerator: { wave: 'square', freq: 120, freqEnd: 70, dur: 0.2, vol: 0.55 },
   recycling: { wave: 'triangle', freq: 240, freqEnd: 180, dur: 0.16, vol: 0.5 },
+  prison: { wave: 'square', freq: 70, freqEnd: 50, dur: 0.28, vol: 0.6 },
   // transit family: the bus thunk, pitched up the ladder
   streetcar: { wave: 'triangle', freq: 400, freqEnd: 315, dur: 0.12, vol: 0.45 },
   monorail: { wave: 'triangle', freq: 430, freqEnd: 340, dur: 0.12, vol: 0.45 },

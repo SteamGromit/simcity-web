@@ -10,8 +10,8 @@ describe('core pack', () => {
     expect(r.ok).toBe(true);
   });
 
-  test('defines all 22 placeable buildings', () => {
-    expect(CORE_PACK.buildings).toHaveLength(22);
+  test('defines all 23 placeable buildings', () => {
+    expect(CORE_PACK.buildings).toHaveLength(23);
   });
 
   test('every building pins a slot, and slots match the Zone enum', () => {
@@ -20,6 +20,7 @@ describe('core pack', () => {
     expect(bySlot.get(Zone.PowerPlant)).toBe('core:coal_plant');
     expect(bySlot.get(Zone.RailTerminal)).toBe('core:rail_terminal');
     expect(bySlot.get(Zone.Landfill)).toBe('core:landfill');
+    expect(bySlot.get(Zone.Prison)).toBe('core:prison');
     for (const b of CORE_PACK.buildings!) expect(typeof b.slot).toBe('number');
   });
 
@@ -33,7 +34,7 @@ describe('core pack', () => {
 
   test('core ordinance ids keep their historic strings, unnamespaced', () => {
     expect(CORE_PACK.ordinances!.map((o) => o.id).sort()).toEqual(
-      ['cleanAir', 'eduGrant', 'fireCode', 'freeBus', 'healthDrive', 'recycling'].sort(),
+      ['cleanAir', 'eduGrant', 'fireCode', 'freeBus', 'healthDrive', 'recycling', 'watch'].sort(),
     );
   });
 
@@ -79,5 +80,27 @@ describe('refuse content', () => {
   test('the recycling ordinance cuts production', () => {
     const o = CORE_PACK.ordinances!.find((x) => x.id === 'recycling')!;
     expect(o.effects['garbage.production']).toBe(0.75);
+  });
+});
+
+describe('crime content', () => {
+  const byId = (id: string) => CORE_PACK.buildings!.find((b) => b.id === id)!;
+
+  test('the prison is wide police coverage that blights its surroundings', () => {
+    const p = byId('core:prison');
+    expect(p.service?.kind).toBe('police');
+    expect(p.blight?.amount).toBeGreaterThan(0);
+    expect(p.blight?.radius).toBeGreaterThan(0);
+    expect(p.unlock?.expr).toContain('population');
+  });
+
+  test('its numbers are pinned', () => {
+    expect(byId('core:prison')).toMatchObject({ cost: 2000, upkeep: 130 });
+  });
+
+  test('the Neighborhood Watch ordinance lowers the crime rate', () => {
+    const o = CORE_PACK.ordinances!.find((x) => x.id === 'watch')!;
+    expect(o.effects['crime.rate']).toBeLessThan(1);
+    expect(o.cost).toBe(90);
   });
 });

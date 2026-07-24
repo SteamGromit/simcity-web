@@ -203,6 +203,7 @@ const TOOL_ZONE: Partial<Record<ToolId, Zone>> = {
   landfill: Zone.Landfill,
   incinerator: Zone.Incinerator,
   recycling: Zone.RecyclingCentre,
+  prison: Zone.Prison,
   // transit stations have no direct tools — the wizard places them
   // atomically via buildLine (sim/transitlines.ts)
 };

@@ -39,6 +39,8 @@ export enum Zone {
   Landfill,
   Incinerator,
   RecyclingCentre,
+  // appended for save compatibility — crime (v0.51)
+  Prison,
 }
 
 export type Stage = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -249,6 +251,7 @@ export type ToolId =
   | 'landfill'
   | 'incinerator'
   | 'recycling'
+  | 'prison'
   | 'streetcar'
   | 'monorail'
   | 'subway'
@@ -321,6 +324,7 @@ export const SERVICE_RADII = {
   landfill: mapScaled(11),
   incinerator: mapScaled(12),
   recycling: mapScaled(10),
+  prison: mapScaled(14),
 };
 /** Monthly upkeep per service building. */
 export const SERVICE_UPKEEP = { fire: 50, police: 50, school: 40, health: 60, bus: 15 };
