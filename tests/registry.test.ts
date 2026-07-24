@@ -277,3 +277,114 @@ describe('one definition per id', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 });
+
+describe('overrides', () => {
+  beforeEach(() => {
+    resetRegistry();
+    const r = registerPack(CORE_PACK);
+    if (!r.ok) throw new Error(r.errors.join('\n'));
+  });
+
+  const patch = (packId: string, buildings: unknown[] = [], ordinances: unknown[] = []) =>
+    registerPack({
+      id: packId, name: packId, version: '1',
+      overrides: { buildings, ordinances },
+    });
+
+  test('a cost-only patch changes cost and nothing else', () => {
+    const before = buildingById('core:coal_plant')!;
+    const { upkeep, power, slot, unlock } = before;
+
+    const r = patch('m', [{ id: 'core:coal_plant', cost: 1500 }]);
+    expect(r.ok).toBe(true);
+
+    const after = buildingById('core:coal_plant')!;
+    expect(after.cost).toBe(1500);
+    expect(after.upkeep).toBe(upkeep);
+    expect(after.power).toEqual(power);
+    expect(after.slot).toBe(slot);
+    expect(after.unlock).toEqual(unlock);
+  });
+
+  test('the slot survives a patch, so saves keep resolving', () => {
+    patch('m', [{ id: 'core:coal_plant', cost: 1 }]);
+    expect(slotOf('core:coal_plant')).toBe(Zone.PowerPlant);
+    expect(buildingBySlot(Zone.PowerPlant)!.id).toBe('core:coal_plant');
+  });
+
+  test('nested blocks merge one level', () => {
+    const pollution = buildingById('core:coal_plant')!.power!.pollution;
+    patch('m', [{ id: 'core:coal_plant', power: { capacity: 999 } }]);
+    const after = buildingById('core:coal_plant')!;
+    expect(after.power!.capacity).toBe(999);
+    expect(after.power!.pollution).toBe(pollution);
+  });
+
+  test('ordinance effects merge key by key', () => {
+    const base = ordinanceById('cleanAir')!;
+    const untouched = Object.keys(base.effects).filter((k) => k !== 'pollution.industry');
+    patch('m', [], [{ id: 'cleanAir', effects: { 'pollution.industry': 0.1 } }]);
+    const after = ordinanceById('cleanAir')!;
+    expect(after.effects['pollution.industry']).toBe(0.1);
+    for (const k of untouched) {
+      expect(after.effects[k as keyof typeof after.effects]).toBe(
+        base.effects[k as keyof typeof base.effects],
+      );
+    }
+  });
+
+  test('a patch naming an unknown id is rejected and changes nothing', () => {
+    const before = buildingById('core:coal_plant')!.cost;
+    const r = patch('m', [{ id: 'nope:missing', cost: 1 }]);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('nope:missing');
+    expect(buildingById('core:coal_plant')!.cost).toBe(before);
+    expect(buildingById('nope:missing')).toBeUndefined();
+  });
+
+  test('a rejected pack leaves the registry untouched', () => {
+    patch('m', [{ id: 'core:coal_plant', cost: 1500 }]);
+    const r = patch('bad', [{ id: 'nope:missing', cost: 1 }]);
+    expect(r.ok).toBe(false);
+    // the earlier, good override is still in force
+    expect(buildingById('core:coal_plant')!.cost).toBe(1500);
+  });
+
+  test('the later-registered pack wins, and removing it reveals the earlier', () => {
+    patch('m1', [{ id: 'core:coal_plant', cost: 1000 }]);
+    patch('m2', [{ id: 'core:coal_plant', cost: 2000 }]);
+    expect(buildingById('core:coal_plant')!.cost).toBe(2000);
+
+    unregisterPack('m2');
+    expect(buildingById('core:coal_plant')!.cost).toBe(1000);
+
+    unregisterPack('m1');
+    expect(buildingById('core:coal_plant')!.cost).toBe(3000); // core again
+  });
+
+  test('a patch may give a core building a look', () => {
+    expect(buildingById('core:coal_plant')!.visual).toBeUndefined();
+    patch('m', [
+      {
+        id: 'core:coal_plant',
+        visual: { footprint: 0.9, height: 40, hue: 10, sat: 50, light: 40, roof: 'flat', props: [] },
+      },
+    ]);
+    expect(buildingById('core:coal_plant')!.visual!.height).toBe(40);
+  });
+
+  test('a patch can target a building another mod defines', () => {
+    registerPack({
+      id: 'base', name: 'Base', version: '1',
+      buildings: [{ id: 'base:hut', name: 'Hut', cost: 10, upkeep: 1 }],
+    });
+    const r = patch('m', [{ id: 'base:hut', cost: 55 }]);
+    expect(r.ok).toBe(true);
+    expect(buildingById('base:hut')!.cost).toBe(55);
+  });
+
+  test('patching does not duplicate the entry in the list', () => {
+    patch('m', [{ id: 'core:coal_plant', cost: 1500 }]);
+    expect(allBuildings().filter((b) => b.id === 'core:coal_plant')).toHaveLength(1);
+  });
+});
