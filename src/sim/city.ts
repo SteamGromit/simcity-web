@@ -1,6 +1,7 @@
-import { buildingByTool } from '../content/registry';
+import { buildingBySlot, buildingByTool, slotOf } from '../content/registry';
+import { MOD_SLOT_BASE } from '../content/types';
 import { collectBudget } from './budget';
-import { defaultOrdinances, ensureCoreContent } from './content';
+import { defaultOrdinances, ensureCoreContent, unlockedFor } from './content';
 import { updateDemand } from './demand';
 import { developTile } from './develop';
 import { blankTile, idx, inBounds, neighbors4 } from './grid';
@@ -18,6 +19,7 @@ import {
   ActionToolId,
   Biome,
   BRIDGE_COST,
+  BuildTool,
   CityState,
   COSTS,
   DEFAULT_TAX,
@@ -201,6 +203,28 @@ const TOOL_ZONE: Partial<Record<ToolId, Zone>> = {
 export const ZONE_TOOLS: ToolId[] = ['zoneR', 'zoneC', 'zoneI'];
 const TERRAIN_TOOLS: ToolId[] = ['terraWater', 'terraForest', 'terraGrass'];
 
+/**
+ * The slot a tool builds into.
+ *
+ * TOOL_ZONE stays the sole authority for core content: some core buildings
+ * (the transit stations) deliberately declare a `tool` for pricing yet are
+ * absent from the table because they're placed by the transit wizard, never
+ * by a direct click. Falling back to the registry for those would quietly
+ * re-enable direct placement, so the fallback is limited to mod-allocated
+ * slots — the buildings the mod system owns.
+ */
+function toolSlot(tool: BuildTool): Zone | undefined {
+  const core = TOOL_ZONE[tool as ToolId];
+  if (core !== undefined) return core;
+  const def = buildingByTool(tool);
+  if (def === undefined) return undefined;
+  const slot = slotOf(def.id);
+  return slot !== undefined && slot >= MOD_SLOT_BASE ? (slot as Zone) : undefined;
+}
+
+const isZoneTool = (tool: BuildTool): boolean => (ZONE_TOOLS as string[]).includes(tool);
+const isTerrainTool = (tool: BuildTool): boolean => (TERRAIN_TOOLS as string[]).includes(tool);
+
 const TOOL_TERRAIN: Partial<Record<ToolId, Terrain>> = {
   terraWater: Terrain.Water,
   terraForest: Terrain.Forest,
@@ -218,24 +242,24 @@ function isPristine(city: CityState): boolean {
 
 /** Zone tools cost more at higher density; everything else has a flat cost.
  * Building prices come from content; actions and zoning keep theirs in COSTS. */
-export function toolCost(tool: ToolId, density: Density): number {
+export function toolCost(tool: BuildTool, density: Density): number {
   const def = buildingByTool(tool);
   if (def) return def.cost;
-  const mult = ZONE_TOOLS.includes(tool) ? DENSITY_COST_MULT[density] : 1;
+  const mult = isZoneTool(tool) ? DENSITY_COST_MULT[density] : 1;
   return COSTS[tool as ActionToolId] * mult;
 }
 
-function isBareTerrainDoze(tool: ToolId, t: { zone: Zone; terrain: Terrain }): boolean {
+function isBareTerrainDoze(tool: BuildTool, t: { zone: Zone; terrain: Terrain }): boolean {
   return tool === 'bulldoze' && t.zone === Zone.None && t.terrain !== Terrain.Grass;
 }
 
 function effectiveCost(
   city: CityState,
-  tool: ToolId,
+  tool: BuildTool,
   density: Density,
   t: { zone: Zone; terrain: Terrain },
 ): number {
-  if (TERRAIN_TOOLS.includes(tool) || tool === 'terraRaise' || tool === 'terraLower') {
+  if (isTerrainTool(tool) || tool === 'terraRaise' || tool === 'terraLower') {
     return isPristine(city) ? 0 : toolCost(tool, density);
   }
   if (tool === 'road' && t.terrain === Terrain.Water) return BRIDGE_COST;
@@ -246,7 +270,7 @@ function effectiveCost(
 
 function validateTool(
   city: CityState,
-  tool: ToolId,
+  tool: BuildTool,
   x: number,
   y: number,
   density: Density,
@@ -257,9 +281,9 @@ function validateTool(
   if (tool === 'bulldoze') {
     return t.zone === Zone.None && t.terrain === Terrain.Grass ? 'nothing to bulldoze' : null;
   }
-  if (TERRAIN_TOOLS.includes(tool)) {
+  if (isTerrainTool(tool)) {
     if (t.zone !== Zone.None) return 'tile occupied';
-    return t.terrain === TOOL_TERRAIN[tool] ? 'no change' : null;
+    return t.terrain === TOOL_TERRAIN[tool as ToolId] ? 'no change' : null;
   }
   if (tool === 'terraRaise' || tool === 'terraLower') {
     if (t.zone !== Zone.None) return 'tile occupied';
@@ -273,12 +297,18 @@ function validateTool(
       return 'cannot build on water or forest';
     }
   }
-  const built = TOOL_ZONE[tool];
+  const built = toolSlot(tool);
   if (built === undefined) return 'placed via the transit wizard';
   if (isPlant(built) && !plantUnlocked(built, city)) {
     return `unlocks at ${plantUnlockLabel(built) ?? 'a larger population'}`;
   }
-  if (tool === 'hydro') {
+  // Everything below is driven by the building's own definition, so an
+  // authored building is gated by the same rules core content is.
+  const def = buildingBySlot(built);
+  if (def?.unlock && !unlockedFor(def, city)) {
+    return `unlocks at ${def.unlock.label}`;
+  }
+  if (def?.siting?.needsWater) {
     const wet = neighbors4(x, y).some(
       ([nx, ny]) => city.tiles[idx(nx, ny)].terrain === Terrain.Water,
     );
@@ -292,7 +322,7 @@ function validateTool(
 /** Would applyTool succeed here? (Used for hover feedback.) */
 export function canApply(
   city: CityState,
-  tool: ToolId,
+  tool: BuildTool,
   x: number,
   y: number,
   density: Density = 1,
@@ -302,7 +332,7 @@ export function canApply(
 
 export function applyTool(
   city: CityState,
-  tool: ToolId,
+  tool: BuildTool,
   x: number,
   y: number,
   density: Density = 1,
@@ -319,8 +349,8 @@ export function applyTool(
     city.tiles[idx(x, y)] = blankTile();
     city.tiles[idx(x, y)].terrain = keepTerrain;
     city.tiles[idx(x, y)].elevation = keepElev;
-  } else if (TERRAIN_TOOLS.includes(tool)) {
-    t.terrain = TOOL_TERRAIN[tool]!;
+  } else if (isTerrainTool(tool)) {
+    t.terrain = TOOL_TERRAIN[tool as ToolId]!;
   } else if (tool === 'terraRaise' || tool === 'terraLower') {
     t.elevation += tool === 'terraRaise' ? 1 : -1;
   } else if (tool === 'line' && t.zone === Zone.Road) {
@@ -328,10 +358,10 @@ export function applyTool(
   } else if (tool === 'pipe' && t.zone === Zone.Road) {
     t.pipe = true;
   } else {
-    t.zone = TOOL_ZONE[tool]!;
+    t.zone = toolSlot(tool)!;
     t.stage = 0;
     t.abandoned = false;
-    if (ZONE_TOOLS.includes(tool)) t.density = density;
+    if (isZoneTool(tool)) t.density = density;
   }
   city.funds -= cost;
   return { ok: true };
