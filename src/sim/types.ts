@@ -105,6 +105,11 @@ export interface Tile {
   /** Ticks a crash blocks this road tile; 0 = clear. Like `burning`, real
    * state — traffic reroutes around it until it counts down. */
   accident: number;
+  /** Months the current structure has stood. 0 on (re)build or repair;
+   * past COLLAPSE_AGE an old, unmaintained building can fall. Persisted. */
+  age: number;
+  /** Frames of collapse dust left; render-only, never saved. */
+  collapseFlash: number;
   /** Ticks of fire left on this tile; 0 = not burning. */
   burning: number;
   /** Months of disaster debris on the lot; blocks development while > 0. */
@@ -264,7 +269,8 @@ export type ToolId =
   | 'terraGrass'
   | 'terraRaise'
   | 'terraLower'
-  | 'bulldoze';
+  | 'bulldoze'
+  | 'repair';
 
 /**
  * A tool the player can hold. Core tools are the closed `ToolId` union above;
@@ -286,7 +292,8 @@ export type ActionToolId =
   | 'terraGrass'
   | 'terraRaise'
   | 'terraLower'
-  | 'bulldoze';
+  | 'bulldoze'
+  | 'repair';
 
 export const COSTS: Record<ActionToolId, number> = {
   zoneR: 5,
@@ -298,6 +305,7 @@ export const COSTS: Record<ActionToolId, number> = {
   terraRaise: 20,
   terraLower: 20,
   bulldoze: 1,
+  repair: 80,
 };
 
 /** Highest ground level; cliffs form where neighbors differ.
@@ -343,6 +351,10 @@ export const FIRE_EXTINGUISH = 0.35;
 export const RUBBLE_MONTHS = 4;
 /** Longest a crash can block a road tile (ticks). */
 export const ACCIDENT_MAX = 40;
+/** Age (years) a building must reach before collapse is even possible. */
+export const COLLAPSE_AGE_YEARS = 100;
+/** Same, in months — the unit `Tile.age` counts. */
+export const COLLAPSE_AGE = COLLAPSE_AGE_YEARS * 12;
 
 export const START_FUNDS = 50_000;
 export const DEFAULT_TAX = 0.09;

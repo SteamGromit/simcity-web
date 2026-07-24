@@ -275,6 +275,20 @@ export const CORE_PACK: Pack = {
       effects: { 'accident.duration': 0.6 },
     },
     {
+      id: 'permits',
+      label: 'Building Permits',
+      blurb: 'Plans reviewed and inspected before you build — safer structures, but zoning costs a little more.',
+      cost: 60,
+      effects: { 'collapse.rate': 0.6 },
+    },
+    {
+      id: 'inspectors',
+      label: 'Infrastructure Inspectors',
+      blurb: 'A team watching every building, road and utility for signs of fatigue: collapses grow far rarer.',
+      cost: 140,
+      effects: { 'collapse.rate': 0.4 },
+    },
+    {
       id: 'healthDrive',
       label: 'Public Health Campaign',
       blurb: 'Vaccination drives and free clinics: pandemics strike half as often and hit half as hard.',

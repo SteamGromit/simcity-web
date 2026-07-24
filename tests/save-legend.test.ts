@@ -224,3 +224,27 @@ describe('accident state in a save', () => {
     expect(back.tiles[idx(5, 5)].accident).toBe(0);
   });
 });
+
+describe('building age in a save', () => {
+  test('age round-trips', () => {
+    const city = newCity(1);
+    city.tiles[idx(5, 5)].zone = Zone.Residential;
+    city.tiles[idx(5, 5)].age = 640;
+    const back = deserialize(serialize(city))!;
+    expect(back.tiles[idx(5, 5)].age).toBe(640);
+  });
+
+  test('a legacy save revives buildings at age 0', () => {
+    const city = newCity(1);
+    const raw = JSON.parse(serialize(city));
+    for (const t of raw.tiles) delete t.age;
+    const back = deserialize(JSON.stringify(raw))!;
+    expect(back.tiles[idx(5, 5)].age).toBe(0);
+  });
+
+  test('collapseFlash is render-only, not persisted', () => {
+    const city = newCity(1);
+    city.tiles[idx(5, 5)].collapseFlash = 20;
+    expect(JSON.parse(serialize(city)).tiles[idx(5, 5)].collapseFlash).toBeUndefined();
+  });
+});

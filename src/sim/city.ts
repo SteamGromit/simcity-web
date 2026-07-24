@@ -12,6 +12,7 @@ import { updateWater } from './water';
 import { updateWasteMonthly } from './waste';
 import { crimeIncidents, updateCrime } from './crime';
 import { accidentRoll, updateAccidents } from './accidents';
+import { ageBuildings, collapseRoll } from './safety';
 import { pandemicMonthly, rollForDisaster, rubbleMonthly, updateDisasters } from './disasters';
 import { defaultWeather, updateWeatherMonthly } from './weather';
 import { fireRisk, updateCoverage, updateFires } from './services';
@@ -232,6 +233,8 @@ function toolSlot(tool: BuildTool): Zone | undefined {
 }
 
 const isZoneTool = (tool: BuildTool): boolean => (ZONE_TOOLS as string[]).includes(tool);
+/** How much Building Permits add to the price of zoning. */
+const PERMIT_SURCHARGE = 1.15;
 const isTerrainTool = (tool: BuildTool): boolean => (TERRAIN_TOOLS as string[]).includes(tool);
 
 const TOOL_TERRAIN: Partial<Record<ToolId, Terrain>> = {
@@ -274,7 +277,11 @@ function effectiveCost(
   if (tool === 'road' && t.terrain === Terrain.Water) return BRIDGE_COST;
   // leveling bare forest/water is terrain work, priced like the Level Land tool
   if (isBareTerrainDoze(tool, t)) return isPristine(city) ? 0 : COSTS.terraGrass;
-  return toolCost(tool, density);
+  let cost = toolCost(tool, density);
+  // Building Permits pay for their inspections at new construction: a small
+  // surcharge on zoning while the ordinance is enacted.
+  if (isZoneTool(tool) && city.ordinances['permits']) cost = Math.round(cost * PERMIT_SURCHARGE);
+  return cost;
 }
 
 function validateTool(
@@ -289,6 +296,10 @@ function validateTool(
   if (city.funds < effectiveCost(city, tool, density, t)) return 'not enough funds';
   if (tool === 'bulldoze') {
     return t.zone === Zone.None && t.terrain === Terrain.Grass ? 'nothing to bulldoze' : null;
+  }
+  if (tool === 'repair') {
+    const rci = t.zone === Zone.Residential || t.zone === Zone.Commercial || t.zone === Zone.Industrial;
+    return rci && t.stage > 0 && !t.abandoned ? null : 'nothing to repair here';
   }
   if (isTerrainTool(tool)) {
     if (t.zone !== Zone.None) return 'tile occupied';
@@ -362,6 +373,8 @@ export function applyTool(
     t.terrain = TOOL_TERRAIN[tool as ToolId]!;
   } else if (tool === 'terraRaise' || tool === 'terraLower') {
     t.elevation += tool === 'terraRaise' ? 1 : -1;
+  } else if (tool === 'repair') {
+    t.age = 0; // as good as new — collapse risk back to zero
   } else if (tool === 'line' && t.zone === Zone.Road) {
     t.wire = true;
   } else if (tool === 'pipe' && t.zone === Zone.Road) {
@@ -430,6 +443,8 @@ export function simTick(city: CityState, rand: () => number): void {
     city.month += 1;
     fireRisk(city, rand);
     accidentRoll(city, rand);
+    ageBuildings(city);
+    collapseRoll(city, rand);
     pandemicMonthly(city, rand);
     rubbleMonthly(city);
     updateWasteMonthly(city);

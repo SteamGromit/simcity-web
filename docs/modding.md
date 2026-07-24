@@ -349,7 +349,7 @@ content or another mod.
 
 ## The modifier vocabulary
 
-Ordinance `effects` may only set these eleven keys. Effects **multiply**
+Ordinance `effects` may only set these twelve keys. Effects **multiply**
 across every currently-enacted ordinance — the identity value is `1`, so an
 ordinance that doesn't mention a key leaves it untouched, and two ordinances
 that both touch the same key compound (two ordinances each halving fire
@@ -368,6 +368,7 @@ ignition risk leave it at 25%, not 0%).
 | `crime.rate` | Standing crime rate on developed tiles | `< 1` reduces it |
 | `accident.rate` | How often busy roads throw a crash | `< 1` reduces it |
 | `accident.duration` | How long a crash blocks the road | `< 1` clears it sooner |
+| `collapse.rate` | Chance an aged building collapses | `< 1` reduces it |
 
 A pack cannot invent an eighth knob — the sim only reads these seven, so
 `validate` rejects any other key in `effects` as an error naming the bad key,

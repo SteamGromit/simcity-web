@@ -109,9 +109,11 @@ export function developTile(city: CityState, x: number, y: number, rand: () => n
         t.abandoned = false;
         t.stage = 1;
         t.tier = chooseTier(city, t);
+        t.age = 0; // a fresh structure on the lot
       } else if (t.stage === 0) {
         t.stage = 1;
         t.tier = chooseTier(city, t);
+        t.age = 0;
       } else if (t.stage < MAX_STAGE_BY_DENSITY[t.density]) {
         const next = t.stage + 1;
         const lvGated = t.zone !== Zone.Industrial && t.landValue < LV_GATES[next];

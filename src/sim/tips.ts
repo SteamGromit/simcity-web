@@ -1,4 +1,5 @@
 import { isPlant } from './energy';
+import { collapseChance } from './safety';
 import { CityState, GRID, ROAD_CAPACITY, Zone } from './types';
 import { roadAccess } from './traffic';
 
@@ -18,6 +19,7 @@ export type TipId =
   | 'crime-unpoliced'
   | 'crime-stretched'
   | 'accident-snarl'
+  | 'collapse-risk'
   | 'congestion'
   | 'deficit'
   | 'high-taxes'
@@ -48,6 +50,8 @@ const TIP_TEXT: Record<TipId, string> = {
     'Crime is creeping up even under police coverage — your force is stretched. Add stations, or enact the Neighborhood Watch.',
   'accident-snarl':
     'A crash is blocking traffic — fire crews clear wrecks faster with coverage nearby and the EMT Program. Driver Education means fewer of them.',
+  'collapse-risk':
+    'Aging buildings are at risk of collapse — Repair them, or enact Building Permits and Infrastructure Inspectors to keep them standing.',
   congestion:
     'Roads are jamming and commutes are suffering — add parallel routes or Bus Stops.',
   welcome:
@@ -91,6 +95,7 @@ export function adviseTips(city: CityState): Tip[] {
   let crimeUnpoliced = 0;
   let crimeUnderPolice = 0;
   let accidents = 0;
+  let atRiskBuildings = 0;
   let burningCount = 0;
   let jammedRoads = 0;
 
@@ -111,6 +116,7 @@ export function adviseTips(city: CityState): Tip[] {
       if (t.stage >= 2 && !t.watered) dryBuildings++;
       if (t.stage >= 4 && t.zone !== Zone.Industrial && t.healthCov === 0) unhealthyTowers++;
       if (t.zone === Zone.Residential && t.pollution > 0.5) pollutedHomes++;
+      if (collapseChance(city, i) > 0) atRiskBuildings++;
       // a heap with no pickup is a siting problem; with pickup it is capacity
       if (t.garbage > 0.05) {
         if (t.garbageCov > 0) heapsWithPickup++;
@@ -149,6 +155,7 @@ export function adviseTips(city: CityState): Tip[] {
   if (crimeUnpoliced > 0) add('crime-unpoliced');
   else if (crimeUnderPolice > 0) add('crime-stretched');
   if (accidents > 0) add('accident-snarl');
+  if (atRiskBuildings > 0 && !city.ordinances['permits'] && !city.ordinances['inspectors']) add('collapse-risk');
   if (jammedRoads >= 5) add('congestion');
   if (city.lastBudget.net < 0) add('deficit');
   if (city.taxes.r > 0.12 || city.taxes.c > 0.12 || city.taxes.i > 0.12) add('high-taxes');

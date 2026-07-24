@@ -1,4 +1,5 @@
 import { buildingBySlot } from '../content/registry';
+import { collapseChance } from '../sim/safety';
 import { entityFor, variantAt } from '../sim/entities';
 import { idx } from '../sim/grid';
 import { tierLabel } from '../sim/tierstats';
@@ -77,6 +78,10 @@ export function buildQuery(root: HTMLElement) {
         rows.push(['Refuse pickup', t.garbageCov > 0 ? 'yes' : 'no']);
         if (t.garbage > 0.005) rows.push(['Rubbish', `${Math.round(t.garbage * 100)}%`]);
         rows.push(['Crime', `${Math.round(t.crime * 100)}%`]);
+        const years = Math.floor(t.age / 12);
+        rows.push(['Age', years === 1 ? '1 year' : `${years} years`]);
+        const risk = collapseChance(city, idx(x, y));
+        rows.push(['Condition', risk > 0 ? 'at risk — repair it' : years >= 80 ? 'aging' : 'sound']);
       }
       if (t.zone === Zone.Road) {
         if (t.accident > 0) rows.push(['Status', '🚧 accident — road blocked']);
