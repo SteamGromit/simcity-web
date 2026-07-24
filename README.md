@@ -134,6 +134,14 @@ city. Blocks need collection to grow past stage 3, and uncollected heaps
 pollute, tank land value, and choke off growth until you deal with them —
 the **Garbage** (⇧G) and **Refuse Cover** (⇧R) views show where.
 
+**Building safety** is the long game: structures age, and once a building
+passes 100 years, an unmaintained one carries a tiny chance of collapsing
+into rubble. It's the rarest event here — you'll only meet it on a
+long-lived city. **Building Permits** and **Infrastructure Inspectors**
+cut the odds; the **Repair** tool resets a building's age. The **Building
+Age** view (⇧A) shows which structures are getting on, and Query reports a
+building's age and condition.
+
 **Traffic accidents** give the road network its own hazard: a busy road
 occasionally throws a crash that blocks the tile for a while, and traffic
 reroutes around it — a city with parallel routes barely notices, a single

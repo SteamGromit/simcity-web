@@ -8,9 +8,7 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 1. **Region play** — multiple city tiles, neighbor deals (SC4 headline; deferred until single-city play is deep enough).
 2. **Rewards** — special buildings the mayor's office can purchase after city milestones are hit (e.g. Ballpark -> Arena -> Stadium -> Colesium, Library, Museum, Monument, College -> University -> Research University), They occupy > square. They provide jobs. They mpact the surrounding area (+ and/or -, context dependent) and sometimes the whole city (e.g. Research university unlocks access to Cold fusion power plant)
-3. **building safety** - buildings can collapse resulting in loss of building and casualties. Probability increases with age of building. Baseline: It is _very_ rare, and only becomes possible after building hits a predefined age (default = 100 years). Probability adjusted by: city program of a. requiring building permit (slight increase in zoning price) and b. City program to hire and deploy infastructure inspectors, who monitor buildings, roads, bridges, utilities. Create animation for building collapse. Once a building has been repaired, its base prob of collapse goes back to 0 and progresses again as if it were newly built
-
-4. **Modding: the parts the editor doesn't cover yet** — freehand/pixel
+3. **Modding: the parts the editor doesn't cover yet** — freehand/pixel
    drawing of buildings (today's look is composed from a mass, roof and
    props, not drawn), multi-tile footprints, modding the growable R/C/I
    ladders (population/jobs tables, stage heights, archetypes are still
@@ -18,6 +16,16 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    hosted). Low priority — the editor is usable without them.
 
 ## Done
+
+- **Building safety** — shipped v0.53.0 (buildings track their age; past
+  100 years an unmaintained one carries a tiny, age-growing monthly
+  chance of collapsing into rubble with casualties; Building Permits — with
+  a zoning surcharge — and Infrastructure Inspectors cut the odds and
+  compound; a Repair tool resets a building's age; a Building Age view
+  ⇧A, Query age/condition rows, an advisor tip, a dust marker and a
+  rumble; `collapse.rate` is the twelfth modifier knob). Very rare, late,
+  never destroys on a normal save, not a growth gate. Roads/bridges/
+  utilities aging is a noted follow-up — this pass collapses buildings only.
 
 - **Traffic accidents** — shipped v0.52.0 (busy roads throw a crash that
   blocks the tile for a few ticks; the congestion-aware router detours

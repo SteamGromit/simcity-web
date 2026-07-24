@@ -4,6 +4,36 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.53.0] — 2026-07-24 · Building safety
+
+### Added
+- **Buildings age, and a very old one can fall.** Every structure now
+  tracks how long it has stood. Once past **100 years**, an unmaintained
+  building carries a tiny, age-growing monthly chance of collapsing into
+  rubble — casualties reported, the lot blocked while crews clear it,
+  just like a disaster. This is the rarest event in the game by design;
+  you'll only ever see it on a long-running city that let its landmarks
+  age untended.
+- **Two ways to keep them standing.** **Building Permits** (§60/mo) has
+  plans reviewed before you build — safer structures, though zoning
+  costs a little more while it's enacted. **Infrastructure Inspectors**
+  (§140/mo) watch the whole built environment and cut the risk further.
+  They stack.
+- **The Repair tool** (§80) resets a building's age to zero — as good as
+  new, collapse risk back to nothing. The proactive choice: maintain a
+  landmark rather than gamble on it, or rebuild after it falls.
+- **A Building Age data view** (⇧A) heats older buildings yellow→red so
+  the at-risk ones are easy to find; Query shows a building's **Age** and
+  **Condition** (sound / aging / at risk); the advisor flags risk when no
+  safety programme is enacted; a dust-burst marker and a low rumble mark
+  a collapse.
+
+### Changed
+- Gentle and late by design — no collapse on a normal save, never a
+  growth gate, and a legacy save's buildings start "new" and age from
+  when you load them. `collapse.rate` is the twelfth modifier knob, so
+  a mod can make aging a live threat (or switch it off) as it likes.
+
 ## [0.52.0] — 2026-07-24 · Traffic accidents
 
 ### Added
