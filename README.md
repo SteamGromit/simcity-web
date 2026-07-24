@@ -218,9 +218,19 @@ comes back.
 
 Buildings, ordinances, and skins are authored content loaded through a
 validate → register pipeline — the game's own content goes through the same
-path. There's no in-game mod manager yet, but the pipeline and a debug
-console hook (`window.__simcity.loadPack(...)`) are there today; see
-`docs/modding.md` for the full authoring guide and a worked example pack.
+path. See `docs/modding.md` for the full authoring guide and a worked
+example pack.
+
+The **Mods** panel in the HUD is the in-game manager: create a mod, enable
+or disable it, delete it, and export it to (or import it from) JSON that
+you can hand to someone else. Inside a mod you can author custom
+**ordinances** — a label, a blurb, a monthly cost, and effects on the
+seven modifier knobs (industry and traffic pollution, fire ignition, cars
+per transit trip, school coverage, pandemic odds and severity), each a
+multiplier where below 1 reduces and above 1 increases. An enabled mod's
+ordinances appear in City Hall immediately and behave like any other.
+Mods persist in `localStorage`. Authoring **buildings** is a later drop;
+the pack format already allows them, but nothing draws them yet.
 
 ## Design docs
 

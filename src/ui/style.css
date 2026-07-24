@@ -1068,3 +1068,115 @@ input[type='radio']:checked::after {
     margin: 0 8px 0 5px;
   }
 }
+
+/* ---- mods panel ---- */
+#mods-panel {
+  position: fixed;
+  top: 72px;
+  left: 166px;
+  width: 300px;
+  max-height: calc(100vh - 92px);
+  overflow-y: auto;
+  padding: 10px 12px;
+}
+#mods-panel .mod-row,
+#mods-panel .mod-ord-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--keyline-soft);
+}
+#mods-panel .mod-row-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+#mods-panel .mod-row-actions,
+#mods-panel .mods-form-actions {
+  display: flex;
+  gap: 5px;
+}
+#mods-panel button {
+  padding: 3px 7px;
+  font: 600 10px var(--f-display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+  background: var(--plate);
+  border: 1px solid var(--keyline);
+  border-radius: 0;
+  cursor: pointer;
+}
+#mods-panel button:hover {
+  background: var(--plate-hi);
+  color: var(--chalk);
+}
+#mods-panel button.mods-primary {
+  color: #fff;
+  background: rgba(255, 79, 163, 0.14);
+  border-color: rgba(255, 79, 163, 0.55);
+}
+#mods-panel button.mods-danger:hover {
+  color: var(--electric);
+  border-color: rgba(238, 74, 44, 0.5);
+}
+#mods-panel input[type='text'],
+#mods-panel input[type='number'],
+#mods-panel select,
+#mods-panel textarea {
+  background: var(--plate);
+  border: 1px solid var(--keyline);
+  color: var(--chalk);
+  padding: 3px 6px;
+  font: 12px var(--f-body);
+  border-radius: 0;
+}
+#mods-panel textarea {
+  width: 100%;
+  min-height: 54px;
+  resize: vertical;
+  margin-top: 6px;
+}
+#mods-panel .mods-field,
+#mods-panel .mods-effect-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 5px 0;
+}
+#mods-panel .mods-field > span {
+  width: 68px;
+  font-size: 11px;
+  color: var(--dim);
+}
+#mods-panel .mods-field input,
+#mods-panel .mods-effect-row select {
+  flex: 1;
+}
+#mods-panel .mods-create {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+#mods-panel .mods-create input {
+  flex: 1;
+}
+#mods-panel .mods-effects-head,
+#mods-panel .mods-empty {
+  font-size: 11px;
+  color: var(--dim);
+  margin: 8px 0 4px;
+}
+#mods-panel .mods-error {
+  color: var(--electric);
+  font-size: 11px;
+  min-height: 13px;
+  margin: 4px 0;
+}
+#mods-panel .mods-back,
+#mods-panel .mod-edit-name {
+  margin-bottom: 6px;
+}

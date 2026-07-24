@@ -10,6 +10,7 @@ import {
   resetRegistry,
   slotOf,
   unlockExpr,
+  unregisterPack,
 } from '../src/content/registry';
 import { CORE_PACK } from '../src/content/packs/core';
 import { MOD_SLOT_BASE } from '../src/content/types';
@@ -100,5 +101,47 @@ describe('registry', () => {
       );
     }
     expect(buildingBySlot(Zone.PowerPlant)!.id).toBe('core:coal_plant');
+  });
+});
+
+describe('unregisterPack', () => {
+  beforeEach(() => {
+    resetRegistry();
+    const r = registerPack(CORE_PACK);
+    if (!r.ok) throw new Error(r.errors.join('\n'));
+  });
+
+  test('removes a mod pack and its content', () => {
+    registerPack({
+      id: 'mod', name: 'Mod', version: '1.0.0',
+      ordinances: [{ id: 'mod:law', label: 'Law', blurb: 'A law.', cost: 5, effects: { 'fire.ignition': 0.5 } }],
+    });
+    expect(allOrdinances().some((o) => o.id === 'mod:law')).toBe(true);
+    unregisterPack('mod');
+    expect(allOrdinances().some((o) => o.id === 'mod:law')).toBe(false);
+  });
+
+  test('leaves core content intact after removing a mod (incl. a mod building)', () => {
+    const coreBuildings = allBuildings().length;
+    registerPack({
+      id: 'mod', name: 'Mod', version: '1.0.0',
+      buildings: [{ id: 'mod:silo', name: 'Silo', cost: 10, upkeep: 1 }],
+    });
+    expect(allBuildings().length).toBe(coreBuildings + 1);
+    unregisterPack('mod');
+    expect(allBuildings().length).toBe(coreBuildings);
+    expect(buildingBySlot(Zone.PowerPlant)!.id).toBe('core:coal_plant');
+  });
+
+  test('refuses to remove core', () => {
+    unregisterPack('core');
+    expect(buildingBySlot(Zone.PowerPlant)!.id).toBe('core:coal_plant');
+    expect(allBuildings().length).toBeGreaterThanOrEqual(19);
+  });
+
+  test('unknown id is a no-op', () => {
+    const before = allBuildings().length;
+    unregisterPack('nope');
+    expect(allBuildings().length).toBe(before);
   });
 });

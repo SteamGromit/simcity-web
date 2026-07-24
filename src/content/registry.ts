@@ -93,6 +93,12 @@ export function resetRegistry(): void {
   reindex();
 }
 
+/** Remove a registered pack and rebuild indices. Core is never removable. */
+export function unregisterPack(id: string): void {
+  if (id === 'core') return;
+  if (packs.delete(id)) reindex();
+}
+
 /**
  * Rebuild every derived index from `packs`, mutating `b.slot` in place for
  * any building that didn't declare one and treating any building with a

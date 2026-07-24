@@ -16,6 +16,8 @@ import { buildCharts } from './ui/charts';
 import { buildMinimap } from './ui/minimap';
 import { buildCityHall } from './ui/cityhall';
 import { buildDisplay } from './ui/display';
+import { createModStore } from './ui/modstore';
+import { buildModsPanel } from './ui/mods';
 import { makeDraggable } from './ui/drag';
 import {
   HALO_RADII,
@@ -180,6 +182,7 @@ const minimap = buildMinimap(uiRoot, (wx, wy) => {
   renderer.camera.x = wx - canvas.clientWidth / 2 / renderer.camera.zoom;
   renderer.camera.y = wy - canvas.clientHeight / 2 / renderer.camera.zoom;
 });
+const modStore = createModStore(localStorage);
 const cityHall = buildCityHall(
   uiRoot,
   () => city,
@@ -207,6 +210,11 @@ const display = buildDisplay(
   },
   () => sound.play(UI_SOUNDS.select),
 );
+const modsPanel = buildModsPanel(uiRoot, modStore, { toast });
+modStore.onChange(() => {
+  cityHall.rebuildOrdinances();
+  renderer.reseed(city.seed); // future building mods need a reseed; harmless for ordinances
+});
 const hud = buildHud(
   uiRoot,
   () => city,
@@ -215,6 +223,7 @@ const hud = buildHud(
     toggleCharts: () => charts.toggle(),
     toggleCityHall: () => cityHall.toggle(),
     toggleDisplay: () => display.toggle(),
+    toggleMods: () => modsPanel.toggle(),
     save() {
       localStorage.setItem(SAVE_KEY, serialize(city));
       toast('City saved', 'info');
@@ -259,6 +268,7 @@ for (const [sel, key] of [
   ['#charts-panel', 'charts'],
   ['#cityhall-panel', 'cityhall'],
   ['#display-panel', 'display'],
+  ['#mods-panel', 'mods'],
   ['#help-panel', 'help'],
 ] as const) {
   const panel = document.querySelector<HTMLElement>(sel);
