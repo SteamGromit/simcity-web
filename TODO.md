@@ -7,6 +7,17 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 ## Backlog (in order)
 
 1. **Modding editor** - UI for creating/drawing buildings, assigning properties to them, their local and city-wide impact & for editing sim behavior
+   - _Sub-project 1 (mod manager + ordinance authoring) shipped v0.47.0:_
+     the Mods panel — create/rename/enable/disable/delete, export and
+     import as JSON, persistence in `localStorage['simcity.mods']`, a
+     custom-ordinance editor over the seven modifier keys, and live City
+     Hall refresh. Remaining: **sub-project 2** — building authoring,
+     which needs a generic declarative renderer (`drawBuilding` is a
+     hardcoded per-`Zone` `if`-chain and draws nothing for a mod slot
+     ≥ 1000); and **sub-project 3** — editing/overriding core content and
+     balance numbers, which needs last-wins-by-id override semantics in
+     the registry and touches the pinned-id save contract. Sharing beyond
+     copy-paste JSON (URL-encoded or hosted) is also still open.
 2. **Region play** — multiple city tiles, neighbor deals (SC4 headline; deferred until single-city play is deep enough).
 3. **Rewards** — special buildings the mayor's office can purchase after city milestones are hit (e.g. Ballpark -> Arena -> Stadium -> Colesium, Library, Museum, Monument, College -> University -> Research University), They occupy > square. They provide jobs. They mpact the surrounding area (+ and/or -, context dependent) and sometimes the whole city (e.g. Research university unlocks access to Cold fusion power plant)
 4. **Garabage** - residents produce garabage. garabage pickup is a city service requiring a way to dispose of or process the trash. mayor can buy a trash dump. when city advances past some threshold of advancement, some trash can be recycled.

@@ -4,6 +4,48 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.47.0] — 2026-07-23 · Mod manager
+
+### Added
+- **A Mods panel**, opened from the HUD beside City Hall and Config. The
+  player can create a mod, rename it, enable or disable it, delete it,
+  export it, and import someone else's — the first player-facing half of
+  TODO #1 (the modding editor), and the first time a mod survives a
+  reload.
+- **Mods persist.** `localStorage['simcity.mods']` holds an ordered
+  `Array<{ enabled, pack }>`, where a `pack` is exactly the v0.46 `Pack`
+  format — so a mod is already shareable JSON, and the debug hook's
+  "gone when you close the tab" limitation is retired. Enabled mods
+  register with the content registry at boot, before City Hall builds
+  its rows. A corrupt stored value starts empty rather than throwing.
+- **A custom-ordinance editor.** Inside a mod, author an ordinance with a
+  label, blurb, monthly cost, and any number of effects over the seven
+  modifier knobs from v0.46, each shown under a plain-language name
+  ("Industry pollution" for `pollution.industry`) with a multiplier — below
+  1 reduces, above 1 increases. Ids are namespaced `${pack.id}:${slug}`,
+  so one player's mods never collide with another's, and an id stays
+  stable across an edit, so relabelling an ordinance the city has already
+  enacted doesn't silently repeal it.
+- **Export / import as JSON.** Export copies the pack to the clipboard
+  (with a selectable-text fallback if the browser refuses); import takes
+  pasted JSON through the same `validatePack` path the game's own content
+  uses, and names every problem it finds — bad modifier key, duplicate
+  ordinance id, an id already in your list — rather than failing mutely.
+- **City Hall refreshes live** (`rebuildOrdinances()`). Enabling a mod or
+  saving an ordinance shows it among the ordinances immediately, no
+  reload; disabling takes it away again. This closes the v0.46 gap where
+  panels never re-rendered newly-registered content.
+- **`unregisterPack(id)`** in the content registry — removes a pack and
+  reindexes. `'core'` is refused, so the game's own content is never
+  removable.
+
+### Changed
+- Nothing about how the game plays for a player who never opens the
+  panel. Custom ordinances ride the existing `modifier()` / `collectBudget`
+  / `reviveOrdinances` machinery — no sim or save-format work — and a
+  saved city whose mod is later disabled or missing still loads cleanly,
+  its enacted flag dropped on load.
+
 ## [0.46.0] — 2026-07-23 · Modding hooks
 
 ### Added
