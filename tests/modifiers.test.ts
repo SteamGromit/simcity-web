@@ -7,6 +7,7 @@ describe('modifier vocabulary', () => {
       [
         'accident.duration',
         'accident.rate',
+        'collapse.rate',
         'coverage.school',
         'crime.rate',
         'disaster.pandemicOdds',

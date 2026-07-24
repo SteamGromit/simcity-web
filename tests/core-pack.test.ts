@@ -34,7 +34,7 @@ describe('core pack', () => {
 
   test('core ordinance ids keep their historic strings, unnamespaced', () => {
     expect(CORE_PACK.ordinances!.map((o) => o.id).sort()).toEqual(
-      ['cleanAir', 'driverEd', 'eduGrant', 'emt', 'fireCode', 'freeBus', 'healthDrive', 'recycling', 'watch'].sort(),
+      ['cleanAir', 'driverEd', 'eduGrant', 'emt', 'fireCode', 'freeBus', 'healthDrive', 'inspectors', 'permits', 'recycling', 'watch'].sort(),
     );
   });
 
@@ -116,5 +116,21 @@ describe('accident content', () => {
   test('the EMT Program shortens accidents', () => {
     expect(ord('emt').effects['accident.duration']).toBeLessThan(1);
     expect(ord('emt').cost).toBe(110);
+  });
+});
+
+describe('building-safety content', () => {
+  const ord = (id: string) => CORE_PACK.ordinances!.find((o) => o.id === id)!;
+
+  test('Building Permits reduce collapse risk', () => {
+    expect(ord('permits').effects['collapse.rate']).toBeLessThan(1);
+    expect(ord('permits').cost).toBe(60);
+  });
+
+  test('Infrastructure Inspectors reduce it further', () => {
+    expect(ord('inspectors').effects['collapse.rate']).toBeLessThan(
+      ord('permits').effects['collapse.rate']!,
+    );
+    expect(ord('inspectors').cost).toBe(140);
   });
 });

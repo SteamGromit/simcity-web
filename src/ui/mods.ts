@@ -25,6 +25,7 @@ const MODIFIER_LABELS: Record<ModifierKey, string> = {
   'crime.rate': 'Crime rate',
   'accident.rate': 'Accident rate',
   'accident.duration': 'Accident duration',
+  'collapse.rate': 'Collapse risk',
 };
 
 export function buildModsPanel(

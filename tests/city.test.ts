@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { buildingByTool } from '../src/content/registry';
 import { idx } from '../src/sim/grid';
-import { GRID, START_FUNDS, TICKS_PER_MONTH, Zone } from '../src/sim/types';
+import { GRID, START_FUNDS, Terrain, TICKS_PER_MONTH, Zone } from '../src/sim/types';
 import { applyTool, applyToolLine, DEV_SLICE, mulberry32, newCity, simTick } from '../src/sim/city';
 import { deserialize, serialize } from '../src/sim/save';
 import { clearLand } from './helpers';
@@ -308,5 +308,24 @@ describe('applyToolLine', () => {
 describe('development sweep pacing', () => {
   test('a month of ticks sweeps the whole grid exactly once', () => {
     expect(DEV_SLICE * TICKS_PER_MONTH).toBe(GRID * GRID);
+  });
+});
+
+describe('Building Permits surcharge', () => {
+  test('zoning costs more while permits are enacted, not otherwise', () => {
+    const plain = newCity(1);
+    plain.funds = 10000;
+    for (const t of plain.tiles) t.terrain = Terrain.Grass;
+    const before = plain.funds;
+    applyTool(plain, 'zoneR', 5, 5, 1);
+    const plainSpend = before - plain.funds;
+
+    const permitted = newCity(1);
+    permitted.funds = 10000;
+    for (const t of permitted.tiles) t.terrain = Terrain.Grass;
+    permitted.ordinances['permits'] = true;
+    const before2 = permitted.funds;
+    applyTool(permitted, 'zoneR', 5, 5, 1);
+    expect(before2 - permitted.funds).toBeGreaterThan(plainSpend);
   });
 });

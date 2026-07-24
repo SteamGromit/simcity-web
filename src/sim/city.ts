@@ -232,6 +232,8 @@ function toolSlot(tool: BuildTool): Zone | undefined {
 }
 
 const isZoneTool = (tool: BuildTool): boolean => (ZONE_TOOLS as string[]).includes(tool);
+/** How much Building Permits add to the price of zoning. */
+const PERMIT_SURCHARGE = 1.15;
 const isTerrainTool = (tool: BuildTool): boolean => (TERRAIN_TOOLS as string[]).includes(tool);
 
 const TOOL_TERRAIN: Partial<Record<ToolId, Terrain>> = {
@@ -274,7 +276,11 @@ function effectiveCost(
   if (tool === 'road' && t.terrain === Terrain.Water) return BRIDGE_COST;
   // leveling bare forest/water is terrain work, priced like the Level Land tool
   if (isBareTerrainDoze(tool, t)) return isPristine(city) ? 0 : COSTS.terraGrass;
-  return toolCost(tool, density);
+  let cost = toolCost(tool, density);
+  // Building Permits pay for their inspections at new construction: a small
+  // surcharge on zoning while the ordinance is enacted.
+  if (isZoneTool(tool) && city.ordinances['permits']) cost = Math.round(cost * PERMIT_SURCHARGE);
+  return cost;
 }
 
 function validateTool(
