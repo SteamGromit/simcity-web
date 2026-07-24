@@ -133,6 +133,16 @@ function reviveTile(raw: unknown, remap: Map<number, number> | null): Tile {
   return t;
 }
 
+function reviveWaste(raw: unknown): CityState['waste'] {
+  const out = defaultWaste();
+  if (!raw || typeof raw !== 'object') return out;
+  const r = raw as Record<string, unknown>;
+  for (const k of Object.keys(out) as (keyof typeof out)[]) {
+    out[k] = Math.max(0, finite(r[k], 0));
+  }
+  return out;
+}
+
 function reviveOrdinances(raw: unknown): CityState['ordinances'] {
   const out = defaultOrdinances();
   if (raw && typeof raw === 'object') {
@@ -287,9 +297,10 @@ export function deserialize(json: string): CityState | null {
         expenses: finite(budget.expenses, 0),
         net: finite(budget.net, 0),
       },
-      // A summary, not state: the next month close recomputes it, and a save
-      // from before garbage existed simply starts empty.
-      waste: defaultWaste(),
+      // Revived rather than zeroed so the Budget panel and advisor show last
+      // month's refuse figures immediately on load, as they do for the budget.
+      // A save from before garbage existed reads as an empty ledger.
+      waste: reviveWaste(data.waste),
       ordinances: reviveOrdinances(data.ordinances),
       disasters: reviveDisasters(data.disasters),
       weather: reviveWeather(data.weather),
