@@ -9,6 +9,7 @@ describe('modifier vocabulary', () => {
         'disaster.pandemicOdds',
         'disaster.pandemicToll',
         'fire.ignition',
+        'garbage.production',
         'pollution.industry',
         'pollution.traffic',
         'transit.share',
