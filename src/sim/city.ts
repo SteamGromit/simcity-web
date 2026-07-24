@@ -297,6 +297,10 @@ function validateTool(
   if (tool === 'bulldoze') {
     return t.zone === Zone.None && t.terrain === Terrain.Grass ? 'nothing to bulldoze' : null;
   }
+  if (tool === 'repair') {
+    const rci = t.zone === Zone.Residential || t.zone === Zone.Commercial || t.zone === Zone.Industrial;
+    return rci && t.stage > 0 && !t.abandoned ? null : 'nothing to repair here';
+  }
   if (isTerrainTool(tool)) {
     if (t.zone !== Zone.None) return 'tile occupied';
     return t.terrain === TOOL_TERRAIN[tool as ToolId] ? 'no change' : null;
@@ -369,6 +373,8 @@ export function applyTool(
     t.terrain = TOOL_TERRAIN[tool as ToolId]!;
   } else if (tool === 'terraRaise' || tool === 'terraLower') {
     t.elevation += tool === 'terraRaise' ? 1 : -1;
+  } else if (tool === 'repair') {
+    t.age = 0; // as good as new — collapse risk back to zero
   } else if (tool === 'line' && t.zone === Zone.Road) {
     t.wire = true;
   } else if (tool === 'pipe' && t.zone === Zone.Road) {

@@ -269,7 +269,8 @@ export type ToolId =
   | 'terraGrass'
   | 'terraRaise'
   | 'terraLower'
-  | 'bulldoze';
+  | 'bulldoze'
+  | 'repair';
 
 /**
  * A tool the player can hold. Core tools are the closed `ToolId` union above;
@@ -291,7 +292,8 @@ export type ActionToolId =
   | 'terraGrass'
   | 'terraRaise'
   | 'terraLower'
-  | 'bulldoze';
+  | 'bulldoze'
+  | 'repair';
 
 export const COSTS: Record<ActionToolId, number> = {
   zoneR: 5,
@@ -303,6 +305,7 @@ export const COSTS: Record<ActionToolId, number> = {
   terraRaise: 20,
   terraLower: 20,
   bulldoze: 1,
+  repair: 80,
 };
 
 /** Highest ground level; cliffs form where neighbors differ.

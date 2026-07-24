@@ -86,6 +86,7 @@ const TOOL_SOUNDS: Record<ToolId, SoundSpec> = {
   wind: { wave: 'triangle', freq: 110, freqEnd: 70, dur: 0.25, vol: 0.6 },
   hydro: { wave: 'triangle', freq: 80, freqEnd: 45, dur: 0.32, vol: 0.68 },
   nuclear: { wave: 'triangle', freq: 60, freqEnd: 35, dur: 0.4, vol: 0.75 },
+  repair: { wave: 'triangle', freq: 320, freqEnd: 480, dur: 0.14, vol: 0.4 },
   // refuse family: a dull dumped-load thud, lighter as the tech improves
   landfill: { wave: 'square', freq: 90, freqEnd: 55, dur: 0.22, vol: 0.6 },
   incinerator: { wave: 'square', freq: 120, freqEnd: 70, dur: 0.2, vol: 0.55 },

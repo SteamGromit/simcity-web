@@ -3,7 +3,8 @@ import { resetRegistry } from '../src/content/registry';
 import { ensureCoreContent } from '../src/sim/content';
 import { idx } from '../src/sim/grid';
 import { ageBuildings, collapseChance, collapseRoll } from '../src/sim/safety';
-import { COLLAPSE_AGE, CityState, Zone } from '../src/sim/types';
+import { COLLAPSE_AGE, COSTS, CityState, Zone } from '../src/sim/types';
+import { applyTool, canApply } from '../src/sim/city';
 import { clearLand, makeCity, zone } from './helpers';
 
 function base(): CityState {
@@ -126,5 +127,36 @@ describe('buildings age each month', () => {
     city.tiles[idx(10, 10)].abandoned = true;
     ageBuildings(city);
     expect(city.tiles[idx(10, 10)].age).toBe(5);
+  });
+});
+
+describe('the Repair tool', () => {
+  test('resets a developed building age to 0 and charges its cost', () => {
+    const city = base();
+    aged(city, 10, 10, COLLAPSE_AGE + 300);
+    city.funds = 1000;
+    const before = city.funds;
+    expect(canApply(city, 'repair', 10, 10)).toBe(true);
+    const r = applyTool(city, 'repair', 10, 10);
+    expect(r.ok).toBe(true);
+    expect(city.tiles[idx(10, 10)].age).toBe(0);
+    expect(before - city.funds).toBe(COSTS.repair);
+  });
+
+  test('refuses an empty or undeveloped lot', () => {
+    const city = base();
+    city.funds = 1000;
+    expect(canApply(city, 'repair', 30, 30)).toBe(false); // empty
+    zone(city, 31, 30, Zone.Residential); // stage 0
+    expect(canApply(city, 'repair', 31, 30)).toBe(false);
+  });
+
+  test('repairing a collapse-eligible building drops its chance to zero', () => {
+    const city = base();
+    aged(city, 10, 10, COLLAPSE_AGE + 600);
+    city.funds = 1000;
+    expect(chance(city, 10, 10)).toBeGreaterThan(0);
+    applyTool(city, 'repair', 10, 10);
+    expect(chance(city, 10, 10)).toBe(0);
   });
 });

@@ -23,6 +23,7 @@ function describeAuthored(b: BuildingDef): string {
 const BUILD_TOOLS: { id: ToolId | 'query'; label: string; title?: string }[] = [
   { id: 'query', label: 'Query' },
   { id: 'bulldoze', label: 'Bulldoze' },
+  { id: 'repair', label: 'Repair', title: 'Reset an old building\u2019s age; guards against collapse' },
   { id: 'road', label: 'Road' },
   { id: 'line', label: 'Power Line' },
   { id: 'park', label: 'Park' },
