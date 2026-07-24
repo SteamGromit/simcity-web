@@ -6,7 +6,10 @@
  */
 
 import { MODIFIER_KEYS, type ModifierKey } from '../content/modifiers';
-import type { ModStore, OrdinanceDraft, StoredMod } from './modstore';
+import { BUILDING_PROPS, BUILDING_ROOFS, type VisualDef } from '../content/types';
+import { drawAuthoredBuilding } from '../render/buildings';
+import { TILE_W, TILE_H } from '../render/iso';
+import type { BuildingDraft, ModStore, OrdinanceDraft, StoredMod } from './modstore';
 
 /** Plain-language names for the modifier vocabulary. */
 const MODIFIER_LABELS: Record<ModifierKey, string> = {
@@ -32,6 +35,7 @@ export function buildModsPanel(
   // view state: which mod is open, which ordinance is being edited
   let openModId: string | null = null;
   let editingOrdId: string | null | undefined = undefined; // undefined = not editing, null = new
+  let editingBldId: string | null | undefined = undefined;
 
   store.onChange(() => {
     if (!panel.classList.contains('hidden')) render();
@@ -102,6 +106,7 @@ export function buildModsPanel(
     edit.addEventListener('click', () => {
       openModId = m.pack.id;
       editingOrdId = undefined;
+      editingBldId = undefined;
       render();
     });
 
@@ -137,6 +142,7 @@ export function buildModsPanel(
     back.addEventListener('click', () => {
       openModId = null;
       editingOrdId = undefined;
+      editingBldId = undefined;
       render();
     });
     panel.append(back);
@@ -173,6 +179,38 @@ export function buildModsPanel(
     panel.append(add);
 
     if (editingOrdId !== undefined) renderOrdinanceForm(m, editingOrdId);
+
+    panel.append(el('h4', { textContent: 'Buildings' }));
+    const bList = el('div', { id: 'mod-bld-list' });
+    for (const b of m.pack.buildings ?? []) {
+      const label = el('span', {
+        className: 'mod-bld-name',
+        textContent: `${b.name} · §${b.cost}`,
+      });
+      const edit = el('button', { textContent: 'Edit' });
+      edit.addEventListener('click', () => {
+        editingBldId = b.id;
+        renderBuildingForm(m, b.id);
+      });
+      const rm = el('button', { textContent: 'Remove', className: 'mods-danger' });
+      rm.addEventListener('click', () => {
+        // Same ordering trap as ordinances: drop the form before the store
+        // fires, or the re-render rebuilds it bound to a dead id.
+        if (editingBldId === b.id) editingBldId = undefined;
+        store.removeBuilding(m.pack.id, b.id);
+      });
+      bList.append(el('div', { className: 'mod-bld-row' }, [label, edit, rm]));
+    }
+    panel.append(bList);
+
+    const addB = el('button', { textContent: '＋ Add building' });
+    addB.addEventListener('click', () => {
+      editingBldId = null;
+      renderBuildingForm(m, null);
+    });
+    panel.append(addB);
+
+    if (editingBldId !== undefined) renderBuildingForm(m, editingBldId);
   }
 
   function renderOrdinanceForm(m: StoredMod, ordId: string | null) {
@@ -256,6 +294,208 @@ export function buildModsPanel(
 
     form.append(err, el('div', { className: 'mods-form-actions' }, [save, cancel]));
     panel.append(form);
+  }
+
+  /** An iso tile filling a small preview canvas, independent of the camera. */
+  function previewGeom(w: number, h: number) {
+    const cx = w / 2;
+    const cy = h * 0.66;
+    const hw = TILE_W / 2;
+    const hh = TILE_H / 2;
+    return {
+      cx,
+      cy,
+      corners: [
+        [cx, cy - hh],
+        [cx + hw, cy],
+        [cx, cy + hh],
+        [cx - hw, cy],
+      ] as [number, number][],
+    };
+  }
+
+  function renderBuildingForm(m: StoredMod, bldId: string | null) {
+    panel.querySelector('.mod-bld-form')?.remove();
+    const existing = bldId ? (m.pack.buildings ?? []).find((b) => b.id === bldId) : undefined;
+
+    const form = el('div', { className: 'mod-bld-form' });
+
+    const name = el('input', { type: 'text', placeholder: 'Name', value: existing?.name ?? '' });
+    const cost = el('input', { type: 'number', min: '0', value: String(existing?.cost ?? 500) });
+    const upkeep = el('input', { type: 'number', min: '0', value: String(existing?.upkeep ?? 10) });
+
+    const category = el('select');
+    for (const [value, text] of [
+      ['plain', 'Decoration'],
+      ['power', 'Power plant'],
+      ['service', 'Service'],
+      ['transit', 'Transit stop'],
+    ] as const) {
+      category.append(el('option', { value, textContent: text }));
+    }
+    category.value = existing?.power
+      ? 'power'
+      : existing?.service
+        ? 'service'
+        : existing?.transit
+          ? 'transit'
+          : 'plain';
+
+    form.append(
+      field('Name', name),
+      field('Category', category),
+      field('Cost §', cost),
+      field('Upkeep §/mo', upkeep),
+    );
+
+    // --- category-specific numbers, shown only where they mean something ---
+    const capacity = el('input', { type: 'number', min: '0', value: String(existing?.power?.capacity ?? 100) });
+    const pollution = el('input', { type: 'number', min: '0', step: '0.1', value: String(existing?.power?.pollution ?? 0) });
+    const serviceKind = el('select');
+    for (const k of ['fire', 'police', 'school', 'health', 'bus'] as const) {
+      serviceKind.append(el('option', { value: k, textContent: k }));
+    }
+    if (existing?.service) serviceKind.value = existing.service.kind;
+    const radius = el('input', {
+      type: 'number', min: '1',
+      value: String(existing?.service?.radius ?? existing?.transit?.radius ?? 8),
+    });
+    const share = el('input', {
+      type: 'number', min: '0', max: '1', step: '0.05',
+      value: String(existing?.transit?.share ?? existing?.service?.share ?? 0.4),
+    });
+
+    // Each control lives in exactly one row — a node appended twice would be
+    // moved, not copied, so radius and share get rows of their own and are
+    // shown for whichever categories use them.
+    const powerRow = el('div', {}, [field('Capacity', capacity), field('Pollution', pollution)]);
+    const kindRow = field('Kind', serviceKind);
+    const radiusRow = field('Radius', radius);
+    const shareRow = field('Cars/trip', share);
+    form.append(powerRow, kindRow, radiusRow, shareRow);
+
+    function syncCategory() {
+      const c = category.value;
+      powerRow.classList.toggle('hidden', c !== 'power');
+      kindRow.classList.toggle('hidden', c !== 'service');
+      radiusRow.classList.toggle('hidden', c !== 'service' && c !== 'transit');
+      // "cars still on the road per covered trip" only means something for
+      // transit and for a bus stop
+      const usesShare = c === 'transit' || (c === 'service' && serviceKind.value === 'bus');
+      shareRow.classList.toggle('hidden', !usesShare);
+    }
+    category.addEventListener('change', syncCategory);
+    serviceKind.addEventListener('change', syncCategory);
+
+    const needsWater = el('input', { type: 'checkbox', checked: !!existing?.siting?.needsWater });
+    form.append(el('label', { className: 'mods-check' }, [needsWater, el('span', { textContent: 'Needs adjacent water' })]));
+
+    const unlockExpr = el('input', { type: 'text', placeholder: 'e.g. population >= 2000', value: existing?.unlock?.expr ?? '' });
+    const unlockLabel = el('input', { type: 'text', placeholder: 'e.g. pop 2,000', value: existing?.unlock?.label ?? '' });
+    form.append(field('Unlock when', unlockExpr), field('Unlock text', unlockLabel));
+
+    // --- the look, with a preview that redraws on every change ---
+    form.append(el('div', { className: 'mods-effects-head' }, [el('span', { textContent: 'Look' })]));
+
+    const v = existing?.visual;
+    const footprint = el('input', { type: 'range', min: '0.3', max: '1', step: '0.05', value: String(v?.footprint ?? 0.8) });
+    const height = el('input', { type: 'range', min: '6', max: '60', step: '1', value: String(v?.height ?? 24) });
+    const hue = el('input', { type: 'range', min: '0', max: '359', step: '1', value: String(v?.hue ?? 210) });
+    const sat = el('input', { type: 'range', min: '0', max: '100', step: '1', value: String(v?.sat ?? 40) });
+    const light = el('input', { type: 'range', min: '0', max: '100', step: '1', value: String(v?.light ?? 50) });
+    const roof = el('select');
+    for (const r of BUILDING_ROOFS) roof.append(el('option', { value: r, textContent: r }));
+    if (v) roof.value = v.roof;
+
+    const propBoxes = BUILDING_PROPS.map((p) => {
+      const box = el('input', { type: 'checkbox', checked: !!v?.props.includes(p) });
+      return { p, box, node: el('label', { className: 'mods-check' }, [box, el('span', { textContent: p })]) };
+    });
+
+    const preview = el('canvas', { className: 'mod-bld-preview', width: 150, height: 110 });
+
+    function draftVisual(): VisualDef {
+      return {
+        footprint: Number(footprint.value),
+        height: Number(height.value),
+        hue: Number(hue.value),
+        sat: Number(sat.value),
+        light: Number(light.value),
+        roof: roof.value as VisualDef['roof'],
+        props: propBoxes.filter((b) => b.box.checked).map((b) => b.p),
+      };
+    }
+
+    function drawPreview() {
+      const ctx = preview.getContext('2d');
+      if (!ctx) return;
+      ctx.clearRect(0, 0, preview.width, preview.height);
+      drawAuthoredBuilding(ctx, previewGeom(preview.width, preview.height), draftVisual(), true, 2);
+    }
+
+    for (const input of [footprint, height, hue, sat, light, roof, ...propBoxes.map((b) => b.box)]) {
+      input.addEventListener('input', drawPreview);
+      input.addEventListener('change', drawPreview);
+    }
+
+    form.append(
+      field('Size', footprint),
+      field('Height', height),
+      field('Hue', hue),
+      field('Saturation', sat),
+      field('Lightness', light),
+      field('Roof', roof),
+      el('div', { className: 'mods-props' }, propBoxes.map((b) => b.node)),
+      preview,
+    );
+
+    const err = el('div', { className: 'mods-error' });
+    const save = el('button', { textContent: 'Save', className: 'mods-primary' });
+    save.addEventListener('click', () => {
+      const expr = unlockExpr.value.trim();
+      const draft: BuildingDraft = {
+        name: name.value,
+        category: category.value as BuildingDraft['category'],
+        cost: Number(cost.value),
+        upkeep: Number(upkeep.value),
+        capacity: Number(capacity.value),
+        pollution: Number(pollution.value),
+        serviceKind: serviceKind.value as BuildingDraft['serviceKind'],
+        radius: Number(radius.value),
+        share: Number(share.value),
+        unlock: expr ? { expr, label: unlockLabel.value.trim() || expr } : undefined,
+        needsWater: needsWater.checked,
+        visual: draftVisual(),
+      };
+      // Clear editing state before the store call: onChange fires synchronously
+      // and the re-render reads it (same trap the ordinance form documents).
+      const was = editingBldId;
+      editingBldId = undefined;
+      const r = bldId
+        ? store.updateBuilding(m.pack.id, bldId, draft)
+        : store.addBuilding(m.pack.id, draft);
+      if (r.ok) {
+        opts.toast('Building saved', 'info');
+      } else {
+        editingBldId = was;
+        err.textContent = r.errors.join('; ');
+      }
+    });
+    const cancel = el('button', { textContent: 'Cancel' });
+    cancel.addEventListener('click', () => {
+      editingBldId = undefined;
+      render();
+    });
+
+    form.append(err, el('div', { className: 'mods-form-actions' }, [save, cancel]));
+    panel.append(form);
+    syncCategory();
+    drawPreview();
+  }
+
+  /** Label + control, the panel's standard row. */
+  function field(label: string, control: HTMLElement): HTMLElement {
+    return el('div', { className: 'mods-field' }, [el('span', { textContent: label }), control]);
   }
 
   return {
