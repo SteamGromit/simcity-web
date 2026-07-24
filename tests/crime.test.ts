@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, test } from 'vitest';
-import { registerPack, resetRegistry } from '../src/content/registry';
+import { registerPack, resetRegistry, slotOf } from '../src/content/registry';
 import { ensureCoreContent } from '../src/sim/content';
 import { idx } from '../src/sim/grid';
 import { updateLandValue } from '../src/sim/landvalue';
+import { updateCoverage } from '../src/sim/services';
+import { updatePower } from '../src/sim/power';
+import { demandReading, developTile } from '../src/sim/develop';
 import { crimeIncidents, crimeTarget, updateCrime } from '../src/sim/crime';
 import { CityState, Zone } from '../src/sim/types';
 import { clearLand, makeCity, zone } from './helpers';
@@ -191,5 +194,97 @@ describe('incidents roll against the rate', () => {
     crimeIncidents(city, () => 0);
     expect(city.tiles[idx(10, 10)].crimeFlash).toBe(0);
     expect(city.notices.length).toBe(0);
+  });
+});
+
+describe('what crime does to a block', () => {
+  test('it drags land value down', () => {
+    const clean = base();
+    home(clean, 10, 10, { landValue: 0.5 });
+    const dirty = base();
+    home(dirty, 10, 10, { landValue: 0.5 });
+    dirty.tiles[idx(10, 10)].crime = 0.8;
+
+    updateLandValue(clean);
+    updateLandValue(dirty);
+    expect(dirty.tiles[idx(10, 10)].landValue).toBeLessThan(clean.tiles[idx(10, 10)].landValue);
+  });
+
+  test('it takes the pressure out of growth', () => {
+    const clean = base();
+    home(clean, 10, 10, { landValue: 0.6 });
+    const dirty = base();
+    home(dirty, 10, 10, { landValue: 0.6 });
+    for (const c of [clean, dirty]) {
+      c.demand.r = 1;
+      c.tiles[idx(10, 10)].powered = true;
+      zone(c, 10, 11, Zone.Road);
+    }
+    dirty.tiles[idx(10, 10)].crime = 0.8;
+    updateLandValue(clean);
+    updateLandValue(dirty);
+    expect(demandReading(dirty, 10, 10)!.pressure).toBeLessThan(
+      demandReading(clean, 10, 10)!.pressure,
+    );
+  });
+
+  test('a well-policed, high-value tile is unaffected', () => {
+    const city = base();
+    home(city, 10, 10, { landValue: 0.9 });
+    city.tiles[idx(10, 10)].policeCov = 1;
+    updateCrime(city);
+    updateLandValue(city);
+    expect(city.tiles[idx(10, 10)].crime).toBeLessThan(0.05);
+  });
+});
+
+describe('a blight building poisons the land around it', () => {
+  test('land value near a blight building is lower than far from it', () => {
+    const city = base();
+    // register a mod building that blights a small radius
+    registerPack({
+      id: 'ugly', name: 'Ugly', version: '1',
+      buildings: [
+        {
+          id: 'ugly:dump', name: 'Eyesore', tool: 'ugly__dump', cost: 1, upkeep: 0,
+          blight: { amount: 0.3, radius: 3 },
+        },
+      ],
+    });
+    const slot = slotOf('ugly:dump')! as Zone;
+    zone(city, 20, 20, slot);
+    home(city, 21, 20, { landValue: 0.5 }); // adjacent
+    home(city, 40, 40, { landValue: 0.5 }); // far away
+
+    updateLandValue(city);
+    expect(city.tiles[idx(21, 20)].landValue).toBeLessThan(city.tiles[idx(40, 40)].landValue);
+  });
+});
+
+describe('crime is a drag, not a gate', () => {
+  test('a fully-served but high-crime tile still grows past stage 4', () => {
+    const city = base();
+    zone(city, 9, 10, Zone.PowerPlant);
+    zone(city, 10, 10, Zone.FireStation);
+    zone(city, 10, 11, Zone.PoliceStation);
+    zone(city, 10, 12, Zone.School);
+    zone(city, 10, 13, Zone.Hospital);
+    zone(city, 10, 14, Zone.Landfill);
+    zone(city, 11, 9, Zone.Road);
+    home(city, 11, 10, { landValue: 1, density: 3 });
+    const t = city.tiles[idx(11, 10)];
+    t.watered = true;
+    t.crime = 1; // as bad as it gets
+    city.demand.r = 1;
+    updatePower(city);
+    updateCoverage(city);
+
+    for (let i = 0; i < 300; i++) {
+      developTile(city, 11, 10, () => 0.01);
+      t.watered = true;
+      t.landValue = 1; // hold the value gate open; crime must not add its own
+      t.crime = 1;
+    }
+    expect(t.stage).toBeGreaterThan(4);
   });
 });

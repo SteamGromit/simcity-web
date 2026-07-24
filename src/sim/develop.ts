@@ -17,14 +17,17 @@ function desirability(t: Tile): number {
   // Nobody wants to move in next to a heap, over and above what it has
   // already done to the land value.
   const refuse = 0.25 * t.garbage;
+  // Crime deters residents and shoppers the same way, again on top of the
+  // hit it has already taken out of land value.
+  const fear = 0.3 * t.crime;
   switch (t.zone) {
     case Zone.Residential:
       return Math.max(0,
         0.7 * t.landValue + 0.3 * jobAccess + 0.12 * services + 0.06 * t.healthCov +
-        0.04 * t.busCov - refuse,
+        0.04 * t.busCov - refuse - fear,
       );
     case Zone.Commercial:
-      return Math.max(0, 0.5 * t.landValue + 0.5 * jobAccess + 0.12 * services - refuse);
+      return Math.max(0, 0.5 * t.landValue + 0.5 * jobAccess + 0.12 * services - refuse - fear);
     case Zone.Industrial:
       return 0.45 + 0.2 * (1 - Math.min(1, t.commute / 40)) + 0.05 * t.fireCov;
     default:
