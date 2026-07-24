@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, test } from 'vitest';
-import { registerPack, resetRegistry, slotOf } from '../src/content/registry';
+import { registerPack, resetRegistry, slotOf, unregisterPack } from '../src/content/registry';
 import type { Pack } from '../src/content/types';
 import { applyTool, canApply, newCity } from '../src/sim/city';
 import { ensureCoreContent } from '../src/sim/content';
 import { idx } from '../src/sim/grid';
 import { Terrain, Zone } from '../src/sim/types';
+import { isPlant, plantCapacity } from '../src/sim/energy';
+import { updatePower } from '../src/sim/power';
+import { updateCoverage } from '../src/sim/services';
+import { collectBudget } from '../src/sim/budget';
+import { clearLand, makeCity, zone } from './helpers';
 
 /** A minimal look; placement doesn't care what it is, only that it validates. */
 const LOOK = {
@@ -138,5 +143,74 @@ describe('placing an authored building', () => {
     for (const wizardTool of ['streetcar', 'monorail', 'subway', 'rail']) {
       expect(applyTool(city, wizardTool, 10, 10).err).toBe('placed via the transit wizard');
     }
+  });
+});
+
+describe('an authored building affects the sim', () => {
+  beforeEach(() => {
+    resetRegistry();
+    ensureCoreContent();
+  });
+
+  test('an authored plant adds pooled capacity', () => {
+    const before = plantCapacity(Zone.PowerPlant);
+    load({ id: 'mod:fusion', tool: 'mod__fusion', power: { capacity: 999, pollution: 0 } });
+    const slot = slotOf('mod:fusion')! as Zone;
+    expect(isPlant(slot)).toBe(true);
+    expect(plantCapacity(slot)).toBe(999);
+    // core capacity is untouched
+    expect(plantCapacity(Zone.PowerPlant)).toBe(before);
+  });
+
+  test('an authored fire station covers nearby tiles', () => {
+    load({ id: 'mod:watchtower', tool: 'mod__watchtower', service: { kind: 'fire', radius: 6 } });
+    const slot = slotOf('mod:watchtower')! as Zone;
+
+    const city = makeCity();
+    clearLand(city);
+    zone(city, 10, 10, Zone.PowerPlant);
+    zone(city, 11, 10, slot);
+    zone(city, 12, 10, Zone.Residential);
+    updatePower(city);
+    updateCoverage(city);
+
+    expect(city.tiles[idx(12, 10)].fireCov).toBeGreaterThan(0);
+  });
+
+  test('an unpowered authored station covers nothing', () => {
+    load({ id: 'mod:watchtower', tool: 'mod__watchtower', service: { kind: 'fire', radius: 6 } });
+    const slot = slotOf('mod:watchtower')! as Zone;
+
+    const city = makeCity();
+    clearLand(city);
+    zone(city, 11, 10, slot); // no plant anywhere
+    zone(city, 12, 10, Zone.Residential);
+    updatePower(city);
+    updateCoverage(city);
+
+    expect(city.tiles[idx(12, 10)].fireCov).toBe(0);
+  });
+
+  test('upkeep is charged for a placed authored building', () => {
+    load({ id: 'mod:depot', tool: 'mod__depot', upkeep: 37 });
+    const slot = slotOf('mod:depot')! as Zone;
+
+    const city = makeCity();
+    clearLand(city);
+    const before = collectBudget(city).expenses;
+    zone(city, 10, 10, slot);
+    expect(collectBudget(city).expenses - before).toBe(37);
+  });
+
+  test('a disabled mod stops charging upkeep for tiles still standing', () => {
+    load({ id: 'mod:depot', tool: 'mod__depot', upkeep: 37 });
+    const slot = slotOf('mod:depot')! as Zone;
+
+    const city = makeCity();
+    clearLand(city);
+    zone(city, 10, 10, slot);
+    const withMod = collectBudget(city).expenses;
+    unregisterPack('mod');
+    expect(withMod - collectBudget(city).expenses).toBe(37);
   });
 });

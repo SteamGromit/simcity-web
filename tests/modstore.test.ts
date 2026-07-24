@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import { createModStore, slugify, type StorageLike } from '../src/ui/modstore';
-import { allOrdinances, ordinanceById, resetRegistry } from '../src/content/registry';
+import {
+  allOrdinances,
+  buildingById,
+  ordinanceById,
+  resetRegistry,
+  slotOf,
+} from '../src/content/registry';
 
 /** In-memory StorageLike; the store never sees a real localStorage in Node. */
 function fakeStorage(seed?: string): StorageLike {
@@ -271,5 +277,166 @@ describe('mod store — ordinance authoring', () => {
     const r = store.addOrdinance(m.pack.id, { ...DRAFT, cost: 10 }); // same label → same slug
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.errors.join(' ')).toContain('duplicate');
+  });
+});
+
+const LOOK = {
+  footprint: 0.8,
+  height: 24,
+  hue: 120,
+  sat: 40,
+  light: 50,
+  roof: 'gabled' as const,
+  props: ['vent' as const],
+};
+
+const BUILDING_DRAFT = {
+  name: 'Solar Grove',
+  category: 'power' as const,
+  cost: 800,
+  upkeep: 20,
+  capacity: 120,
+  pollution: 0,
+  needsWater: false,
+  visual: LOOK,
+};
+
+describe('mod store — building authoring', () => {
+  test('addBuilding namespaces the id and tool, and registers it', () => {
+    resetRegistry();
+    const store = createModStore(fakeStorage());
+    const m = store.create('Eco');
+    const r = store.addBuilding(m.pack.id, BUILDING_DRAFT);
+    expect(r.ok).toBe(true);
+
+    const b = buildingById('eco:solar-grove');
+    expect(b).toBeDefined();
+    expect(b!.tool).toBe('eco__solar-grove');
+    expect(b!.cost).toBe(800);
+    expect(b!.power).toEqual({ capacity: 120, pollution: 0 });
+    expect(b!.visual).toEqual(LOOK);
+  });
+
+  test('a mod slot is allocated, never a core zone', () => {
+    resetRegistry();
+    const store = createModStore(fakeStorage());
+    const m = store.create('Eco');
+    store.addBuilding(m.pack.id, BUILDING_DRAFT);
+    expect(slotOf('eco:solar-grove')!).toBeGreaterThanOrEqual(1000);
+  });
+
+  test('each category writes only its own block', () => {
+    resetRegistry();
+    const store = createModStore(fakeStorage());
+    const m = store.create('Eco');
+
+    store.addBuilding(m.pack.id, { ...BUILDING_DRAFT, name: 'Plain', category: 'plain' });
+    const plain = buildingById('eco:plain')!;
+    expect(plain.power).toBeUndefined();
+    expect(plain.service).toBeUndefined();
+    expect(plain.transit).toBeUndefined();
+
+    store.addBuilding(m.pack.id, {
+      ...BUILDING_DRAFT, name: 'Firehouse', category: 'service', serviceKind: 'fire', radius: 8,
+    });
+    const svc = buildingById('eco:firehouse')!;
+    expect(svc.service).toEqual({ kind: 'fire', radius: 8 });
+    expect(svc.power).toBeUndefined();
+
+    store.addBuilding(m.pack.id, {
+      ...BUILDING_DRAFT, name: 'Tram Halt', category: 'transit', radius: 10, share: 0.4,
+    });
+    const tr = buildingById('eco:tram-halt')!;
+    expect(tr.transit).toEqual({ radius: 10, share: 0.4 });
+  });
+
+  test('siting and unlock are carried through', () => {
+    resetRegistry();
+    const store = createModStore(fakeStorage());
+    const m = store.create('Eco');
+    store.addBuilding(m.pack.id, {
+      ...BUILDING_DRAFT,
+      needsWater: true,
+      unlock: { expr: 'population >= 500', label: 'pop 500' },
+    });
+    const b = buildingById('eco:solar-grove')!;
+    expect(b.siting).toEqual({ needsWater: true });
+    expect(b.unlock).toEqual({ expr: 'population >= 500', label: 'pop 500' });
+  });
+
+  test('updateBuilding keeps the id and slot stable across a rename', () => {
+    resetRegistry();
+    const store = createModStore(fakeStorage());
+    const m = store.create('Eco');
+    store.addBuilding(m.pack.id, BUILDING_DRAFT);
+    const slot = slotOf('eco:solar-grove');
+
+    const r = store.updateBuilding(m.pack.id, 'eco:solar-grove', {
+      ...BUILDING_DRAFT, name: 'Solar Meadow', cost: 900,
+    });
+    expect(r.ok).toBe(true);
+    const b = buildingById('eco:solar-grove')!;
+    expect(b.name).toBe('Solar Meadow');
+    expect(b.cost).toBe(900);
+    expect(slotOf('eco:solar-grove')).toBe(slot);
+    expect(store.list()[0].pack.buildings).toHaveLength(1);
+  });
+
+  test('removeBuilding unregisters it', () => {
+    resetRegistry();
+    const store = createModStore(fakeStorage());
+    const m = store.create('Eco');
+    store.addBuilding(m.pack.id, BUILDING_DRAFT);
+    store.removeBuilding(m.pack.id, 'eco:solar-grove');
+    expect(buildingById('eco:solar-grove')).toBeUndefined();
+  });
+
+  test('an invalid look is rejected and nothing persists', () => {
+    resetRegistry();
+    const store = createModStore(fakeStorage());
+    const m = store.create('Eco');
+    const r = store.addBuilding(m.pack.id, {
+      ...BUILDING_DRAFT,
+      visual: { ...LOOK, height: 500 },
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('visual.height');
+    expect(store.list()[0].pack.buildings ?? []).toHaveLength(0);
+    expect(buildingById('eco:solar-grove')).toBeUndefined();
+  });
+
+  test('two buildings whose names slug the same are rejected', () => {
+    resetRegistry();
+    const store = createModStore(fakeStorage());
+    const m = store.create('Eco');
+    store.addBuilding(m.pack.id, BUILDING_DRAFT);
+    const r = store.addBuilding(m.pack.id, { ...BUILDING_DRAFT, cost: 10 });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('duplicate');
+  });
+
+  test('a disabled mod contributes no buildings to the registry', () => {
+    resetRegistry();
+    const store = createModStore(fakeStorage());
+    const m = store.create('Eco');
+    store.addBuilding(m.pack.id, BUILDING_DRAFT);
+    expect(buildingById('eco:solar-grove')).toBeDefined();
+    store.setEnabled(m.pack.id, false);
+    expect(buildingById('eco:solar-grove')).toBeUndefined();
+    store.setEnabled(m.pack.id, true);
+    expect(buildingById('eco:solar-grove')).toBeDefined();
+  });
+
+  test('buildings persist and re-register from storage', () => {
+    resetRegistry();
+    const storage = fakeStorage();
+    const a = createModStore(storage);
+    const m = a.create('Eco');
+    a.addBuilding(m.pack.id, BUILDING_DRAFT);
+
+    resetRegistry();
+    const b = createModStore(storage);
+    expect(b.list()[0].pack.buildings).toHaveLength(1);
+    expect(buildingById('eco:solar-grove')).toBeDefined();
   });
 });
