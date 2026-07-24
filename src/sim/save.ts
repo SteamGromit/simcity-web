@@ -50,7 +50,7 @@ export function serialize(city: CityState): string {
   const withLegend: CityState = { ...city, zoneIds: legendFor(city) };
   return JSON.stringify(withLegend, (key, value) => {
     if (key === 'commute' && value === Infinity) return -1; // JSON can't hold Infinity
-    if (key === 'crimeFlash') return undefined; // render-only incident timer
+    if (key === 'crimeFlash' || key === 'collapseFlash') return undefined; // render-only timers
     return value;
   });
 }
@@ -129,6 +129,7 @@ function reviveTile(raw: unknown, remap: Map<number, number> | null): Tile {
   t.garbage = clamp(finite(r.garbage, 0), 0, 1);
   t.crime = clamp(finite(r.crime, 0), 0, 1);
   t.accident = Math.min(ACCIDENT_MAX, Math.max(0, Math.floor(finite(r.accident, 0))));
+  t.age = Math.max(0, Math.floor(finite(r.age, 0)));
   t.burning = Math.min(FIRE_BURN_TICKS, Math.max(0, Math.floor(finite(r.burning, 0))));
   t.rubble = Math.min(RUBBLE_MONTHS, Math.max(0, Math.floor(finite(r.rubble, 0))));
   t.pollution = finite(r.pollution, 0);
