@@ -7,6 +7,8 @@
 import { compile, type CompiledExpr } from './expr';
 import { isModifierKey } from './modifiers';
 import {
+  type BuildingOverride,
+  type OrdinanceOverride,
   BUILDING_PROPS,
   BUILDING_ROOFS,
   MAX_BUILDING_PROPS,
@@ -52,6 +54,7 @@ export function validatePack(raw: unknown): ValidateResult {
   const buildings = validateBuildings(raw.buildings, errors, unlocks);
   const ordinances = validateOrdinances(raw.ordinances, errors);
   const skins = validateSkins(raw.skins, errors);
+  const overrides = validateOverrides(raw.overrides, errors, unlocks);
 
   if (errors.length > 0) return { ok: false, errors };
 
@@ -62,6 +65,7 @@ export function validatePack(raw: unknown): ValidateResult {
     buildings,
     ordinances,
     skins,
+    overrides,
   };
   return { ok: true, value: { pack, unlocks } };
 }
@@ -149,6 +153,133 @@ function validateBuildings(
 
     out.push(entry as unknown as BuildingDef);
   });
+
+  return out;
+}
+
+/**
+ * Check the sparse patches a pack applies to content that already exists.
+ * Every field is optional, but anything present is held to exactly the same
+ * rule as on the base type — a patch is not a way around validation.
+ */
+function validateOverrides(
+  raw: unknown,
+  errors: string[],
+  unlocks: Map<string, CompiledExpr>,
+): Pack['overrides'] {
+  if (raw === undefined) return undefined;
+  if (!isObj(raw)) {
+    errors.push('pack: "overrides" must be an object');
+    return undefined;
+  }
+
+  const out: NonNullable<Pack['overrides']> = {};
+
+  for (const kind of ['buildings', 'ordinances'] as const) {
+    const list = raw[kind];
+    if (list === undefined) continue;
+    if (!Array.isArray(list)) {
+      errors.push(`pack: "overrides.${kind}" must be an array`);
+      continue;
+    }
+
+    list.forEach((entry, i) => {
+      const where = `overrides.${kind}[${i}]`;
+      if (!isObj(entry)) {
+        errors.push(`${where}: must be an object`);
+        return;
+      }
+      if (!isStr(entry.id)) {
+        errors.push(`${where}: "id" must be a non-empty string`);
+        return;
+      }
+      const id = entry.id;
+      const at = `${where} (${id})`;
+
+      if (kind === 'buildings') {
+        if (entry.slot !== undefined) {
+          errors.push(
+            `${at}: "slot" cannot be overridden — it is the identity every save stores`,
+          );
+        }
+        if (entry.name !== undefined && !isStr(entry.name)) {
+          errors.push(`${at}: "name" must be a non-empty string`);
+        }
+        for (const k of ['cost', 'upkeep'] as const) {
+          if (entry[k] !== undefined && (!isNum(entry[k]) || (entry[k] as number) < 0)) {
+            errors.push(`${at}: "${k}" must be a number >= 0`);
+          }
+        }
+        if (entry.unlock !== undefined) {
+          if (!isObj(entry.unlock) || !isStr(entry.unlock.expr) || !isStr(entry.unlock.label)) {
+            errors.push(`${at}: "unlock" needs string "expr" and "label"`);
+          } else {
+            const r = compile(entry.unlock.expr, UNLOCK_CONTEXT_KEYS);
+            if (!r.ok) errors.push(`${at}: unlock expression — ${r.error}`);
+            else unlocks.set(id, r.expr);
+          }
+        }
+        if (entry.power !== undefined) {
+          const p = entry.power;
+          if (!isObj(p)) errors.push(`${at}: "power" must be an object`);
+          else {
+            for (const k of ['capacity', 'pollution'] as const) {
+              if (p[k] !== undefined && (!isNum(p[k]) || (p[k] as number) < 0)) {
+                errors.push(`${at}: "power.${k}" must be a number >= 0`);
+              }
+            }
+          }
+        }
+        if (entry.service !== undefined) {
+          const s = entry.service;
+          if (!isObj(s)) errors.push(`${at}: "service" must be an object`);
+          else {
+            if (s.kind !== undefined && (!isStr(s.kind) || !SERVICE_KINDS.includes(s.kind as ServiceKind))) {
+              errors.push(`${at}: "service.kind" must be one of ${SERVICE_KINDS.join(', ')}`);
+            }
+            for (const k of ['radius', 'share'] as const) {
+              if (s[k] !== undefined && !isNum(s[k])) errors.push(`${at}: "service.${k}" must be a number`);
+            }
+          }
+        }
+        if (entry.transit !== undefined) {
+          const t = entry.transit;
+          if (!isObj(t)) errors.push(`${at}: "transit" must be an object`);
+          else {
+            for (const k of ['radius', 'share'] as const) {
+              if (t[k] !== undefined && !isNum(t[k])) errors.push(`${at}: "transit.${k}" must be a number`);
+            }
+          }
+        }
+        if (entry.siting !== undefined && !isObj(entry.siting)) {
+          errors.push(`${at}: "siting" must be an object`);
+        }
+        if (entry.visual !== undefined) validateVisual(entry.visual, at, errors);
+      } else {
+        for (const k of ['label', 'blurb'] as const) {
+          if (entry[k] !== undefined && !isStr(entry[k])) {
+            errors.push(`${at}: "${k}" must be a non-empty string`);
+          }
+        }
+        if (entry.cost !== undefined && (!isNum(entry.cost) || entry.cost < 0)) {
+          errors.push(`${at}: "cost" must be a number >= 0`);
+        }
+        if (entry.effects !== undefined) {
+          if (!isObj(entry.effects)) errors.push(`${at}: "effects" must be an object`);
+          else {
+            for (const [key, value] of Object.entries(entry.effects)) {
+              if (!isModifierKey(key)) errors.push(`${at}: unknown modifier key "${key}"`);
+              else if (!isNum(value) || value < 0) errors.push(`${at}: "${key}" must be a number >= 0`);
+            }
+          }
+        }
+      }
+    });
+
+    // keep the entries; the registry merges them field by field
+    if (kind === 'buildings') out.buildings = list as BuildingOverride[];
+    else out.ordinances = list as OrdinanceOverride[];
+  }
 
   return out;
 }
