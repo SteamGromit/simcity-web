@@ -168,6 +168,7 @@ describe('HALO_RADII', () => {
       'landfill',
       'monorail',
       'police',
+      'prison',
       'rail',
       'recycling',
       'school',

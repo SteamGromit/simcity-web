@@ -54,6 +54,14 @@ const BUNDLES: Bundle[] = [
     ],
   },
   {
+    id: 'police',
+    label: 'Police Station',
+    members: [
+      { id: 'police', label: 'Police Station' },
+      { id: 'prison', label: 'Prison', title: 'Wide reach, but a grim neighbour' },
+    ],
+  },
+  {
     id: 'waste',
     label: 'Waste',
     members: [
@@ -91,7 +99,6 @@ const ZONING_TOOLS: { id: ToolId; label: string }[] = [
 
 const CIVIC_TOOLS: { id: ToolId; label: string; title?: string }[] = [
   { id: 'fire', label: 'Fire Station' },
-  { id: 'police', label: 'Police Station' },
   { id: 'school', label: 'School' },
   { id: 'hospital', label: 'Hospital' },
   { id: 'pump', label: 'Water Pump' },
@@ -332,6 +339,7 @@ export function buildToolbar(
   for (const { id, label, title } of CIVIC_TOOLS) {
     const btn = toolButton(id, label, civicBody);
     if (title) btn.title = title;
+    if (id === 'fire') bundleButton(bundleById('police'), civicBody);
     if (id === 'hospital') bundleButton(bundleById('transit'), civicBody);
     if (id === 'pipe') bundleButton(bundleById('waste'), civicBody);
   }

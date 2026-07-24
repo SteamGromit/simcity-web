@@ -32,6 +32,7 @@ export function freshSnapshot(city: CityState): EventSnapshot {
 }
 
 const LOSS_RE = /burned to the ground|flattened|wrecked/;
+const CRIME_RE = /burglar|vandal|robber|theft/i;
 
 export function detectEvents(
   prev: EventSnapshot,
@@ -47,6 +48,7 @@ export function detectEvents(
   if (next.noticeCount > prev.noticeCount) {
     const fresh = city.notices.slice(prev.noticeCount);
     if (fresh.some((n) => LOSS_RE.test(n))) events.push('building-lost');
+    if (fresh.some((n) => CRIME_RE.test(n))) events.push('crime');
   }
   return { events, next };
 }

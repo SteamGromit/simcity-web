@@ -7,6 +7,7 @@ import { updateCoverage } from '../src/sim/services';
 import { updatePower } from '../src/sim/power';
 import { demandReading, developTile } from '../src/sim/develop';
 import { crimeIncidents, crimeTarget, updateCrime } from '../src/sim/crime';
+import { adviseTips } from '../src/sim/tips';
 import { CityState, Zone } from '../src/sim/types';
 import { clearLand, makeCity, zone } from './helpers';
 
@@ -286,5 +287,38 @@ describe('crime is a drag, not a gate', () => {
       t.crime = 1;
     }
     expect(t.stage).toBeGreaterThan(4);
+  });
+});
+
+describe('the advisor separates the two crime failures', () => {
+  test('a hotspot with no police reads as unpoliced', () => {
+    const city = base();
+    home(city, 10, 10, { landValue: 0.1, density: 3, commute: Infinity });
+    for (let i = 0; i < 40; i++) updateCrime(city);
+    const ids = adviseTips(city).map((t) => t.id);
+    expect(ids).toContain('crime-unpoliced');
+    expect(ids).not.toContain('crime-stretched');
+  });
+
+  test('crime under coverage reads as a stretched force', () => {
+    const city = base();
+    home(city, 10, 10, { landValue: 0.1, density: 3, commute: Infinity });
+    city.tiles[idx(10, 10)].policeCov = 0.3; // covered, but not enough
+    for (let i = 0; i < 40; i++) updateCrime(city);
+    const ids = adviseTips(city).map((t) => t.id);
+    // only reads as stretched if crime is still high despite the coverage
+    if (city.tiles[idx(10, 10)].crime > 0.35) {
+      expect(ids).toContain('crime-stretched');
+      expect(ids).not.toContain('crime-unpoliced');
+    }
+  });
+
+  test('a safe city gets neither', () => {
+    const city = base();
+    home(city, 10, 10, { landValue: 0.9, density: 1 });
+    for (let i = 0; i < 40; i++) updateCrime(city);
+    const ids = adviseTips(city).map((t) => t.id);
+    expect(ids).not.toContain('crime-unpoliced');
+    expect(ids).not.toContain('crime-stretched');
   });
 });

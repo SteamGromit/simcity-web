@@ -17,7 +17,8 @@ export type EventId =
   | 'pandemic'
   | 'fire-start'
   | 'building-lost'
-  | 'brownout';
+  | 'brownout'
+  | 'crime';
 
 /** Multi-step event cues, scheduled at ms offsets through play(). */
 export const EVENT_SOUNDS: Record<EventId, { at: number; spec: SoundSpec }[]> = {
@@ -43,6 +44,11 @@ export const EVENT_SOUNDS: Record<EventId, { at: number; spec: SoundSpec }[]> = 
     { at: 40, spec: { wave: 'sine', freq: 130, freqEnd: 35, dur: 0.6, vol: 0.55 } },
   ],
   brownout: [{ at: 0, spec: { wave: 'sawtooth', freq: 220, freqEnd: 55, dur: 0.5, vol: 0.4 } }],
+  // a curt two-note whistle blip, deliberately unobtrusive
+  crime: [
+    { at: 0, spec: { wave: 'square', freq: 880, freqEnd: 990, dur: 0.09, vol: 0.28 } },
+    { at: 130, spec: { wave: 'square', freq: 990, freqEnd: 880, dur: 0.09, vol: 0.28 } },
+  ],
 };
 
 /** Events that may fire often keep a minimum gap; disasters always play. */
@@ -50,6 +56,7 @@ const EVENT_GAP_MS: Partial<Record<EventId, number>> = {
   'fire-start': 4000,
   'building-lost': 4000,
   brownout: 4000,
+  crime: 8000, // incidents are frequent by design; keep the cue rare
 };
 
 const TOOL_SOUNDS: Record<ToolId, SoundSpec> = {

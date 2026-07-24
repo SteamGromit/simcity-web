@@ -76,6 +76,7 @@ export function buildQuery(root: HTMLElement) {
         rows.push(['Bus access', t.busCov > 0 ? 'yes' : 'no']);
         rows.push(['Refuse pickup', t.garbageCov > 0 ? 'yes' : 'no']);
         if (t.garbage > 0.005) rows.push(['Rubbish', `${Math.round(t.garbage * 100)}%`]);
+        rows.push(['Crime', `${Math.round(t.crime * 100)}%`]);
       }
       if (t.zone === Zone.Road) {
         rows.push(['Traffic', String(Math.round(t.traffic))]);
