@@ -79,6 +79,7 @@ export function buildQuery(root: HTMLElement) {
         rows.push(['Crime', `${Math.round(t.crime * 100)}%`]);
       }
       if (t.zone === Zone.Road) {
+        if (t.accident > 0) rows.push(['Status', '🚧 accident — road blocked']);
         rows.push(['Traffic', String(Math.round(t.traffic))]);
         rows.push(['Congestion', `${Math.round(Math.min(1, t.traffic / (ROAD_CAPACITY * 2)) * 100)}%`]);
         if (t.wire) rows.push(['Power line', 'overhead']);

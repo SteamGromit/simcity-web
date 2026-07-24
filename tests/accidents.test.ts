@@ -4,6 +4,7 @@ import { ensureCoreContent } from '../src/sim/content';
 import { idx } from '../src/sim/grid';
 import { accidentDuration, accidentRoll, updateAccidents } from '../src/sim/accidents';
 import { updateTraffic } from '../src/sim/traffic';
+import { adviseTips } from '../src/sim/tips';
 import { CityState, Zone } from '../src/sim/types';
 import { clearLand, makeCity, zone } from './helpers';
 
@@ -159,5 +160,15 @@ describe('a blocked road reroutes traffic', () => {
     for (let i = 0; i < 3; i++) updateAccidents(city);
     updateTraffic(city);
     expect(Number.isFinite(city.tiles[idx(4, 10)].commute)).toBe(true); // cleared
+  });
+});
+
+describe('the advisor flags an active accident', () => {
+  test('a blocked road produces the snarl tip; a clear city does not', () => {
+    const city = base();
+    busyRoad(city, 10, 10, 20);
+    expect(adviseTips(city).map((t) => t.id)).not.toContain('accident-snarl');
+    city.tiles[idx(10, 10)].accident = 8;
+    expect(adviseTips(city).map((t) => t.id)).toContain('accident-snarl');
   });
 });
