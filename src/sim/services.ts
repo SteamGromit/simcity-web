@@ -11,7 +11,7 @@ import {
   Zone,
 } from './types';
 
-type CovField = 'fireCov' | 'policeCov' | 'schoolCov' | 'healthCov' | 'busCov';
+type CovField = 'fireCov' | 'policeCov' | 'schoolCov' | 'healthCov' | 'busCov' | 'garbageCov';
 
 const COV_FIELD: Record<string, CovField> = {
   fire: 'fireCov',
@@ -19,6 +19,7 @@ const COV_FIELD: Record<string, CovField> = {
   school: 'schoolCov',
   health: 'healthCov',
   bus: 'busCov',
+  garbage: 'garbageCov',
 };
 
 interface ServiceEntry {
@@ -64,6 +65,7 @@ export function updateCoverage(city: CityState): void {
     t.schoolCov = 0;
     t.healthCov = 0;
     t.busCov = 0;
+    t.garbageCov = 0;
     t.transitShare = 1;
   }
   const table = services();

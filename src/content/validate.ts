@@ -32,7 +32,7 @@ export type ValidateResult =
   | { ok: true; value: ValidatedPack }
   | { ok: false; errors: string[] };
 
-const SERVICE_KINDS: ServiceKind[] = ['fire', 'police', 'school', 'health', 'bus'];
+const SERVICE_KINDS: ServiceKind[] = ['fire', 'police', 'school', 'health', 'bus', 'garbage'];
 
 const isObj = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -149,6 +149,8 @@ function validateBuildings(
       }
     }
 
+    if (entry.waste !== undefined) validateWaste(entry.waste, `${where} (${id})`, errors);
+
     if (entry.visual !== undefined) validateVisual(entry.visual, `${where} (${id})`, errors);
 
     out.push(entry as unknown as BuildingDef);
@@ -251,6 +253,7 @@ function validateOverrides(
             }
           }
         }
+        if (entry.waste !== undefined) validateWaste(entry.waste, at, errors, true);
         if (entry.siting !== undefined && !isObj(entry.siting)) {
           errors.push(`${at}: "siting" must be an object`);
         }
@@ -282,6 +285,27 @@ function validateOverrides(
   }
 
   return out;
+}
+
+/**
+ * Check a waste block. `partial` relaxes the required-capacity rule for an
+ * override, where every field is optional by definition.
+ */
+function validateWaste(raw: unknown, at: string, errors: string[], partial = false): void {
+  if (!isObj(raw)) {
+    errors.push(`${at}: "waste" must be an object`);
+    return;
+  }
+  const cap = raw.capacity;
+  if (partial ? cap !== undefined : true) {
+    if (!isNum(cap) || cap < 0) errors.push(`${at}: "waste.capacity" must be a number >= 0`);
+  }
+  if (raw.divert !== undefined && (!isNum(raw.divert) || raw.divert < 0 || raw.divert > 1)) {
+    errors.push(`${at}: "waste.divert" must be a number 0..1`);
+  }
+  if (raw.pollution !== undefined && (!isNum(raw.pollution) || raw.pollution < 0)) {
+    errors.push(`${at}: "waste.pollution" must be a number >= 0`);
+  }
 }
 
 /** Numeric bounds for a VisualDef, by field. */

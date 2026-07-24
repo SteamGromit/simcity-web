@@ -23,7 +23,21 @@ export const UNLOCK_CONTEXT_KEYS = [
   'brownouts',
 ] as const;
 
-export type ServiceKind = 'fire' | 'police' | 'school' | 'health' | 'bus';
+export type ServiceKind = 'fire' | 'police' | 'school' | 'health' | 'bus' | 'garbage';
+
+/**
+ * Refuse handling. Coverage (who gets a pickup) rides the `service` block like
+ * any other city service; this block is the other half — what the city can
+ * actually process once the trucks arrive.
+ */
+export interface WasteDef {
+  /** Tonnes per month this building can dispose of. */
+  capacity: number;
+  /** Share of citywide production it recycles away entirely, 0..1. */
+  divert?: number;
+  /** What the building itself emits, on the same scale as a plant's. */
+  pollution?: number;
+}
 
 export interface UnlockDef {
   /** Expression over UNLOCK_CONTEXT_KEYS; truthy means available. */
@@ -85,6 +99,7 @@ export interface BuildingDef {
   service?: { kind: ServiceKind; radius: number; share?: number };
   transit?: { radius: number; share: number };
   siting?: { needsWater?: boolean };
+  waste?: WasteDef;
   /** Present ⇒ the generic renderer draws this building from the spec. */
   visual?: VisualDef;
 }
@@ -131,6 +146,7 @@ export interface BuildingOverride {
   power?: Partial<{ capacity: number; pollution: number }>;
   service?: Partial<{ kind: ServiceKind; radius: number; share: number }>;
   transit?: Partial<{ radius: number; share: number }>;
+  waste?: Partial<WasteDef>;
   siting?: { needsWater?: boolean };
   visual?: VisualDef;
 }

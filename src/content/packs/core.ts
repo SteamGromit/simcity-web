@@ -160,6 +160,46 @@ export const CORE_PACK: Pack = {
       transit: { radius: mapScaled(13), share: 0.15 },
       unlock: { expr: 'population >= 50000', label: 'pop 50,000' },
     },
+
+    // --- refuse: collection radius plus somewhere for it all to go ---
+    {
+      id: 'core:landfill',
+      slot: Zone.Landfill,
+      name: 'Landfill',
+      tool: 'landfill',
+      cost: 800,
+      upkeep: 40,
+      service: { kind: 'garbage', radius: SERVICE_RADII.landfill },
+      // a working tip is a genuinely unpleasant neighbour
+      waste: { capacity: 900, pollution: 0.8 },
+    },
+    {
+      id: 'core:incinerator',
+      slot: Zone.Incinerator,
+      name: 'Incinerator',
+      tool: 'incinerator',
+      cost: 2500,
+      upkeep: 140,
+      service: { kind: 'garbage', radius: SERVICE_RADII.incinerator },
+      // cleaner ground, but it goes up the stack instead
+      waste: { capacity: 2200, pollution: 0.5 },
+      unlock: { expr: 'population >= 8000', label: 'pop 8,000' },
+    },
+    {
+      id: 'core:recycling_centre',
+      slot: Zone.RecyclingCentre,
+      name: 'Recycling Centre',
+      tool: 'recycling',
+      cost: 3000,
+      upkeep: 120,
+      service: { kind: 'garbage', radius: SERVICE_RADII.recycling },
+      // modest to bury, but it takes a quarter of the stream out entirely
+      waste: { capacity: 700, divert: 0.25, pollution: 0.1 },
+      unlock: {
+        expr: 'population >= 20000 && eduLevel > 0.5',
+        label: 'pop 20,000 and an educated city',
+      },
+    },
   ],
 
   // ids pinned: saves store these strings as the keys of city.ordinances
@@ -191,6 +231,13 @@ export const CORE_PACK: Pack = {
       blurb: 'Extra school funding: school coverage counts 25% stronger across its reach.',
       cost: 120,
       effects: { 'coverage.school': 1.25 },
+    },
+    {
+      id: 'recycling',
+      label: 'Recycling Program',
+      blurb: 'Kerbside sorting and deposit returns: the city throws out a quarter less.',
+      cost: 150,
+      effects: { 'garbage.production': 0.75 },
     },
     {
       id: 'healthDrive',

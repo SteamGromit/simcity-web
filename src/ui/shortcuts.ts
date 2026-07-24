@@ -40,6 +40,8 @@ export const OVERLAY_KEYS: Record<string, OverlayId> = {
   v: 'police', // matches the V police-station tool key
   s: 'school',
   h: 'health',
+  g: 'garbage',
+  r: 'garbagecov', // R for refuse; bare R is the road tool
   w: 'water',
 };
 
@@ -85,6 +87,9 @@ export const HALO_RADII: Partial<Record<BuildTool, number>> = {
   monorail: mapScaled(8.5),
   subway: mapScaled(10.5),
   rail: mapScaled(13),
+  landfill: SERVICE_RADII.landfill,
+  incinerator: SERVICE_RADII.incinerator,
+  recycling: SERVICE_RADII.recycling,
 };
 
 /**

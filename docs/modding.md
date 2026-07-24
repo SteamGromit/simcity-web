@@ -53,7 +53,8 @@ interface BuildingDef {
   upkeep: number;
   unlock?: { expr: string; label: string };
   power?: { capacity: number; pollution: number };
-  service?: { kind: 'fire' | 'police' | 'school' | 'health' | 'bus'; radius: number; share?: number };
+  service?: { kind: 'fire' | 'police' | 'school' | 'health' | 'bus' | 'garbage'; radius: number; share?: number };
+  waste?: { capacity: number; divert?: number; pollution?: number };
   transit?: { radius: number; share: number };
   siting?: { needsWater?: boolean };
   visual?: VisualDef;   // how it draws; see Visuals below
@@ -94,6 +95,15 @@ Field by field:
   same thing as `transit.share` on a `transit` block (fraction of a
   covered trip's traffic that still hits the road; the core bus stop uses
   0.5).
+- **`waste`** (optional) — marks this as a refuse disposal building. Pair it
+  with `service: { kind: 'garbage', radius }`: the service block decides which
+  tiles it collects from, and this block decides what it can do with what it
+  collects. `capacity` is tonnes per month it can process; `divert` (0..1) is
+  the share of the city's *whole* production it recycles away before any of it
+  needs burying (diversion across all buildings is capped at 0.6); `pollution`
+  is what the building itself emits, on the same scale as a plant's
+  `power.pollution`. A building with capacity but no garbage service collects
+  from nowhere; one with the service but no capacity has nowhere to put it.
 - **`transit`** (optional) — marks this as a non-bus transit station
   (streetcar, monorail, subway, rail). `radius` is stop coverage; `share` is
   the fraction of a covered trip's traffic that *still hits the road* after
@@ -334,7 +344,7 @@ content or another mod.
 
 ## The modifier vocabulary
 
-Ordinance `effects` may only set these seven keys. Effects **multiply**
+Ordinance `effects` may only set these eight keys. Effects **multiply**
 across every currently-enacted ordinance — the identity value is `1`, so an
 ordinance that doesn't mention a key leaves it untouched, and two ordinances
 that both touch the same key compound (two ordinances each halving fire
@@ -349,6 +359,7 @@ ignition risk leave it at 25%, not 0%).
 | `coverage.school` | Effective strength of school coverage across its reach | `> 1` makes coverage count for more |
 | `disaster.pandemicOdds` | Chance a pandemic starts in a given period | `< 1` reduces it |
 | `disaster.pandemicToll` | Severity of an active pandemic (abandonment/demand hit) | `< 1` reduces it |
+| `garbage.production` | Refuse developed tiles put out each month | `< 1` reduces it |
 
 A pack cannot invent an eighth knob — the sim only reads these seven, so
 `validate` rejects any other key in `effects` as an error naming the bad key,

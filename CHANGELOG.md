@@ -4,6 +4,57 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.50.0] — 2026-07-24 · Garbage
+
+### ⚠️ A note for existing cities
+
+**Blocks now need refuse collection to grow past stage 3.** Garbage
+joins fire, police and schools as a service that gates density, so a
+city you have already built will stall until you put a Landfill in
+reach of it — exactly as adding running water did back in v0.14. The
+Refuse Cover view (⇧R) shows what is and isn't served.
+
+### Added
+- **Residents produce garbage, and it has to go somewhere.** Every
+  developed lot puts out refuse each month, more as it grows, with
+  dirty industry the worst of it. Collection is a city service like any
+  other — a disposal building covers a radius — but it is the first one
+  with a **second constraint**: the city also needs enough capacity to
+  process what the trucks bring in. Miss either and the rubbish stays
+  on the street.
+- **Two failures that look different and are fixed differently.** Trash
+  piling up in one district means nothing reaches it — site a dump
+  closer. Trash piling up *evenly across the whole city* means you are
+  over capacity — build more, or throw out less. The advisor names
+  whichever it is rather than blurring them into one complaint.
+- **A Waste ladder**, collapsed into one toolbar bundle beside Power
+  Plant and Transit Line:
+  - **Landfill** (§800) — available from the start, high capacity, and
+    a genuinely unpleasant neighbour: it pollutes hard and drags the
+    land value around it down.
+  - **Incinerator** (§2,500, pop 8,000) — more capacity and cleaner
+    ground, at the price of a stack and a higher bill.
+  - **Recycling Centre** (§3,000, pop 20,000 *and* an educated city) —
+    modest capacity, but it takes a quarter of the city's refuse out of
+    the stream entirely.
+- **The Recycling Program ordinance** (§150/mo) cuts what the city
+  throws out by a quarter, so a small city has the same lever long
+  before it can afford a recycling centre.
+- **Uncollected refuse rots.** A heap emits pollution like a small
+  factory, drags the lot's land value, and takes the pressure out of
+  growth on top of that — so neglect compounds instead of plateauing.
+  Heaps clear gradually once collection catches up, not all at once.
+- **Two data views**: **Garbage** (⇧G) tints by how deep the heap is,
+  and **Refuse Cover** (⇧R) shows collection reach. Query reports a
+  tile's pickup and pile size; hovering a depot previews its round.
+
+### Changed
+- The modifier vocabulary gains its eighth knob, `garbage.production` —
+  its first addition since v0.46 — so a mod can tune how much refuse a
+  city generates. Disposal buildings are content like everything else:
+  a new `waste` block declares capacity, how much a building recycles
+  away, and what it emits.
+
 ## [0.49.0] — 2026-07-24 · Core overrides & balance
 
 Completes the modding editor (the last of its three parts): mods can now

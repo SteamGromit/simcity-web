@@ -13,6 +13,7 @@ export const MODIFIER_KEYS = [
   'coverage.school',
   'disaster.pandemicOdds',
   'disaster.pandemicToll',
+  'garbage.production',
 ] as const;
 
 export type ModifierKey = (typeof MODIFIER_KEYS)[number];

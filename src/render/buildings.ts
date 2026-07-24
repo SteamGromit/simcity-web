@@ -1121,6 +1121,101 @@ export function drawBuilding(
     return;
   }
 
+  if (zone === Zone.Landfill) {
+    // a bulldozed mound of refuse: earth berm, litter, and gulls over it
+    drawShadow(ctx, geom, 0.9);
+    fillTile(ctx, geom, 'hsl(74 18% 34%)');
+    fillPoly(
+      ctx,
+      [
+        [cx - 22, cy + 2],
+        [cx - 6, cy - 11],
+        [cx + 10, cy - 9],
+        [cx + 22, cy + 3],
+        [cx, cy + 13],
+      ],
+      'hsl(46 14% 40%)',
+    );
+    fillPoly(
+      ctx,
+      [
+        [cx - 6, cy - 11],
+        [cx + 10, cy - 9],
+        [cx + 22, cy + 3],
+        [cx + 4, cy - 1],
+      ],
+      'hsl(46 12% 33%)',
+    );
+    if (detail >= 1) {
+      // scraps caught on the heap
+      const litter: [number, number, string][] = [
+        [-12, 1, '#b9b2a2'],
+        [-2, -5, '#8f9a86'],
+        [7, -2, '#a89a8c'],
+        [14, 3, '#9aa4ad'],
+        [1, 6, '#b0a68f'],
+      ];
+      for (const [dx, dy, fill] of litter) {
+        ctx.fillStyle = fill;
+        ctx.fillRect(cx + dx, cy + dy, 2.5, 2);
+      }
+      // gulls
+      ctx.strokeStyle = 'rgba(245,245,240,0.9)';
+      ctx.lineWidth = 1;
+      for (const [gx, gy] of [
+        [-8, -20],
+        [6, -25],
+      ] as const) {
+        ctx.beginPath();
+        ctx.moveTo(cx + gx - 3, cy + gy);
+        ctx.quadraticCurveTo(cx + gx, cy + gy - 2, cx + gx + 3, cy + gy);
+        ctx.stroke();
+      }
+    }
+    return;
+  }
+
+  if (zone === Zone.Incinerator) {
+    // squat furnace hall under a tall stack trailing smoke
+    drawShadow(ctx, geom, 0.75);
+    box(ctx, geom, 0.75, 20, 28, 8, 42);
+    smokestack(ctx, cx + 6, cy - 14, 34);
+    ctx.fillStyle = 'hsl(20 45% 42%)';
+    ctx.fillRect(cx - 16, cy - 14, 14, 4); // charging door
+    if (detail >= 1) {
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.beginPath();
+      ctx.arc(cx + 9, cy - 52, 5, 0, Math.PI * 2);
+      ctx.arc(cx + 14, cy - 57, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (!powered) drawNoPowerBolt(ctx, cx, cy - 44);
+    return;
+  }
+
+  if (zone === Zone.RecyclingCentre) {
+    // open sorting shed with colour-coded bays out front
+    drawShadow(ctx, geom, 0.7);
+    box(ctx, geom, 0.7, 15, 140, 22, 52);
+    if (detail >= 1) {
+      const bays = ['#2f7fbf', '#3f9f56', '#c9a227'];
+      bays.forEach((fill, i) => {
+        ctx.fillStyle = fill;
+        ctx.fillRect(cx - 15 + i * 10, cy + 1, 8, 5);
+      });
+      // recycling chevrons on the roof
+      ctx.strokeStyle = '#eaf3ea';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx - 5, cy - 18);
+      ctx.lineTo(cx, cy - 22);
+      ctx.lineTo(cx + 5, cy - 18);
+      ctx.stroke();
+    }
+    if (!powered) drawNoPowerBolt(ctx, cx, cy - 26);
+    return;
+  }
+
   if (
     zone === Zone.FireStation ||
     zone === Zone.PoliceStation ||

@@ -159,14 +159,17 @@ describe('LINE_TOOLS / RECT_TOOLS', () => {
 });
 
 describe('HALO_RADII', () => {
-  test('exactly the coverage services and transit ladder get a placement halo', () => {
+  test('exactly the coverage services, transit ladder, and refuse depots get a halo', () => {
     expect(Object.keys(HALO_RADII).sort()).toEqual([
       'bus',
       'fire',
       'hospital',
+      'incinerator',
+      'landfill',
       'monorail',
       'police',
       'rail',
+      'recycling',
       'school',
       'streetcar',
       'subway',

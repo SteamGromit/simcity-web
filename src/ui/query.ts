@@ -28,6 +28,9 @@ const ZONE_NAMES: Record<Zone, string> = {
   [Zone.MonorailStation]: 'Monorail Station',
   [Zone.SubwayStation]: 'Subway Station',
   [Zone.RailTerminal]: 'Rail Terminal',
+  [Zone.Landfill]: 'Landfill',
+  [Zone.Incinerator]: 'Incinerator',
+  [Zone.RecyclingCentre]: 'Recycling Centre',
 };
 
 export function buildQuery(root: HTMLElement) {
@@ -70,6 +73,8 @@ export function buildQuery(root: HTMLElement) {
         rows.push(['School cover', `${Math.round(t.schoolCov * 100)}%`]);
         rows.push(['Health cover', `${Math.round(t.healthCov * 100)}%`]);
         rows.push(['Bus access', t.busCov > 0 ? 'yes' : 'no']);
+        rows.push(['Refuse pickup', t.garbageCov > 0 ? 'yes' : 'no']);
+        if (t.garbage > 0.005) rows.push(['Rubbish', `${Math.round(t.garbage * 100)}%`]);
       }
       if (t.zone === Zone.Road) {
         rows.push(['Traffic', String(Math.round(t.traffic))]);

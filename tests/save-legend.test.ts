@@ -135,3 +135,33 @@ describe('save legend and authored buildings', () => {
     expect(back.tiles[idx(6, 5)].zone).toBe(Zone.PowerPlant);
   });
 });
+
+describe('garbage state in a save', () => {
+  test("a tile's heap round-trips", () => {
+    const city = newCity(1);
+    city.tiles[idx(5, 5)].zone = Zone.Residential;
+    city.tiles[idx(5, 5)].garbage = 0.42;
+    const back = deserialize(serialize(city))!;
+    expect(back.tiles[idx(5, 5)].garbage).toBeCloseTo(0.42);
+  });
+
+  test('a heap outside 0..1 is clamped rather than trusted', () => {
+    const city = newCity(1);
+    const raw = JSON.parse(serialize(city));
+    raw.tiles[idx(5, 5)].garbage = 99;
+    const back = deserialize(JSON.stringify(raw))!;
+    expect(back.tiles[idx(5, 5)].garbage).toBe(1);
+  });
+
+  test('a save from before garbage existed loads with clean streets', () => {
+    const city = newCity(1);
+    const raw = JSON.parse(serialize(city));
+    for (const t of raw.tiles) delete t.garbage;
+    delete raw.waste;
+    const back = deserialize(JSON.stringify(raw))!;
+    expect(back.tiles[idx(5, 5)].garbage).toBe(0);
+    expect(back.waste).toEqual({
+      produced: 0, diverted: 0, capacity: 0, collected: 0, uncollected: 0,
+    });
+  });
+});

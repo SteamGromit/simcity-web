@@ -54,6 +54,15 @@ const BUNDLES: Bundle[] = [
     ],
   },
   {
+    id: 'waste',
+    label: 'Waste',
+    members: [
+      { id: 'landfill', label: 'Landfill', title: 'Cheap and filthy' },
+      { id: 'incinerator', label: 'Incinerator' },
+      { id: 'recycling', label: 'Recycling Centre', title: 'Diverts a quarter of the stream' },
+    ],
+  },
+  {
     id: 'transit',
     label: 'Transit Line',
     members: [
@@ -65,6 +74,14 @@ const BUNDLES: Bundle[] = [
     ],
   },
 ];
+
+/** Bundles are referenced by id: positional indices reshuffle silently when
+ * a new family is added, and quietly hand a button the wrong flyout. */
+function bundleById(id: string): Bundle {
+  const found = BUNDLES.find((b) => b.id === id);
+  if (!found) throw new Error(`no toolbar bundle "${id}"`);
+  return found;
+}
 
 const ZONING_TOOLS: { id: ToolId; label: string }[] = [
   { id: 'zoneR', label: 'Residential' },
@@ -305,7 +322,7 @@ export function buildToolbar(
   for (const { id, label, title } of BUILD_TOOLS) {
     const btn = toolButton(id, label, buildBody);
     if (title) btn.title = title;
-    if (id === 'road') bundleButton(BUNDLES[0], buildBody);
+    if (id === 'road') bundleButton(bundleById('energy'), buildBody);
   }
 
   const zoningBody = section('zoning', 'Zoning');
@@ -315,7 +332,8 @@ export function buildToolbar(
   for (const { id, label, title } of CIVIC_TOOLS) {
     const btn = toolButton(id, label, civicBody);
     if (title) btn.title = title;
-    if (id === 'hospital') bundleButton(BUNDLES[1], civicBody);
+    if (id === 'hospital') bundleButton(bundleById('transit'), civicBody);
+    if (id === 'pipe') bundleButton(bundleById('waste'), civicBody);
   }
 
   const terraBody = section('terrain', 'Terrain · free until founded');

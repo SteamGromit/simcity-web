@@ -35,6 +35,10 @@ export enum Zone {
   MonorailStation,
   SubwayStation,
   RailTerminal,
+  // appended for save compatibility — garbage (v0.50)
+  Landfill,
+  Incinerator,
+  RecyclingCentre,
 }
 
 export type Stage = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -81,6 +85,14 @@ export interface Tile {
   schoolCov: number;
   healthCov: number;
   busCov: number;
+  /** Garbage pickup reach from a powered disposal building. */
+  garbageCov: number;
+  /**
+   * Uncollected refuse piled on this lot, 0..1. Unlike the coverage fields
+   * this is real state the city is in, not a derived reading, so it persists
+   * and only clears as collection catches up.
+   */
+  garbage: number;
   /** Ticks of fire left on this tile; 0 = not burning. */
   burning: number;
   /** Months of disaster debris on the lot; blocks development while > 0. */
@@ -138,6 +150,24 @@ export const PANDEMIC_MONTHS = 6;
 
 export type Biome = 'temperate' | 'desert';
 
+/** What the city threw out last month, and what happened to it. */
+export interface WasteReport {
+  /** Tonnes developed tiles put out, after the production modifier. */
+  produced: number;
+  /** Tonnes recycling removed before any of it needed burying. */
+  diverted: number;
+  /** Tonnes per month the powered disposal buildings can process. */
+  capacity: number;
+  /** Tonnes actually taken away. */
+  collected: number;
+  /** Tonnes left on the kerb — out of reach, or over capacity. */
+  uncollected: number;
+}
+
+export function defaultWaste(): WasteReport {
+  return { produced: 0, diverted: 0, capacity: 0, collected: 0, uncollected: 0 };
+}
+
 export interface CityState {
   version: 1;
   seed: number;
@@ -156,6 +186,8 @@ export interface CityState {
   /** Consumers denied power last tick because the plant pool ran dry. */
   brownouts: number;
   lastBudget: BudgetReport;
+  /** Last month's refuse ledger; recomputed by the waste pass. */
+  waste: WasteReport;
   /** Enacted city policies; each charges monthly and tweaks the sim. */
   ordinances: Record<string, boolean>;
   /** Active disasters (spawned randomly or summoned from City Hall). */
@@ -207,6 +239,9 @@ export type ToolId =
   | 'wind'
   | 'hydro'
   | 'nuclear'
+  | 'landfill'
+  | 'incinerator'
+  | 'recycling'
   | 'streetcar'
   | 'monorail'
   | 'subway'
@@ -275,6 +310,10 @@ export const SERVICE_RADII = {
   school: mapScaled(10),
   health: mapScaled(10),
   bus: mapScaled(5),
+  // collection rounds cover ground; a depot reaches further than a school does
+  landfill: mapScaled(11),
+  incinerator: mapScaled(12),
+  recycling: mapScaled(10),
 };
 /** Monthly upkeep per service building. */
 export const SERVICE_UPKEEP = { fire: 50, police: 50, school: 40, health: 60, bus: 15 };

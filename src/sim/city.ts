@@ -9,6 +9,7 @@ import { updateLandValue } from './landvalue';
 import { updatePollution } from './pollution';
 import { updatePower } from './power';
 import { updateWater } from './water';
+import { updateWasteMonthly } from './waste';
 import { pandemicMonthly, rollForDisaster, rubbleMonthly, updateDisasters } from './disasters';
 import { defaultWeather, updateWeatherMonthly } from './weather';
 import { fireRisk, updateCoverage, updateFires } from './services';
@@ -24,6 +25,7 @@ import {
   COSTS,
   DEFAULT_TAX,
   defaultDisasters,
+  defaultWaste,
   Density,
   DENSITY_COST_MULT,
   GRID,
@@ -158,6 +160,7 @@ export function newCity(seed: number): CityState {
     eduLevel: 0,
     brownouts: 0,
     lastBudget: { rIncome: 0, cIncome: 0, iIncome: 0, expenses: 0, net: 0 },
+    waste: defaultWaste(),
     ordinances: defaultOrdinances(),
     disasters: defaultDisasters(),
     weather: defaultWeather(),
@@ -196,6 +199,9 @@ const TOOL_ZONE: Partial<Record<ToolId, Zone>> = {
   wind: Zone.WindTurbine,
   hydro: Zone.HydroPlant,
   nuclear: Zone.NuclearPlant,
+  landfill: Zone.Landfill,
+  incinerator: Zone.Incinerator,
+  recycling: Zone.RecyclingCentre,
   // transit stations have no direct tools — the wizard places them
   // atomically via buildLine (sim/transitlines.ts)
 };
@@ -421,6 +427,7 @@ export function simTick(city: CityState, rand: () => number): void {
     fireRisk(city, rand);
     pandemicMonthly(city, rand);
     rubbleMonthly(city);
+    updateWasteMonthly(city);
     retierMonthly(city, rand);
     rollForDisaster(city, rand);
     updateWeatherMonthly(city, rand);

@@ -47,6 +47,7 @@ describe('health gates high-density growth', () => {
     t.policeCov = 1;
     t.schoolCov = 1;
     t.healthCov = healthCov;
+    t.garbageCov = 1; // this test is about the hospital gate, not refuse
     t.watered = true;
     city.demand = { r: 1, c: 1, i: 1 };
     return city;

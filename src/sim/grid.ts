@@ -80,6 +80,8 @@ export function blankTile(): Tile {
     schoolCov: 0,
     healthCov: 0,
     busCov: 0,
+    garbageCov: 0,
+    garbage: 0,
     burning: 0,
     rubble: 0,
     pollution: 0,

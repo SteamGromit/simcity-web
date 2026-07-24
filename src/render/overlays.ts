@@ -14,6 +14,8 @@ export type OverlayId =
   | 'police'
   | 'school'
   | 'health'
+  | 'garbage'
+  | 'garbagecov'
   | 'water';
 
 export const OVERLAY_LABELS: Record<OverlayId, string> = {
@@ -26,6 +28,8 @@ export const OVERLAY_LABELS: Record<OverlayId, string> = {
   police: 'Police Cover',
   school: 'School Cover',
   health: 'Health Cover',
+  garbage: 'Garbage',
+  garbagecov: 'Refuse Cover',
   water: 'Water',
 };
 
@@ -34,6 +38,7 @@ const COVERAGE_FIELD = {
   police: 'policeCov',
   school: 'schoolCov',
   health: 'healthCov',
+  garbagecov: 'garbageCov',
 } as const;
 
 function tint(city: CityState, i: number, overlay: OverlayId): string | null {
@@ -66,6 +71,12 @@ function tint(city: CityState, i: number, overlay: OverlayId): string | null {
         return `rgba(80,220,100,${0.15 + Math.min(0.45, reading.pressure)})`;
       return 'rgba(255,235,150,0.25)';
     }
+    case 'garbage': {
+      // the heap itself: what the player actually wants to hunt down
+      if (t.garbage <= 0.01) return null;
+      return `rgba(96,84,42,${Math.min(0.8, 0.2 + t.garbage * 0.7)})`;
+    }
+    case 'garbagecov':
     case 'fire':
     case 'police':
     case 'school':

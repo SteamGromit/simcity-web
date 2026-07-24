@@ -17,7 +17,10 @@ describe('map-relative balance', () => {
   });
 
   it('service radii match the 64-era shares on the 96 map', () => {
-    expect(SERVICE_RADII).toEqual({ fire: 12, police: 12, school: 15, health: 15, bus: 8 });
+    expect(SERVICE_RADII).toEqual({
+      fire: 12, police: 12, school: 15, health: 15, bus: 8,
+      landfill: 17, incinerator: 18, recycling: 15,
+    });
   });
 
   it('the transit ladder rides above the scaled bus', () => {

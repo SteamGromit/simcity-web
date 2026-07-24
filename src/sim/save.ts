@@ -6,6 +6,7 @@ import { defaultWeather, WEATHER_KINDS, WeatherKind } from './weather';
 import {
   CityState,
   defaultDisasters,
+  defaultWaste,
   FIRE_BURN_TICKS,
   GRID,
   MAX_ELEV,
@@ -121,6 +122,8 @@ function reviveTile(raw: unknown, remap: Map<number, number> | null): Tile {
   t.schoolCov = finite(r.schoolCov, 0);
   t.healthCov = finite(r.healthCov, 0);
   t.busCov = finite(r.busCov, 0);
+  t.garbageCov = finite(r.garbageCov, 0);
+  t.garbage = clamp(finite(r.garbage, 0), 0, 1);
   t.burning = Math.min(FIRE_BURN_TICKS, Math.max(0, Math.floor(finite(r.burning, 0))));
   t.rubble = Math.min(RUBBLE_MONTHS, Math.max(0, Math.floor(finite(r.rubble, 0))));
   t.pollution = finite(r.pollution, 0);
@@ -128,6 +131,16 @@ function reviveTile(raw: unknown, remap: Map<number, number> | null): Tile {
   t.commute = r.commute === -1 ? Infinity : finite(r.commute, Infinity);
   t.traffic = finite(r.traffic, 0);
   return t;
+}
+
+function reviveWaste(raw: unknown): CityState['waste'] {
+  const out = defaultWaste();
+  if (!raw || typeof raw !== 'object') return out;
+  const r = raw as Record<string, unknown>;
+  for (const k of Object.keys(out) as (keyof typeof out)[]) {
+    out[k] = Math.max(0, finite(r[k], 0));
+  }
+  return out;
 }
 
 function reviveOrdinances(raw: unknown): CityState['ordinances'] {
@@ -284,6 +297,10 @@ export function deserialize(json: string): CityState | null {
         expenses: finite(budget.expenses, 0),
         net: finite(budget.net, 0),
       },
+      // Revived rather than zeroed so the Budget panel and advisor show last
+      // month's refuse figures immediately on load, as they do for the budget.
+      // A save from before garbage existed reads as an empty ledger.
+      waste: reviveWaste(data.waste),
       ordinances: reviveOrdinances(data.ordinances),
       disasters: reviveDisasters(data.disasters),
       weather: reviveWeather(data.weather),

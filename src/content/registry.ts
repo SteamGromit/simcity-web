@@ -172,6 +172,7 @@ function mergeBuilding(base: BuildingDef, p: BuildingOverride): BuildingDef {
   if (p.power) out.power = { capacity: 0, pollution: 0, ...base.power, ...p.power };
   if (p.service) out.service = { kind: 'fire', radius: 0, ...base.service, ...p.service };
   if (p.transit) out.transit = { radius: 0, share: 1, ...base.transit, ...p.transit };
+  if (p.waste) out.waste = { capacity: 0, ...base.waste, ...p.waste };
   if (p.siting) out.siting = { ...base.siting, ...p.siting };
   return out;
 }
