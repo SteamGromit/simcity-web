@@ -7,8 +7,13 @@
 import { compile, type CompiledExpr } from './expr';
 import { isModifierKey } from './modifiers';
 import {
+  BUILDING_PROPS,
+  BUILDING_ROOFS,
+  MAX_BUILDING_PROPS,
   UNLOCK_CONTEXT_KEYS,
   type BuildingDef,
+  type BuildingProp,
+  type BuildingRoof,
   type OrdinanceDef,
   type Pack,
   type ServiceKind,
@@ -140,10 +145,57 @@ function validateBuildings(
       }
     }
 
+    if (entry.visual !== undefined) validateVisual(entry.visual, `${where} (${id})`, errors);
+
     out.push(entry as unknown as BuildingDef);
   });
 
   return out;
+}
+
+/** Numeric bounds for a VisualDef, by field. */
+const VISUAL_RANGES: Record<string, [number, number]> = {
+  footprint: [0.3, 1],
+  height: [6, 60],
+  hue: [0, 359],
+  sat: [0, 100],
+  light: [0, 100],
+};
+
+/**
+ * Check an authored building's look. Ranges are bounds the renderer can draw
+ * sensibly — a zero-footprint or 500px-tall mass would render as garbage
+ * rather than a building, so it's rejected at author time with a named field.
+ */
+function validateVisual(raw: unknown, where: string, errors: string[]): void {
+  if (!isObj(raw)) {
+    errors.push(`${where}: "visual" must be an object`);
+    return;
+  }
+
+  for (const [key, [lo, hi]] of Object.entries(VISUAL_RANGES)) {
+    const v = raw[key];
+    if (!isNum(v) || v < lo || v > hi) {
+      errors.push(`${where}: "visual.${key}" must be a number ${lo}..${hi}`);
+    }
+  }
+
+  if (!isStr(raw.roof) || !BUILDING_ROOFS.includes(raw.roof as BuildingRoof)) {
+    errors.push(`${where}: "visual.roof" must be one of ${BUILDING_ROOFS.join(', ')}`);
+  }
+
+  if (!Array.isArray(raw.props)) {
+    errors.push(`${where}: "visual.props" must be an array`);
+    return;
+  }
+  if (raw.props.length > MAX_BUILDING_PROPS) {
+    errors.push(`${where}: "visual.props" takes at most ${MAX_BUILDING_PROPS} props`);
+  }
+  for (const p of raw.props) {
+    if (!isStr(p) || !BUILDING_PROPS.includes(p as BuildingProp)) {
+      errors.push(`${where}: unknown prop "${String(p)}"`);
+    }
+  }
 }
 
 function validateOrdinances(raw: unknown, errors: string[]): OrdinanceDef[] {

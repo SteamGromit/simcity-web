@@ -32,6 +32,43 @@ export interface UnlockDef {
   label: string;
 }
 
+/** Roof shapes an authored building may wear (mirrors the renderer's RoofStyle). */
+export const BUILDING_ROOFS = ['flat', 'parapet', 'gabled', 'sawtooth'] as const;
+export type BuildingRoof = (typeof BUILDING_ROOFS)[number];
+
+/** Rooftop details an authored building may wear. */
+export const BUILDING_PROPS = [
+  'waterTower',
+  'acUnit',
+  'antenna',
+  'chimney',
+  'vent',
+  'tank',
+  'smokestack',
+] as const;
+export type BuildingProp = (typeof BUILDING_PROPS)[number];
+
+/** Most rooftop props one authored building may carry. */
+export const MAX_BUILDING_PROPS = 3;
+
+/**
+ * How an authored building looks. Declarative rather than drawn: the renderer
+ * composes the same isometric primitives core buildings use, so an authored
+ * building inherits skins, day/night, and zoom LOD for free. Core buildings
+ * define no `visual` — they keep their bespoke draw code.
+ */
+export interface VisualDef {
+  /** Share of the tile the mass covers, 0.3..1. */
+  footprint: number;
+  /** Height in px before the skin's heightScale, 6..60. */
+  height: number;
+  hue: number;
+  sat: number;
+  light: number;
+  roof: BuildingRoof;
+  props: BuildingProp[];
+}
+
 export interface BuildingDef {
   /** Stable identity, namespaced for non-core packs: "core:coal_plant". */
   id: string;
@@ -48,6 +85,8 @@ export interface BuildingDef {
   service?: { kind: ServiceKind; radius: number; share?: number };
   transit?: { radius: number; share: number };
   siting?: { needsWater?: boolean };
+  /** Present ⇒ the generic renderer draws this building from the spec. */
+  visual?: VisualDef;
 }
 
 export interface OrdinanceDef {
