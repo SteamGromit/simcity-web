@@ -5,6 +5,7 @@ import { idx } from '../src/sim/grid';
 import { ageBuildings, collapseChance, collapseRoll } from '../src/sim/safety';
 import { COLLAPSE_AGE, COSTS, CityState, Zone } from '../src/sim/types';
 import { applyTool, canApply } from '../src/sim/city';
+import { adviseTips } from '../src/sim/tips';
 import { clearLand, makeCity, zone } from './helpers';
 
 function base(): CityState {
@@ -158,5 +159,26 @@ describe('the Repair tool', () => {
     expect(chance(city, 10, 10)).toBeGreaterThan(0);
     applyTool(city, 'repair', 10, 10);
     expect(chance(city, 10, 10)).toBe(0);
+  });
+});
+
+describe('the advisor flags collapse risk', () => {
+  test('an at-risk building with no safety programme raises the tip', () => {
+    const city = base();
+    aged(city, 10, 10, COLLAPSE_AGE + 600);
+    expect(adviseTips(city).map((t) => t.id)).toContain('collapse-risk');
+  });
+
+  test('enacting a programme silences it', () => {
+    const city = base();
+    aged(city, 10, 10, COLLAPSE_AGE + 600);
+    city.ordinances['inspectors'] = true;
+    expect(adviseTips(city).map((t) => t.id)).not.toContain('collapse-risk');
+  });
+
+  test('a young city gets no tip', () => {
+    const city = base();
+    aged(city, 10, 10, 120); // 10 years
+    expect(adviseTips(city).map((t) => t.id)).not.toContain('collapse-risk');
   });
 });

@@ -1390,6 +1390,24 @@ export function drawRubble(ctx: CanvasRenderingContext2D, geom: TileGeom, varian
 }
 
 /** Animated flames over a burning building; flicker driven by time. */
+/** A dust burst over a fresh collapse. `life` is 0..1, fading; a few grey
+ * puffs rising off the rubble. Render-only, decayed by the renderer. */
+export function drawCollapse(ctx: CanvasRenderingContext2D, geom: TileGeom, life: number) {
+  const { cx, cy } = geom;
+  ctx.globalAlpha = Math.min(1, life) * 0.7;
+  for (let k = 0; k < 4; k++) {
+    const rise = (1 - life) * 18;
+    const px = cx + (k - 1.5) * 7;
+    const py = cy - 4 - rise - k * 2;
+    const r = 4 + (1 - life) * 5;
+    ctx.fillStyle = k % 2 ? 'rgba(150,140,130,1)' : 'rgba(120,112,104,1)';
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
 /** A crashed-car marker over a blocked road: hazard cones and a flashing
  * amber/blue bar. Drawn while the block is live (a real sim state). */
 export function drawAccident(ctx: CanvasRenderingContext2D, geom: TileGeom, timeMs: number) {

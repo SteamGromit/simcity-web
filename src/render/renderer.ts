@@ -7,6 +7,7 @@ import {
   drawFire,
   drawCrimeFlash,
   drawAccident,
+  drawCollapse,
   drawPole,
   drawRubble,
   fillPoly,
@@ -238,6 +239,10 @@ export class Renderer {
         t.crimeFlash -= 1; // render-only decay; not part of the sim tick
       }
       if (t.accident > 0) drawAccident(ctx, geom, now);
+      if (t.collapseFlash > 0) {
+        drawCollapse(ctx, geom, Math.min(1, t.collapseFlash / 90));
+        t.collapseFlash -= 1; // render-only decay
+      }
       this.automata.drawTile(ctx, i);
     }
 

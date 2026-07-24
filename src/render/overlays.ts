@@ -17,6 +17,7 @@ export type OverlayId =
   | 'garbage'
   | 'garbagecov'
   | 'crime'
+  | 'age'
   | 'water';
 
 export const OVERLAY_LABELS: Record<OverlayId, string> = {
@@ -32,6 +33,7 @@ export const OVERLAY_LABELS: Record<OverlayId, string> = {
   garbage: 'Garbage',
   garbagecov: 'Refuse Cover',
   crime: 'Crime',
+  age: 'Building Age',
   water: 'Water',
 };
 
@@ -79,6 +81,15 @@ function tint(city: CityState, i: number, overlay: OverlayId): string | null {
       // the heap itself: what the player actually wants to hunt down
       if (t.garbage <= 0.01) return null;
       return `rgba(96,84,42,${Math.min(0.8, 0.2 + t.garbage * 0.7)})`;
+    }
+    case 'age': {
+      const developable =
+        t.zone === Zone.Residential || t.zone === Zone.Commercial || t.zone === Zone.Industrial;
+      if (!developable || t.stage === 0) return null;
+      const years = t.age / 12;
+      if (years < 40) return null; // young buildings aren't worth flagging
+      const heat = Math.min(1, (years - 40) / 80); // 40y..120y → 0..1
+      return `hsl(${40 - 40 * heat} 80% 48% / ${0.25 + 0.4 * heat})`; // yellow → red
     }
     case 'crime': {
       if (t.crime <= 0.02) return null;

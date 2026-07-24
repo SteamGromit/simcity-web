@@ -42,7 +42,8 @@ export const OVERLAY_KEYS: Record<string, OverlayId> = {
   h: 'health',
   g: 'garbage',
   r: 'garbagecov',
-  c: 'crime', // R for refuse; bare R is the road tool
+  c: 'crime',
+  a: 'age', // building age
   w: 'water',
 };
 
