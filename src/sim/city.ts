@@ -199,6 +199,9 @@ const TOOL_ZONE: Partial<Record<ToolId, Zone>> = {
   wind: Zone.WindTurbine,
   hydro: Zone.HydroPlant,
   nuclear: Zone.NuclearPlant,
+  landfill: Zone.Landfill,
+  incinerator: Zone.Incinerator,
+  recycling: Zone.RecyclingCentre,
   // transit stations have no direct tools — the wizard places them
   // atomically via buildLine (sim/transitlines.ts)
 };

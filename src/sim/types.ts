@@ -35,6 +35,10 @@ export enum Zone {
   MonorailStation,
   SubwayStation,
   RailTerminal,
+  // appended for save compatibility — garbage (v0.50)
+  Landfill,
+  Incinerator,
+  RecyclingCentre,
 }
 
 export type Stage = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -235,6 +239,9 @@ export type ToolId =
   | 'wind'
   | 'hydro'
   | 'nuclear'
+  | 'landfill'
+  | 'incinerator'
+  | 'recycling'
   | 'streetcar'
   | 'monorail'
   | 'subway'
@@ -303,6 +310,10 @@ export const SERVICE_RADII = {
   school: mapScaled(10),
   health: mapScaled(10),
   bus: mapScaled(5),
+  // collection rounds cover ground; a depot reaches further than a school does
+  landfill: mapScaled(11),
+  incinerator: mapScaled(12),
+  recycling: mapScaled(10),
 };
 /** Monthly upkeep per service building. */
 export const SERVICE_UPKEEP = { fire: 50, police: 50, school: 40, health: 60, bus: 15 };

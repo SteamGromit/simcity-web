@@ -303,6 +303,9 @@ function validateWaste(raw: unknown, at: string, errors: string[], partial = fal
   if (raw.divert !== undefined && (!isNum(raw.divert) || raw.divert < 0 || raw.divert > 1)) {
     errors.push(`${at}: "waste.divert" must be a number 0..1`);
   }
+  if (raw.pollution !== undefined && (!isNum(raw.pollution) || raw.pollution < 0)) {
+    errors.push(`${at}: "waste.pollution" must be a number >= 0`);
+  }
 }
 
 /** Numeric bounds for a VisualDef, by field. */

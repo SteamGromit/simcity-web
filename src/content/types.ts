@@ -35,6 +35,8 @@ export interface WasteDef {
   capacity: number;
   /** Share of citywide production it recycles away entirely, 0..1. */
   divert?: number;
+  /** What the building itself emits, on the same scale as a plant's. */
+  pollution?: number;
 }
 
 export interface UnlockDef {

@@ -28,6 +28,9 @@ const ZONE_NAMES: Record<Zone, string> = {
   [Zone.MonorailStation]: 'Monorail Station',
   [Zone.SubwayStation]: 'Subway Station',
   [Zone.RailTerminal]: 'Rail Terminal',
+  [Zone.Landfill]: 'Landfill',
+  [Zone.Incinerator]: 'Incinerator',
+  [Zone.RecyclingCentre]: 'Recycling Centre',
 };
 
 export function buildQuery(root: HTMLElement) {
