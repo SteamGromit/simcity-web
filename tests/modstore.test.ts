@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import { createModStore, slugify, type StorageLike } from '../src/ui/modstore';
+import { ensureCoreContent } from '../src/sim/content';
 import {
   allOrdinances,
   buildingById,
@@ -438,5 +439,100 @@ describe('mod store — building authoring', () => {
     const b = createModStore(storage);
     expect(b.list()[0].pack.buildings).toHaveLength(1);
     expect(buildingById('eco:solar-grove')).toBeDefined();
+  });
+});
+
+describe('mod store — overrides', () => {
+  function freshStore() {
+    resetRegistry();
+    ensureCoreContent();
+    const store = createModStore(fakeStorage());
+    return { store, mod: store.create('Balance') };
+  }
+
+  test('setOverride retunes core content and persists', () => {
+    const { store, mod } = freshStore();
+    const r = store.setOverride(mod.pack.id, 'building', { id: 'core:coal_plant', cost: 500 });
+    expect(r.ok).toBe(true);
+    expect(buildingById('core:coal_plant')!.cost).toBe(500);
+    expect(store.list()[0].pack.overrides!.buildings).toHaveLength(1);
+  });
+
+  test('setting the same target twice replaces rather than appends', () => {
+    const { store, mod } = freshStore();
+    store.setOverride(mod.pack.id, 'building', { id: 'core:coal_plant', cost: 500 });
+    store.setOverride(mod.pack.id, 'building', { id: 'core:coal_plant', cost: 900 });
+    expect(store.list()[0].pack.overrides!.buildings).toHaveLength(1);
+    expect(buildingById('core:coal_plant')!.cost).toBe(900);
+  });
+
+  test('clearOverride restores the core value', () => {
+    const { store, mod } = freshStore();
+    store.setOverride(mod.pack.id, 'building', { id: 'core:coal_plant', cost: 500 });
+    store.clearOverride(mod.pack.id, 'building', 'core:coal_plant');
+    expect(buildingById('core:coal_plant')!.cost).toBe(3000);
+    expect(store.list()[0].pack.overrides!.buildings ?? []).toHaveLength(0);
+  });
+
+  test('ordinance overrides work the same way', () => {
+    const { store, mod } = freshStore();
+    const r = store.setOverride(mod.pack.id, 'ordinance', { id: 'cleanAir', cost: 42 });
+    expect(r.ok).toBe(true);
+    expect(ordinanceById('cleanAir')!.cost).toBe(42);
+    store.clearOverride(mod.pack.id, 'ordinance', 'cleanAir');
+    expect(ordinanceById('cleanAir')!.cost).toBe(100);
+  });
+
+  test('an invalid patch is rejected and nothing changes', () => {
+    const { store, mod } = freshStore();
+    const r = store.setOverride(mod.pack.id, 'building', { id: 'core:coal_plant', cost: -1 });
+    expect(r.ok).toBe(false);
+    expect(buildingById('core:coal_plant')!.cost).toBe(3000);
+    expect(store.list()[0].pack.overrides?.buildings ?? []).toHaveLength(0);
+  });
+
+  test('a patch naming unknown content is rejected', () => {
+    const { store, mod } = freshStore();
+    const r = store.setOverride(mod.pack.id, 'building', { id: 'nope:missing', cost: 5 });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('nope:missing');
+  });
+
+  test('disabling the mod restores core, re-enabling reapplies', () => {
+    const { store, mod } = freshStore();
+    store.setOverride(mod.pack.id, 'building', { id: 'core:coal_plant', cost: 500 });
+
+    store.setEnabled(mod.pack.id, false);
+    expect(buildingById('core:coal_plant')!.cost).toBe(3000);
+
+    store.setEnabled(mod.pack.id, true);
+    expect(buildingById('core:coal_plant')!.cost).toBe(500);
+  });
+
+  test('overrides survive export and import', () => {
+    const { store, mod } = freshStore();
+    store.setOverride(mod.pack.id, 'building', { id: 'core:coal_plant', cost: 500 });
+    const json = store.exportMod(mod.pack.id);
+
+    resetRegistry();
+    ensureCoreContent();
+    const dst = createModStore(fakeStorage());
+    const r = dst.importMod(json);
+    expect(r.ok).toBe(true);
+    expect(buildingById('core:coal_plant')!.cost).toBe(500);
+  });
+
+  test('overrides persist across a store reload', () => {
+    resetRegistry();
+    ensureCoreContent();
+    const storage = fakeStorage();
+    const a = createModStore(storage);
+    const m = a.create('Balance');
+    a.setOverride(m.pack.id, 'building', { id: 'core:coal_plant', cost: 500 });
+
+    resetRegistry();
+    ensureCoreContent();
+    createModStore(storage); // re-registers from storage
+    expect(buildingById('core:coal_plant')!.cost).toBe(500);
   });
 });
