@@ -134,6 +134,17 @@ city. Blocks need collection to grow past stage 3, and uncollected heaps
 pollute, tank land value, and choke off growth until you deal with them —
 the **Garbage** (⇧G) and **Refuse Cover** (⇧R) views show where.
 
+**Crime** is where police coverage earns its keep. Every developed lot has
+a crime rate driven by poverty, crowding, joblessness and the blight of
+abandoned neighbours; it drags land value — which raises crime, a spiral a
+neglected district falls into on its own — and slows growth. It never
+*blocks* growth, only pressures it. A **Police Station** holds it down; the
+**Prison** (pop 15,000) covers a wide area but blights the land around it,
+so keep it clear of homes; the **Neighborhood Watch** ordinance cuts crime
+city-wide on the cheap. Watch it in the **Crime** view (⇧C); the advisor
+tells you whether a hotspot needs a nearer station or the whole city needs
+more coverage.
+
 Keep industry (and the coal plant) away from homes: pollution wrecks
 residential land value. Parks raise it.
 
@@ -197,7 +208,7 @@ simulation in your favor.
 | --- | --- |
 | Left click / drag | apply tool (zones, parks, bulldoze drag rectangles; roads, power lines, and pipes draw an adjustable line) |
 | Tool keys | B bulldoze · R road · 1/2/3 zones · P plant · L line · K park · F/V/S/D services · U bus · W/X water · I query |
-| ⇧ + key | data-view shortcuts: ⇧P power, ⇧O pollution, ⇧L land value, ⇧T traffic, ⇧D demand, ⇧F fire, ⇧V police, ⇧S school, ⇧H health, ⇧G garbage, ⇧R refuse cover, ⇧W water |
+| ⇧ + key | data-view shortcuts: ⇧P power, ⇧O pollution, ⇧L land value, ⇧T traffic, ⇧D demand, ⇧F fire, ⇧V police, ⇧S school, ⇧H health, ⇧G garbage, ⇧R refuse cover, ⇧C crime, ⇧W water |
 | Minimap click | jump the camera |
 | Charts button | population and funds history |
 | Query tool | inspect any tile |

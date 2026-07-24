@@ -4,6 +4,50 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.51.0] — 2026-07-24 · Crime
+
+### Added
+- **Police coverage finally does something.** Until now a police station
+  fed a generic "services" average and gated a couple of growth stages,
+  but nothing actually *needed* it. Now every developed lot carries a
+  standing **crime rate** set by its conditions — poverty above all, then
+  crowding, joblessness, and the blight of abandoned neighbours — and
+  police coverage is what holds it down.
+- **A feedback loop you can break.** Crime drags a tile's land value,
+  which raises its crime, which drags its value further — so a neglected
+  district spirals on its own. It also deters residents and shoppers,
+  slowing growth. A police station (or the Watch, or lifting land value)
+  breaks the loop, and the block visibly calms over a few months rather
+  than flipping overnight.
+- **Two failures, read off the Crime view (⇧C).** A hot district while the
+  rest of the city is calm means no police reach — put a station nearby.
+  A faint city-wide simmer means your force is stretched — more stations,
+  or the Neighborhood Watch. The advisor names whichever it is.
+- **A Prison** — the force's high-capacity option: wide police coverage
+  behind a pop-15,000 unlock, but a grim neighbour that **blights the land
+  value around it**, so you site it away from homes. It joins the Police
+  Station in a new police bundle in the toolbar.
+- **The Neighborhood Watch ordinance** (§90/mo) cuts crime about a third
+  city-wide — the cheap early lever before a second station or a prison.
+- **Incidents** you hear and see: a burglary or a bout of vandalism
+  reported at a specific block, a brief "!" over the tile and a curt
+  police-whistle blip. Cosmetic — the pressure is the standing rate; the
+  incident is the feedback.
+- Query gains a **Crime** row on developed tiles.
+
+### Changed
+- **Not a growth gate.** Unlike garbage's collection requirement (v0.50),
+  crime never blocks a building from growing — it is pure pressure on land
+  value and desirability. A rich, fully-served block stays buildable no
+  matter how rough its neighbourhood, and nothing that wasn't already
+  marginal stops growing. On an existing save, a poor and under-policed
+  district will cool off and a few marginal lots may tip into abandonment;
+  a station or the Watch pulls it back.
+- The modifier vocabulary gains a ninth knob, `crime.rate` (the Watch's
+  lever), and content gains a reusable **`blight`** block — an amount and a
+  radius by which a building depresses nearby land value. Any mod building
+  can now declare itself an unpleasant neighbour; the Prison is the first.
+
 ## [0.50.0] — 2026-07-24 · Garbage
 
 ### ⚠️ A note for existing cities
