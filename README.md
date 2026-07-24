@@ -119,6 +119,21 @@ tiles of open water and the supply spreads through adjacent buildings;
 **Pipes** bridge gaps and cross under roads. Buildings need running water
 to grow past stage 2.
 
+**Rubbish** is the one service with two ways to fail. Every developed lot
+puts out refuse each month, and a disposal building has to both *reach*
+it — collection is a coverage radius like fire or police — and have the
+citywide *capacity* to process what comes in. Miss the first and one
+district fills up; miss the second and the whole city does, evenly. The
+advisor tells you which. Open the **Waste** menu in the Civic section:
+the **Landfill** is cheap and available immediately but a filthy
+neighbour, the **Incinerator** (pop 8,000) trades ground pollution for a
+stack, and the **Recycling Centre** (pop 20,000 and an educated city)
+takes a quarter of the refuse out of the stream altogether. The
+**Recycling Program** ordinance does something similar for a smaller
+city. Blocks need collection to grow past stage 3, and uncollected heaps
+pollute, tank land value, and choke off growth until you deal with them —
+the **Garbage** (⇧G) and **Refuse Cover** (⇧R) views show where.
+
 Keep industry (and the coal plant) away from homes: pollution wrecks
 residential land value. Parks raise it.
 
@@ -182,7 +197,7 @@ simulation in your favor.
 | --- | --- |
 | Left click / drag | apply tool (zones, parks, bulldoze drag rectangles; roads, power lines, and pipes draw an adjustable line) |
 | Tool keys | B bulldoze · R road · 1/2/3 zones · P plant · L line · K park · F/V/S/D services · U bus · W/X water · I query |
-| ⇧ + key | data-view shortcuts: ⇧P power, ⇧O pollution, ⇧L land value, ⇧T traffic, ⇧D demand, ⇧F fire, ⇧V police, ⇧S school, ⇧H health, ⇧W water |
+| ⇧ + key | data-view shortcuts: ⇧P power, ⇧O pollution, ⇧L land value, ⇧T traffic, ⇧D demand, ⇧F fire, ⇧V police, ⇧S school, ⇧H health, ⇧G garbage, ⇧R refuse cover, ⇧W water |
 | Minimap click | jump the camera |
 | Charts button | population and funds history |
 | Query tool | inspect any tile |

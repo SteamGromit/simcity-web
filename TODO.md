@@ -8,12 +8,11 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 1. **Region play** — multiple city tiles, neighbor deals (SC4 headline; deferred until single-city play is deep enough).
 2. **Rewards** — special buildings the mayor's office can purchase after city milestones are hit (e.g. Ballpark -> Arena -> Stadium -> Colesium, Library, Museum, Monument, College -> University -> Research University), They occupy > square. They provide jobs. They mpact the surrounding area (+ and/or -, context dependent) and sometimes the whole city (e.g. Research university unlocks access to Cold fusion power plant)
-3. **Garabage** - residents produce garabage. garabage pickup is a city service requiring a way to dispose of or process the trash. mayor can buy a trash dump. when city advances past some threshold of advancement, some trash can be recycled.
-4. **Crime** - crime can happen anywhere, but is more common in certain areas and conditions
-5. **traffic accidents** - occasionally a road is blocked due to an accident. Accident prob depends on traffic flow. reduce likelihood of accidends with driver education program. Reduce severity/duration of accident impact with fire depts with upgraded EMT program. animate accident and fallout.
-6. **building safety** - buildings can collapse resulting in loss of building and casualties. Probability increases with age of building. Baseline: It is _very_ rare, and only becomes possible after building hits a predefined age (default = 100 years). Probability adjusted by: city program of a. requiring building permit (slight increase in zoning price) and b. City program to hire and deploy infastructure inspectors, who monitor buildings, roads, bridges, utilities. Create animation for building collapse. Once a building has been repaired, its base prob of collapse goes back to 0 and progresses again as if it were newly built
+3. **Crime** - crime can happen anywhere, but is more common in certain areas and conditions
+4. **traffic accidents** - occasionally a road is blocked due to an accident. Accident prob depends on traffic flow. reduce likelihood of accidends with driver education program. Reduce severity/duration of accident impact with fire depts with upgraded EMT program. animate accident and fallout.
+5. **building safety** - buildings can collapse resulting in loss of building and casualties. Probability increases with age of building. Baseline: It is _very_ rare, and only becomes possible after building hits a predefined age (default = 100 years). Probability adjusted by: city program of a. requiring building permit (slight increase in zoning price) and b. City program to hire and deploy infastructure inspectors, who monitor buildings, roads, bridges, utilities. Create animation for building collapse. Once a building has been repaired, its base prob of collapse goes back to 0 and progresses again as if it were newly built
 
-7. **Modding: the parts the editor doesn't cover yet** — freehand/pixel
+6. **Modding: the parts the editor doesn't cover yet** — freehand/pixel
    drawing of buildings (today's look is composed from a mass, roof and
    props, not drawn), multi-tile footprints, modding the growable R/C/I
    ladders (population/jobs tables, stage heights, archetypes are still
@@ -21,6 +20,17 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    hosted). Low priority — the editor is usable without them.
 
 ## Done
+
+- **Garbage** — shipped v0.50.0 (developed lots produce refuse monthly;
+  collection is a coverage service *and* a citywide capacity constraint,
+  so "nothing reaches this street" and "the city is over capacity" are
+  distinct failures with distinct advisor tips; Landfill / Incinerator /
+  Recycling Centre ladder in a Waste bundle, plus a Recycling Program
+  ordinance; heaps pollute, devalue and stall growth, and clear
+  gradually; Garbage ⇧G and Refuse Cover ⇧R views; `garbage.production`
+  is the modifier vocabulary's eighth knob and `waste` a new content
+  block). **Stage 4+ now requires collection**, so existing cities stall
+  until they build a dump — the same bargain water made in v0.14.
 
 - **Modding editor** — shipped across v0.47.0–v0.49.0 in three parts.
   *Mod manager* (v0.47.0): the Mods panel — create/rename/enable/disable/
