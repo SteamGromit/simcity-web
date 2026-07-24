@@ -218,6 +218,14 @@ export type ToolId =
   | 'terraLower'
   | 'bulldoze';
 
+/**
+ * A tool the player can hold. Core tools are the closed `ToolId` union above;
+ * a building authored in a mod contributes its own tool id at runtime, so the
+ * placement seam accepts any string. `(string & {})` keeps editor completion
+ * for the known ids instead of collapsing the whole thing to `string`.
+ */
+export type BuildTool = ToolId | (string & {});
+
 /** Tools that are actions or zoning rather than a placed building; their
  * prices stay here because no content definition owns them. Building prices
  * come from the registry (see toolCost). */

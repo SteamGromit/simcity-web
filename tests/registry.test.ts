@@ -145,3 +145,60 @@ describe('unregisterPack', () => {
     expect(allBuildings().length).toBe(before);
   });
 });
+
+describe('stable slot allocation', () => {
+  beforeEach(() => {
+    resetRegistry();
+    const r = registerPack(CORE_PACK);
+    if (!r.ok) throw new Error(r.errors.join('\n'));
+  });
+
+  const B = (id: string) => ({ id, name: id, cost: 1, upkeep: 0 });
+
+  test('an id keeps its slot when a sibling is removed and the pack re-registers', () => {
+    registerPack({ id: 'mod', name: 'Mod', version: '1', buildings: [B('mod:a'), B('mod:b')] });
+    const slotB = slotOf('mod:b')!;
+    expect(slotB).toBeGreaterThanOrEqual(1000);
+
+    // drop the first building; the pack's building list shrinks
+    registerPack({ id: 'mod', name: 'Mod', version: '1', buildings: [B('mod:b')] });
+    expect(slotOf('mod:b')).toBe(slotB);
+  });
+
+  test('an id keeps its slot when a sibling is added', () => {
+    registerPack({ id: 'mod', name: 'Mod', version: '1', buildings: [B('mod:a')] });
+    const slotA = slotOf('mod:a')!;
+    registerPack({ id: 'mod', name: 'Mod', version: '1', buildings: [B('mod:a'), B('mod:b')] });
+    expect(slotOf('mod:a')).toBe(slotA);
+    expect(slotOf('mod:b')).not.toBe(slotA);
+  });
+
+  test('a disabled-then-re-enabled mod reuses its old slot', () => {
+    registerPack({ id: 'mod', name: 'Mod', version: '1', buildings: [B('mod:a')] });
+    const slotA = slotOf('mod:a')!;
+    unregisterPack('mod');
+    registerPack({ id: 'mod', name: 'Mod', version: '1', buildings: [B('mod:a')] });
+    expect(slotOf('mod:a')).toBe(slotA);
+  });
+
+  test('two mods never share a slot', () => {
+    registerPack({ id: 'm1', name: 'M1', version: '1', buildings: [B('m1:a')] });
+    registerPack({ id: 'm2', name: 'M2', version: '1', buildings: [B('m2:a')] });
+    expect(slotOf('m1:a')).not.toBe(slotOf('m2:a'));
+  });
+
+  test('resetRegistry clears the ledger so slots restart at MOD_SLOT_BASE', () => {
+    registerPack({ id: 'm', name: 'M', version: '1', buildings: [B('m:x')] });
+    const first = slotOf('m:x');
+    resetRegistry();
+    registerPack(CORE_PACK);
+    registerPack({ id: 'm2', name: 'M2', version: '1', buildings: [B('m2:y')] });
+    expect(slotOf('m2:y')).toBe(first);
+  });
+
+  test('core declared slots never move', () => {
+    registerPack({ id: 'mod', name: 'Mod', version: '1', buildings: [B('mod:a')] });
+    expect(buildingBySlot(Zone.PowerPlant)!.id).toBe('core:coal_plant');
+    expect(slotOf('core:coal_plant')).toBe(Zone.PowerPlant);
+  });
+});

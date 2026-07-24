@@ -1,6 +1,8 @@
 import { idx, neighbors4 } from './grid';
 import { CityState, GRID, Tile, Zone } from './types';
 import { plantCapacity, isPlant } from './energy';
+import { buildingBySlot } from '../content/registry';
+import { MOD_SLOT_BASE } from '../content/types';
 
 /** Roads don't carry power unless a wire is strung over them. */
 function conducts(t: Tile): boolean {
@@ -26,8 +28,17 @@ function consumes(t: Tile): boolean {
     case Zone.SubwayStation:
     case Zone.RailTerminal:
       return true;
-    default:
-      return false;
+    default: {
+      // The cases above enumerate core content exhaustively, so anything left
+      // at a mod slot is authored: a structure like any other, running on
+      // power unless it generates it. Parks, lines and pipes are core and
+      // already fell through to "conducts but doesn't consume" — the registry
+      // is only consulted past MOD_SLOT_BASE so they stay that way. A slot
+      // with no definition loaded (its pack is disabled) draws nothing.
+      if (t.zone < MOD_SLOT_BASE) return false;
+      const def = buildingBySlot(t.zone);
+      return def !== undefined && def.power === undefined;
+    }
   }
 }
 

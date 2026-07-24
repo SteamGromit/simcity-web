@@ -3,6 +3,8 @@ import { deserialize, serialize } from '../src/sim/save';
 import { newCity } from '../src/sim/city';
 import { Zone } from '../src/sim/types';
 import { idx } from '../src/sim/grid';
+import { registerPack, resetRegistry, slotOf } from '../src/content/registry';
+import { ensureCoreContent } from '../src/sim/content';
 
 describe('save legend', () => {
   test('a save records the ids of the slots the city uses', () => {
@@ -61,5 +63,75 @@ describe('save legend', () => {
     const back = deserialize(JSON.stringify(raw))!;
     expect(back.tiles[idx(0, 0)].zone).toBe(Zone.None);
     expect(back.tiles[idx(6, 5)].zone).toBe(Zone.Road);
+  });
+});
+
+describe('save legend and authored buildings', () => {
+  const LOOK = {
+    footprint: 0.8, height: 20, hue: 200, sat: 40, light: 50,
+    roof: 'flat' as const, props: [],
+  };
+
+  function loadMod(id = 'mod:depot'): number {
+    const r = registerPack({
+      id: 'mod', name: 'Mod', version: '1.0.0',
+      buildings: [{ id, name: 'Depot', tool: 'mod__depot', cost: 10, upkeep: 1, visual: LOOK }],
+    });
+    if (!r.ok) throw new Error(r.errors.join('\n'));
+    return slotOf(id)!;
+  }
+
+  test('a placed authored building round-trips through a save', () => {
+    resetRegistry();
+    ensureCoreContent();
+    const slot = loadMod();
+
+    const city = newCity(1);
+    city.tiles[idx(5, 5)].zone = slot as Zone;
+    const raw = JSON.parse(serialize(city));
+    expect(raw.zoneIds[slot]).toBe('mod:depot');
+
+    const back = deserialize(serialize(city))!;
+    expect(back.tiles[idx(5, 5)].zone).toBe(slot);
+  });
+
+  test('it survives the mod being allocated a different slot next session', () => {
+    resetRegistry();
+    ensureCoreContent();
+    loadMod();
+    const city = newCity(1);
+    city.tiles[idx(5, 5)].zone = slotOf('mod:depot')! as Zone;
+    const saved = serialize(city);
+
+    // a new session where another pack registered first, so 'mod' would
+    // otherwise land on a different number
+    resetRegistry();
+    ensureCoreContent();
+    registerPack({
+      id: 'other', name: 'Other', version: '1',
+      buildings: [{ id: 'other:a', name: 'A', cost: 1, upkeep: 0 }],
+    });
+    loadMod();
+
+    const back = deserialize(saved)!;
+    expect(back.tiles[idx(5, 5)].zone).toBe(slotOf('mod:depot'));
+    expect(back.tiles[idx(5, 5)].zone).not.toBe(slotOf('other:a'));
+  });
+
+  test('a tile whose mod is absent clears, leaving the rest intact', () => {
+    resetRegistry();
+    ensureCoreContent();
+    const slot = loadMod();
+    const city = newCity(1);
+    city.tiles[idx(5, 5)].zone = slot as Zone;
+    city.tiles[idx(6, 5)].zone = Zone.PowerPlant;
+    const saved = serialize(city);
+
+    resetRegistry();
+    ensureCoreContent(); // the mod is gone this session
+
+    const back = deserialize(saved)!;
+    expect(back.tiles[idx(5, 5)].zone).toBe(Zone.None);
+    expect(back.tiles[idx(6, 5)].zone).toBe(Zone.PowerPlant);
   });
 });

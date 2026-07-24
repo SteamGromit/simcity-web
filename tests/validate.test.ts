@@ -133,3 +133,93 @@ describe('pack validation', () => {
     if (!r.ok) expect(r.errors.length).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe('building visual', () => {
+  const VISUAL = {
+    footprint: 0.8,
+    height: 24,
+    hue: 210,
+    sat: 40,
+    light: 50,
+    roof: 'gabled',
+    props: ['antenna', 'vent'],
+  };
+
+  function packWithVisual(patch: Record<string, unknown> = {}) {
+    const p = goodPack();
+    (p.buildings as Record<string, unknown>[])[0].visual = { ...VISUAL, ...patch };
+    return p;
+  }
+
+  test('a well-formed visual validates', () => {
+    const r = validatePack(packWithVisual());
+    expect(r.ok).toBe(true);
+  });
+
+  test('a building with no visual is still valid', () => {
+    expect(validatePack(goodPack()).ok).toBe(true);
+  });
+
+  test('visual must be an object', () => {
+    const p = goodPack();
+    (p.buildings as Record<string, unknown>[])[0].visual = 7;
+    const r = validatePack(p);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toMatch(/visual.*object/i);
+  });
+
+  test.each([
+    ['footprint', 0.1],
+    ['footprint', 1.5],
+    ['height', 2],
+    ['height', 200],
+    ['hue', -5],
+    ['hue', 400],
+    ['sat', 140],
+    ['light', -1],
+  ])('%s out of range is rejected (%s)', (key, value) => {
+    const r = validatePack(packWithVisual({ [key]: value }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain(`visual.${key}`);
+  });
+
+  test('a non-numeric field is rejected', () => {
+    const r = validatePack(packWithVisual({ height: 'tall' }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('visual.height');
+  });
+
+  test('an unknown roof is rejected and names the field', () => {
+    const r = validatePack(packWithVisual({ roof: 'dome' }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('visual.roof');
+  });
+
+  test('an unknown prop is rejected and names it', () => {
+    const r = validatePack(packWithVisual({ props: ['antenna', 'gargoyle'] }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('gargoyle');
+  });
+
+  test('props must be an array', () => {
+    const r = validatePack(packWithVisual({ props: 'antenna' }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('visual.props');
+  });
+
+  test('more than three props is rejected', () => {
+    const r = validatePack(packWithVisual({ props: ['antenna', 'vent', 'tank', 'chimney'] }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toMatch(/at most 3/i);
+  });
+
+  test('an empty prop list is fine', () => {
+    expect(validatePack(packWithVisual({ props: [] })).ok).toBe(true);
+  });
+
+  test('errors name the offending building', () => {
+    const r = validatePack(packWithVisual({ roof: 'dome' }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('test:shed');
+  });
+});

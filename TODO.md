@@ -11,13 +11,22 @@ bump package.json version, and touch README/spec per CLAUDE.md.
      the Mods panel — create/rename/enable/disable/delete, export and
      import as JSON, persistence in `localStorage['simcity.mods']`, a
      custom-ordinance editor over the seven modifier keys, and live City
-     Hall refresh. Remaining: **sub-project 2** — building authoring,
-     which needs a generic declarative renderer (`drawBuilding` is a
-     hardcoded per-`Zone` `if`-chain and draws nothing for a mod slot
-     ≥ 1000); and **sub-project 3** — editing/overriding core content and
-     balance numbers, which needs last-wins-by-id override semantics in
-     the registry and touches the pinned-id save contract. Sharing beyond
-     copy-paste JSON (URL-encoded or hosted) is also still open.
+     Hall refresh.
+   - _Sub-project 2 (building authoring) shipped v0.48.0:_ author a
+     placeable building — category and its numbers, cost, upkeep,
+     unlock, waterside siting, and a composed look (mass, height,
+     colour, roof, rooftop props) with a live preview; a generic
+     renderer draws it; a toolbar Mods section places it; the sim
+     already simulated it. Slot allocation became stable per id, closing
+     the within-session remap hazard the v0.46 `reindex` docstring
+     flagged.
+   - Remaining for #1: **sub-project 3** — editing/overriding core
+     content and balance numbers, which needs last-wins-by-id override
+     semantics in the registry and touches the pinned-id save contract.
+     Also still open: freehand/pixel drawing of buildings (today's look
+     is composed, not drawn), multi-tile footprints, modding the
+     growable R/C/I ladders, and sharing beyond copy-paste JSON
+     (URL-encoded or hosted).
 2. **Region play** — multiple city tiles, neighbor deals (SC4 headline; deferred until single-city play is deep enough).
 3. **Rewards** — special buildings the mayor's office can purchase after city milestones are hit (e.g. Ballpark -> Arena -> Stadium -> Colesium, Library, Museum, Monument, College -> University -> Research University), They occupy > square. They provide jobs. They mpact the surrounding area (+ and/or -, context dependent) and sometimes the whole city (e.g. Research university unlocks access to Cold fusion power plant)
 4. **Garabage** - residents produce garabage. garabage pickup is a city service requiring a way to dispose of or process the trash. mayor can buy a trash dump. when city advances past some threshold of advancement, some trash can be recycled.

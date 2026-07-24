@@ -1,4 +1,4 @@
-import { Density, SERVICE_RADII, ToolId, mapScaled } from '../sim/types';
+import { BuildTool, Density, SERVICE_RADII, ToolId, mapScaled } from '../sim/types';
 import { OverlayId } from '../render/overlays';
 
 /** Keys already claimed by camera/help/sound bindings — never map tools here. */
@@ -49,10 +49,10 @@ export const OVERLAY_KEY_OF: Partial<Record<OverlayId, string>> = Object.fromEnt
 );
 
 /** Tools that drag out an adjustable 4-connected line (press, aim, release). */
-export const LINE_TOOLS: Set<ToolId> = new Set<ToolId>(['road', 'line', 'pipe']);
+export const LINE_TOOLS: Set<BuildTool> = new Set<BuildTool>(['road', 'line', 'pipe']);
 
 /** Tools that drag out a filled rectangle rather than painting tile by tile. */
-export const RECT_TOOLS: Set<ToolId> = new Set<ToolId>([
+export const RECT_TOOLS: Set<BuildTool> = new Set<BuildTool>([
   'zoneR',
   'zoneC',
   'zoneI',
@@ -75,7 +75,7 @@ export const RECT_TOOLS: Set<ToolId> = new Set<ToolId>([
  * built) before any city has called ensureCoreContent, so a registry lookup
  * here would race the content bootstrap.
  */
-export const HALO_RADII: Partial<Record<ToolId, number>> = {
+export const HALO_RADII: Partial<Record<BuildTool, number>> = {
   fire: SERVICE_RADII.fire,
   police: SERVICE_RADII.police,
   school: SERVICE_RADII.school,

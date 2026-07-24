@@ -6,7 +6,13 @@
 
 import { registerPack, unregisterPack } from '../content/registry';
 import type { ModifierKey } from '../content/modifiers';
-import type { OrdinanceDef, Pack } from '../content/types';
+import type {
+  BuildingDef,
+  OrdinanceDef,
+  Pack,
+  ServiceKind,
+  VisualDef,
+} from '../content/types';
 import { validatePack } from '../content/validate';
 
 const STORAGE_KEY = 'simcity.mods';
@@ -26,6 +32,30 @@ export interface OrdinanceDraft {
   blurb: string;
   cost: number;
   effects: Array<{ key: ModifierKey; value: number }>;
+}
+
+/** What a building does. A building has exactly one, matching what the sim
+ * assumes downstream; the form only shows the fields the choice needs. */
+export type BuildingCategory = 'plain' | 'power' | 'service' | 'transit';
+
+/** The flat shape the building form edits, before it becomes a BuildingDef. */
+export interface BuildingDraft {
+  name: string;
+  category: BuildingCategory;
+  cost: number;
+  upkeep: number;
+  /** category 'power' */
+  capacity?: number;
+  pollution?: number;
+  /** category 'service' */
+  serviceKind?: ServiceKind;
+  /** category 'service' and 'transit' */
+  radius?: number;
+  /** bus service and transit: cars still on the road per covered trip */
+  share?: number;
+  unlock?: { expr: string; label: string };
+  needsWater: boolean;
+  visual: VisualDef;
 }
 
 /** URL/id-safe slug; never empty. */
@@ -49,6 +79,9 @@ export interface ModStore {
   addOrdinance(id: string, draft: OrdinanceDraft): { ok: true } | { ok: false; errors: string[] };
   updateOrdinance(id: string, ordId: string, draft: OrdinanceDraft): { ok: true } | { ok: false; errors: string[] };
   removeOrdinance(id: string, ordId: string): void;
+  addBuilding(id: string, draft: BuildingDraft): { ok: true } | { ok: false; errors: string[] };
+  updateBuilding(id: string, bId: string, draft: BuildingDraft): { ok: true } | { ok: false; errors: string[] };
+  removeBuilding(id: string, bId: string): void;
   onChange(cb: () => void): void;
 }
 
@@ -99,6 +132,53 @@ export function createModStore(storage: StorageLike): ModStore {
     const effects: Partial<Record<ModifierKey, number>> = {};
     for (const e of draft.effects) effects[e.key] = e.value;
     return { id: id ?? `${packId}:${slugify(draft.label)}`, label: draft.label, blurb: draft.blurb, cost: draft.cost, effects };
+  }
+
+  /**
+   * Assemble a BuildingDef from the form's flat draft. The id is passed in
+   * when editing so it survives a rename — a tile stores the slot that id
+   * owns, so re-slugging on every edit would orphan anything already built.
+   */
+  function draftToBuilding(packId: string, draft: BuildingDraft, id?: string): BuildingDef {
+    const slug = slugify(draft.name);
+    const def: BuildingDef = {
+      id: id ?? `${packId}:${slug}`,
+      name: draft.name,
+      tool: `${packId}__${slug}`,
+      cost: draft.cost,
+      upkeep: draft.upkeep,
+      visual: draft.visual,
+    };
+
+    if (draft.category === 'power') {
+      def.power = { capacity: draft.capacity ?? 0, pollution: draft.pollution ?? 0 };
+    } else if (draft.category === 'service') {
+      def.service = { kind: draft.serviceKind ?? 'fire', radius: draft.radius ?? 0 };
+      // share only means anything for buses, where it's cars still on the road
+      if (draft.serviceKind === 'bus' && draft.share !== undefined) {
+        def.service.share = draft.share;
+      }
+    } else if (draft.category === 'transit') {
+      def.transit = { radius: draft.radius ?? 0, share: draft.share ?? 1 };
+    }
+
+    if (draft.unlock) def.unlock = draft.unlock;
+    if (draft.needsWater) def.siting = { needsWater: true };
+    return def;
+  }
+
+  /** Validate a proposed building list, and adopt it only if it holds up. */
+  function commitBuildings(
+    m: StoredMod,
+    next: BuildingDef[],
+  ): { ok: true } | { ok: false; errors: string[] } {
+    const result = validatePack({ ...m.pack, buildings: next });
+    if (!result.ok) return { ok: false, errors: result.errors };
+    m.pack.buildings = next;
+    if (m.enabled) registerPack(m.pack);
+    persist();
+    fire();
+    return { ok: true };
   }
 
   // apply enabled mods to the registry at construction
@@ -184,6 +264,35 @@ export function createModStore(storage: StorageLike): ModStore {
       const m = find(id);
       if (!m) return;
       m.pack.ordinances = (m.pack.ordinances ?? []).filter((o) => o.id !== ordId);
+      if (m.enabled) registerPack(m.pack);
+      persist();
+      fire();
+    },
+
+    addBuilding(id, draft) {
+      const m = find(id);
+      if (!m) return { ok: false, errors: [`no mod "${id}"`] };
+      return commitBuildings(m, [
+        ...(m.pack.buildings ?? []),
+        draftToBuilding(m.pack.id, draft),
+      ]);
+    },
+
+    updateBuilding(id, bId, draft) {
+      const m = find(id);
+      if (!m) return { ok: false, errors: [`no mod "${id}"`] };
+      const list = m.pack.buildings ?? [];
+      const i = list.findIndex((b) => b.id === bId);
+      if (i < 0) return { ok: false, errors: [`no building "${bId}"`] };
+      const next = list.slice();
+      next[i] = draftToBuilding(m.pack.id, draft, bId); // id stays stable
+      return commitBuildings(m, next);
+    },
+
+    removeBuilding(id, bId) {
+      const m = find(id);
+      if (!m) return;
+      m.pack.buildings = (m.pack.buildings ?? []).filter((b) => b.id !== bId);
       if (m.enabled) registerPack(m.pack);
       persist();
       fire();

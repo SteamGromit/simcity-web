@@ -1,3 +1,5 @@
+import { buildingBySlot } from '../content/registry';
+import { MAX_BUILDING_PROPS, MOD_SLOT_BASE, type VisualDef } from '../content/types';
 import { IndustryKind, Stage, Tier, Wealth, Zone } from '../sim/types';
 import { normalizeTier } from '../sim/tiers';
 import { Entity, entityFor } from '../sim/entities';
@@ -787,6 +789,47 @@ function drawTierAccents(
   }
 }
 
+/**
+ * Draw a building a player authored, from its declarative spec. Everything
+ * here is the same primitive core buildings are made of — one isometric mass,
+ * a roof cap, a few rooftop props — so an authored building picks up the
+ * active skin, the render style, and the zoom LOD without knowing they exist.
+ * Exported so the Mods panel can render a live preview with the same code the
+ * map uses.
+ */
+export function drawAuthoredBuilding(
+  ctx: CanvasRenderingContext2D,
+  geom: TileGeom,
+  v: VisualDef,
+  powered: boolean,
+  detail: 0 | 1 | 2 = 1,
+) {
+  const { cx, cy } = geom;
+  const h = v.height * getSkin().heightScale;
+
+  drawShadow(ctx, geom, v.footprint);
+  const { foot } = box(ctx, geom, v.footprint, h, v.hue, v.sat, v.light);
+  drawRoof(ctx, foot, h, v.roof as RoofStyle, v.hue, v.sat, v.light);
+
+  // Props are roof furniture; at the farthest zoom the masses read better bare.
+  if (detail >= 1) {
+    const props = v.props.slice(0, MAX_BUILDING_PROPS);
+    props.forEach((p, i) => {
+      const dx = (i - (props.length - 1) / 2) * 9;
+      if (p === 'smokestack') smokestack(ctx, cx + dx - 2, cy, h);
+      else drawProp(ctx, p as PropKind, cx + dx, cy - h);
+    });
+  }
+
+  if (!powered) drawNoPowerBolt(ctx, cx, cy - h - 12);
+}
+
+/** A placed building whose pack isn't loaded: show a blank, not a guess. */
+function drawMissingBuilding(ctx: CanvasRenderingContext2D, geom: TileGeom) {
+  drawShadow(ctx, geom, 0.6);
+  box(ctx, geom, 0.6, 12, 0, 0, 38);
+}
+
 export function drawBuilding(
   ctx: CanvasRenderingContext2D,
   geom: TileGeom,
@@ -800,6 +843,20 @@ export function drawBuilding(
   detail: 0 | 1 | 2 = 1, // zoom LOD: 0 far (masses only), 2 close (extra trim)
 ) {
   const { cx, cy } = geom;
+
+  // Authored content draws from its spec. Core buildings carry no `visual`, so
+  // this never intercepts them; a mod slot with no definition loaded (its pack
+  // was disabled while its buildings stood) gets a blank placeholder rather
+  // than falling through and being drawn as some unrelated house.
+  const authored = buildingBySlot(zone);
+  if (authored?.visual) {
+    drawAuthoredBuilding(ctx, geom, authored.visual, powered, detail);
+    return;
+  }
+  if (zone >= MOD_SLOT_BASE && !authored) {
+    drawMissingBuilding(ctx, geom);
+    return;
+  }
 
   if (zone === Zone.Park) {
     fillTile(ctx, geom, 'hsl(105 45% 42%)');

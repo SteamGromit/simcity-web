@@ -1,3 +1,4 @@
+import { buildingBySlot } from '../content/registry';
 import { entityFor, variantAt } from '../sim/entities';
 import { idx } from '../sim/grid';
 import { tierLabel } from '../sim/tierstats';
@@ -44,7 +45,11 @@ export function buildQuery(root: HTMLElement) {
       } else if (t.zone === Zone.Road && t.terrain === Terrain.Water) {
         rows.push(['Type', 'Bridge']);
       } else {
-        rows.push(['Type', ZONE_NAMES[t.zone] + (t.abandoned ? ' (abandoned)' : '')]);
+        // A slot the core doesn't know is authored content; name it from the
+        // registry, or say plainly that its pack isn't loaded.
+        const def = buildingBySlot(t.zone);
+        const name = ZONE_NAMES[t.zone] ?? def?.name ?? 'Unknown (mod not loaded)';
+        rows.push(['Type', name + (t.abandoned ? ' (abandoned)' : '')]);
       }
       if (t.elevation > 0) rows.push(['Elevation', String(t.elevation)]);
       if (t.zone === Zone.Residential || t.zone === Zone.Commercial || t.zone === Zone.Industrial) {
@@ -72,6 +77,18 @@ export function buildQuery(root: HTMLElement) {
         if (t.wire) rows.push(['Power line', 'overhead']);
         if (t.pipe) rows.push(['Water main', 'buried']);
       }
+      // What an authored building does, read off its definition.
+      const authored = buildingBySlot(t.zone);
+      if (authored?.visual) {
+        if (authored.power) rows.push(['Power', `+${authored.power.capacity}`]);
+        if (authored.service) {
+          rows.push(['Service', `${authored.service.kind} · radius ${authored.service.radius}`]);
+        }
+        if (authored.transit) rows.push(['Transit', `radius ${authored.transit.radius}`]);
+        if (authored.upkeep > 0) rows.push(['Upkeep', `§${authored.upkeep}/mo`]);
+        rows.push(['Powered', t.powered ? 'yes' : 'no']);
+      }
+
       if (
         t.zone === Zone.FireStation ||
         t.zone === Zone.PoliceStation ||

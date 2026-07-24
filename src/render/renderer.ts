@@ -1,6 +1,6 @@
 import { idx, inBounds, neighbors4, tilesWithin } from '../sim/grid';
 import { mulberry32 } from '../sim/city';
-import { CityState, GRID, MAX_ELEV, Terrain, ToolId, Zone } from '../sim/types';
+import { BuildTool, CityState, GRID, MAX_ELEV, Terrain, Zone } from '../sim/types';
 import { Automata } from './automata';
 import {
   drawBuilding,
@@ -36,7 +36,7 @@ export interface ViewState {
   /** Pending drag line (adjustable until released). */
   line: [number, number][] | null;
   /** Tool the pending line will build (road / power line / pipe). */
-  lineTool: ToolId | null;
+  lineTool: BuildTool | null;
   /** Coverage footprint preview while placing a service building. */
   halo: { x: number; y: number; radius: number } | null;
   /** Live transit-wizard preview: drawn path, stops, pending segment. */

@@ -1180,3 +1180,47 @@ input[type='radio']:checked::after {
 #mods-panel .mod-edit-name {
   margin-bottom: 6px;
 }
+
+/* ---- mods panel: building editor ---- */
+#mods-panel .mod-bld-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--keyline-soft);
+}
+#mods-panel .mod-bld-name {
+  flex: 1;
+  font-size: 12px;
+}
+#mods-panel .mods-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--dim);
+  margin: 3px 0;
+  cursor: pointer;
+}
+#mods-panel .mods-props {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 8px;
+  margin: 4px 0;
+}
+#mods-panel input[type='range'] {
+  flex: 1;
+  accent-color: var(--survey, #ff4fa3);
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+#mods-panel .mod-bld-preview {
+  display: block;
+  width: 100%;
+  height: 110px;
+  margin: 6px 0;
+  background: repeating-conic-gradient(rgba(255, 255, 255, 0.04) 0% 25%, transparent 0% 50%) 50% / 12px 12px;
+  border: 1px solid var(--keyline);
+}
