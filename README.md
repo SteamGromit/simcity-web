@@ -134,6 +134,15 @@ city. Blocks need collection to grow past stage 3, and uncollected heaps
 pollute, tank land value, and choke off growth until you deal with them —
 the **Garbage** (⇧G) and **Refuse Cover** (⇧R) views show where.
 
+**Traffic accidents** give the road network its own hazard: a busy road
+occasionally throws a crash that blocks the tile for a while, and traffic
+reroutes around it — a city with parallel routes barely notices, a single
+artery stalls until it clears. Crashes are likelier the busier the road, so
+they land where it hurts. **Driver Education** makes them rarer; the **EMT
+Program** clears them faster, and fire crews are the responders, so a crash
+near a fire station clears fastest. Watch the **Traffic** view (⇧T) — a
+blocked tile flags red.
+
 **Crime** is where police coverage earns its keep. Every developed lot has
 a crime rate driven by poverty, crowding, joblessness and the blight of
 abandoned neighbours; it drags land value — which raises crime, a spiral a
