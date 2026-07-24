@@ -1,4 +1,4 @@
-import { ToolId } from '../sim/types';
+import { BuildTool, ToolId } from '../sim/types';
 
 /** A synthesized cue — no audio assets, everything is generated. */
 export interface SoundSpec {
@@ -96,8 +96,9 @@ export const UI_SOUNDS = {
   select: { wave: 'sine', freq: 420, dur: 0.03, vol: 0.2 } as SoundSpec,
 };
 
-export function soundFor(tool: ToolId): SoundSpec {
-  return TOOL_SOUNDS[tool];
+/** A mod tool has no bespoke cue of its own; it borrows the generic one. */
+export function soundFor(tool: BuildTool): SoundSpec {
+  return TOOL_SOUNDS[tool as ToolId] ?? UI_SOUNDS.select;
 }
 
 /** Ambient city-hum level 0..1 from population (log curve, capped). */

@@ -139,6 +139,10 @@ const TRANSIT_LINE_TOOLS: Partial<Record<string, Zone>> = {
   subway: Zone.SubwayStation,
   rail: Zone.RailTerminal,
 };
+// Built before any panel that reads the content registry: constructing the
+// store registers every enabled mod, so the toolbar's Mods section and City
+// Hall's ordinance rows both see authored content on the very first paint.
+const modStore = createModStore(localStorage);
 const toolbar = buildToolbar(
   uiRoot,
   (tool) => {
@@ -182,7 +186,6 @@ const minimap = buildMinimap(uiRoot, (wx, wy) => {
   renderer.camera.x = wx - canvas.clientWidth / 2 / renderer.camera.zoom;
   renderer.camera.y = wy - canvas.clientHeight / 2 / renderer.camera.zoom;
 });
-const modStore = createModStore(localStorage);
 const cityHall = buildCityHall(
   uiRoot,
   () => city,
@@ -213,7 +216,8 @@ const display = buildDisplay(
 const modsPanel = buildModsPanel(uiRoot, modStore, { toast });
 modStore.onChange(() => {
   cityHall.rebuildOrdinances();
-  renderer.reseed(city.seed); // future building mods need a reseed; harmless for ordinances
+  toolbar.rebuildMods();
+  renderer.reseed(city.seed); // newly-registered buildings need per-tile variants
 });
 const hud = buildHud(
   uiRoot,

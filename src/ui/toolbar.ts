@@ -1,12 +1,24 @@
-import { CityState, Density, DENSITY_COST_MULT, ToolId } from '../sim/types';
+import { BuildTool, CityState, Density, DENSITY_COST_MULT, ToolId } from '../sim/types';
 import { toolCost, ZONE_TOOLS } from '../sim/city';
-import { buildingByTool } from '../content/registry';
+import { allBuildings, buildingByTool } from '../content/registry';
+import type { BuildingDef } from '../content/types';
 import { unlockedFor } from '../sim/content';
 import { OVERLAY_LABELS, OverlayId } from '../render/overlays';
 import { clampDensity, KEY_OF, OVERLAY_KEY_OF } from './shortcuts';
 import { makeDraggable } from './drag';
 
-export type ActiveTool = ToolId | 'query' | null;
+export type ActiveTool = BuildTool | 'query' | null;
+
+/** Tooltip for an authored building: what it costs and what it does. */
+function describeAuthored(b: BuildingDef): string {
+  const bits = [`§${b.cost}`];
+  if (b.upkeep > 0) bits.push(`§${b.upkeep}/mo`);
+  if (b.power) bits.push(`power +${b.power.capacity}`);
+  if (b.service) bits.push(`${b.service.kind} coverage r${b.service.radius}`);
+  if (b.transit) bits.push(`transit r${b.transit.radius}`);
+  if (b.siting?.needsWater) bits.push('needs adjacent water');
+  return bits.join(' · ');
+}
 
 const BUILD_TOOLS: { id: ToolId | 'query'; label: string; title?: string }[] = [
   { id: 'query', label: 'Query' },
@@ -120,9 +132,9 @@ export function buildToolbar(
   }
   const densityOf = (id: ToolId): Density => densities.get(id) ?? 1;
   const isZone = (id: ActiveTool): id is ToolId =>
-    id !== null && id !== 'query' && (ZONE_TOOLS as readonly ToolId[]).includes(id);
+    id !== null && id !== 'query' && (ZONE_TOOLS as readonly string[]).includes(id);
 
-  const costLabel = (id: ToolId | 'query') =>
+  const costLabel = (id: BuildTool | 'query') =>
     id === 'query' ? '' : `§${toolCost(id, isZone(id) ? densityOf(id) : 1)}`;
 
   // --- density flyout: one shared element, repositioned per zoning button ---
@@ -177,7 +189,7 @@ export function buildToolbar(
     }
   });
 
-  const bundleButtons: { btn: HTMLButtonElement; members: Set<ToolId | 'query'> }[] = [];
+  const bundleButtons: { btn: HTMLButtonElement; members: Set<BuildTool | 'query'> }[] = [];
 
   function applyTool(tool: ActiveTool) {
     active = tool;
@@ -190,9 +202,10 @@ export function buildToolbar(
     onTool(active);
   }
 
-  function toolButton(id: ToolId | 'query', label: string, parent: HTMLElement) {
+  function toolButton(id: BuildTool | 'query', label: string, parent: HTMLElement) {
     const btn = document.createElement('button');
-    const key = KEY_OF[id] ? `<span class="key">${KEY_OF[id]}</span>` : '';
+    const shortcut = KEY_OF[id as ToolId];
+    const key = shortcut ? `<span class="key">${shortcut}</span>` : '';
     btn.dataset.tool = id; // drives the locate-code spine in the stylesheet
     btn.innerHTML = `<span>${label}</span><span class="meta">${key}<span class="cost">${costLabel(id)}</span></span>`;
     btn.addEventListener('click', () => applyTool(active === id ? null : id));
@@ -308,6 +321,42 @@ export function buildToolbar(
   const terraBody = section('terrain', 'Terrain · free until founded');
   for (const { id, label } of TERRA_TOOLS) toolButton(id, label, terraBody);
 
+  // --- authored buildings ---
+  // Built from the live registry rather than a fixed list, and rebuilt
+  // whenever the mod store changes, so enabling a mod or saving a building
+  // shows up here without a reload. Hidden entirely when no mod defines one.
+  const modsBody = section('mods', 'Mods');
+  const modsSection = sections[sections.length - 1];
+  let modToolIds: string[] = [];
+
+  function rebuildMods() {
+    for (const id of modToolIds) toolButtons.delete(id);
+    modToolIds = [];
+    modsBody.innerHTML = '';
+
+    const city = getCity();
+    const authored = allBuildings().filter((b) => b.tool && !b.id.startsWith('core:'));
+
+    for (const b of authored) {
+      if (b.unlock && !unlockedFor(b, city)) continue; // hidden until earned
+      const btn = toolButton(b.tool!, b.name, modsBody);
+      btn.title = describeAuthored(b);
+      modToolIds.push(b.tool!);
+    }
+
+    const nextLocked = authored.find((b) => b.unlock && !unlockedFor(b, city));
+    if (nextLocked?.unlock) {
+      const hint = document.createElement('div');
+      hint.className = 'bundle-hint';
+      hint.textContent = `${nextLocked.name} at ${nextLocked.unlock.label}`;
+      modsBody.appendChild(hint);
+    }
+
+    modsSection.wrap.classList.toggle('hidden', authored.length === 0);
+  }
+
+  rebuildMods();
+
   const viewsBody = section('views', 'Data views');
   const overlayButtons = new Map<string, HTMLButtonElement>();
   let overlay: OverlayId | null = null;
@@ -380,11 +429,13 @@ export function buildToolbar(
       applyTool(null);
     },
     /** Toggle a tool as if its button were clicked (keyboard shortcuts). */
-    selectTool(tool: ToolId | 'query') {
+    selectTool(tool: BuildTool | 'query') {
       applyTool(active === tool ? null : tool);
     },
     /** Toggle a data view; keyboard and buttons share this path. */
     toggleOverlay,
+    /** Re-read the registry's authored buildings (a mod changed). */
+    rebuildMods,
     /** Drag handle and panel element, for movable-panel wiring. */
     grip,
     el,

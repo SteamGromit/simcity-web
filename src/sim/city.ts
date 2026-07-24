@@ -374,7 +374,7 @@ export function applyTool(
  */
 export function applyToolLine(
   city: CityState,
-  tool: ToolId,
+  tool: BuildTool,
   line: [number, number][],
   density: Density = 1,
 ): { applied: number; brokeFunds: boolean } {
