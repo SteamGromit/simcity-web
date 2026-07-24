@@ -229,8 +229,20 @@ seven modifier knobs (industry and traffic pollution, fire ignition, cars
 per transit trip, school coverage, pandemic odds and severity), each a
 multiplier where below 1 reduces and above 1 increases. An enabled mod's
 ordinances appear in City Hall immediately and behave like any other.
-Mods persist in `localStorage`. Authoring **buildings** is a later drop;
-the pack format already allows them, but nothing draws them yet.
+Mods persist in `localStorage`.
+
+You can also author **buildings**. Name one, pick what it is —
+decoration, power plant, service, or transit stop — set its cost,
+upkeep, unlock condition, and whether it needs a shoreline, then
+compose its look: size, height, colour, roof shape, and rooftop props,
+over a live preview. Enabled mods' buildings show up in a **Mods**
+section of the toolbar and are placed like any other building. They are
+fully simulated — a mod plant powers the city, a mod fire station
+covers its radius while powered, upkeep hits the budget — and they
+survive saves. The look is composed from the game's own drawing
+primitives rather than imported art, so authored buildings pick up
+skins, render styles, and lighting automatically. Freehand drawing and
+multi-tile buildings aren't supported yet.
 
 ## Design docs
 

@@ -4,6 +4,56 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.48.0] — 2026-07-24 · Building authoring
+
+### Added
+- **Author a building in a mod and build it in your city.** The Mods
+  panel's mod editor grows a Buildings list beside Ordinances: give a
+  building a name, pick what it is — decoration, power plant, service,
+  or transit stop — and fill in only the numbers that kind of building
+  needs. Set its cost and monthly upkeep, gate it behind an unlock
+  condition, and require waterside siting if it needs a shoreline.
+- **A look you compose rather than draw.** Size, height, hue,
+  saturation, lightness, a roof shape (flat, parapet, gabled,
+  sawtooth), and up to three rooftop props (water tower, AC unit,
+  antenna, chimney, vent, tank, smokestack) — over a live preview that
+  redraws as you drag. Because the look is data assembled from the same
+  isometric primitives core buildings use, an authored building
+  inherits skins, the render style, day/night, and zoom LOD without
+  knowing they exist. There's no image to import and no pixels to push.
+- **A Mods section in the toolbar**, built from the registry rather
+  than a fixed list. An enabled mod's buildings appear as ordinary
+  tool buttons with their cost, hidden until their unlock condition is
+  met (with a "next at…" hint, like the power-plant flyout), and the
+  section disappears entirely when no mod defines a building.
+- **Authored buildings are simulated, not decorative.** A mod plant
+  feeds the same pooled capacity as a coal plant; a mod fire station
+  raises fire coverage in its radius and stops when it loses power; a
+  mod transit stop takes cars off the road; upkeep hits the budget
+  every month. This is the payoff of v0.46: the sim already read all
+  of it from the registry, so none of it needed new simulation code.
+- **Query names them** and lists what they do — or says plainly that a
+  tile's pack isn't loaded, rather than drawing an unrelated house.
+
+### Changed
+- **Mod slots are now stable for the life of a session.** The registry
+  keeps an id-keyed ledger of allocated slots instead of re-deriving
+  them on every registration. Previously, removing one building from a
+  mod shifted its siblings down a slot — and since a tile stores that
+  number, every already-placed copy of a sibling would have silently
+  become a different building. Adding, removing, disabling, and
+  re-enabling now all leave a building's slot alone. Saves were already
+  safe across sessions via the v0.46 legend; this closes the
+  within-session gap the old `reindex` docstring flagged and deferred.
+- Placement, power draw, and tile naming read the registry for
+  mod-allocated slots. Core content is untouched: the placement table
+  stays the sole authority for core tools (the transit stations declare
+  a tool id for pricing but are still wizard-only), and core parks,
+  lines, and pipes still conduct power without consuming it.
+- Nothing changes for a player who never opens the Mods panel. No core
+  building defines a look, so every core building draws through exactly
+  the code it did before.
+
 ## [0.47.0] — 2026-07-23 · Mod manager
 
 ### Added
