@@ -82,6 +82,8 @@ export function blankTile(): Tile {
     busCov: 0,
     garbageCov: 0,
     garbage: 0,
+    crime: 0,
+    crimeFlash: 0,
     burning: 0,
     rubble: 0,
     pollution: 0,
