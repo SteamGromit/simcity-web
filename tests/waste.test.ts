@@ -7,6 +7,7 @@ import { updatePower } from '../src/sim/power';
 import { updatePollution } from '../src/sim/pollution';
 import { updateLandValue } from '../src/sim/landvalue';
 import { demandReading, developTile } from '../src/sim/develop';
+import { adviseTips } from '../src/sim/tips';
 import { garbageOf, updateWasteMonthly } from '../src/sim/waste';
 import { CityState, Zone } from '../src/sim/types';
 import { clearLand, makeCity, zone } from './helpers';
@@ -397,5 +398,45 @@ describe('growth needs a collection round', () => {
       t.landValue = 1;
     }
     expect(t.stage).toBeGreaterThan(3);
+  });
+});
+
+describe('the advisor tells the two failures apart', () => {
+  test('heaps with no pickup read as a siting problem', () => {
+    const city = base();
+    home(city, 10, 10);
+    zone(city, 10, 11, Zone.Road);
+    settle(city);
+    const ids = adviseTips(city).map((t) => t.id);
+    expect(ids).toContain('no-garbage-pickup');
+    expect(ids).not.toContain('garbage-over-capacity');
+  });
+
+  test('heaps despite pickup read as a capacity problem', () => {
+    const city = base();
+    zone(city, 9, 10, Zone.PowerPlant);
+    home(city, 11, 10);
+    home(city, 12, 10);
+    zone(city, 10, 11, Zone.Road);
+    const slot = dump(1); // covers them, nowhere near enough capacity
+    zone(city, 10, 10, slot);
+    for (let i = 0; i < 3; i++) settle(city);
+
+    const ids = adviseTips(city).map((t) => t.id);
+    expect(ids).toContain('garbage-over-capacity');
+    expect(ids).not.toContain('no-garbage-pickup');
+  });
+
+  test('a well-served city gets neither', () => {
+    const city = base();
+    const slot = dump(10_000);
+    zone(city, 9, 10, Zone.PowerPlant);
+    zone(city, 10, 10, slot);
+    home(city, 11, 10);
+    zone(city, 10, 11, Zone.Road);
+    settle(city);
+    const ids = adviseTips(city).map((t) => t.id);
+    expect(ids).not.toContain('no-garbage-pickup');
+    expect(ids).not.toContain('garbage-over-capacity');
   });
 });

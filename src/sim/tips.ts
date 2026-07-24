@@ -13,6 +13,8 @@ export type TipId =
   | 'no-fire-coverage'
   | 'no-water'
   | 'no-health'
+  | 'no-garbage-pickup'
+  | 'garbage-over-capacity'
   | 'congestion'
   | 'deficit'
   | 'high-taxes'
@@ -33,6 +35,10 @@ const TIP_TEXT: Record<TipId, string> = {
     'Buildings need running water to grow past stage 2 — build a Water Pump by open water and lay Pipes.',
   'no-health':
     'Tall buildings need a Hospital in reach to keep growing — build one near your towers.',
+  'no-garbage-pickup':
+    'Refuse is piling up in streets no collection reaches — a Landfill nearby will clear them, and blocks need pickup to grow past stage 3.',
+  'garbage-over-capacity':
+    'The city is throwing out more than it can process, so rubbish is mounting everywhere — add disposal capacity or enact the Recycling Program.',
   congestion:
     'Roads are jamming and commutes are suffering — add parallel routes or Bus Stops.',
   welcome:
@@ -71,6 +77,8 @@ export function adviseTips(city: CityState): Tip[] {
   let dryBuildings = 0;
   let pollutedHomes = 0;
   let abandonedCount = 0;
+  let heapsWithPickup = 0;
+  let heapsWithoutPickup = 0;
   let burningCount = 0;
   let jammedRoads = 0;
 
@@ -90,8 +98,15 @@ export function adviseTips(city: CityState): Tip[] {
       if (t.stage >= 2 && !t.watered) dryBuildings++;
       if (t.stage >= 4 && t.zone !== Zone.Industrial && t.healthCov === 0) unhealthyTowers++;
       if (t.zone === Zone.Residential && t.pollution > 0.5) pollutedHomes++;
+      // a heap with no pickup is a siting problem; with pickup it is capacity
+      if (t.garbage > 0.05) {
+        if (t.garbageCov > 0) heapsWithPickup++;
+        else heapsWithoutPickup++;
+      }
     }
   }
+
+  const overCapacity = city.waste.uncollected > 0 && heapsWithPickup > 0;
 
   const tips: Tip[] = [];
   const add = (id: TipId) => tips.push({ id, text: TIP_TEXT[id] });
@@ -110,6 +125,9 @@ export function adviseTips(city: CityState): Tip[] {
   if (uncoveredBuildings > 0) add('no-fire-coverage');
   if (dryBuildings > 0) add('no-water');
   if (unhealthyTowers > 0) add('no-health');
+  // the two failures need different fixes, so never blur them into one tip
+  if (heapsWithoutPickup > 0) add('no-garbage-pickup');
+  if (overCapacity) add('garbage-over-capacity');
   if (jammedRoads >= 5) add('congestion');
   if (city.lastBudget.net < 0) add('deficit');
   if (city.taxes.r > 0.12 || city.taxes.c > 0.12 || city.taxes.i > 0.12) add('high-taxes');
