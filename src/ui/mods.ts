@@ -7,9 +7,10 @@
 
 import { MODIFIER_KEYS, type ModifierKey } from '../content/modifiers';
 import { BUILDING_PROPS, BUILDING_ROOFS, type VisualDef } from '../content/types';
+import { allBuildings, allOrdinances } from '../content/registry';
 import { drawAuthoredBuilding } from '../render/buildings';
 import { TILE_W, TILE_H } from '../render/iso';
-import type { BuildingDraft, ModStore, OrdinanceDraft, StoredMod } from './modstore';
+import type { BuildingDraft, ModStore, OrdinanceDraft, OverrideKind, StoredMod } from './modstore';
 
 /** Plain-language names for the modifier vocabulary. */
 const MODIFIER_LABELS: Record<ModifierKey, string> = {
@@ -36,6 +37,7 @@ export function buildModsPanel(
   let openModId: string | null = null;
   let editingOrdId: string | null | undefined = undefined; // undefined = not editing, null = new
   let editingBldId: string | null | undefined = undefined;
+  let editingOverride: { kind: OverrideKind; id: string } | undefined = undefined;
 
   store.onChange(() => {
     if (!panel.classList.contains('hidden')) render();
@@ -107,6 +109,7 @@ export function buildModsPanel(
       openModId = m.pack.id;
       editingOrdId = undefined;
       editingBldId = undefined;
+      editingOverride = undefined;
       render();
     });
 
@@ -143,6 +146,7 @@ export function buildModsPanel(
       openModId = null;
       editingOrdId = undefined;
       editingBldId = undefined;
+      editingOverride = undefined;
       render();
     });
     panel.append(back);
@@ -211,6 +215,195 @@ export function buildModsPanel(
     panel.append(addB);
 
     if (editingBldId !== undefined) renderBuildingForm(m, editingBldId);
+
+    renderOverrides(m);
+  }
+
+  /**
+   * Retune content some other pack defines. The list offers everything
+   * registered that this mod doesn't define itself; each field shows the
+   * inherited value as its placeholder and is left blank when not overridden,
+   * so "unset" stays distinguishable from "set to the same number".
+   */
+  function renderOverrides(m: StoredMod) {
+    panel.append(el('h4', { textContent: 'Overrides' }));
+
+    const mine = new Set([
+      ...(m.pack.buildings ?? []).map((b) => b.id),
+      ...(m.pack.ordinances ?? []).map((o) => o.id),
+    ]);
+    const patched = m.pack.overrides ?? {};
+
+    const list = el('div', { id: 'mod-ovr-list' });
+    for (const kind of ['building', 'ordinance'] as const) {
+      const key = kind === 'building' ? 'buildings' : 'ordinances';
+      for (const p of patched[key] ?? []) {
+        const changed = Object.keys(p).filter((k) => k !== 'id');
+        const label = el('span', {
+          className: 'mod-ovr-name',
+          textContent: `${p.id} · ${changed.join(', ') || 'no change'}`,
+        });
+        const edit = el('button', { textContent: 'Edit' });
+        edit.addEventListener('click', () => {
+          editingOverride = { kind, id: p.id };
+          renderOverrideForm(m, kind, p.id);
+        });
+        const reset = el('button', { textContent: 'Reset', className: 'mods-danger' });
+        reset.addEventListener('click', () => {
+          if (editingOverride?.id === p.id) editingOverride = undefined;
+          store.clearOverride(m.pack.id, kind, p.id);
+        });
+        list.append(el('div', { className: 'mod-ovr-row' }, [label, edit, reset]));
+      }
+    }
+    if (!list.children.length) {
+      list.append(
+        el('p', { className: 'mods-empty', textContent: 'Nothing overridden yet.' }),
+      );
+    }
+    panel.append(list);
+
+    // picker: everything registered that this mod doesn't define
+    const pick = el('select', { className: 'mod-ovr-pick' });
+    for (const b of allBuildings()) {
+      if (mine.has(b.id)) continue;
+      pick.append(el('option', { value: `building:${b.id}`, textContent: `${b.name} — §${b.cost}` }));
+    }
+    for (const o of allOrdinances()) {
+      if (mine.has(o.id)) continue;
+      pick.append(el('option', { value: `ordinance:${o.id}`, textContent: `${o.label} — §${o.cost}/mo` }));
+    }
+    const go = el('button', { textContent: 'Override' });
+    go.addEventListener('click', () => {
+      const [kind, ...rest] = pick.value.split(':');
+      editingOverride = { kind: kind as OverrideKind, id: rest.join(':') };
+      renderOverrideForm(m, editingOverride.kind, editingOverride.id);
+    });
+    panel.append(el('div', { className: 'mods-create' }, [pick, go]));
+
+    if (editingOverride) renderOverrideForm(m, editingOverride.kind, editingOverride.id);
+  }
+
+  function renderOverrideForm(m: StoredMod, kind: OverrideKind, targetId: string) {
+    panel.querySelector('.mod-ovr-form')?.remove();
+
+    const key = kind === 'building' ? 'buildings' : 'ordinances';
+    const existing = (m.pack.overrides?.[key] ?? []).find((p) => p.id === targetId) as
+      | Record<string, unknown>
+      | undefined;
+
+    const form = el('div', { className: 'mod-ovr-form' });
+    form.append(el('div', { className: 'mods-effects-head' }, [el('span', { textContent: targetId })]));
+
+    /** A number input that is blank when inherited, showing the live value. */
+    function numField(label: string, inherited: number | undefined, current: unknown) {
+      const input = el('input', {
+        type: 'number',
+        placeholder: inherited === undefined ? '—' : String(inherited),
+        value: current === undefined ? '' : String(current),
+      });
+      form.append(field(label, input));
+      return input;
+    }
+
+    const inputs: Array<{ apply: (patch: Record<string, unknown>) => void }> = [];
+
+    if (kind === 'building') {
+      const base = allBuildings().find((b) => b.id === targetId);
+      const cost = numField('Cost §', base?.cost, existing?.cost);
+      const upkeep = numField('Upkeep §/mo', base?.upkeep, existing?.upkeep);
+      inputs.push({
+        apply: (patch) => {
+          if (cost.value !== '') patch.cost = Number(cost.value);
+          if (upkeep.value !== '') patch.upkeep = Number(upkeep.value);
+        },
+      });
+
+      if (base?.power) {
+        const ex = existing?.power as Record<string, unknown> | undefined;
+        const cap = numField('Capacity', base.power.capacity, ex?.capacity);
+        const pol = numField('Pollution', base.power.pollution, ex?.pollution);
+        inputs.push({
+          apply: (patch) => {
+            const power: Record<string, number> = {};
+            if (cap.value !== '') power.capacity = Number(cap.value);
+            if (pol.value !== '') power.pollution = Number(pol.value);
+            if (Object.keys(power).length) patch.power = power;
+          },
+        });
+      }
+      if (base?.service) {
+        const ex = existing?.service as Record<string, unknown> | undefined;
+        const radius = numField('Radius', base.service.radius, ex?.radius);
+        inputs.push({
+          apply: (patch) => {
+            if (radius.value !== '') patch.service = { radius: Number(radius.value) };
+          },
+        });
+      }
+      if (base?.transit) {
+        const ex = existing?.transit as Record<string, unknown> | undefined;
+        const radius = numField('Radius', base.transit.radius, ex?.radius);
+        const share = numField('Cars/trip', base.transit.share, ex?.share);
+        inputs.push({
+          apply: (patch) => {
+            const transit: Record<string, number> = {};
+            if (radius.value !== '') transit.radius = Number(radius.value);
+            if (share.value !== '') transit.share = Number(share.value);
+            if (Object.keys(transit).length) patch.transit = transit;
+          },
+        });
+      }
+    } else {
+      const base = allOrdinances().find((o) => o.id === targetId);
+      const cost = numField('Cost §/mo', base?.cost, existing?.cost);
+      inputs.push({
+        apply: (patch) => {
+          if (cost.value !== '') patch.cost = Number(cost.value);
+        },
+      });
+
+      const exEffects = (existing?.effects ?? {}) as Record<string, unknown>;
+      const effectInputs = Object.entries(base?.effects ?? {}).map(([k, v]) => {
+        const input = numField(MODIFIER_LABELS[k as ModifierKey] ?? k, v as number, exEffects[k]);
+        input.step = '0.05';
+        return { k, input };
+      });
+      inputs.push({
+        apply: (patch) => {
+          const effects: Record<string, number> = {};
+          for (const { k, input } of effectInputs) {
+            if (input.value !== '') effects[k] = Number(input.value);
+          }
+          if (Object.keys(effects).length) patch.effects = effects;
+        },
+      });
+    }
+
+    const err = el('div', { className: 'mods-error' });
+    const save = el('button', { textContent: 'Save', className: 'mods-primary' });
+    save.addEventListener('click', () => {
+      const patch: Record<string, unknown> = { id: targetId };
+      for (const i of inputs) i.apply(patch);
+
+      const was = editingOverride;
+      editingOverride = undefined;
+      const r = store.setOverride(m.pack.id, kind, patch as { id: string });
+      if (r.ok) {
+        opts.toast('Override saved', 'info');
+      } else {
+        editingOverride = was;
+        err.textContent = r.errors.join('; ');
+      }
+    });
+    const cancel = el('button', { textContent: 'Cancel' });
+    cancel.addEventListener('click', () => {
+      editingOverride = undefined;
+      render();
+    });
+
+    form.append(err, el('div', { className: 'mods-form-actions' }, [save, cancel]));
+    panel.append(form);
   }
 
   function renderOrdinanceForm(m: StoredMod, ordId: string | null) {

@@ -114,6 +114,36 @@ export interface SkinDef {
   roadFill: string;
 }
 
+/**
+ * A sparse edit to a building that already exists, by id. Every field is
+ * optional: only what's present is changed, so a pack that retunes a price
+ * doesn't freeze every other number at whatever core happened to be that day.
+ *
+ * `slot` is deliberately absent. A slot is identity — tiles store it — so it
+ * can never be patched; declaring one is a validation error.
+ */
+export interface BuildingOverride {
+  id: string;
+  name?: string;
+  cost?: number;
+  upkeep?: number;
+  unlock?: UnlockDef;
+  power?: Partial<{ capacity: number; pollution: number }>;
+  service?: Partial<{ kind: ServiceKind; radius: number; share: number }>;
+  transit?: Partial<{ radius: number; share: number }>;
+  siting?: { needsWater?: boolean };
+  visual?: VisualDef;
+}
+
+/** A sparse edit to an ordinance that already exists. Effects merge by key. */
+export interface OrdinanceOverride {
+  id: string;
+  label?: string;
+  blurb?: string;
+  cost?: number;
+  effects?: Partial<Record<ModifierKey, number>>;
+}
+
 export interface Pack {
   /** Package identity; "core" is reserved for the game's own content. */
   id: string;
@@ -122,4 +152,9 @@ export interface Pack {
   buildings?: BuildingDef[];
   ordinances?: OrdinanceDef[];
   skins?: SkinDef[];
+  /** Edits to content some other pack (usually core) already defines. */
+  overrides?: {
+    buildings?: BuildingOverride[];
+    ordinances?: OrdinanceOverride[];
+  };
 }

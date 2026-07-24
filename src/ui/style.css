@@ -1224,3 +1224,28 @@ input[type='radio']:checked::after {
   background: repeating-conic-gradient(rgba(255, 255, 255, 0.04) 0% 25%, transparent 0% 50%) 50% / 12px 12px;
   border: 1px solid var(--keyline);
 }
+
+/* ---- mods panel: overrides ---- */
+#mods-panel .mod-ovr-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--keyline-soft);
+}
+#mods-panel .mod-ovr-name {
+  flex: 1;
+  font-size: 11px;
+  font-family: var(--f-mono, monospace);
+  overflow-wrap: anywhere;
+}
+#mods-panel .mod-ovr-pick {
+  flex: 1;
+  min-width: 0;
+}
+#mods-panel .mod-ovr-form {
+  border-top: 1px solid var(--keyline);
+  margin-top: 8px;
+  padding-top: 6px;
+}

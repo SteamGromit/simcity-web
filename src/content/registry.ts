@@ -10,13 +10,23 @@
  */
 
 import type { CompiledExpr } from './expr';
-import { MOD_SLOT_BASE, type BuildingDef, type OrdinanceDef, type SkinDef } from './types';
+import {
+  MOD_SLOT_BASE,
+  type BuildingDef,
+  type BuildingOverride,
+  type OrdinanceDef,
+  type OrdinanceOverride,
+  type Pack,
+  type SkinDef,
+} from './types';
 import { validatePack } from './validate';
 
 interface Registered {
   buildings: BuildingDef[];
   ordinances: OrdinanceDef[];
   skins: SkinDef[];
+  /** Sparse edits this pack makes to content other packs define. */
+  overrides?: Pack['overrides'];
   unlocks: Map<string, CompiledExpr>;
   /**
    * Slots this pack's author declared explicitly, by building id — captured
@@ -47,6 +57,7 @@ let unlocks = new Map<string, CompiledExpr>();
 let buildings: BuildingDef[] = [];
 let ordinances: OrdinanceDef[] = [];
 let skins: SkinDef[] = [];
+let byOrdinanceId = new Map<string, OrdinanceDef>();
 
 export type RegisterResult = { ok: true } | { ok: false; errors: string[] };
 
@@ -76,7 +87,10 @@ export function registerPack(raw: unknown): RegisterResult {
   const collisionErrors: string[] = [];
   for (const [id, slot] of declaredSlots) {
     const heldBy = pinnedElsewhere.get(slot);
-    if (heldBy !== undefined) {
+    // Re-declaring a slot for the SAME building id is an override of that
+    // building, which is legal and must keep the slot — that's the whole point
+    // of pinned identity. Only a different id claiming the slot is a theft.
+    if (heldBy !== undefined && heldBy !== id) {
       collisionErrors.push(
         `pack "${pack.id}": building "${id}" declares slot ${slot}, already pinned by "${heldBy}"`,
       );
@@ -84,16 +98,50 @@ export function registerPack(raw: unknown): RegisterResult {
   }
   if (collisionErrors.length > 0) return { ok: false, errors: collisionErrors };
 
+  // A patch has to name content that will actually exist once this pack is in.
+  // Checked against the prospective id set rather than the live registry, so a
+  // pack may patch a building it defines itself, and refused before anything
+  // is mutated so a bad pack leaves the registry exactly as it was.
+  const missing = missingOverrideTargets(pack);
+  if (missing.length > 0) return { ok: false, errors: missing };
+
   packs.set(pack.id, {
     // clone so a caller mutating its literal cannot reach into the registry
     buildings: (pack.buildings ?? []).map((b) => ({ ...b })),
     ordinances: pack.ordinances ?? [],
     skins: pack.skins ?? [],
+    overrides: pack.overrides,
     unlocks: packUnlocks,
     declaredSlots,
   });
   reindex();
   return { ok: true };
+}
+
+/** Override targets this pack names that nothing would define. */
+function missingOverrideTargets(pack: Pack): string[] {
+  const buildingIds = new Set<string>();
+  const ordinanceIds = new Set<string>();
+  for (const [id, reg] of packs) {
+    if (id === pack.id) continue; // this pack's own content is replaced below
+    for (const b of reg.buildings) buildingIds.add(b.id);
+    for (const o of reg.ordinances) ordinanceIds.add(o.id);
+  }
+  for (const b of pack.buildings ?? []) buildingIds.add(b.id);
+  for (const o of pack.ordinances ?? []) ordinanceIds.add(o.id);
+
+  const errors: string[] = [];
+  for (const p of pack.overrides?.buildings ?? []) {
+    if (!buildingIds.has(p.id)) {
+      errors.push(`pack "${pack.id}": overrides building "${p.id}", which no pack defines`);
+    }
+  }
+  for (const p of pack.overrides?.ordinances ?? []) {
+    if (!ordinanceIds.has(p.id)) {
+      errors.push(`pack "${pack.id}": overrides ordinance "${p.id}", which no pack defines`);
+    }
+  }
+  return errors;
 }
 
 /** Drop all registered content. Tests use this; the game never does. */
@@ -107,6 +155,35 @@ export function resetRegistry(): void {
 export function unregisterPack(id: string): void {
   if (id === 'core') return;
   if (packs.delete(id)) reindex();
+}
+
+/**
+ * Apply a sparse building patch. Scalars replace; the capability blocks merge
+ * one level, so patching `power.capacity` leaves `power.pollution` alone.
+ * `slot` is never touched — validation refuses it, and identity depends on it.
+ */
+function mergeBuilding(base: BuildingDef, p: BuildingOverride): BuildingDef {
+  const out: BuildingDef = { ...base };
+  if (p.name !== undefined) out.name = p.name;
+  if (p.cost !== undefined) out.cost = p.cost;
+  if (p.upkeep !== undefined) out.upkeep = p.upkeep;
+  if (p.unlock !== undefined) out.unlock = p.unlock;
+  if (p.visual !== undefined) out.visual = p.visual;
+  if (p.power) out.power = { capacity: 0, pollution: 0, ...base.power, ...p.power };
+  if (p.service) out.service = { kind: 'fire', radius: 0, ...base.service, ...p.service };
+  if (p.transit) out.transit = { radius: 0, share: 1, ...base.transit, ...p.transit };
+  if (p.siting) out.siting = { ...base.siting, ...p.siting };
+  return out;
+}
+
+/** Apply a sparse ordinance patch; effects merge key by key. */
+function mergeOrdinance(base: OrdinanceDef, p: OrdinanceOverride): OrdinanceDef {
+  const out: OrdinanceDef = { ...base };
+  if (p.label !== undefined) out.label = p.label;
+  if (p.blurb !== undefined) out.blurb = p.blurb;
+  if (p.cost !== undefined) out.cost = p.cost;
+  if (p.effects) out.effects = { ...base.effects, ...p.effects };
+  return out;
 }
 
 /**
@@ -131,47 +208,71 @@ function reindex(): void {
   byId = new Map();
   byTool = new Map();
   unlocks = new Map();
-  buildings = [];
-  ordinances = [];
-  skins = [];
+
+  // Resolve to one definition per id first, in pack order, so a later pack
+  // replaces an earlier one rather than sitting beside it. Every index and
+  // every list is built from these maps, which is what keeps `allOrdinances()`
+  // and `ordinanceById()` agreeing about which definition actually won.
+  const buildingsById = new Map<string, BuildingDef>();
+  const ordinancesById = new Map<string, OrdinanceDef>();
+  const skinsById = new Map<string, SkinDef>();
+
+  for (const reg of packs.values()) {
+    for (const b of reg.buildings) buildingsById.set(b.id, b);
+    for (const o of reg.ordinances) ordinancesById.set(o.id, o);
+    for (const s of reg.skins) skinsById.set(s.id, s);
+    for (const [id, expr] of reg.unlocks) unlocks.set(id, expr);
+  }
+
+  // Patches land after every base is known, so a pack may edit content another
+  // pack defines regardless of which registered first. Later packs patch over
+  // earlier ones. registerPack has already refused any patch naming an id
+  // nothing defines, so a miss here can only mean the target was withdrawn.
+  for (const reg of packs.values()) {
+    for (const p of reg.overrides?.buildings ?? []) {
+      const base = buildingsById.get(p.id);
+      if (base) buildingsById.set(p.id, mergeBuilding(base, p));
+    }
+    for (const p of reg.overrides?.ordinances ?? []) {
+      const base = ordinancesById.get(p.id);
+      if (base) ordinancesById.set(p.id, mergeOrdinance(base, p));
+    }
+  }
 
   // Reserve every declared slot before allocating, so an allocation can never
   // land on one no matter what order the packs come in.
   const declared = new Set<number>();
-  for (const reg of packs.values()) {
-    for (const b of reg.buildings) {
-      if (b.slot !== undefined) declared.add(b.slot);
-    }
+  for (const b of buildingsById.values()) {
+    if (b.slot !== undefined) declared.add(b.slot);
   }
 
   const inUse = new Set(allocated.values());
   let next = MOD_SLOT_BASE;
 
-  for (const reg of packs.values()) {
-    for (const b of reg.buildings) {
-      let slot = b.slot;
+  for (const b of buildingsById.values()) {
+    let slot = b.slot;
+    if (slot === undefined) {
+      slot = allocated.get(b.id);
       if (slot === undefined) {
-        slot = allocated.get(b.id);
-        if (slot === undefined) {
-          while (declared.has(next) || inUse.has(next)) next++;
-          slot = next;
-          allocated.set(b.id, slot);
-          inUse.add(slot);
-        }
+        while (declared.has(next) || inUse.has(next)) next++;
+        slot = next;
+        allocated.set(b.id, slot);
+        inUse.add(slot);
       }
-      // One derived def per building, carrying its resolved slot, shared by
-      // every index so the lookups agree by identity. A declaring building is
-      // already correct and is indexed as-is.
-      const def = b.slot === slot ? b : { ...b, slot };
-      bySlot.set(slot, def);
-      byId.set(def.id, def);
-      if (def.tool !== undefined) byTool.set(def.tool, def);
-      buildings.push(def);
     }
-    for (const [id, expr] of reg.unlocks) unlocks.set(id, expr);
-    ordinances.push(...reg.ordinances);
-    skins.push(...reg.skins);
+    // One derived def per building, carrying its resolved slot, shared by
+    // every index so the lookups agree by identity. A declaring building is
+    // already correct and is indexed as-is.
+    const def = b.slot === slot ? b : { ...b, slot };
+    bySlot.set(slot, def);
+    byId.set(def.id, def);
+    if (def.tool !== undefined) byTool.set(def.tool, def);
   }
+
+  buildings = [...byId.values()];
+  ordinances = [...ordinancesById.values()];
+  skins = [...skinsById.values()];
+  byOrdinanceId = ordinancesById;
 }
 
 export function buildingBySlot(slot: number): BuildingDef | undefined {
@@ -207,7 +308,7 @@ export function allOrdinances(): readonly OrdinanceDef[] {
 }
 
 export function ordinanceById(id: string): OrdinanceDef | undefined {
-  return ordinances.find((o) => o.id === id);
+  return byOrdinanceId.get(id);
 }
 
 export function allSkins(): readonly SkinDef[] {

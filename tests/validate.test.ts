@@ -223,3 +223,90 @@ describe('building visual', () => {
     if (!r.ok) expect(r.errors.join(' ')).toContain('test:shed');
   });
 });
+
+describe('overrides', () => {
+  function packWith(overrides: unknown) {
+    const p = goodPack();
+    p.overrides = overrides;
+    return p;
+  }
+
+  test('a well-formed override block validates', () => {
+    const r = validatePack(
+      packWith({
+        buildings: [{ id: 'core:coal_plant', cost: 1500, power: { capacity: 900 } }],
+        ordinances: [{ id: 'cleanAir', cost: 40, effects: { 'pollution.industry': 0.3 } }],
+      }),
+    );
+    expect(r.ok).toBe(true);
+  });
+
+  test('an id-only override is valid (it just changes nothing)', () => {
+    expect(validatePack(packWith({ buildings: [{ id: 'core:coal_plant' }] })).ok).toBe(true);
+  });
+
+  test('a pack with no overrides is unaffected', () => {
+    expect(validatePack(goodPack()).ok).toBe(true);
+  });
+
+  test('an override without an id is rejected', () => {
+    const r = validatePack(packWith({ buildings: [{ cost: 10 }] }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toMatch(/id/);
+  });
+
+  test('overriding slot is refused, and says why', () => {
+    const r = validatePack(packWith({ buildings: [{ id: 'core:coal_plant', slot: 99 }] }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors.join(' ')).toContain('slot');
+      expect(r.errors.join(' ')).toMatch(/identity|saves/i);
+    }
+  });
+
+  test('a patched number is range-checked like the base field', () => {
+    const r = validatePack(packWith({ buildings: [{ id: 'core:coal_plant', cost: -5 }] }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('cost');
+  });
+
+  test('a patched visual is range-checked', () => {
+    const r = validatePack(
+      packWith({
+        buildings: [
+          {
+            id: 'core:coal_plant',
+            visual: { footprint: 0.8, height: 900, hue: 1, sat: 1, light: 1, roof: 'flat', props: [] },
+          },
+        ],
+      }),
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('visual.height');
+  });
+
+  test('an unknown modifier key in a patched effect is refused', () => {
+    const r = validatePack(packWith({ ordinances: [{ id: 'cleanAir', effects: { nope: 1 } }] }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('nope');
+  });
+
+  test('a bad service kind in a patch is refused', () => {
+    const r = validatePack(packWith({ buildings: [{ id: 'core:fire_station', service: { kind: 'vibes' } }] }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('service.kind');
+  });
+
+  test('overrides must be arrays', () => {
+    const r = validatePack(packWith({ buildings: { id: 'x' } }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toMatch(/array/);
+  });
+
+  test('a malformed unlock expression in a patch is refused', () => {
+    const r = validatePack(
+      packWith({ buildings: [{ id: 'core:coal_plant', unlock: { expr: 'population >', label: 'x' } }] }),
+    );
+    expect(r.ok).toBe(false);
+  });
+});

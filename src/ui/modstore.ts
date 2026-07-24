@@ -38,6 +38,9 @@ export interface OrdinanceDraft {
  * assumes downstream; the form only shows the fields the choice needs. */
 export type BuildingCategory = 'plain' | 'power' | 'service' | 'transit';
 
+/** Which kind of existing content a patch edits. */
+export type OverrideKind = 'building' | 'ordinance';
+
 /** The flat shape the building form edits, before it becomes a BuildingDef. */
 export interface BuildingDraft {
   name: string;
@@ -82,6 +85,12 @@ export interface ModStore {
   addBuilding(id: string, draft: BuildingDraft): { ok: true } | { ok: false; errors: string[] };
   updateBuilding(id: string, bId: string, draft: BuildingDraft): { ok: true } | { ok: false; errors: string[] };
   removeBuilding(id: string, bId: string): void;
+  setOverride(
+    id: string,
+    kind: OverrideKind,
+    patch: { id: string } & Record<string, unknown>,
+  ): { ok: true } | { ok: false; errors: string[] };
+  clearOverride(id: string, kind: OverrideKind, targetId: string): void;
   onChange(cb: () => void): void;
 }
 
@@ -293,6 +302,43 @@ export function createModStore(storage: StorageLike): ModStore {
       const m = find(id);
       if (!m) return;
       m.pack.buildings = (m.pack.buildings ?? []).filter((b) => b.id !== bId);
+      if (m.enabled) registerPack(m.pack);
+      persist();
+      fire();
+    },
+
+    setOverride(id, kind, patch) {
+      const m = find(id);
+      if (!m) return { ok: false, errors: [`no mod "${id}"`] };
+      const key = kind === 'building' ? 'buildings' : 'ordinances';
+      const current = m.pack.overrides?.[key] ?? [];
+      // one patch per target: setting it again replaces, never stacks
+      const next = [...current.filter((p) => p.id !== patch.id), patch];
+      const overrides = { ...m.pack.overrides, [key]: next };
+
+      const result = validatePack({ ...m.pack, overrides });
+      if (!result.ok) return { ok: false, errors: result.errors };
+      // registerPack has the last word: it alone knows whether the target
+      // exists, and it refuses without touching the registry.
+      if (m.enabled) {
+        const registered = registerPack({ ...m.pack, overrides });
+        if (!registered.ok) return { ok: false, errors: registered.errors };
+      }
+      m.pack.overrides = overrides as Pack['overrides'];
+      persist();
+      fire();
+      return { ok: true };
+    },
+
+    clearOverride(id, kind, targetId) {
+      const m = find(id);
+      if (!m?.pack.overrides) return;
+      const key = kind === 'building' ? 'buildings' : 'ordinances';
+      const current = m.pack.overrides[key] ?? [];
+      m.pack.overrides = {
+        ...m.pack.overrides,
+        [key]: current.filter((p) => p.id !== targetId),
+      } as Pack['overrides'];
       if (m.enabled) registerPack(m.pack);
       persist();
       fire();

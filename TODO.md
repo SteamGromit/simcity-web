@@ -6,35 +6,36 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Backlog (in order)
 
-1. **Modding editor** - UI for creating/drawing buildings, assigning properties to them, their local and city-wide impact & for editing sim behavior
-   - _Sub-project 1 (mod manager + ordinance authoring) shipped v0.47.0:_
-     the Mods panel — create/rename/enable/disable/delete, export and
-     import as JSON, persistence in `localStorage['simcity.mods']`, a
-     custom-ordinance editor over the seven modifier keys, and live City
-     Hall refresh.
-   - _Sub-project 2 (building authoring) shipped v0.48.0:_ author a
-     placeable building — category and its numbers, cost, upkeep,
-     unlock, waterside siting, and a composed look (mass, height,
-     colour, roof, rooftop props) with a live preview; a generic
-     renderer draws it; a toolbar Mods section places it; the sim
-     already simulated it. Slot allocation became stable per id, closing
-     the within-session remap hazard the v0.46 `reindex` docstring
-     flagged.
-   - Remaining for #1: **sub-project 3** — editing/overriding core
-     content and balance numbers, which needs last-wins-by-id override
-     semantics in the registry and touches the pinned-id save contract.
-     Also still open: freehand/pixel drawing of buildings (today's look
-     is composed, not drawn), multi-tile footprints, modding the
-     growable R/C/I ladders, and sharing beyond copy-paste JSON
-     (URL-encoded or hosted).
-2. **Region play** — multiple city tiles, neighbor deals (SC4 headline; deferred until single-city play is deep enough).
-3. **Rewards** — special buildings the mayor's office can purchase after city milestones are hit (e.g. Ballpark -> Arena -> Stadium -> Colesium, Library, Museum, Monument, College -> University -> Research University), They occupy > square. They provide jobs. They mpact the surrounding area (+ and/or -, context dependent) and sometimes the whole city (e.g. Research university unlocks access to Cold fusion power plant)
-4. **Garabage** - residents produce garabage. garabage pickup is a city service requiring a way to dispose of or process the trash. mayor can buy a trash dump. when city advances past some threshold of advancement, some trash can be recycled.
-5. **Crime** - crime can happen anywhere, but is more common in certain areas and conditions
-6. **traffic accidents** - occasionally a road is blocked due to an accident. Accident prob depends on traffic flow. reduce likelihood of accidends with driver education program. Reduce severity/duration of accident impact with fire depts with upgraded EMT program. animate accident and fallout.
-7. **building safety** - buildings can collapse resulting in loss of building and casualties. Probability increases with age of building. Baseline: It is _very_ rare, and only becomes possible after building hits a predefined age (default = 100 years). Probability adjusted by: city program of a. requiring building permit (slight increase in zoning price) and b. City program to hire and deploy infastructure inspectors, who monitor buildings, roads, bridges, utilities. Create animation for building collapse. Once a building has been repaired, its base prob of collapse goes back to 0 and progresses again as if it were newly built
+1. **Region play** — multiple city tiles, neighbor deals (SC4 headline; deferred until single-city play is deep enough).
+2. **Rewards** — special buildings the mayor's office can purchase after city milestones are hit (e.g. Ballpark -> Arena -> Stadium -> Colesium, Library, Museum, Monument, College -> University -> Research University), They occupy > square. They provide jobs. They mpact the surrounding area (+ and/or -, context dependent) and sometimes the whole city (e.g. Research university unlocks access to Cold fusion power plant)
+3. **Garabage** - residents produce garabage. garabage pickup is a city service requiring a way to dispose of or process the trash. mayor can buy a trash dump. when city advances past some threshold of advancement, some trash can be recycled.
+4. **Crime** - crime can happen anywhere, but is more common in certain areas and conditions
+5. **traffic accidents** - occasionally a road is blocked due to an accident. Accident prob depends on traffic flow. reduce likelihood of accidends with driver education program. Reduce severity/duration of accident impact with fire depts with upgraded EMT program. animate accident and fallout.
+6. **building safety** - buildings can collapse resulting in loss of building and casualties. Probability increases with age of building. Baseline: It is _very_ rare, and only becomes possible after building hits a predefined age (default = 100 years). Probability adjusted by: city program of a. requiring building permit (slight increase in zoning price) and b. City program to hire and deploy infastructure inspectors, who monitor buildings, roads, bridges, utilities. Create animation for building collapse. Once a building has been repaired, its base prob of collapse goes back to 0 and progresses again as if it were newly built
+
+7. **Modding: the parts the editor doesn't cover yet** — freehand/pixel
+   drawing of buildings (today's look is composed from a mass, roof and
+   props, not drawn), multi-tile footprints, modding the growable R/C/I
+   ladders (population/jobs tables, stage heights, archetypes are still
+   hardcoded), and sharing beyond copy-paste JSON (URL-encoded or
+   hosted). Low priority — the editor is usable without them.
 
 ## Done
+
+- **Modding editor** — shipped across v0.47.0–v0.49.0 in three parts.
+  *Mod manager* (v0.47.0): the Mods panel — create/rename/enable/disable/
+  delete, export and import as JSON, persistence in
+  `localStorage['simcity.mods']`, a custom-ordinance editor over the seven
+  modifier keys, live City Hall refresh. *Building authoring* (v0.48.0):
+  author a placeable building — category and its numbers, cost, upkeep,
+  unlock, waterside siting, and a composed look with a live preview; a
+  generic renderer draws it and a toolbar Mods section places it; slot
+  allocation became stable per id, closing the within-session remap hazard
+  the v0.46 `reindex` docstring flagged. *Core overrides* (v0.49.0): sparse
+  patches retune any registered building or ordinance from the panel, one
+  definition per content id (fixing a three-way disagreement between
+  buildings, ordinances and skins about duplicates), slot identity never
+  disturbed. What's left is tracked as backlog #7.
 
 - **Modding hooks** — shipped v0.46.0 (content registry with pinned-slot
   identity for buildings + a save legend, an expression language for

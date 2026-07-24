@@ -229,6 +229,63 @@ draw code.
 - **`roadFill`** (required) — a CSS color string for road fill, e.g.
   `'#3a3d42'`.
 
+## Overrides: changing content that already exists
+
+Beyond adding content, a pack may retune content another pack (usually core)
+defines, through an `overrides` block:
+
+```ts
+interface Pack {
+  // ...buildings, ordinances, skins...
+  overrides?: {
+    buildings?: BuildingOverride[];
+    ordinances?: OrdinanceOverride[];
+  };
+}
+```
+
+Each entry names the `id` it edits and carries **only the fields it changes**:
+
+```json
+{
+  "id": "cheap-power", "name": "Cheap Power", "version": "1.0.0",
+  "overrides": {
+    "buildings": [
+      { "id": "core:coal_plant", "cost": 500, "power": { "capacity": 400 } }
+    ],
+    "ordinances": [
+      { "id": "cleanAir", "cost": 40, "effects": { "pollution.industry": 0.3 } }
+    ]
+  }
+}
+```
+
+Rules:
+
+- **Sparse.** Anything you leave out keeps its current value — and keeps
+  tracking it if the underlying value changes later. A full redefinition would
+  silently freeze every other number at whatever it was when you wrote it.
+- **One level of merge.** Scalars replace. The nested blocks (`power`,
+  `service`, `transit`, `siting`, and an ordinance's `effects`) merge
+  field-by-field, so patching `power.capacity` leaves `power.pollution` alone.
+  `visual` and `unlock` replace wholesale.
+- **Same validation as the base.** Any field you set is checked exactly as it
+  would be on a real definition — a negative cost, an unknown modifier key, or
+  an out-of-range `visual` is an error naming the field.
+- **`slot` can never be overridden.** It is the identity every save stores;
+  declaring one in a patch is a validation error. This is what lets you retune
+  `core:coal_plant` without invalidating a single existing city.
+- **The target must exist.** A patch naming an id no pack defines rejects the
+  whole pack, rather than silently doing nothing.
+- **Last enabled pack wins.** Two mods patching the same id resolve in
+  registration order; disabling the later one reveals the earlier, and
+  disabling all of them restores core.
+
+Redefining content outright still works too — declare a building with an
+existing id (re-declaring its `slot`) and it replaces that building wholesale,
+keeping the slot. Prefer an override for balance work; reach for redefinition
+only when you really mean to replace everything.
+
 ## Pinned slots, and why core ids never change
 
 The simulation runs on a numeric `Zone` enum, and every save stores tiles as
@@ -456,10 +513,6 @@ rebuild. Config's skin buttons are still built once at page load.
 
 ## What this doesn't do (yet)
 
-- **No overriding core content.** You can add buildings, ordinances, and
-  skins; you can't yet retune the coal plant's cost or replace a core
-  ordinance's effects. That needs last-wins-by-id override semantics in the
-  registry and is the next sub-project.
 - **No freehand drawing.** A building's look is composed from the fields in
   `VisualDef`, not painted, and there's no way to import art.
 - **Single-tile buildings only.** Every placeable building occupies one tile,
@@ -473,5 +526,8 @@ rebuild. Config's skin buttons are still built once at page load.
   (plants, services, transit stations) are content; the zoning-grown
   residential/commercial/industrial stage ladder, its population/jobs
   tables, and its archetypes are not.
+- **Core content can be retuned but not removed.** An override changes a
+  building's or ordinance's numbers; there's no way to delete core content
+  from the registry, and skins are replaced whole rather than patched.
 
 Check `TODO.md` for what's planned next.

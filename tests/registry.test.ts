@@ -5,7 +5,9 @@ import {
   buildingById,
   buildingBySlot,
   buildingByTool,
+  allSkins,
   idOfSlot,
+  ordinanceById,
   registerPack,
   resetRegistry,
   slotOf,
@@ -200,5 +202,189 @@ describe('stable slot allocation', () => {
     registerPack({ id: 'mod', name: 'Mod', version: '1', buildings: [B('mod:a')] });
     expect(buildingBySlot(Zone.PowerPlant)!.id).toBe('core:coal_plant');
     expect(slotOf('core:coal_plant')).toBe(Zone.PowerPlant);
+  });
+});
+
+describe('one definition per id', () => {
+  beforeEach(() => {
+    resetRegistry();
+    const r = registerPack(CORE_PACK);
+    if (!r.ok) throw new Error(r.errors.join('\n'));
+  });
+
+  test('a later pack replaces an earlier building of the same id', () => {
+    registerPack({
+      id: 'a', name: 'A', version: '1',
+      buildings: [{ id: 'shared:thing', name: 'First', cost: 10, upkeep: 1 }],
+    });
+    registerPack({
+      id: 'b', name: 'B', version: '1',
+      buildings: [{ id: 'shared:thing', name: 'Second', cost: 20, upkeep: 2 }],
+    });
+    const hits = allBuildings().filter((b) => b.id === 'shared:thing');
+    expect(hits).toHaveLength(1);
+    expect(hits[0].name).toBe('Second');
+    expect(buildingById('shared:thing')!.name).toBe('Second');
+  });
+
+  test('ordinance lookup agrees with the list about which won', () => {
+    const ORD = (label: string) => ({ id: 'shared:law', label, blurb: 'b', cost: 5, effects: {} });
+    registerPack({ id: 'a', name: 'A', version: '1', ordinances: [ORD('First')] });
+    registerPack({ id: 'b', name: 'B', version: '1', ordinances: [ORD('Second')] });
+    const hits = allOrdinances().filter((o) => o.id === 'shared:law');
+    expect(hits).toHaveLength(1);
+    expect(hits[0].label).toBe('Second');
+    expect(ordinanceById('shared:law')!.label).toBe('Second');
+  });
+
+  test('skins dedupe too', () => {
+    const SKIN = (label: string) => ({
+      id: 'shared:look', label, blurb: 'b',
+      hue: { mode: 'identity' as const }, sat: {}, light: {},
+      outline: 0, heightScale: 1, grassSat: 1, roadFill: '#333',
+    });
+    registerPack({ id: 'a', name: 'A', version: '1', skins: [SKIN('First')] });
+    registerPack({ id: 'b', name: 'B', version: '1', skins: [SKIN('Second')] });
+    const hits = allSkins().filter((s) => s.id === 'shared:look');
+    expect(hits).toHaveLength(1);
+    expect(hits[0].label).toBe('Second');
+  });
+
+  test('redefining a core building keeps its pinned slot', () => {
+    const r = registerPack({
+      id: 'm', name: 'M', version: '1',
+      buildings: [
+        { id: 'core:coal_plant', slot: Zone.PowerPlant, name: 'Cheap Coal', cost: 1, upkeep: 1 },
+      ],
+    });
+    expect(r.ok).toBe(true);
+    expect(slotOf('core:coal_plant')).toBe(Zone.PowerPlant);
+    expect(buildingBySlot(Zone.PowerPlant)!.name).toBe('Cheap Coal');
+    expect(allBuildings().filter((b) => b.id === 'core:coal_plant')).toHaveLength(1);
+  });
+
+  test('a different id claiming a pinned slot is still rejected', () => {
+    const r = registerPack({
+      id: 'm', name: 'M', version: '1',
+      buildings: [{ id: 'm:impostor', slot: Zone.PowerPlant, name: 'X', cost: 1, upkeep: 1 }],
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('core:coal_plant');
+  });
+
+  test('core alone still has exactly one definition per id', () => {
+    const ids = allBuildings().map((b) => b.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe('overrides', () => {
+  beforeEach(() => {
+    resetRegistry();
+    const r = registerPack(CORE_PACK);
+    if (!r.ok) throw new Error(r.errors.join('\n'));
+  });
+
+  const patch = (packId: string, buildings: unknown[] = [], ordinances: unknown[] = []) =>
+    registerPack({
+      id: packId, name: packId, version: '1',
+      overrides: { buildings, ordinances },
+    });
+
+  test('a cost-only patch changes cost and nothing else', () => {
+    const before = buildingById('core:coal_plant')!;
+    const { upkeep, power, slot, unlock } = before;
+
+    const r = patch('m', [{ id: 'core:coal_plant', cost: 1500 }]);
+    expect(r.ok).toBe(true);
+
+    const after = buildingById('core:coal_plant')!;
+    expect(after.cost).toBe(1500);
+    expect(after.upkeep).toBe(upkeep);
+    expect(after.power).toEqual(power);
+    expect(after.slot).toBe(slot);
+    expect(after.unlock).toEqual(unlock);
+  });
+
+  test('the slot survives a patch, so saves keep resolving', () => {
+    patch('m', [{ id: 'core:coal_plant', cost: 1 }]);
+    expect(slotOf('core:coal_plant')).toBe(Zone.PowerPlant);
+    expect(buildingBySlot(Zone.PowerPlant)!.id).toBe('core:coal_plant');
+  });
+
+  test('nested blocks merge one level', () => {
+    const pollution = buildingById('core:coal_plant')!.power!.pollution;
+    patch('m', [{ id: 'core:coal_plant', power: { capacity: 999 } }]);
+    const after = buildingById('core:coal_plant')!;
+    expect(after.power!.capacity).toBe(999);
+    expect(after.power!.pollution).toBe(pollution);
+  });
+
+  test('ordinance effects merge key by key', () => {
+    const base = ordinanceById('cleanAir')!;
+    const untouched = Object.keys(base.effects).filter((k) => k !== 'pollution.industry');
+    patch('m', [], [{ id: 'cleanAir', effects: { 'pollution.industry': 0.1 } }]);
+    const after = ordinanceById('cleanAir')!;
+    expect(after.effects['pollution.industry']).toBe(0.1);
+    for (const k of untouched) {
+      expect(after.effects[k as keyof typeof after.effects]).toBe(
+        base.effects[k as keyof typeof base.effects],
+      );
+    }
+  });
+
+  test('a patch naming an unknown id is rejected and changes nothing', () => {
+    const before = buildingById('core:coal_plant')!.cost;
+    const r = patch('m', [{ id: 'nope:missing', cost: 1 }]);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('nope:missing');
+    expect(buildingById('core:coal_plant')!.cost).toBe(before);
+    expect(buildingById('nope:missing')).toBeUndefined();
+  });
+
+  test('a rejected pack leaves the registry untouched', () => {
+    patch('m', [{ id: 'core:coal_plant', cost: 1500 }]);
+    const r = patch('bad', [{ id: 'nope:missing', cost: 1 }]);
+    expect(r.ok).toBe(false);
+    // the earlier, good override is still in force
+    expect(buildingById('core:coal_plant')!.cost).toBe(1500);
+  });
+
+  test('the later-registered pack wins, and removing it reveals the earlier', () => {
+    patch('m1', [{ id: 'core:coal_plant', cost: 1000 }]);
+    patch('m2', [{ id: 'core:coal_plant', cost: 2000 }]);
+    expect(buildingById('core:coal_plant')!.cost).toBe(2000);
+
+    unregisterPack('m2');
+    expect(buildingById('core:coal_plant')!.cost).toBe(1000);
+
+    unregisterPack('m1');
+    expect(buildingById('core:coal_plant')!.cost).toBe(3000); // core again
+  });
+
+  test('a patch may give a core building a look', () => {
+    expect(buildingById('core:coal_plant')!.visual).toBeUndefined();
+    patch('m', [
+      {
+        id: 'core:coal_plant',
+        visual: { footprint: 0.9, height: 40, hue: 10, sat: 50, light: 40, roof: 'flat', props: [] },
+      },
+    ]);
+    expect(buildingById('core:coal_plant')!.visual!.height).toBe(40);
+  });
+
+  test('a patch can target a building another mod defines', () => {
+    registerPack({
+      id: 'base', name: 'Base', version: '1',
+      buildings: [{ id: 'base:hut', name: 'Hut', cost: 10, upkeep: 1 }],
+    });
+    const r = patch('m', [{ id: 'base:hut', cost: 55 }]);
+    expect(r.ok).toBe(true);
+    expect(buildingById('base:hut')!.cost).toBe(55);
+  });
+
+  test('patching does not duplicate the entry in the list', () => {
+    patch('m', [{ id: 'core:coal_plant', cost: 1500 }]);
+    expect(allBuildings().filter((b) => b.id === 'core:coal_plant')).toHaveLength(1);
   });
 });
