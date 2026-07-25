@@ -1,4 +1,5 @@
 import { idx, neighbors4 } from '../sim/grid';
+import { drivable } from '../sim/roads';
 import { CityState, GRID, Zone } from '../sim/types';
 import { ELEV_PX, TILE_H, TILE_W, isoToScreen, tileDepth } from './iso';
 
@@ -127,7 +128,8 @@ export class Automata {
       for (let i = 0; i < city.tiles.length; i++) {
         const t = city.tiles[i];
         if (t.zone === Zone.Road) {
-          if (t.traffic > 0) this.busy.push(i);
+          // a planted median carries no traffic, so nothing ever drives on it
+          if (t.traffic > 0 && drivable(t)) this.busy.push(i);
         } else if (
           (t.zone === Zone.Residential || t.zone === Zone.Commercial) &&
           t.stage > 0 &&
@@ -147,13 +149,13 @@ export class Automata {
   private stepCars(city: CityState, dt: number, busy: number[]): void {
     // demolition check: a car whose road vanished despawns immediately
     this.cars = this.cars.filter(
-      (c) => city.tiles[c.from].zone === Zone.Road && city.tiles[c.to].zone === Zone.Road,
+      (c) => drivable(city.tiles[c.from]) && drivable(city.tiles[c.to]),
     );
     let target = Math.min(MAX_CARS, busy.length * 2);
     if (this.pandemic) target = Math.ceil(target * 0.25); // lockdown: streets go quiet
     while (this.cars.length < target && busy.length > 0) {
       const from = busy[(Math.random() * busy.length) | 0];
-      if (city.tiles[from].zone !== Zone.Road) break; // stale scan; wait for rescan
+      if (!drivable(city.tiles[from])) break; // stale scan; wait for rescan
       const next = this.nextRoad(city, from, -1);
       if (next === -1) break;
       const nz: Zone[] = [];
@@ -203,10 +205,10 @@ export class Automata {
     const options: number[] = [];
     for (const [nx, ny] of neighbors4(x, y)) {
       const ni = idx(nx, ny);
-      if (city.tiles[ni].zone === Zone.Road && ni !== prev) options.push(ni);
+      if (drivable(city.tiles[ni]) && ni !== prev) options.push(ni);
     }
     if (options.length === 0) {
-      return prev !== -1 && city.tiles[prev].zone === Zone.Road ? prev : -1;
+      return prev !== -1 && drivable(city.tiles[prev]) ? prev : -1;
     }
     return options[(Math.random() * options.length) | 0];
   }

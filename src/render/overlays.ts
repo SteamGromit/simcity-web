@@ -1,6 +1,7 @@
-import { CityState, ROAD_CAPACITY, Zone } from '../sim/types';
+import { CityState, Zone } from '../sim/types';
 import { GRID } from '../sim/types';
 import { demandReading } from '../sim/develop';
+import { tileCapacity } from '../sim/traffic';
 import { fillTile } from './buildings';
 import { tileGeom } from './iso';
 
@@ -62,10 +63,11 @@ function tint(city: CityState, i: number, overlay: OverlayId): string | null {
       return `hsl(${hue} 70% 50% / 0.45)`;
     }
     case 'traffic': {
-      if (t.zone !== Zone.Road) return null;
+      // a median is landscaping, not a lane — it reads as neither free nor jammed
+      if (t.zone !== Zone.Road || t.median) return null;
       // a crash flags red before any congestion colour
       if (t.accident > 0) return 'rgba(230,40,40,0.7)';
-      const v = Math.min(1, t.traffic / (ROAD_CAPACITY * 2));
+      const v = Math.min(1, t.traffic / (tileCapacity(t.road) * 2));
       return `hsl(${120 - 120 * v} 80% 45% / 0.6)`;
     }
     case 'demand': {

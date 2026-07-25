@@ -2,8 +2,10 @@ import { buildingBySlot } from '../content/registry';
 import { collapseChance } from '../sim/safety';
 import { entityFor, variantAt } from '../sim/entities';
 import { idx } from '../sim/grid';
+import { ROAD_CLASSES } from '../sim/roads';
 import { tierLabel } from '../sim/tierstats';
-import { CityState, ROAD_CAPACITY, Terrain, Zone } from '../sim/types';
+import { tileCapacity } from '../sim/traffic';
+import { CityState, Terrain, Zone } from '../sim/types';
 
 const ZONE_NAMES: Record<Zone, string> = {
   [Zone.None]: 'Empty land',
@@ -84,9 +86,15 @@ export function buildQuery(root: HTMLElement) {
         rows.push(['Condition', risk > 0 ? 'at risk — repair it' : years >= 80 ? 'aging' : 'sound']);
       }
       if (t.zone === Zone.Road) {
-        if (t.accident > 0) rows.push(['Status', '🚧 accident — road blocked']);
-        rows.push(['Traffic', String(Math.round(t.traffic))]);
-        rows.push(['Congestion', `${Math.round(Math.min(1, t.traffic / (ROAD_CAPACITY * 2)) * 100)}%`]);
+        rows.push(['Class', t.median ? 'Boulevard median' : ROAD_CLASSES[t.road].label]);
+        if (t.median) {
+          rows.push(['Traffic', 'planted — no lanes']);
+        } else {
+          if (t.accident > 0) rows.push(['Status', '🚧 accident — road blocked']);
+          rows.push(['Traffic', String(Math.round(t.traffic))]);
+          const cap = tileCapacity(t.road);
+          rows.push(['Congestion', `${Math.round(Math.min(1, t.traffic / (cap * 2)) * 100)}%`]);
+        }
         if (t.wire) rows.push(['Power line', 'overhead']);
         if (t.pipe) rows.push(['Water main', 'buried']);
       }

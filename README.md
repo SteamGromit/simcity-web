@@ -91,9 +91,9 @@ they cost money. Nothing can be built on water or forest, but living near
 them (or up on a hillside with a view) raises land value.
 
 Roads climb hills one level at a time — a two-level **cliff** stops them
-cold, so grade your routes or go around. The Road tool also builds
-**bridges** straight over water (§50 a tile). Power lines don't mind
-cliffs.
+cold, so grade your routes or go around. Every class of road also builds
+**bridges** straight over water (§50 a tile for a street, more for a
+wider deck). Power lines don't mind cliffs.
 
 Start with a **coal plant**, draw a **road**, then zone **residential /
 commercial / industrial** beside the road (within 2 tiles). Click a zone
@@ -167,7 +167,24 @@ residential land value. Parks raise it.
 
 Roads have **capacity** — a jammed artery makes every commute through it
 longer, which drags down desirability and land value. Relieve it with
-parallel routes — or plan **transit lines**: open the **Transit Line**
+parallel routes, with a **wider class of road**, or with **transit lines**.
+
+The **Road** button is a growth-gated family. You start with the plain
+**Street**; the city unlocks **Route** (pop 2,000), **Boulevard** (8,000),
+**Highway** (20,000) and **Highway II** (45,000) as it grows. Each is
+wider than the last — 1, 2, 3, 4 and 6 squares — and drags out as a
+*corridor* rather than a line: aim the drag down the middle and the band
+lays itself out either side, turning corners with you. Every tile of a
+wider class carries more traffic before it starts to jam, so a route
+through a choked district genuinely unclogs it. Lay a class straight over
+an existing road to widen it in place.
+
+A **boulevard's median is landscaped, not paved**: three squares wide,
+two carriageways, and a treed strip down the middle that nothing drives
+on and no building fronts. Traffic routes around it. Draw a plain street
+across a boulevard to punch a junction through the median.
+
+For transit, open the **Transit Line**
 menu in the Civic section (only unlocked modes appear; Bus is always
 available), draw the route point by point on the map
 (double-click to finish it), click tiles on or beside the route to
@@ -216,19 +233,21 @@ a metropolis (toggle in Config; M mutes everything — volume sliders live there
 also gathers weather effects, volume sliders, and a day/night lighting toggle (off by
 default — turn it on: nights go truly dark beyond the city, and
 streetlights and lit windows carve glowing pools where people live;
-unpowered blocks vanish into the black). Open **City Hall** for the advisor board (every
-current warning at a glance) and to enact **ordinances** — monthly-cost
-policies like the Clean Air Act or Free Bus Service that bend the
-simulation in your favor.
+unpowered blocks vanish into the black). Open **City Hall** to see what the
+city is made of and to enact **ordinances** — monthly-cost policies like
+the Clean Air Act or Free Bus Service that bend the simulation in your
+favor. **File** gathers New, Save, Load and Mods, and opens on launch so
+you pick up your saved city or start a fresh one deliberately.
 
 | Control | Action |
 | --- | --- |
 | Left click / drag | apply tool (zones, parks, bulldoze drag rectangles; roads, power lines, and pipes draw an adjustable line) |
-| Tool keys | B bulldoze · R road · 1/2/3 zones · P plant · L line · K park · F/V/S/D services · U bus · W/X water · I query |
-| ⇧ + key | data-view shortcuts: ⇧P power, ⇧O pollution, ⇧L land value, ⇧T traffic, ⇧D demand, ⇧F fire, ⇧V police, ⇧S school, ⇧H health, ⇧G garbage, ⇧R refuse cover, ⇧C crime, ⇧W water |
+| Tool keys | B bulldoze · R road · 1/2/3 zones · P plant · L line · K park · F/V/S/D services · U bus · G landfill · W/X water · I query |
+| ⇧ + key | data-view shortcuts: ⇧P power, ⇧O pollution, ⇧L land value, ⇧T traffic, ⇧D demand, ⇧F fire, ⇧V police, ⇧S school, ⇧H health, ⇧G garbage, ⇧R refuse cover, ⇧C crime, ⇧A building age, ⇧W water |
 | Minimap click | jump the camera |
-| Charts button | population and funds history |
+| Charts button | the city's history, series by series |
 | Query tool | inspect any tile |
+| × on a title bar | close that panel |
 | Middle-drag or Space+drag | pan (arrow keys work too) |
 | Q / E (hold) | rotate the view — full 360° |
 | Mouse wheel | zoom |
@@ -238,9 +257,12 @@ simulation in your favor.
 | ⏸ ▶ ▶▶ ▶▶▶ | pause / normal / fast / cheetah |
 
 Panels are yours to arrange: drag the toolbar, HUD, and info panels by
-their title bars. Toolbar sections pop out into draggable floating panels
-and re-dock; positions and detached state persist. Click a toolbar
-section header to fold that group away — everything is remembered.
+their title bars, and close any of them with the **×** at the top right.
+An open panel keeps its control-bar button ringed in pink, so you can
+always see what's on screen. Toolbar sections pop out into draggable
+floating panels and re-dock; positions and detached state persist. Click
+a toolbar section header to fold that group away — everything is
+remembered.
 
 **Reading the toolbar.** Each tool carries a colored spine down its left
 edge, following the color code utility crews paint on real streets: red
@@ -249,13 +271,25 @@ white for terrain work. Zoning uses the same green/blue/yellow as the RCI
 meter. The tool you have armed turns **survey pink** — the color of
 temporary survey marking, the paint that means "proposed work here."
 
-Save/Load keeps one city in your browser's localStorage.
+Growth-gated families — Road, Power Plant, Police Station, Waste, Transit
+Line — show a **single button** while only one option is unlocked, and
+open a flyout the moment the city earns a second. Their keyboard shortcut
+always arms the *first* member, so **R** is a plain street whatever the
+button currently says.
 
-Stuck? Press **H** for the in-game help panel, and keep an eye on the
-**advisor tip** in the bottom-left corner — it watches the city and points
-out the most pressing problem (no power, no road access, deficits, fires,
-pollution…). Dismiss a tip with × and it stays quiet unless the problem
-comes back.
+Hovering with anything that has an area effect previews its footprint in
+**survey pink** — deliberately not the coverage views' green, so you can
+leave Health Cover on and still see exactly what a new hospital would
+change. An **amber ring** marks the smaller radius over which a prison,
+dump or power plant spoils the neighbourhood.
+
+Save/Load keeps one city in your browser's localStorage; both live under
+**File**.
+
+Stuck? Press **H** for the in-game help panel, and read the **event
+strip** — fires, crimes, crashes and the city's advisors all stream
+through it. Drag it wherever suits you and use **⇄ / ⇅** on its handle to
+switch between a one-line ticker and a newest-first log.
 
 ## Modding
 

@@ -4,7 +4,9 @@ import { collectBudget } from './budget';
 import { defaultOrdinances, ensureCoreContent, unlockedFor } from './content';
 import { updateDemand } from './demand';
 import { developTile } from './develop';
-import { blankTile, idx, inBounds, neighbors4 } from './grid';
+import { blankTile, idx, inBounds, neighbors4, roadBand } from './grid';
+import { emptyHistory, pushHistory, sampleHistory, type MonthEvents } from './history';
+import { isRoadTool, ROAD_CLASSES, roadClassOfTool, type RoadClass } from './roads';
 import { updateLandValue } from './landvalue';
 import { updatePollution } from './pollution';
 import { updatePower } from './power';
@@ -168,7 +170,7 @@ export function newCity(seed: number): CityState {
     disasters: defaultDisasters(),
     weather: defaultWeather(),
     notices: [],
-    history: { pop: [], funds: [] },
+    history: emptyHistory(),
     transitLines: [],
   };
 }
@@ -185,7 +187,13 @@ export function mulberry32(seed: number): () => number {
 }
 
 const TOOL_ZONE: Partial<Record<ToolId, Zone>> = {
+  // every class of road builds into the one Road slot; the class rides on the
+  // tile (Tile.road), so saves and `switch (zone)` code are untouched by it
   road: Zone.Road,
+  route: Zone.Road,
+  boulevard: Zone.Road,
+  highway: Zone.Road,
+  highway2: Zone.Road,
   zoneR: Zone.Residential,
   zoneC: Zone.Commercial,
   zoneI: Zone.Industrial,
@@ -252,13 +260,29 @@ function isPristine(city: CityState): boolean {
   return city.tiles.every((t) => t.stage === 0);
 }
 
+/** Per-tile price of a road of this class, scaled off the plain street's. */
+function roadTileCost(cls: RoadClass): number {
+  const street = buildingByTool('road')?.cost ?? 10;
+  return Math.round(street * ROAD_CLASSES[cls].costMult);
+}
+
 /** Zone tools cost more at higher density; everything else has a flat cost.
- * Building prices come from content; actions and zoning keep theirs in COSTS. */
+ * Building prices come from content; actions and zoning keep theirs in COSTS.
+ * The road ladder scales `core:road`'s price, so retuning that one number in a
+ * mod moves the whole ladder with it. */
 export function toolCost(tool: BuildTool, density: Density): number {
+  const cls = roadClassOfTool(tool);
+  if (cls !== null) return roadTileCost(cls);
   const def = buildingByTool(tool);
   if (def) return def.cost;
   const mult = isZoneTool(tool) ? DENSITY_COST_MULT[density] : 1;
   return COSTS[tool as ActionToolId] * mult;
+}
+
+/** A road class the city has not grown into yet, or null once it is available. */
+function roadLocked(city: CityState, cls: RoadClass): string | null {
+  const def = ROAD_CLASSES[cls];
+  return city.population < def.unlockPop ? `unlocks at ${def.unlockLabel}` : null;
 }
 
 function isBareTerrainDoze(tool: BuildTool, t: { zone: Zone; terrain: Terrain }): boolean {
@@ -274,7 +298,11 @@ function effectiveCost(
   if (isTerrainTool(tool) || tool === 'terraRaise' || tool === 'terraLower') {
     return isPristine(city) ? 0 : toolCost(tool, density);
   }
-  if (tool === 'road' && t.terrain === Terrain.Water) return BRIDGE_COST;
+  const roadCls = roadClassOfTool(tool);
+  if (roadCls !== null && t.terrain === Terrain.Water) {
+    // a wider deck costs proportionally more to span
+    return Math.round(BRIDGE_COST * ROAD_CLASSES[roadCls].costMult);
+  }
   // leveling bare forest/water is terrain work, priced like the Level Land tool
   if (isBareTerrainDoze(tool, t)) return isPristine(city) ? 0 : COSTS.terraGrass;
   let cost = toolCost(tool, density);
@@ -311,11 +339,22 @@ function validateTool(
     if (tool === 'terraLower' && t.elevation <= 0) return 'no change';
     return null;
   }
+  const roadCls = roadClassOfTool(tool);
+  if (roadCls !== null) {
+    const locked = roadLocked(city, roadCls);
+    if (locked) return locked;
+  }
   if (t.terrain !== Terrain.Grass) {
-    // the road tool bridges water; everything else needs dry, clear land
-    if (!(tool === 'road' && t.terrain === Terrain.Water)) {
+    // road tools bridge water; everything else needs dry, clear land
+    if (!(roadCls !== null && t.terrain === Terrain.Water)) {
       return 'cannot build on water or forest';
     }
+  }
+  // Laying a road over a road re-lays it at the new class, which is how a
+  // street is widened into a route and how a plain crossing is punched
+  // through a boulevard's median. Re-laying the same thing changes nothing.
+  if (roadCls !== null && t.zone === Zone.Road) {
+    return t.road === roadCls && !t.median ? 'tile occupied' : null;
   }
   const built = toolSlot(tool);
   if (built === undefined) return 'placed via the transit wizard';
@@ -379,6 +418,13 @@ export function applyTool(
     t.wire = true;
   } else if (tool === 'pipe' && t.zone === Zone.Road) {
     t.pipe = true;
+  } else if (isRoadTool(tool)) {
+    // wires and mains already strung along this corridor stay put
+    t.zone = Zone.Road;
+    t.road = roadClassOfTool(tool)!;
+    t.median = false; // applyRoadLine marks the boulevard's centre strip
+    t.stage = 0;
+    t.abandoned = false;
   } else {
     t.zone = toolSlot(tool)!;
     t.stage = 0;
@@ -390,9 +436,47 @@ export function applyTool(
 }
 
 /**
+ * The tiles a drag line actually covers: one per step for a plain street,
+ * a widened corridor for the rest of the ladder. Shared by the placement
+ * preview and by applyRoadLine, so what the player aims at is what gets built.
+ */
+export function toolLineCells(tool: BuildTool, line: [number, number][]) {
+  const cls = roadClassOfTool(tool);
+  if (cls === null) return line.map(([x, y]) => ({ x, y, median: false }));
+  return roadBand(line, ROAD_CLASSES[cls].width);
+}
+
+/**
+ * Lay a road corridor along a drag line. Wide classes stamp a band; the
+ * boulevard's centre column becomes a planted median — except where it lands
+ * on road that was already there, which keeps existing junctions drivable.
+ */
+export function applyRoadLine(
+  city: CityState,
+  tool: BuildTool,
+  line: [number, number][],
+): { applied: number; brokeFunds: boolean } {
+  let applied = 0;
+  let brokeFunds = false;
+  for (const cell of toolLineCells(tool, line)) {
+    const before = city.tiles[idx(cell.x, cell.y)];
+    const wasRoad = before.zone === Zone.Road && !before.median;
+    const res = applyTool(city, tool, cell.x, cell.y);
+    if (res.ok) {
+      applied++;
+      city.tiles[idx(cell.x, cell.y)].median = cell.median && !wasRoad;
+    } else if (res.err === 'not enough funds') {
+      brokeFunds = true;
+    }
+  }
+  return { applied, brokeFunds };
+}
+
+/**
  * Apply a drag-line of tool tiles (roads, power lines, pipes). Tiles that
  * reject the tool are skipped, matching how road lines already behave;
  * brokeFunds reports whether any tile failed on money so the UI can toast.
+ * Road tools go through applyRoadLine so the line widens into a corridor.
  */
 export function applyToolLine(
   city: CityState,
@@ -400,6 +484,7 @@ export function applyToolLine(
   line: [number, number][],
   density: Density = 1,
 ): { applied: number; brokeFunds: boolean } {
+  if (isRoadTool(tool)) return applyRoadLine(city, tool, line);
   let applied = 0;
   let brokeFunds = false;
   for (const [x, y] of line) {
@@ -441,26 +526,27 @@ export function simTick(city: CityState, rand: () => number): void {
 
   if (city.tick % TICKS_PER_MONTH === 0) {
     city.month += 1;
-    fireRisk(city, rand);
-    accidentRoll(city, rand);
+    // the incident rolls hand back their counts so the charts can plot a
+    // month's fires and crashes without the sim carrying a tally between ticks
+    const events: MonthEvents = {
+      fires: fireRisk(city, rand),
+      accidents: accidentRoll(city, rand),
+      collapses: 0,
+      crimes: 0,
+    };
     ageBuildings(city);
-    collapseRoll(city, rand);
+    events.collapses = collapseRoll(city, rand);
     pandemicMonthly(city, rand);
     rubbleMonthly(city);
     updateWasteMonthly(city);
     updateCrime(city);
-    crimeIncidents(city, rand);
+    events.crimes = crimeIncidents(city, rand);
     retierMonthly(city, rand);
     rollForDisaster(city, rand);
     updateWeatherMonthly(city, rand);
     collectBudget(city);
     updateDemand(city); // demand reflects the month's new totals right away
     if (city.notices.length > 8) city.notices.splice(0, city.notices.length - 8);
-    city.history.pop.push(city.population);
-    city.history.funds.push(city.funds);
-    if (city.history.pop.length > HISTORY_MAX) {
-      city.history.pop.shift();
-      city.history.funds.shift();
-    }
+    pushHistory(city.history, sampleHistory(city, events), HISTORY_MAX);
   }
 }

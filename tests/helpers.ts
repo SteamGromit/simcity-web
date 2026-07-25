@@ -1,4 +1,5 @@
 import { blankTile, idx } from '../src/sim/grid';
+import { emptyHistory } from '../src/sim/history';
 import { defaultOrdinances, ensureCoreContent } from '../src/sim/content';
 import { CityState, defaultDisasters, defaultWaste, GRID, Stage, Terrain, Tier, Zone } from '../src/sim/types';
 import { defaultWeather } from '../src/sim/weather';
@@ -38,7 +39,7 @@ export function makeCity(): CityState {
     disasters: defaultDisasters(),
     weather: defaultWeather(),
     notices: [],
-    history: { pop: [], funds: [] },
+    history: emptyHistory(),
   };
 }
 

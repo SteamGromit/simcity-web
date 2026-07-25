@@ -1,4 +1,5 @@
 import { Tip } from '../sim/tips';
+import { panelHandle } from './panel';
 
 /** Static help modal: getting started, controls, and simulation concepts. */
 export function buildHelp(root: HTMLElement) {
@@ -12,7 +13,7 @@ export function buildHelp(root: HTMLElement) {
   panel.id = 'help-panel';
   panel.className = 'panel hidden';
   panel.innerHTML = `
-    <h3>How to play <button id="help-close">×</button></h3>
+    <h3>How to play</h3>
     <div class="cols">
       <section>
         <h4>Getting started</h4>
@@ -34,6 +35,10 @@ export function buildHelp(root: HTMLElement) {
           <li><b>Click / drag</b> — apply tool (zones drag rectangles)</li>
           <li><b>Zoning</b> — click a zone tool and pick a density in its
               flyout; <b>1/2/3</b> reuse each zone's last density</li>
+          <li><b>Growth-gated families</b> (Road, Power Plant, Police, Waste,
+              Transit) show one button until the city unlocks a second option,
+              then open a flyout. Their key always arms the <em>first</em>
+              member — <b>R</b> is always a plain street.</li>
           <li><b>Middle-drag or Space+drag</b> — pan · <b>Wheel</b> — zoom</li>
           <li><b>Q / E</b> — rotate the view · <b>Arrows</b> — pan</li>
           <li><b>⇧ + letter</b> — toggle data views: ⇧P power, ⇧O pollution,
@@ -41,7 +46,10 @@ export function buildHelp(root: HTMLElement) {
               ⇧H health, ⇧W water</li>
           <li><b>Esc</b> — cancel tool · <b>H</b> or <b>?</b> — this help</li>
           <li><b>M</b> — mute · <b>⠿</b> — drag panels · <b>⇱</b> — pop a
-              tool section out</li>
+              tool section out · <b>×</b> — close a panel</li>
+          <li><b>Events</b> stream into one strip — drag it anywhere, and use
+              <b>⇄ / ⇅</b> on its handle to switch between a ticker and a
+              newest-first log.</li>
         </ul>
       </section>
       <section>
@@ -66,6 +74,14 @@ export function buildHelp(root: HTMLElement) {
               transit — <b>Streetcar</b> (pop 5,000), <b>Monorail</b>
               (15,000), <b>Subway</b> (30,000), <b>Rail Terminal</b>
               (50,000) — each covering more ground with fewer cars.</li>
+          <li><b>Wider roads</b> unlock as you grow, and each drags out a
+              corridor rather than a line: <b>Route</b> (2 squares, pop 2,000),
+              <b>Boulevard</b> (3 squares around a planted median, 8,000),
+              <b>Highway</b> (4 squares, 20,000) and <b>Highway II</b> (6
+              squares, 45,000). Every tile of a wider class swallows more
+              traffic before it jams. A boulevard's median is landscaping, not
+              a lane — lay a plain street across one to punch a junction
+              through it.</li>
           <li><b>Fires spread!</b> Uncovered buildings can ignite; flames jump
               to neighbors. Fire coverage fights them — or bulldoze a
               firebreak.</li>
@@ -88,48 +104,31 @@ export function buildHelp(root: HTMLElement) {
   `;
   root.appendChild(panel);
 
-  const toggle = () => panel.classList.toggle('hidden');
-  btn.addEventListener('click', toggle);
-  (panel.querySelector('#help-close') as HTMLElement).addEventListener('click', toggle);
+  const handle = panelHandle(panel);
+  btn.addEventListener('click', handle.toggle);
   return {
-    toggle,
-    hide() {
-      panel.classList.add('hidden');
-    },
+    toggle: handle.toggle,
+    hide: handle.close,
   };
 }
 
-/** Bottom-left advisor strip showing the top contextual tip, dismissible per tip. */
-export function buildTipBar(root: HTMLElement) {
-  const el = document.createElement('div');
-  el.id = 'tip-bar';
-  el.className = 'panel hidden';
-  const text = document.createElement('span');
-  const close = document.createElement('button');
-  close.textContent = '×';
-  close.title = 'Dismiss tip';
-  // no glyph: the brass rule down the strip's edge already marks it an advisory
-  el.append(text, close);
-  root.appendChild(el);
-
-  const dismissed = new Set<string>();
-  let showing: string | null = null;
-  close.addEventListener('click', () => {
-    if (showing) dismissed.add(showing);
-    showing = null;
-    el.classList.add('hidden');
-  });
-
+/**
+ * Advisor tips reach the player through the event log rather than a strip of
+ * their own. This tracks which have already been announced so a standing
+ * complaint is said once, not every two seconds — and says it again if the
+ * condition clears and later comes back.
+ */
+export function createAdvisorFeed(announce: (tip: Tip) => void) {
+  const said = new Set<Tip['id']>();
   return {
     update(tips: Tip[]) {
-      // a dismissed tip returns if its condition clears and later re-fires
-      const current = new Set<string>(tips.map((t) => t.id));
-      for (const id of dismissed) if (!current.has(id)) dismissed.delete(id);
-
-      const top = tips.find((t) => !dismissed.has(t.id)) ?? null;
-      showing = top?.id ?? null;
-      el.classList.toggle('hidden', !top);
-      if (top) text.textContent = top.text;
+      const current = new Set<Tip['id']>(tips.map((t) => t.id));
+      for (const id of said) if (!current.has(id)) said.delete(id);
+      for (const tip of tips) {
+        if (said.has(tip.id)) continue;
+        said.add(tip.id);
+        announce(tip);
+      }
     },
   };
 }

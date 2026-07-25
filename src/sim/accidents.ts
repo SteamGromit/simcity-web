@@ -13,7 +13,8 @@
  */
 
 import { modifier } from './content';
-import { ACCIDENT_MAX, CityState, GRID, ROAD_CAPACITY, Zone } from './types';
+import { tileCapacity } from './traffic';
+import { ACCIDENT_MAX, CityState, GRID, Zone } from './types';
 
 /** Per-unit-of-capacity monthly chance a busy road throws a crash. */
 const ACCIDENT_RISK = 0.06;
@@ -34,18 +35,22 @@ export function accidentDuration(city: CityState, i: number): number {
 }
 
 /** Monthly: each road tile carrying traffic may throw a crash, more likely the
- * busier it is, rarer with Driver Education. */
-export function accidentRoll(city: CityState, rand: () => number): void {
+ * busier it is relative to what its class was built to carry, and rarer with
+ * Driver Education. Returns how many crashes happened, for the charts. */
+export function accidentRoll(city: CityState, rand: () => number): number {
   const rate = modifier(city, 'accident.rate');
+  let crashes = 0;
   for (let i = 0; i < city.tiles.length; i++) {
     const t = city.tiles[i];
     if (t.zone !== Zone.Road || t.traffic <= 0 || t.accident > 0) continue;
-    const p = ACCIDENT_RISK * (t.traffic / ROAD_CAPACITY) * rate;
+    const p = ACCIDENT_RISK * (t.traffic / tileCapacity(t.road)) * rate;
     if (rand() < p) {
       t.accident = accidentDuration(city, i);
+      crashes++;
       city.notices.push(`A traffic accident is blocking the road at (${i % GRID}, ${(i / GRID) | 0}).`);
     }
   }
+  return crashes;
 }
 
 /** Per tick: count every block down; a tile hitting 0 is clear. */

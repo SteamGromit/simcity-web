@@ -4,6 +4,65 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.54.0] — 2026-07-25 · Road ladder & interface overhaul
+
+### Added
+- **Wider roads, unlocked as you grow.** The Road button is now a family:
+  **Street** (1 square), **Route** (2 squares, pop 2,000), **Boulevard**
+  (3 squares around a planted median, pop 8,000), **Highway** (4 squares,
+  pop 20,000) and **Highway II** (6 squares, pop 45,000). Drag one and it
+  lays a *corridor*, not a line — the band widens to the class's promised
+  width and turns corners with it. Each tile of a wider class swallows
+  more traffic before it jams, so a route genuinely relieves a choked
+  street. Lay a class over an existing road to widen it in place.
+- **Boulevard medians are real.** The centre strip of a boulevard is
+  landscaped, not paved: nothing drives on it, no building fronts it, and
+  routing goes around. Lay a plain street across one to punch a junction
+  through. (A stairstepped diagonal is laid as solid carriageway — a
+  median down a zigzag would sever the lanes either side of it.)
+- **A File menu, and a front door.** New / Save / Load / Mods are one
+  **File** button instead of four, and the menu opens on launch so
+  carrying on with the saved city or starting fresh is an explicit
+  choice rather than something the game decides for you.
+- **One running event feed.** The centre toast and the bottom-left
+  advisor strip are gone; everything the city says — fires, crimes,
+  crashes, advisors, confirmations — streams into a single strip you
+  place once. Two shapes, switched from its handle: a **ticker** (⇄) that
+  crawls along one line, or a **log** (⇅) stacking newest-first. Position
+  and shape persist.
+- **Configurable charts.** Twenty series across five groups (city, money,
+  zones & density, conditions, incidents), each its own small multiple.
+  Pick which appear, read them as totals or **per 1,000 residents**, and
+  choose a **1 / 5 / 10 year or All** window you can scroll back through
+  the city's whole history.
+
+### Changed
+- **Every modal closes from its own title bar.** A × sits top-right of
+  Budget, City Hall, Charts, Config, Mods, File and Help — no more
+  hunting for the button that opened it. The control bar now **rings the
+  button of any open panel**, so what's on screen is legible at a glance.
+- **City Hall lost its advisor board.** The list grew and shrank as the
+  city's mood changed, moving every control below it out from under the
+  cursor. The advisors speak through the event log now; everything left
+  in City Hall has a fixed height.
+- **A growth-gated family shows one button until there's a choice.**
+  Road, Power Plant, Police Station, Waste and Transit Line render as a
+  single plain button while only one member is unlocked, and become a
+  flyout the moment a second one is. Their keyboard shortcut always arms
+  the *lowest* member — **R** is always a plain street — and **G** now
+  binds the Landfill.
+- **Placement previews are survey pink, not data-view green.** Hovering
+  with a service tool used to paint the same green the coverage views
+  use, so "what would change" was indistinguishable from "what is already
+  covered" — exactly when the preview matters most. The footprint is now
+  pink with a bright rim at the edge of its reach, the Park previews its
+  land-value radius, and an **amber ring** marks the smaller radius over
+  which a prison, dump or plant spoils the neighbourhood.
+- Roads render per class: motorways get a blacker pour and white lane
+  edges, boulevards a treed median. Query names a road's class and
+  congestion against its own capacity. Upkeep and build cost scale off
+  `core:road`, so a mod that retunes one road price retunes the ladder.
+
 ## [0.53.0] — 2026-07-24 · Building safety
 
 ### Added

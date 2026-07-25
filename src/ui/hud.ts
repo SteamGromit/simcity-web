@@ -1,6 +1,7 @@
 import { CityState } from '../sim/types';
 import { WeatherKind } from '../sim/weather';
 import { monthLabel } from './format';
+import { panelHandle } from './panel';
 
 const WEATHER_EMOJI: Record<WeatherKind, string> = {
   clear: '☀️',
@@ -9,18 +10,24 @@ const WEATHER_EMOJI: Record<WeatherKind, string> = {
   snow: '❄️',
 };
 
+/** The panels the control bar can summon; the bar outlines whichever are open. */
+export type PanelId = 'budget' | 'cityhall' | 'charts' | 'display' | 'file';
+
 export interface HudActions {
   setSpeed(speed: 0 | 1 | 2 | 3): void;
-  save(): void;
-  load(): void;
-  newCity(): void;
-  toggleCharts(): void;
-  toggleCityHall(): void;
-  toggleDisplay(): void;
-  toggleMods(): void;
+  toggle(panel: Exclude<PanelId, 'budget'>): void;
+  /** Which panels are open right now, read every frame to outline their buttons. */
+  isOpen(panel: Exclude<PanelId, 'budget'>): boolean;
 }
 
 const SPEED_LABELS = ['⏸', '▶', '▶▶', '▶▶▶'];
+
+const PANEL_BUTTONS: { id: Exclude<PanelId, 'budget'>; label: string; title: string }[] = [
+  { id: 'cityhall', label: 'City Hall', title: 'Ordinances, city make-up, and tempting fate' },
+  { id: 'charts', label: 'Charts', title: 'The city’s history, series by series' },
+  { id: 'display', label: 'Config', title: 'Look, sound, and render style' },
+  { id: 'file', label: 'File', title: 'New, save, load, and mods' },
+];
 
 export function buildHud(root: HTMLElement, city: () => CityState, actions: HudActions) {
   const el = document.createElement('div');
@@ -32,16 +39,21 @@ export function buildHud(root: HTMLElement, city: () => CityState, actions: HudA
     <span class="stat"><span class="k">Date</span><b id="date">Jan 2000</b></span>
     <canvas id="rci" width="66" height="44"></canvas>
     <span class="speed-group" id="speeds"></span>
-    <button id="budget-btn">Budget</button>
-    <button id="cityhall-btn">City Hall</button>
-    <button id="charts-btn">Charts</button>
-    <button id="display-btn">Config</button>
-    <button id="mods-btn">Mods</button>
-    <button id="save-btn">Save</button>
-    <button id="load-btn">Load</button>
-    <button id="new-btn">New</button>
+    <button id="budget-btn" title="Tax rates and last month's ledger">Budget</button>
   `;
   root.appendChild(el);
+
+  // One button per panel, each outlined while its panel is open.
+  const panelButtons = new Map<Exclude<PanelId, 'budget'>, HTMLButtonElement>();
+  for (const { id, label, title } of PANEL_BUTTONS) {
+    const btn = document.createElement('button');
+    btn.id = `${id}-btn`;
+    btn.textContent = label;
+    btn.title = title;
+    btn.addEventListener('click', () => actions.toggle(id));
+    panelButtons.set(id, btn);
+    el.appendChild(btn);
+  }
 
   const fundsEl = el.querySelector('#funds') as HTMLElement;
   const fundsVal = fundsEl.querySelector('b')!;
@@ -66,20 +78,12 @@ export function buildHud(root: HTMLElement, city: () => CityState, actions: HudA
   });
   showActiveSpeed(1);
 
-  (el.querySelector('#charts-btn') as HTMLElement).addEventListener('click', actions.toggleCharts);
-  (el.querySelector('#cityhall-btn') as HTMLElement).addEventListener('click', actions.toggleCityHall);
-  (el.querySelector('#display-btn') as HTMLElement).addEventListener('click', actions.toggleDisplay);
-  (el.querySelector('#mods-btn') as HTMLElement).addEventListener('click', actions.toggleMods);
-  (el.querySelector('#save-btn') as HTMLElement).addEventListener('click', actions.save);
-  (el.querySelector('#load-btn') as HTMLElement).addEventListener('click', actions.load);
-  (el.querySelector('#new-btn') as HTMLElement).addEventListener('click', actions.newCity);
-
   // --- budget panel ---
   const budget = document.createElement('div');
   budget.id = 'budget-panel';
   budget.className = 'panel hidden';
   budget.innerHTML = `
-    <h3>Budget & Taxes</h3>
+    <h3>Budget &amp; Taxes</h3>
     ${(['r', 'c', 'i'] as const)
       .map(
         (s) => `
@@ -94,10 +98,11 @@ export function buildHud(root: HTMLElement, city: () => CityState, actions: HudA
   `;
   root.appendChild(budget);
   let renderedBudget: CityState['lastBudget'] | null = null;
-  (el.querySelector('#budget-btn') as HTMLElement).addEventListener('click', () => {
-    budget.classList.toggle('hidden');
+  const budgetBtn = el.querySelector('#budget-btn') as HTMLButtonElement;
+  const budgetPanel = panelHandle(budget, () => {
     renderedBudget = null; // force a fresh report render on open
   });
+  budgetBtn.addEventListener('click', budgetPanel.toggle);
 
   const report = budget.querySelector('#budget-report') as HTMLElement;
   for (const input of budget.querySelectorAll<HTMLInputElement>('input[type=range]')) {
@@ -138,7 +143,10 @@ export function buildHud(root: HTMLElement, city: () => CityState, actions: HudA
       popEl.textContent = c.population.toLocaleString();
       dateEl.textContent = `${monthLabel(c.month)} ${WEATHER_EMOJI[c.weather.kind]}`;
       drawRci(c);
-      if (!budget.classList.contains('hidden') && renderedBudget !== c.lastBudget) {
+      // the bar says what's on screen: an open panel keeps its button ringed
+      budgetBtn.classList.toggle('open', budgetPanel.isOpen());
+      for (const [id, btn] of panelButtons) btn.classList.toggle('open', actions.isOpen(id));
+      if (budgetPanel.isOpen() && renderedBudget !== c.lastBudget) {
         renderedBudget = c.lastBudget;
         const b = c.lastBudget;
         report.innerHTML = `

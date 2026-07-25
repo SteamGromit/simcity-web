@@ -43,12 +43,15 @@ export function ageBuildings(city: CityState): void {
   }
 }
 
-/** Monthly: roll each eligible building; a hit razes it. */
-export function collapseRoll(city: CityState, rand: () => number): void {
+/** Monthly: roll each eligible building; a hit razes it. Returns the count,
+ * for the charts. */
+export function collapseRoll(city: CityState, rand: () => number): number {
+  let collapses = 0;
   for (let i = 0; i < city.tiles.length; i++) {
     const p = collapseChance(city, i);
     if (p <= 0) continue;
     if (rand() < p) {
+      collapses++;
       const t = city.tiles[i];
       const lost = Math.max(1, Math.round(capacityFor(t.zone, t.tier, t.stage) / 4));
       t.stage = 0;
@@ -61,4 +64,5 @@ export function collapseRoll(city: CityState, rand: () => number): void {
       );
     }
   }
+  return collapses;
 }

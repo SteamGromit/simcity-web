@@ -1,5 +1,6 @@
 import { modifier } from './content';
 import { idx, inBounds, neighbors4 } from './grid';
+import { drivable, roadCapacityMult, type RoadClass } from './roads';
 import {
   CityState,
   CONGESTION_MAX_EXTRA,
@@ -35,7 +36,8 @@ export function roadAccess(
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // ring only
         const nx = x + dx;
         const ny = y + dy;
-        if (!inBounds(nx, ny) || city.tiles[idx(nx, ny)].zone !== Zone.Road) continue;
+        // a planted median is not a front door: buildings need real asphalt
+        if (!inBounds(nx, ny) || !drivable(city.tiles[idx(nx, ny)])) continue;
         if (!climbable(city, idx(nx, ny), idx(x, y))) continue;
         const manhattan = Math.abs(dx) + Math.abs(dy);
         if (manhattan < bestManhattan) {
@@ -49,9 +51,9 @@ export function roadAccess(
   return null;
 }
 
-/** A road tile a crash has closed to through-traffic; routing skips it. */
-function blocked(t: { zone: Zone; accident: number }): boolean {
-  return t.zone === Zone.Road && t.accident > 0;
+/** A road tile traffic cannot use: closed by a crash, or a planted median. */
+function usable(t: { zone: Zone; median: boolean; accident: number }): boolean {
+  return drivable(t) && t.accident === 0;
 }
 
 function developed(city: CityState, x: number, y: number, zones: Zone[]): boolean {
@@ -59,10 +61,16 @@ function developed(city: CityState, x: number, y: number, zones: Zone[]): boolea
   return zones.includes(t.zone) && t.stage > 0 && !t.abandoned;
 }
 
+/** What one tile of this road class swallows before it starts to jam. */
+export function tileCapacity(cls: RoadClass): number {
+  return ROAD_CAPACITY * roadCapacityMult(cls);
+}
+
 /** Cost of driving onto a road tile: 1 plus a quadratic congestion penalty
- * fed by the previous update's traffic volumes. */
-function tileCost(t: { traffic: number }, snow: number): number {
-  const congestion = Math.min(1, t.traffic / (ROAD_CAPACITY * 2));
+ * fed by the previous update's traffic volumes. A wider class carries more
+ * before the penalty bites, which is the whole reason to pay for one. */
+function tileCost(t: { traffic: number; road: RoadClass }, snow: number): number {
+  const congestion = Math.min(1, t.traffic / (tileCapacity(t.road) * 2));
   return 1 + snow + CONGESTION_MAX_EXTRA * congestion * congestion;
 }
 
@@ -114,7 +122,7 @@ function roadDistanceTo(city: CityState, zones: Zone[]): Float64Array {
   const dist = new Float64Array(GRID * GRID).fill(Infinity);
   const heap = new Heap(dist);
   for (let i = 0; i < city.tiles.length; i++) {
-    if (city.tiles[i].zone !== Zone.Road || blocked(city.tiles[i])) continue;
+    if (!usable(city.tiles[i])) continue;
     const x = i % GRID;
     const y = (i / GRID) | 0;
     const seeds = neighbors4(x, y).some(
@@ -134,7 +142,7 @@ function roadDistanceTo(city: CityState, zones: Zone[]): Float64Array {
     const y = (i / GRID) | 0;
     for (const [nx, ny] of neighbors4(x, y)) {
       const ni = idx(nx, ny);
-      if (city.tiles[ni].zone !== Zone.Road || settled[ni] || blocked(city.tiles[ni])) continue;
+      if (settled[ni] || !usable(city.tiles[ni])) continue;
       if (!climbable(city, ni, i)) continue;
       const nd = dist[i] + tileCost(city.tiles[ni], snow);
       if (nd < dist[ni]) {
@@ -194,12 +202,7 @@ export function updateTraffic(city: CityState): void {
       let best = jobDist[cur];
       for (const [nx, ny] of neighbors4(cx, cy)) {
         const ni = idx(nx, ny);
-        if (
-          city.tiles[ni].zone === Zone.Road &&
-          !blocked(city.tiles[ni]) &&
-          jobDist[ni] < best &&
-          climbable(city, ni, cur)
-        ) {
+        if (usable(city.tiles[ni]) && jobDist[ni] < best && climbable(city, ni, cur)) {
           best = jobDist[ni];
           next = ni;
         }

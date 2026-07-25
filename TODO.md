@@ -15,7 +15,29 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    hardcoded), and sharing beyond copy-paste JSON (URL-encoded or
    hosted). Low priority — the editor is usable without them.
 
+4. **Road ladder follow-ups** — the classes exist but nothing else knows
+   about them yet: buildings still front a highway as if it were a
+   street (no access restriction, no noise/blight along a motorway), the
+   automata draw one lane of cars on a six-wide corridor, and there are
+   no on/off ramps or grade separation. Also worth a look: a wide class
+   currently refuses tiles it cannot take rather than warning that the
+   corridor is partly blocked.
+
 ## Done
+
+- **Road ladder & interface overhaul** — shipped v0.54.0 (Street →
+  Route → Boulevard → Highway → Highway II, unlocked by population and
+  drag-laid as corridors 1/2/3/4/6 squares wide, with per-class traffic
+  capacity, cost and upkeep scaled off `core:road`, and boulevard
+  medians that nothing drives on; a File menu gathering New/Save/Load/
+  Mods that opens on launch; one relocatable event feed — ticker or
+  newest-first log — replacing the toast and the advisor strip; close
+  buttons on every modal plus open-panel rings on the control bar; City
+  Hall's advisor board removed; growth-gated tool families collapsed to
+  one button until there's a real choice; twenty configurable chart
+  series with per-capita and scrollable time ranges; placement halos
+  recoloured off the data-view green with a blight ring). Follow-ups in
+  backlog #4.
 
 - **Building safety** — shipped v0.53.0 (buildings track their age; past
   100 years an unmaintained one carries a tiny, age-growing monthly

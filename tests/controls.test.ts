@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from 'vitest';
 import { roadLine } from '../src/sim/grid';
 import {
+  BLIGHT_RADII,
   clampDensity,
   HALO_RADII,
   isFormControl,
@@ -134,8 +135,16 @@ describe('clampDensity', () => {
 });
 
 describe('LINE_TOOLS / RECT_TOOLS', () => {
-  test('road, power line, and pipe drag as adjustable lines', () => {
-    expect([...LINE_TOOLS].sort()).toEqual(['line', 'pipe', 'road']);
+  test('the whole road ladder, power line, and pipe drag as adjustable lines', () => {
+    expect([...LINE_TOOLS].sort()).toEqual([
+      'boulevard',
+      'highway',
+      'highway2',
+      'line',
+      'pipe',
+      'road',
+      'route',
+    ]);
   });
 
   test('every tool has at most one drag interaction', () => {
@@ -159,7 +168,7 @@ describe('LINE_TOOLS / RECT_TOOLS', () => {
 });
 
 describe('HALO_RADII', () => {
-  test('exactly the coverage services, transit ladder, and refuse depots get a halo', () => {
+  test('exactly the tools with an area effect get a halo', () => {
     expect(Object.keys(HALO_RADII).sort()).toEqual([
       'bus',
       'fire',
@@ -167,6 +176,7 @@ describe('HALO_RADII', () => {
       'incinerator',
       'landfill',
       'monorail',
+      'park',
       'police',
       'prison',
       'rail',
@@ -183,5 +193,18 @@ describe('HALO_RADII', () => {
     expect(HALO_RADII.school).toBe(SERVICE_RADII.school);
     expect(HALO_RADII.hospital).toBe(SERVICE_RADII.health);
     expect(HALO_RADII.bus).toBe(SERVICE_RADII.bus);
+  });
+
+  test('the blight ring only ever sits inside the coverage halo it annotates', () => {
+    for (const [tool, radius] of Object.entries(BLIGHT_RADII)) {
+      const cover = HALO_RADII[tool];
+      if (cover === undefined) continue; // a plant has blight but no coverage
+      expect(radius, tool).toBeLessThanOrEqual(cover);
+    }
+  });
+
+  test("every blighting tool's ring matches what the sim actually applies", () => {
+    // the core pack owns these numbers; a drift here would preview a lie
+    expect(BLIGHT_RADII.prison).toBe(buildingByTool('prison')!.blight!.radius);
   });
 });

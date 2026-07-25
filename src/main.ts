@@ -1,6 +1,14 @@
 import './ui/style.css';
 import { registerPack } from './content/registry';
-import { applyTool, applyToolLine, canApply, mulberry32, newCity, simTick } from './sim/city';
+import {
+  applyTool,
+  applyToolLine,
+  canApply,
+  mulberry32,
+  newCity,
+  simTick,
+  toolLineCells,
+} from './sim/city';
 import { roadLine } from './sim/grid';
 import { spawnDisaster } from './sim/disasters';
 import { idx } from './sim/grid';
@@ -20,6 +28,7 @@ import { createModStore } from './ui/modstore';
 import { buildModsPanel } from './ui/mods';
 import { makeDraggable } from './ui/drag';
 import {
+  BLIGHT_RADII,
   HALO_RADII,
   isFormControl,
   LINE_TOOLS,
@@ -30,7 +39,10 @@ import {
 import { setSkin } from './render/skins';
 import { setWeatherFx } from './render/fx';
 import { setDayNight } from './render/daynight';
-import { buildHelp, buildTipBar } from './ui/help';
+import { buildHelp, createAdvisorFeed } from './ui/help';
+import { buildEventLog, type EventKind } from './ui/eventlog';
+import { buildFileMenu } from './ui/filemenu';
+import { monthLabel } from './ui/format';
 import { buildTransitWizard } from './ui/transitwizard';
 import { detectEvents, freshSnapshot } from './ui/events';
 import { adviseTips } from './sim/tips';
@@ -85,20 +97,16 @@ const view: ViewState = {
 let activeTool: ActiveTool = null;
 let activeDensity: Density = 1;
 
-// --- toast ---
-const toastEl = document.createElement('div');
-toastEl.id = 'toast';
-uiRoot.appendChild(toastEl);
-let toastTimer = 0;
+// --- the one running feed ---
+// Everything the city has to say lands here: rejected actions, event notices,
+// and the advisors. It replaced the centre toast and the bottom-left tip strip,
+// which both appeared unbidden over whatever you were building.
+const eventLog = buildEventLog(uiRoot);
 function toast(msg: string, kind: 'error' | 'info' = 'error') {
-  toastEl.textContent = msg;
-  toastEl.classList.toggle('info', kind === 'info');
-  toastEl.classList.add('show');
-  window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(
-    () => toastEl.classList.remove('show'),
-    kind === 'error' ? 4000 : 2200,
-  );
+  eventLog.push(msg, kind, monthLabel(city.month));
+}
+function notify(msg: string, kind: EventKind) {
+  eventLog.push(msg, kind, monthLabel(city.month));
 }
 
 // --- sim loop ---
@@ -219,51 +227,66 @@ modStore.onChange(() => {
   toolbar.rebuildMods();
   renderer.reseed(city.seed); // newly-registered buildings need per-tile variants
 });
+
+const fileMenu = buildFileMenu(uiRoot, {
+  hasSave: () => deserialize(localStorage.getItem(SAVE_KEY) ?? '') !== null,
+  save() {
+    localStorage.setItem(SAVE_KEY, serialize(city));
+    fileMenu.sync();
+    notify('City saved', 'info');
+    sound.play(UI_SOUNDS.info);
+  },
+  load() {
+    const saved = localStorage.getItem(SAVE_KEY);
+    const revived = saved ? deserialize(saved) : null;
+    if (!revived) {
+      notify('No valid save found', 'error');
+      sound.play(UI_SOUNDS.error);
+      return;
+    }
+    adoptCity(revived);
+    notify('City loaded', 'info');
+    sound.play(UI_SOUNDS.info);
+    advisoryForUnprotectedCity();
+  },
+  newCity() {
+    if (!window.confirm('Start a new city? Unsaved progress is lost.')) return;
+    adoptCity(newCity(Date.now() % 2 ** 31));
+    notify('A new city awaits', 'info');
+  },
+  openMods: () => modsPanel.open(),
+});
+
+const PANELS = {
+  cityhall: cityHall,
+  charts,
+  display,
+  file: fileMenu,
+} as const;
+
 const hud = buildHud(
   uiRoot,
   () => city,
   {
     setSpeed,
-    toggleCharts: () => charts.toggle(),
-    toggleCityHall: () => cityHall.toggle(),
-    toggleDisplay: () => display.toggle(),
-    toggleMods: () => modsPanel.toggle(),
-    save() {
-      localStorage.setItem(SAVE_KEY, serialize(city));
-      toast('City saved', 'info');
-      sound.play(UI_SOUNDS.info);
-    },
-    load() {
-      const saved = localStorage.getItem(SAVE_KEY);
-      const revived = saved ? deserialize(saved) : null;
-      if (!revived) {
-        toast('No valid save found');
-        sound.play(UI_SOUNDS.error);
-        return;
-      }
-      city = revived;
-      rand = mulberry32(city.seed + city.tick);
-      eventSnap = freshSnapshot(city);
-      renderer.reseed(city.seed);
-      minimap.invalidate();
-      hud.syncTaxes(city);
-      cityHall.syncBoxes();
-      toast('City loaded', 'info');
-      sound.play(UI_SOUNDS.info);
-      advisoryForUnprotectedCity();
-    },
-    newCity() {
-      if (!window.confirm('Start a new city? Unsaved progress is lost.')) return;
-      city = newCity(Date.now() % 2 ** 31);
-      rand = mulberry32(city.seed);
-      eventSnap = freshSnapshot(city);
-      renderer.reseed(city.seed);
-      minimap.invalidate();
-      hud.syncTaxes(city);
-    },
+    toggle: (panel) => PANELS[panel].toggle(),
+    isOpen: (panel) => PANELS[panel].isOpen(),
   },
 );
 setSpeed(1);
+
+/** Swap in a different city and re-point everything that caches from it. */
+function adoptCity(next: CityState) {
+  city = next;
+  rand = mulberry32(city.seed + city.tick);
+  eventSnap = freshSnapshot(city);
+  renderer.reseed(city.seed);
+  minimap.invalidate();
+  hud.syncTaxes(city);
+  cityHall.syncBoxes();
+  toolbar.refreshGating();
+  advisorFeed.update([]); // a different city's complaints are not this one's
+}
 
 makeDraggable(toolbar.el, toolbar.grip, 'toolbar');
 for (const [sel, key] of [
@@ -273,6 +296,7 @@ for (const [sel, key] of [
   ['#cityhall-panel', 'cityhall'],
   ['#display-panel', 'display'],
   ['#mods-panel', 'mods'],
+  ['#file-panel', 'file'],
   ['#help-panel', 'help'],
 ] as const) {
   const panel = document.querySelector<HTMLElement>(sel);
@@ -282,13 +306,20 @@ for (const [sel, key] of [
 }
 
 const help = buildHelp(uiRoot);
-const tipBar = buildTipBar(uiRoot);
-tipBar.update(adviseTips(city));
+// The advisors speak into the log, once per complaint — and again if a
+// complaint clears and later comes back.
+const advisorFeed = createAdvisorFeed((tip) => notify(tip.text, 'advisor'));
+advisorFeed.update(adviseTips(city));
 window.setInterval(() => {
-  tipBar.update(adviseTips(city));
+  advisorFeed.update(adviseTips(city));
+  toolbar.refreshGating(); // the city may have grown into a wider road or a cleaner plant
   sound.setAmbient(ambientLevel(city.population));
   music.update(city);
 }, 2000);
+
+// The front door: choose to carry on with the saved city or start a fresh one,
+// rather than having the game quietly decide for you.
+fileMenu.open();
 
 const muteBtn = document.createElement('button');
 muteBtn.id = 'mute-btn';
@@ -324,16 +355,23 @@ function toolAllowed(tool: ActiveTool, x: number, y: number): boolean {
   return canApply(city, tool, x, y, activeDensity);
 }
 
-/** Show the coverage footprint while a service tool hovers the map. */
+/** Show what a tool would reach — coverage, and where it spoils the area. */
 function syncHalo() {
-  const radius = activeTool && activeTool !== 'query' ? HALO_RADII[activeTool] : undefined;
-  view.halo = radius && view.hover ? { x: view.hover.x, y: view.hover.y, radius } : null;
+  const usable = activeTool && activeTool !== 'query' ? activeTool : null;
+  const radius = usable ? HALO_RADII[usable] : undefined;
+  view.halo =
+    radius && view.hover
+      ? { x: view.hover.x, y: view.hover.y, radius, blight: usable ? BLIGHT_RADII[usable] : undefined }
+      : null;
 }
 
 let painting = false;
 let lastPainted = -1;
 let rectAnchor: { x: number; y: number } | null = null;
 let lineAnchor: { x: number; y: number } | null = null;
+/** The aimed centre-line, before a wide road class widens it into a corridor.
+ * `view.line` holds the widened preview; this is what actually gets built. */
+let lineSpine: [number, number][] | null = null;
 let panning = false;
 let spaceHeld = false;
 let panStart = { x: 0, y: 0, camX: 0, camY: 0 };
@@ -354,6 +392,11 @@ function applyRect(rect: { x0: number; y0: number; x1: number; y1: number }) {
     toast('Ran out of funds before finishing');
     sound.play(UI_SOUNDS.error);
   }
+}
+
+/** Tiles a pending drag line would cover — widened for the wide road classes. */
+function previewCells(tool: NonNullable<ActiveTool>, spine: [number, number][]): [number, number][] {
+  return toolLineCells(tool, spine).map((c) => [c.x, c.y] as [number, number]);
 }
 
 function paintAt(x: number, y: number, firstClick: boolean) {
@@ -393,7 +436,8 @@ canvas.addEventListener('pointerdown', (e) => {
   if (activeTool && LINE_TOOLS.has(activeTool)) {
     // line tools draw as an adjustable line: drag to aim, release to build
     lineAnchor = tile;
-    view.line = [[tile.x, tile.y]];
+    lineSpine = [[tile.x, tile.y]];
+    view.line = previewCells(activeTool, lineSpine);
     view.lineTool = activeTool;
     return;
   }
@@ -416,8 +460,9 @@ canvas.addEventListener('pointermove', (e) => {
   if (rectAnchor && tile) {
     view.rect = { x0: rectAnchor.x, y0: rectAnchor.y, x1: tile.x, y1: tile.y };
   }
-  if (lineAnchor && tile) {
-    view.line = roadLine(lineAnchor.x, lineAnchor.y, tile.x, tile.y);
+  if (lineAnchor && tile && view.lineTool) {
+    lineSpine = roadLine(lineAnchor.x, lineAnchor.y, tile.x, tile.y);
+    view.line = previewCells(view.lineTool, lineSpine);
   }
   if (painting && tile && idx(tile.x, tile.y) !== lastPainted) {
     lastPainted = idx(tile.x, tile.y);
@@ -428,8 +473,8 @@ canvas.addEventListener('pointermove', (e) => {
 window.addEventListener('pointerup', (e) => {
   // releasing over UI chrome cancels the pending shape (Esc also works)
   if (rectAnchor && view.rect && e.target === canvas) applyRect(view.rect);
-  if (lineAnchor && view.line && view.lineTool && e.target === canvas) {
-    const { applied, brokeFunds } = applyToolLine(city, view.lineTool, view.line, activeDensity);
+  if (lineAnchor && lineSpine && view.lineTool && e.target === canvas) {
+    const { applied, brokeFunds } = applyToolLine(city, view.lineTool, lineSpine, activeDensity);
     if (applied > 0) sound.play(soundFor(view.lineTool));
     if (brokeFunds) {
       toast('Ran out of funds before finishing');
@@ -439,6 +484,7 @@ window.addEventListener('pointerup', (e) => {
   rectAnchor = null;
   view.rect = null;
   lineAnchor = null;
+  lineSpine = null;
   view.line = null;
   view.lineTool = null;
   painting = false;
@@ -486,6 +532,7 @@ window.addEventListener('keydown', (e) => {
       rectAnchor = null;
       view.rect = null;
       lineAnchor = null;
+      lineSpine = null;
       view.line = null;
       view.lineTool = null;
       toolbar.clearTool();
@@ -562,9 +609,8 @@ function frame(now: number) {
   if (rotateKeys.has('q')) renderer.rotateBy(-ROTATE_SPEED * dt);
   if (rotateKeys.has('e')) renderer.rotateBy(ROTATE_SPEED * dt);
   if (city.notices.length > 0) {
-    const n = city.notices.length;
-    const last = city.notices[n - 1];
-    toast(n === 1 ? last : `${last} (+${n - 1} more)`);
+    // every notice reaches the log now, rather than the last one plus a count
+    for (const n of city.notices) notify(n, 'alert');
     sound.play(UI_SOUNDS.alarm);
     city.notices.length = 0;
   }

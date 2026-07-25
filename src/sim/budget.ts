@@ -1,4 +1,5 @@
 import { buildingBySlot, allOrdinances } from '../content/registry';
+import { ROAD_CLASSES } from './roads';
 import { capacityFor, taxYieldFor } from './tiers';
 import { BudgetReport, CityState, Zone } from './types';
 
@@ -26,11 +27,14 @@ export function collectBudget(city: CityState): BudgetReport {
     }
 
     const def = buildingBySlot(t.zone);
-    if (def) expenses += def.upkeep;
-    // wires and mains ride on road tiles, so they are flags rather than zones
+    // wires and mains ride on road tiles, so they are flags rather than zones;
+    // a wider road costs proportionally more to keep swept and resurfaced
     if (t.zone === Zone.Road) {
+      expenses += (def?.upkeep ?? 0) * ROAD_CLASSES[t.road].upkeepMult;
       if (t.wire) expenses += buildingBySlot(Zone.PowerLine)?.upkeep ?? 0;
       if (t.pipe) expenses += buildingBySlot(Zone.WaterPipe)?.upkeep ?? 0;
+    } else if (def) {
+      expenses += def.upkeep;
     }
   }
 

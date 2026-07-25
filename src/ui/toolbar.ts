@@ -3,6 +3,7 @@ import { toolCost, ZONE_TOOLS } from '../sim/city';
 import { allBuildings, buildingByTool } from '../content/registry';
 import type { BuildingDef } from '../content/types';
 import { unlockedFor } from '../sim/content';
+import { ROAD_CLASSES, roadClassOfTool } from '../sim/roads';
 import { OVERLAY_LABELS, OverlayId } from '../render/overlays';
 import { clampDensity, KEY_OF, OVERLAY_KEY_OF } from './shortcuts';
 import { makeDraggable } from './drag';
@@ -20,11 +21,15 @@ function describeAuthored(b: BuildingDef): string {
   return bits.join(' · ');
 }
 
-const BUILD_TOOLS: { id: ToolId | 'query'; label: string; title?: string }[] = [
+/** Build-section entries; a string is a bundle id placed at that position. */
+type BuildEntry = { id: ToolId | 'query'; label: string; title?: string } | { bundle: string };
+
+const BUILD_TOOLS: BuildEntry[] = [
   { id: 'query', label: 'Query' },
   { id: 'bulldoze', label: 'Bulldoze' },
   { id: 'repair', label: 'Repair', title: 'Reset an old building\u2019s age; guards against collapse' },
-  { id: 'road', label: 'Road' },
+  { bundle: 'roads' },
+  { bundle: 'energy' },
   { id: 'line', label: 'Power Line' },
   { id: 'park', label: 'Park' },
 ];
@@ -43,6 +48,15 @@ interface Bundle {
  * thresholds live in one place instead of being duplicated here.
  */
 const BUNDLES: Bundle[] = [
+  {
+    id: 'roads',
+    label: 'Road',
+    members: ROAD_CLASSES.map((r) => ({
+      id: r.tool as ToolId,
+      label: r.label,
+      title: `${r.width} square${r.width === 1 ? '' : 's'} wide · ${r.blurb}`,
+    })),
+  },
   {
     id: 'energy',
     label: 'Power Plant',
@@ -214,15 +228,20 @@ export function buildToolbar(
     }
   });
 
-  const bundleButtons: { btn: HTMLButtonElement; members: Set<BuildTool | 'query'> }[] = [];
+  const bundleButtons: { id: string; btn: HTMLButtonElement; members: Set<BuildTool | 'query'> }[] =
+    [];
+
+  function syncActive() {
+    for (const [tid, b] of toolButtons) b.classList.toggle('active', tid === active);
+    for (const bb of bundleButtons) {
+      bb.btn.classList.toggle('active', active !== null && bb.members.has(active));
+    }
+  }
 
   function applyTool(tool: ActiveTool) {
     active = tool;
     if (flyoutFor && flyoutFor !== active) closeFlyout();
-    for (const [tid, b] of toolButtons) b.classList.toggle('active', tid === active);
-    for (const bb of bundleButtons) {
-      bb.btn.classList.toggle('active', tool !== null && bb.members.has(tool));
-    }
+    syncActive();
     if (isZone(tool)) onDensity(densityOf(tool));
     onTool(active);
   }
@@ -239,8 +258,70 @@ export function buildToolbar(
     return btn;
   }
 
-  /** A bundle button opens a flyout listing only the unlocked members. */
-  function bundleButton(bundle: Bundle, parent: HTMLElement) {
+  /**
+   * Whether a bundle member is available yet, and how the UI should phrase the
+   * wait if it isn't. Buildings answer from the content registry; the road
+   * ladder answers from its own table, which is where its widths live too.
+   */
+  function memberUnlock(id: ToolId): { unlocked: boolean; label?: string } {
+    const cls = roadClassOfTool(id);
+    if (cls !== null) {
+      const def = ROAD_CLASSES[cls];
+      return { unlocked: getCity().population >= def.unlockPop, label: def.unlockLabel };
+    }
+    const def = buildingByTool(id);
+    if (!def) return { unlocked: true };
+    return { unlocked: unlockedFor(def, getCity()), label: def.unlock?.label };
+  }
+
+  /** Every bundle keeps a slot in the toolbar; what fills it depends on gating. */
+  const bundleSlots: { bundle: Bundle; host: HTMLElement; signature: string }[] = [];
+
+  function bundleSlot(bundle: Bundle, parent: HTMLElement) {
+    const host = document.createElement('div');
+    host.className = 'bundle-slot';
+    parent.appendChild(host);
+    bundleSlots.push({ bundle, host, signature: '' });
+    renderBundle(bundleSlots[bundleSlots.length - 1]);
+  }
+
+  /**
+   * Fill a bundle's slot.
+   *
+   * With only one member unlocked there is nothing to choose between, so the
+   * slot renders that member as an ordinary tool button — one click to arm it,
+   * not two. The moment a second member unlocks it becomes a bundle button
+   * with a flyout. Either way the lowest member keeps its keyboard shortcut,
+   * because shortcuts route through applyTool rather than through a button.
+   */
+  function renderBundle(slot: { bundle: Bundle; host: HTMLElement; signature: string }) {
+    const { bundle, host } = slot;
+    const open = bundle.members.filter((m) => memberUnlock(m.id).unlocked);
+    const signature = open.map((m) => m.id).join(',');
+    if (signature === slot.signature && host.childElementCount > 0) return;
+    slot.signature = signature;
+
+    if (flyoutFor === bundle.id) closeFlyout(); // its anchor is about to go
+    host.innerHTML = '';
+    for (const m of bundle.members) toolButtons.delete(m.id);
+    const stale = bundleButtons.findIndex((b) => b.id === bundle.id);
+    if (stale >= 0) bundleButtons.splice(stale, 1);
+
+    const locked = bundle.members.find((m) => !memberUnlock(m.id).unlocked);
+    const nextHint = locked
+      ? `Next: ${locked.label} at ${memberUnlock(locked.id).label ?? 'a larger city'}`
+      : '';
+
+    if (open.length <= 1) {
+      // fall back to the first member if the city somehow has none unlocked,
+      // so the slot never renders empty and the shortcut always has a button
+      const only = open[0] ?? bundle.members[0];
+      const btn = toolButton(only.id, only.label, host);
+      btn.title = [only.title, nextHint].filter(Boolean).join(' · ');
+      syncActive();
+      return;
+    }
+
     const btn = document.createElement('button');
     btn.className = 'bundle-btn';
     btn.dataset.bundle = bundle.id;
@@ -252,10 +333,7 @@ export function buildToolbar(
       }
       flyout.innerHTML = '';
       flyoutFor = bundle.id;
-      const city = getCity();
-      for (const m of bundle.members) {
-        const def = buildingByTool(m.id);
-        if (def && !unlockedFor(def, city)) continue; // hidden until the city earns it
+      for (const m of open) {
         const mb = document.createElement('button');
         mb.dataset.tool = m.id;
         mb.innerHTML = `<span>${m.label}</span><span class="cost">${costLabel(m.id)}</span>`;
@@ -268,23 +346,28 @@ export function buildToolbar(
         });
         flyout.appendChild(mb);
       }
-      const nextLocked = bundle.members
-        .map((m) => ({ m, def: buildingByTool(m.id) }))
-        .find(({ def }) => def && !unlockedFor(def, city));
-      if (nextLocked?.def?.unlock) {
+      if (locked) {
         const hint = document.createElement('div');
         hint.className = 'bundle-hint';
-        hint.textContent = `${nextLocked.m.label} at ${nextLocked.def.unlock.label}`;
+        hint.textContent = `${locked.label} at ${memberUnlock(locked.id).label ?? 'a larger city'}`;
         flyout.appendChild(hint);
       }
-      const host = (btn.closest('.tool-panel') as HTMLElement) ?? el;
-      host.appendChild(flyout);
+      // .bundle-slot is unpositioned, so offsetParent is still the tool panel
+      const panelHost = (btn.closest('.tool-panel') as HTMLElement) ?? el;
+      panelHost.appendChild(flyout);
       flyout.style.left = `${btn.offsetLeft + btn.offsetWidth + 6}px`;
       flyout.style.top = `${btn.offsetTop}px`;
       flyout.classList.remove('hidden');
     });
-    bundleButtons.push({ btn, members: new Set(bundle.members.map((m) => m.id)) });
-    parent.appendChild(btn);
+    bundleButtons.push({ id: bundle.id, btn, members: new Set(bundle.members.map((m) => m.id)) });
+    host.appendChild(btn);
+    syncActive();
+  }
+
+  /** Re-evaluate every bundle's gating; cheap, and a no-op when nothing changed. */
+  function refreshGating() {
+    for (const slot of bundleSlots) renderBundle(slot);
+    syncZoneCosts();
   }
 
   /** Zoning buttons open the density flyout beside them when activated. */
@@ -327,10 +410,13 @@ export function buildToolbar(
   }
 
   const buildBody = section('build', 'Build');
-  for (const { id, label, title } of BUILD_TOOLS) {
-    const btn = toolButton(id, label, buildBody);
-    if (title) btn.title = title;
-    if (id === 'road') bundleButton(bundleById('energy'), buildBody);
+  for (const entry of BUILD_TOOLS) {
+    if ('bundle' in entry) {
+      bundleSlot(bundleById(entry.bundle), buildBody);
+      continue;
+    }
+    const btn = toolButton(entry.id, entry.label, buildBody);
+    if (entry.title) btn.title = entry.title;
   }
 
   const zoningBody = section('zoning', 'Zoning');
@@ -340,9 +426,9 @@ export function buildToolbar(
   for (const { id, label, title } of CIVIC_TOOLS) {
     const btn = toolButton(id, label, civicBody);
     if (title) btn.title = title;
-    if (id === 'fire') bundleButton(bundleById('police'), civicBody);
-    if (id === 'hospital') bundleButton(bundleById('transit'), civicBody);
-    if (id === 'pipe') bundleButton(bundleById('waste'), civicBody);
+    if (id === 'fire') bundleSlot(bundleById('police'), civicBody);
+    if (id === 'hospital') bundleSlot(bundleById('transit'), civicBody);
+    if (id === 'pipe') bundleSlot(bundleById('waste'), civicBody);
   }
 
   const terraBody = section('terrain', 'Terrain · free until founded');
@@ -463,6 +549,8 @@ export function buildToolbar(
     toggleOverlay,
     /** Re-read the registry's authored buildings (a mod changed). */
     rebuildMods,
+    /** Re-check what the city has grown into; call as the population moves. */
+    refreshGating,
     /** Drag handle and panel element, for movable-panel wiring. */
     grip,
     el,

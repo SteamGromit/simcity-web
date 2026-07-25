@@ -1,14 +1,23 @@
 import { BuildTool, Density, SERVICE_RADII, ToolId, mapScaled } from '../sim/types';
+import { ROAD_TOOLS } from '../sim/roads';
 import { OverlayId } from '../render/overlays';
 
 /** Keys already claimed by camera/help/sound bindings — never map tools here. */
 export const RESERVED_KEYS = new Set(['q', 'e', 'm', 'h', '?', ' ', 'escape']);
 
-/** Bare-key tool shortcuts (lowercase). Shown on the toolbar buttons. */
+/**
+ * Bare-key tool shortcuts (lowercase). Shown on the toolbar buttons.
+ *
+ * A growth-gated family binds its *lowest* member — R is always the plain
+ * street, P always the coal plant — so the key means the same thing on turn
+ * one as it does at half a million people, whatever the toolbar is showing.
+ * Higher members are reached through the family's flyout.
+ */
 export const TOOL_KEYS: Record<string, ToolId | 'query'> = {
   i: 'query',
   b: 'bulldoze',
   r: 'road',
+  g: 'landfill',
   '1': 'zoneR',
   '2': 'zoneC',
   '3': 'zoneI',
@@ -52,8 +61,14 @@ export const OVERLAY_KEY_OF: Partial<Record<OverlayId, string>> = Object.fromEnt
   Object.entries(OVERLAY_KEYS).map(([k, id]) => [id, `⇧${k.toUpperCase()}`]),
 );
 
-/** Tools that drag out an adjustable 4-connected line (press, aim, release). */
-export const LINE_TOOLS: Set<BuildTool> = new Set<BuildTool>(['road', 'line', 'pipe']);
+/** Tools that drag out an adjustable 4-connected line (press, aim, release).
+ * The whole road ladder draws this way; the wider classes widen the line into
+ * a corridor when they land (see toolLineCells in sim/city.ts). */
+export const LINE_TOOLS: Set<BuildTool> = new Set<BuildTool>([
+  ...ROAD_TOOLS,
+  'line',
+  'pipe',
+]);
 
 /** Tools that drag out a filled rectangle rather than painting tile by tile. */
 export const RECT_TOOLS: Set<BuildTool> = new Set<BuildTool>([
@@ -70,8 +85,9 @@ export const RECT_TOOLS: Set<BuildTool> = new Set<BuildTool>([
 ]);
 
 /**
- * Service tools that preview their coverage footprint while placing.
- * Values come from SERVICE_RADII (hospital covers via the health field).
+ * Tools that preview the footprint of what they'd do while hovering the map.
+ * Values come from SERVICE_RADII (hospital covers via the health field); the
+ * park's is the land-value bonus radius from sim/landvalue.ts.
  *
  * The transit ladder's radii are computed with the same mapScaled formula
  * the registry's core content uses (src/content/packs/core.ts) rather than
@@ -85,6 +101,7 @@ export const HALO_RADII: Partial<Record<BuildTool, number>> = {
   school: SERVICE_RADII.school,
   hospital: SERVICE_RADII.health,
   bus: SERVICE_RADII.bus,
+  park: mapScaled(3),
   streetcar: mapScaled(6.5),
   monorail: mapScaled(8.5),
   subway: mapScaled(10.5),
@@ -93,6 +110,23 @@ export const HALO_RADII: Partial<Record<BuildTool, number>> = {
   incinerator: SERVICE_RADII.incinerator,
   recycling: SERVICE_RADII.recycling,
   prison: SERVICE_RADII.prison,
+};
+
+/**
+ * The other half of what a building does to its surroundings: the reach over
+ * which it makes the neighbourhood worse. Drawn as a second, warning-coloured
+ * ring inside the coverage halo, so "this dump collects from here to here, and
+ * ruins the value of this much of it" is one glance rather than two guesses.
+ *
+ * Pollution plumes use the absolute SPREAD from sim/pollution.ts; blight radii
+ * mirror the `blight` block in the core pack.
+ */
+export const BLIGHT_RADII: Partial<Record<BuildTool, number>> = {
+  prison: 4,
+  landfill: 5,
+  incinerator: 5,
+  plant: 5,
+  nuclear: 5,
 };
 
 /**
