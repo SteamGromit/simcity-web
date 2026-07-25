@@ -824,6 +824,196 @@ export function drawAuthoredBuilding(
   if (!powered) drawNoPowerBolt(ctx, cx, cy - h - 12);
 }
 
+/**
+ * The mayor's-office rewards.
+ *
+ * Each spans a whole block, so these draw into a geom covering the footprint
+ * rather than a single tile — the ellipse of a stadium bowl, the colonnade of
+ * a museum, and the quads of a campus all scale with it for free. Half-extents
+ * come off the geom's own corners so a two-tile ballpark and a five-tile
+ * colosseum are the same drawing at different sizes.
+ */
+function drawReward(
+  ctx: CanvasRenderingContext2D,
+  geom: TileGeom,
+  zone: Zone,
+  powered: boolean,
+  detail: 0 | 1 | 2,
+): void {
+  const { cx, cy } = geom;
+  const hw = geom.corners[1][0] - cx; // half-width of the block diamond
+  const hh = geom.corners[2][1] - cy; // half-height
+  const skin = getSkin();
+  const scale = skin.heightScale;
+  const tone = (hue: number, sat: number, lit: number) => {
+    const [h, s, l] = skin.building(hue, sat, lit);
+    return hsl(h, s, l);
+  };
+
+  /** A filled ellipse in the tile plane, at a given share of the block. */
+  const disc = (f: number, lift: number, fill: string) => {
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - lift, hw * f, hh * f, 0, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  drawShadow(ctx, geom, 0.9);
+
+  switch (zone) {
+    case Zone.Ballpark:
+    case Zone.Arena:
+    case Zone.Stadium:
+    case Zone.Colosseum: {
+      // a bowl: outer stand ring lifted off the ground, playing surface inside
+      const wall = (zone === Zone.Colosseum ? 26 : zone === Zone.Stadium ? 22 : zone === Zone.Arena ? 17 : 11) * scale;
+      disc(0.94, 0, tone(28, 12, 30)); // footing shadow ring
+      // stand wall, drawn as a stack so the ring reads as having height
+      for (let k = wall; k >= 0; k -= 2) {
+        disc(0.92, k, tone(30, 14, 34 + (k / wall) * 16));
+      }
+      disc(0.66, wall, zone === Zone.Ballpark ? 'hsl(108 42% 38%)' : 'hsl(108 30% 34%)');
+      if (detail >= 1) {
+        // floodlight masts at the four compass points of the ring
+        ctx.strokeStyle = '#cfd6dc';
+        ctx.lineWidth = 1.5;
+        for (const [ox, oy] of [
+          [-hw * 0.72, 0],
+          [hw * 0.72, 0],
+          [0, -hh * 0.72],
+          [0, hh * 0.72],
+        ]) {
+          ctx.beginPath();
+          ctx.moveTo(cx + ox, cy + oy - wall);
+          ctx.lineTo(cx + ox, cy + oy - wall - 12 * scale);
+          ctx.stroke();
+          ctx.fillStyle = powered ? '#fdf3c8' : '#6f7378';
+          ctx.fillRect(cx + ox - 3, cy + oy - wall - 15 * scale, 6, 3);
+        }
+      }
+      break;
+    }
+
+    case Zone.Library:
+    case Zone.Museum: {
+      // a classical block: plinth, colonnade across the front, pediment
+      const h = (zone === Zone.Museum ? 26 : 18) * scale;
+      const { foot } = box(ctx, geom, 0.82, h, 44, 12, 74);
+      drawRoof(ctx, foot, h, 'gabled', 44, 10, 70);
+      if (detail >= 1) {
+        ctx.fillStyle = tone(44, 8, 88);
+        const cols = zone === Zone.Museum ? 6 : 4;
+        for (let k = 0; k < cols; k++) {
+          const t = (k + 0.5) / cols;
+          const x = cx - hw * 0.62 + t * hw * 1.24;
+          ctx.fillRect(x - 1.5, cy + hh * 0.18 - h, 3, h);
+        }
+      }
+      break;
+    }
+
+    case Zone.Monument: {
+      // a stepped plinth under a tall obelisk — pure civic prestige
+      const h = 12 * scale;
+      box(ctx, geom, 0.7, h, 40, 8, 70);
+      box(ctx, geom, 0.42, h + 8 * scale, 40, 6, 78);
+      const top = cy - h - 8 * scale;
+      const spire = 46 * scale;
+      fillPoly(
+        ctx,
+        [
+          [cx - hw * 0.1, top],
+          [cx + hw * 0.1, top],
+          [cx + hw * 0.03, top - spire],
+          [cx - hw * 0.03, top - spire],
+        ],
+        tone(42, 10, 84),
+      );
+      fillPoly(
+        ctx,
+        [
+          [cx - hw * 0.03, top - spire],
+          [cx + hw * 0.03, top - spire],
+          [cx, top - spire - 10 * scale],
+        ],
+        tone(45, 30, 72),
+      );
+      break;
+    }
+
+    case Zone.College:
+    case Zone.University:
+    case Zone.ResearchUniversity: {
+      // a quad: wings around a lawn, with a tower that grows up the ladder
+      const h = (zone === Zone.ResearchUniversity ? 30 : zone === Zone.University ? 24 : 18) * scale;
+      disc(0.8, 0, 'hsl(105 34% 36%)'); // the lawn
+      for (const [fx, fy] of [
+        [-0.5, 0],
+        [0.5, 0],
+        [0, -0.5],
+        [0, 0.5],
+      ]) {
+        const wing: TileGeom = {
+          cx: cx + fx * hw,
+          cy: cy + fy * hh,
+          corners: geom.corners.map(([px, py]) => [
+            cx + fx * hw + (px - cx) * 0.34,
+            cy + fy * hh + (py - cy) * 0.34,
+          ]) as [number, number][],
+        };
+        const { foot } = box(ctx, wing, 0.95, h, 22, 26, 52);
+        drawRoof(ctx, foot, h, 'gabled', 20, 24, 44);
+      }
+      if (zone !== Zone.College) {
+        const th = h + (zone === Zone.ResearchUniversity ? 34 : 20) * scale;
+        box(ctx, geom, 0.22, th, 24, 22, 60);
+        if (zone === Zone.ResearchUniversity) {
+          // an observatory dome: the visible sign the city can do research
+          ctx.fillStyle = tone(210, 14, powered ? 76 : 46);
+          ctx.beginPath();
+          ctx.ellipse(cx, cy - th, hw * 0.16, hh * 0.28, 0, Math.PI, 0);
+          ctx.fill();
+        }
+      }
+      break;
+    }
+
+    case Zone.FusionPlant: {
+      // a low containment slab with a torus that glows when it's running
+      const h = 16 * scale;
+      box(ctx, geom, 0.88, h, 205, 8, 46);
+      ctx.strokeStyle = powered ? 'hsl(185 90% 62%)' : 'hsl(205 12% 40%)';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy - h - 6 * scale, hw * 0.42, hh * 0.42, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      if (powered) {
+        ctx.strokeStyle = 'rgba(180, 245, 255, 0.5)';
+        ctx.lineWidth = 10;
+        ctx.stroke();
+      }
+      break;
+    }
+  }
+
+  if (!powered) drawNoPowerBolt(ctx, cx, cy - 26 * scale);
+}
+
+/** Slots the reward painter owns; everything else falls through to its own art. */
+const REWARD_ZONES = new Set<Zone>([
+  Zone.Ballpark,
+  Zone.Arena,
+  Zone.Stadium,
+  Zone.Colosseum,
+  Zone.Library,
+  Zone.Museum,
+  Zone.Monument,
+  Zone.College,
+  Zone.University,
+  Zone.ResearchUniversity,
+  Zone.FusionPlant,
+]);
+
 /** A placed building whose pack isn't loaded: show a blank, not a guess. */
 function drawMissingBuilding(ctx: CanvasRenderingContext2D, geom: TileGeom) {
   drawShadow(ctx, geom, 0.6);
@@ -851,6 +1041,11 @@ export function drawBuilding(
   const authored = buildingBySlot(zone);
   if (authored?.visual) {
     drawAuthoredBuilding(ctx, geom, authored.visual, powered, detail);
+    return;
+  }
+  // rewards span a block and have their own painter; geom is the whole footprint
+  if (REWARD_ZONES.has(zone)) {
+    drawReward(ctx, geom, zone, powered, detail);
     return;
   }
   if (zone >= MOD_SLOT_BASE && !authored) {

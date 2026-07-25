@@ -9,7 +9,22 @@ import type { ModifierKey } from './modifiers';
 /** Non-core buildings allocate runtime slots from here upward. */
 export const MOD_SLOT_BASE = 1000;
 
-/** Context keys an unlock expression may reference. */
+/**
+ * Civic capabilities a standing building confers on the whole city. A closed
+ * vocabulary, like the modifier keys: content declares what it `grants`, and
+ * other content gates itself on that grant through an unlock expression —
+ * which is how a Research University comes to unlock the fusion plant without
+ * either building knowing about the other.
+ */
+export const CIVIC_GRANTS = ['learning', 'research', 'culture', 'sport'] as const;
+export type CivicGrant = (typeof CIVIC_GRANTS)[number];
+
+export function isCivicGrant(v: unknown): v is CivicGrant {
+  return typeof v === 'string' && (CIVIC_GRANTS as readonly string[]).includes(v);
+}
+
+/** Context keys an unlock expression may reference. Each civic grant reads as
+ * 1 while at least one building conferring it stands, else 0. */
 export const UNLOCK_CONTEXT_KEYS = [
   'population',
   'funds',
@@ -21,7 +36,11 @@ export const UNLOCK_CONTEXT_KEYS = [
   'demandC',
   'demandI',
   'brownouts',
+  ...CIVIC_GRANTS,
 ] as const;
+
+/** Largest footprint edge a building may claim; 6 covers the biggest reward. */
+export const MAX_FOOTPRINT = 6;
 
 export type ServiceKind = 'fire' | 'police' | 'school' | 'health' | 'bus' | 'garbage';
 
@@ -37,6 +56,18 @@ export type ServiceKind = 'fire' | 'police' | 'school' | 'health' | 'bus' | 'gar
  */
 export interface BlightDef {
   /** Land value removed at the building's own tile, 0..1; falls off with distance. */
+  amount: number;
+  radius: number;
+}
+
+/**
+ * The opposite of blight: a building people want to live near. Same shape and
+ * the same falloff, added to the land-value field rather than subtracted, so a
+ * stadium can lift its whole district while its `blight` block takes some of
+ * that back on the streets right beside it.
+ */
+export interface AmenityDef {
+  /** Land value added at the building's own tile, 0..1; falls off with distance. */
   amount: number;
   radius: number;
 }
@@ -105,6 +136,14 @@ export interface BuildingDef {
   cost: number;
   /** Monthly upkeep. */
   upkeep: number;
+  /**
+   * Footprint edge in tiles; 1 (the default) is an ordinary one-tile building.
+   * A larger building claims a `size`×`size` block of level, clear ground and
+   * behaves as one thing: one upkeep, one service source, razed as a unit.
+   */
+  size?: number;
+  /** Jobs the building itself provides, counted into the city's job total. */
+  jobs?: number;
   unlock?: UnlockDef;
   power?: { capacity: number; pollution: number };
   service?: { kind: ServiceKind; radius: number; share?: number };
@@ -112,6 +151,14 @@ export interface BuildingDef {
   siting?: { needsWater?: boolean };
   waste?: WasteDef;
   blight?: BlightDef;
+  amenity?: AmenityDef;
+  /** Civic capabilities this building confers while it stands. */
+  grants?: CivicGrant[];
+  /**
+   * A mayor's-office reward: bought from the Rewards list once its `unlock`
+   * milestone is met, rather than sitting in the toolbar from the start.
+   */
+  reward?: boolean;
   /** Present ⇒ the generic renderer draws this building from the spec. */
   visual?: VisualDef;
 }
@@ -154,12 +201,14 @@ export interface BuildingOverride {
   name?: string;
   cost?: number;
   upkeep?: number;
+  jobs?: number;
   unlock?: UnlockDef;
   power?: Partial<{ capacity: number; pollution: number }>;
   service?: Partial<{ kind: ServiceKind; radius: number; share: number }>;
   transit?: Partial<{ radius: number; share: number }>;
   waste?: Partial<WasteDef>;
   blight?: Partial<BlightDef>;
+  amenity?: Partial<AmenityDef>;
   siting?: { needsWater?: boolean };
   visual?: VisualDef;
 }

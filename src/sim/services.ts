@@ -1,6 +1,7 @@
 import { allBuildings } from '../content/registry';
 import { modifier } from './content';
-import { idx, neighbors4, tilesWithin } from './grid';
+import { blockBoxOf, distanceToBlock, isBody, tilesAroundBlock } from './footprint';
+import { idx, neighbors4 } from './grid';
 import {
   CityState,
   FIRE_BURN_TICKS,
@@ -72,12 +73,15 @@ export function updateCoverage(city: CityState): void {
   const schoolBoost = modifier(city, 'coverage.school');
   for (let i = 0; i < city.tiles.length; i++) {
     const station = city.tiles[i];
+    // a block radiates once, from its anchor — not once per tile it covers
+    if (isBody(station, i)) continue;
     const service = table.find((s) => s.zone === station.zone);
     if (!service || !station.powered) continue;
-    const x = i % GRID;
-    const y = (i / GRID) | 0;
-    for (const [nx, ny] of tilesWithin(x, y, service.radius)) {
-      const d = Math.max(Math.abs(nx - x), Math.abs(ny - y));
+    // Reach runs from the whole building, so a five-tile campus covers a
+    // ring around itself rather than a circle centred on its corner.
+    const box = blockBoxOf(city, i);
+    for (const [nx, ny] of tilesAroundBlock(box, service.radius)) {
+      const d = distanceToBlock(box, nx, ny);
       // R+1 denominator keeps the rim ring covered (same convention as parks)
       let cov = 1 - d / (service.radius + 1);
       if (service.field === 'schoolCov' && schoolBoost !== 1) {

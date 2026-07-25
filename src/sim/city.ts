@@ -5,6 +5,7 @@ import { defaultOrdinances, ensureCoreContent, unlockedFor } from './content';
 import { updateDemand } from './demand';
 import { developTile } from './develop';
 import { blankTile, idx, inBounds, neighbors4, roadBand } from './grid';
+import { blockOf, blockTiles, sizeOfSlot } from './footprint';
 import { emptyHistory, pushHistory, sampleHistory, type MonthEvents } from './history';
 import { isRoadTool, ROAD_CLASSES, roadClassOfTool, type RoadClass } from './roads';
 import { updateLandValue } from './landvalue';
@@ -214,6 +215,19 @@ const TOOL_ZONE: Partial<Record<ToolId, Zone>> = {
   incinerator: Zone.Incinerator,
   recycling: Zone.RecyclingCentre,
   prison: Zone.Prison,
+  // rewards: bought from the Rewards list rather than the build palette, but
+  // placed by an ordinary click like anything else once armed
+  ballpark: Zone.Ballpark,
+  arena: Zone.Arena,
+  stadium: Zone.Stadium,
+  colosseum: Zone.Colosseum,
+  library: Zone.Library,
+  museum: Zone.Museum,
+  monument: Zone.Monument,
+  college: Zone.College,
+  university: Zone.University,
+  researchUniversity: Zone.ResearchUniversity,
+  fusion: Zone.FusionPlant,
   // transit stations have no direct tools — the wizard places them
   // atomically via buildLine (sim/transitlines.ts)
 };
@@ -358,6 +372,21 @@ function validateTool(
   }
   const built = toolSlot(tool);
   if (built === undefined) return 'placed via the transit wizard';
+  // A block claims level, clear ground for its whole footprint, anchored at
+  // the clicked tile. Checked before the per-tile rules below so the message
+  // is about the block rather than about whichever tile happened to fail.
+  const size = sizeOfSlot(built);
+  if (size > 1) {
+    const need = blockTiles(x, y, size);
+    if (need.length !== size * size) return `needs ${size}×${size} tiles on the map`;
+    for (const n of need) {
+      const nt = city.tiles[n];
+      if (nt.zone !== Zone.None) return `needs ${size}×${size} clear tiles`;
+      if (nt.terrain !== Terrain.Grass) return `needs ${size}×${size} tiles of dry, clear land`;
+      if (nt.elevation !== t.elevation) return 'the ground is not level';
+      if (nt.rubble > 0) return 'clear the rubble first';
+    }
+  }
   if (isPlant(built) && !plantUnlocked(built, city)) {
     return `unlocks at ${plantUnlockLabel(built) ?? 'a larger population'}`;
   }
@@ -402,12 +431,17 @@ export function applyTool(
   const t = city.tiles[idx(x, y)];
   const cost = effectiveCost(city, tool, density, t);
   if (tool === 'bulldoze') {
-    // razing a structure keeps the ground; dozing bare forest/water clears it
-    const keepTerrain = t.zone !== Zone.None ? t.terrain : Terrain.Grass;
-    const keepElev = t.elevation;
-    city.tiles[idx(x, y)] = blankTile();
-    city.tiles[idx(x, y)].terrain = keepTerrain;
-    city.tiles[idx(x, y)].elevation = keepElev;
+    // A block is razed as one thing from any tile of it, for one bulldoze
+    // charge — you demolish a stadium, not a corner of a stadium.
+    for (const n of blockOf(city, idx(x, y))) {
+      const nt = city.tiles[n];
+      // razing a structure keeps the ground; dozing bare forest/water clears it
+      const keepTerrain = nt.zone !== Zone.None ? nt.terrain : Terrain.Grass;
+      const keepElev = nt.elevation;
+      city.tiles[n] = blankTile();
+      city.tiles[n].terrain = keepTerrain;
+      city.tiles[n].elevation = keepElev;
+    }
   } else if (isTerrainTool(tool)) {
     t.terrain = TOOL_TERRAIN[tool as ToolId]!;
   } else if (tool === 'terraRaise' || tool === 'terraLower') {
@@ -426,10 +460,25 @@ export function applyTool(
     t.stage = 0;
     t.abandoned = false;
   } else {
-    t.zone = toolSlot(tool)!;
-    t.stage = 0;
-    t.abandoned = false;
-    if (isZoneTool(tool)) t.density = density;
+    const slot = toolSlot(tool)!;
+    const size = sizeOfSlot(slot);
+    if (size > 1) {
+      // every tile of the block carries the slot and points at the anchor;
+      // the anchor is the clicked tile, which validateTool checked as such
+      const anchor = idx(x, y);
+      for (const n of blockTiles(x, y, size)) {
+        const nt = city.tiles[n];
+        nt.zone = slot;
+        nt.stage = 0;
+        nt.abandoned = false;
+        nt.anchor = anchor;
+      }
+    } else {
+      t.zone = slot;
+      t.stage = 0;
+      t.abandoned = false;
+      if (isZoneTool(tool)) t.density = density;
+    }
   }
   city.funds -= cost;
   return { ok: true };

@@ -66,6 +66,11 @@ const BUNDLES: Bundle[] = [
       { id: 'solar', label: 'Solar Farm' },
       { id: 'hydro', label: 'Hydro Plant', title: 'Needs adjacent water' },
       { id: 'nuclear', label: 'Nuclear Plant' },
+      {
+        id: 'fusion',
+        label: 'Cold Fusion',
+        title: '4×4 · enormous, clean output — needs a Research University',
+      },
     ],
   },
   {
@@ -333,7 +338,12 @@ export function buildToolbar(
       }
       flyout.innerHTML = '';
       flyoutFor = bundle.id;
-      for (const m of open) {
+      // Recomputed on every open rather than reusing what renderBundle saw:
+      // a milestone can be crossed between the heartbeat that last drew this
+      // button and the click that opens it, and the flyout must not be stale.
+      const members = bundle.members.filter((m) => memberUnlock(m.id).unlocked);
+      const stillLocked = bundle.members.find((m) => !memberUnlock(m.id).unlocked);
+      for (const m of members) {
         const mb = document.createElement('button');
         mb.dataset.tool = m.id;
         mb.innerHTML = `<span>${m.label}</span><span class="cost">${costLabel(m.id)}</span>`;
@@ -346,10 +356,10 @@ export function buildToolbar(
         });
         flyout.appendChild(mb);
       }
-      if (locked) {
+      if (stillLocked) {
         const hint = document.createElement('div');
         hint.className = 'bundle-hint';
-        hint.textContent = `${locked.label} at ${memberUnlock(locked.id).label ?? 'a larger city'}`;
+        hint.textContent = `${stillLocked.label} at ${memberUnlock(stillLocked.id).label ?? 'a larger city'}`;
         flyout.appendChild(hint);
       }
       // .bundle-slot is unpositioned, so offsetParent is still the tool panel
@@ -367,6 +377,7 @@ export function buildToolbar(
   /** Re-evaluate every bundle's gating; cheap, and a no-op when nothing changed. */
   function refreshGating() {
     for (const slot of bundleSlots) renderBundle(slot);
+    rebuildRewards();
     syncZoneCosts();
   }
 
@@ -469,6 +480,54 @@ export function buildToolbar(
   }
 
   rebuildMods();
+
+  // --- rewards ---
+  // The mayor's office buys these, so they are not in the build palette: the
+  // section lists what the city has earned, and what it is next in line for.
+  // Rebuilt on the same heartbeat the bundles use, since a milestone can be
+  // crossed at any moment.
+  const rewardsBody = section('rewards', 'Rewards · earned');
+  let rewardToolIds: string[] = [];
+  let rewardSignature = '';
+
+  function rebuildRewards() {
+    const city = getCity();
+    const all = allBuildings().filter((b) => b.reward && b.tool);
+    const earned = all.filter((b) => unlockedFor(b, city));
+    const signature = earned.map((b) => b.id).join(',');
+    if (signature === rewardSignature && rewardsBody.childElementCount > 0) return;
+    rewardSignature = signature;
+
+    for (const id of rewardToolIds) toolButtons.delete(id);
+    rewardToolIds = [];
+    rewardsBody.innerHTML = '';
+
+    for (const b of earned) {
+      const btn = toolButton(b.tool!, b.name, rewardsBody);
+      btn.dataset.reward = 'true';
+      const size = b.size ?? 1;
+      const bits = [`${size}×${size}`, `§${b.cost}`, `§${b.upkeep}/mo`];
+      if (b.jobs) bits.push(`${b.jobs} jobs`);
+      btn.title = bits.join(' · ');
+      rewardToolIds.push(b.tool!);
+    }
+
+    const next = all.find((b) => !unlockedFor(b, city));
+    if (next?.unlock) {
+      const hint = document.createElement('div');
+      hint.className = 'bundle-hint';
+      hint.textContent = `${next.name} at ${next.unlock.label}`;
+      rewardsBody.appendChild(hint);
+    } else if (earned.length === 0) {
+      const hint = document.createElement('div');
+      hint.className = 'bundle-hint';
+      hint.textContent = 'Nothing earned yet.';
+      rewardsBody.appendChild(hint);
+    }
+    syncActive();
+  }
+
+  rebuildRewards();
 
   const viewsBody = section('views', 'Data views');
   const overlayButtons = new Map<string, HTMLButtonElement>();

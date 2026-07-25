@@ -12,7 +12,7 @@ import {
 import { roadLine } from './sim/grid';
 import { spawnDisaster } from './sim/disasters';
 import { idx } from './sim/grid';
-import { deserialize, serialize } from './sim/save';
+import { createSaveStore, type SaveMeta } from './ui/savestore';
 import { CityState, Density, Zone } from './sim/types';
 import { Renderer, ViewState } from './render/renderer';
 import { clampZoom } from './render/iso';
@@ -28,8 +28,7 @@ import { createModStore } from './ui/modstore';
 import { buildModsPanel } from './ui/mods';
 import { makeDraggable } from './ui/drag';
 import {
-  BLIGHT_RADII,
-  HALO_RADII,
+  haloFor,
   isFormControl,
   LINE_TOOLS,
   OVERLAY_KEYS,
@@ -49,17 +48,28 @@ import { adviseTips } from './sim/tips';
 import { ambientLevel, createSoundPlayer, soundFor, UI_SOUNDS } from './ui/sound';
 import { createMusicPlayer } from './ui/music';
 
-const SAVE_KEY = 'simcity.save';
 const SPEED_MS = [0, 250, 83, 28];
 
 const canvas = document.getElementById('city') as HTMLCanvasElement;
 const uiRoot = document.getElementById('ui') as HTMLElement;
 
+// Constructing the store migrates the one pre-v0.55 save into a named slot,
+// so an upgrading player's city is waiting for them in the list.
+const saveStore = createSaveStore(localStorage);
+
+/** Which saved city the player is currently in, so Save overwrites it. */
+let currentSave: SaveMeta | null = null;
+
+/** Boot into the most recently saved city if there is one; the File menu
+ * opens over it either way, so nothing is loaded behind the player's back. */
 let city: CityState = (() => {
-  const saved = localStorage.getItem(SAVE_KEY);
-  if (saved) {
-    const revived = deserialize(saved);
-    if (revived) return revived;
+  const latest = saveStore.list()[0];
+  if (latest) {
+    const revived = saveStore.load(latest.slug);
+    if (revived) {
+      currentSave = latest;
+      return revived;
+    }
   }
   return newCity(Date.now() % 2 ** 31);
 })();
@@ -228,33 +238,25 @@ modStore.onChange(() => {
   renderer.reseed(city.seed); // newly-registered buildings need per-tile variants
 });
 
-const fileMenu = buildFileMenu(uiRoot, {
-  hasSave: () => deserialize(localStorage.getItem(SAVE_KEY) ?? '') !== null,
-  save() {
-    localStorage.setItem(SAVE_KEY, serialize(city));
-    fileMenu.sync();
-    notify('City saved', 'info');
-    sound.play(UI_SOUNDS.info);
-  },
-  load() {
-    const saved = localStorage.getItem(SAVE_KEY);
-    const revived = saved ? deserialize(saved) : null;
-    if (!revived) {
-      notify('No valid save found', 'error');
-      sound.play(UI_SOUNDS.error);
-      return;
-    }
-    adoptCity(revived);
-    notify('City loaded', 'info');
+const fileMenu = buildFileMenu(uiRoot, saveStore, {
+  city: () => city,
+  adopt(next, meta) {
+    currentSave = meta;
+    adoptCity(next);
+    notify(`Loaded “${meta.name}”`, 'info');
     sound.play(UI_SOUNDS.info);
     advisoryForUnprotectedCity();
   },
   newCity() {
-    if (!window.confirm('Start a new city? Unsaved progress is lost.')) return;
+    currentSave = null;
     adoptCity(newCity(Date.now() % 2 ** 31));
     notify('A new city awaits', 'info');
   },
   openMods: () => modsPanel.open(),
+  notify(msg, kind) {
+    notify(msg, kind);
+    sound.play(kind === 'error' ? UI_SOUNDS.error : UI_SOUNDS.info);
+  },
 });
 
 const PANELS = {
@@ -317,8 +319,9 @@ window.setInterval(() => {
   music.update(city);
 }, 2000);
 
-// The front door: choose to carry on with the saved city or start a fresh one,
+// The front door: choose which city to carry on with, or start a fresh one,
 // rather than having the game quietly decide for you.
+fileMenu.setCurrent(currentSave);
 fileMenu.open();
 
 const muteBtn = document.createElement('button');
@@ -355,13 +358,14 @@ function toolAllowed(tool: ActiveTool, x: number, y: number): boolean {
   return canApply(city, tool, x, y, activeDensity);
 }
 
-/** Show what a tool would reach — coverage, and where it spoils the area. */
+/** Show what a tool would reach — coverage, the ground it claims, and where
+ * it spoils the area. */
 function syncHalo() {
   const usable = activeTool && activeTool !== 'query' ? activeTool : null;
-  const radius = usable ? HALO_RADII[usable] : undefined;
+  const spec = usable ? haloFor(usable) : null;
   view.halo =
-    radius && view.hover
-      ? { x: view.hover.x, y: view.hover.y, radius, blight: usable ? BLIGHT_RADII[usable] : undefined }
+    spec && view.hover
+      ? { x: view.hover.x, y: view.hover.y, radius: spec.radius, blight: spec.blight, size: spec.size }
       : null;
 }
 

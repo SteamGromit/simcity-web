@@ -1,3 +1,4 @@
+import { isBody } from './footprint';
 import { idx, neighbors4 } from './grid';
 import { CityState, GRID, Tile, Zone } from './types';
 import { plantCapacity, isPlant } from './energy';
@@ -11,8 +12,10 @@ function conducts(t: Tile): boolean {
 }
 
 /** Structures that draw from the plant pool. Lines, wired roads, parks,
- * and pipes conduct without consuming. */
-function consumes(t: Tile): boolean {
+ * and pipes conduct without consuming; so do the body tiles of a block,
+ * which are the same building as their anchor and must not be billed twice. */
+function consumes(t: Tile, i: number): boolean {
+  if (isBody(t, i)) return false;
   switch (t.zone) {
     case Zone.Residential:
     case Zone.Commercial:
@@ -60,7 +63,8 @@ export function updatePower(city: CityState): void {
       seen[i] = 1;
       powered[i] = 1;
       queue.push(i);
-      pool += plantCapacity(city.tiles[i].zone);
+      // a multi-tile plant generates its capacity once, from its anchor
+      if (!isBody(city.tiles[i], i)) pool += plantCapacity(city.tiles[i].zone);
     }
   }
 
@@ -75,7 +79,7 @@ export function updatePower(city: CityState): void {
       if (seen[ni] || !conducts(city.tiles[ni])) continue;
       seen[ni] = 1;
       queue.push(ni);
-      if (consumes(city.tiles[ni])) {
+      if (consumes(city.tiles[ni], ni)) {
         if (pool > 0) {
           pool--;
           powered[ni] = 1;

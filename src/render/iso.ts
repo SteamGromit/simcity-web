@@ -103,6 +103,43 @@ export function tileGeom(x: number, y: number, elev = 0): TileGeom {
   };
 }
 
+/**
+ * Projected geometry for a `size`×`size` block anchored at (x, y): the same
+ * diamond a tile gets, spanning the whole footprint. A multi-tile building
+ * draws into this, so it inherits every mass, roof and shadow routine that
+ * already works off a TileGeom.
+ */
+export function blockGeom(x: number, y: number, size: number, elev = 0): TileGeom {
+  const dy = elev * ELEV_PX;
+  const c = isoToScreen(x + size / 2, y + size / 2);
+  const p0 = isoToScreen(x, y);
+  const p1 = isoToScreen(x + size, y);
+  const p2 = isoToScreen(x + size, y + size);
+  const p3 = isoToScreen(x, y + size);
+  return {
+    cx: c.sx,
+    cy: c.sy - dy,
+    corners: [
+      [p0.sx, p0.sy - dy],
+      [p1.sx, p1.sy - dy],
+      [p2.sx, p2.sy - dy],
+      [p3.sx, p3.sy - dy],
+    ],
+  };
+}
+
+/**
+ * Which tile of a `size`×`size` block paints last under the current angle.
+ * Depth is linear in x and y, so the deepest tile is always a corner of the
+ * block — drawing the whole building there keeps painter's order honest
+ * without sorting anything.
+ */
+export function deepestOfBlock(ax: number, ay: number, size: number): number {
+  const x = cosA + sinA >= 0 ? ax + size - 1 : ax;
+  const y = cosA - sinA >= 0 ? ay + size - 1 : ay;
+  return (y - ay) * size + (x - ax); // offset within the block, row-major
+}
+
 /** Painter's depth of a tile under the current angle — draw ascending. */
 export function tileDepth(x: number, y: number): number {
   const xr = (x + 0.5) * cosA - (y + 0.5) * sinA;

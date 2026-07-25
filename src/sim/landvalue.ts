@@ -1,4 +1,5 @@
 import { tilesWithin } from './grid';
+import { blockBoxOf, distanceToBlock, isBody, tilesAroundBlock } from './footprint';
 import { buildingBySlot } from '../content/registry';
 import { CityState, GRID, Terrain, Zone, mapScaled } from './types';
 
@@ -40,13 +41,32 @@ export function updateLandValue(city: CityState): void {
         parkBonus[ny * GRID + nx] += 0.05 * (1 - d / (FOREST_RADIUS + 1));
       }
     }
-    // An unpleasant neighbour — a prison, a dump — poisons the value around it,
-    // negative park bonus, driven entirely by content's blight block.
-    const blight = buildingBySlot(tile.zone)?.blight;
-    if (blight && blight.radius > 0) {
-      for (const [nx, ny] of tilesWithin(x, y, blight.radius)) {
-        const d = Math.max(Math.abs(nx - x), Math.abs(ny - y));
-        parkBonus[ny * GRID + nx] -= blight.amount * (1 - d / (blight.radius + 1));
+    // A building's effect on the ground around it, from its own definition.
+    // Both blocks radiate once per building — from a block's anchor, never
+    // once per tile of it — or a stadium would lift its district sixteenfold.
+    if (!isBody(tile, i)) {
+      const def = buildingBySlot(tile.zone);
+      // Distances run to the building's whole footprint, so a big reward's
+      // effect is centred on it rather than on the corner tile that owns it.
+      const box = def?.amenity || def?.blight ? blockBoxOf(city, i) : null;
+      // Something people want to be near: a park you cannot zone, a monument.
+      const amenity = def?.amenity;
+      if (box && amenity && amenity.radius > 0) {
+        for (const [nx, ny] of tilesAroundBlock(box, amenity.radius)) {
+          const d = distanceToBlock(box, nx, ny);
+          parkBonus[ny * GRID + nx] += amenity.amount * (1 - d / (amenity.radius + 1));
+        }
+      }
+      // An unpleasant neighbour — a prison, a dump, the streets right outside
+      // a stadium — poisons the value around it. A building may do both: the
+      // amenity reaches further, the blight bites harder up close, so the best
+      // place to live is a few blocks from the ground, not across from it.
+      const blight = def?.blight;
+      if (box && blight && blight.radius > 0) {
+        for (const [nx, ny] of tilesAroundBlock(box, blight.radius)) {
+          const d = distanceToBlock(box, nx, ny);
+          parkBonus[ny * GRID + nx] -= blight.amount * (1 - d / (blight.radius + 1));
+        }
       }
     }
   }

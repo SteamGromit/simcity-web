@@ -1,7 +1,7 @@
 import { buildingBySlot } from '../content/registry';
 import { modifier } from './content';
 import { isPlant } from './energy';
-import { tilesWithin } from './grid';
+import { blockBoxOf, distanceToBlock, isBody, tilesAroundBlock } from './footprint';
 import { pollutionScaleFor } from './tiers';
 import { CityState, GRID, Zone } from './types';
 
@@ -15,6 +15,9 @@ const GARBAGE_EMISSION = 0.35;
 
 function emission(city: CityState, i: number, industryScrub: number, trafficScrub: number): number {
   const t = city.tiles[i];
+  // a block emits once, from its anchor — sixteen plumes from one plant would
+  // saturate its whole district
+  if (isBody(t, i)) return 0;
   // Clean Air Act scrubs industry and traffic (the coal plant is exempt —
   // replace it, don't regulate it)
   if (isPlant(t.zone)) return buildingBySlot(t.zone)?.power?.pollution ?? 0;
@@ -44,10 +47,10 @@ export function updatePollution(city: CityState): void {
   for (let i = 0; i < city.tiles.length; i++) {
     const e = emission(city, i, industryScrub, trafficScrub);
     if (e === 0) continue;
-    const x = i % GRID;
-    const y = (i / GRID) | 0;
-    for (const [nx, ny] of tilesWithin(x, y, SPREAD)) {
-      const d = Math.max(Math.abs(nx - x), Math.abs(ny - y));
+    // the plume spreads from the whole emitter, not from its anchor corner
+    const box = blockBoxOf(city, i);
+    for (const [nx, ny] of tilesAroundBlock(box, SPREAD)) {
+      const d = distanceToBlock(box, nx, ny);
       field[ny * GRID + nx] += e * (1 - d / SPREAD);
     }
   }

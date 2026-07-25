@@ -35,6 +35,17 @@ const ZONE_NAMES: Record<Zone, string> = {
   [Zone.Incinerator]: 'Incinerator',
   [Zone.RecyclingCentre]: 'Recycling Centre',
   [Zone.Prison]: 'Prison',
+  [Zone.Ballpark]: 'Ballpark',
+  [Zone.Arena]: 'Arena',
+  [Zone.Stadium]: 'Stadium',
+  [Zone.Colosseum]: 'Colosseum',
+  [Zone.Library]: 'Library',
+  [Zone.Museum]: 'Museum',
+  [Zone.Monument]: 'Monument',
+  [Zone.College]: 'College',
+  [Zone.University]: 'University',
+  [Zone.ResearchUniversity]: 'Research University',
+  [Zone.FusionPlant]: 'Cold Fusion Plant',
 };
 
 export function buildQuery(root: HTMLElement) {
@@ -98,6 +109,23 @@ export function buildQuery(root: HTMLElement) {
         if (t.wire) rows.push(['Power line', 'overhead']);
         if (t.pipe) rows.push(['Water main', 'buried']);
       }
+      // What a reward does, read off its definition rather than duplicated here.
+      const def = buildingBySlot(t.zone);
+      if (def?.reward || (def?.size ?? 1) > 1) {
+        const size = def!.size ?? 1;
+        if (size > 1) rows.push(['Footprint', `${size}×${size} tiles`]);
+        if (def!.jobs) rows.push(['Jobs', def!.jobs.toLocaleString()]);
+        if (def!.amenity) {
+          rows.push(['Draws people', `+${Math.round(def!.amenity.amount * 100)}% · r${def!.amenity.radius}`]);
+        }
+        if (def!.blight) {
+          rows.push(['Spoils nearby', `−${Math.round(def!.blight.amount * 100)}% · r${def!.blight.radius}`]);
+        }
+        if (def!.grants?.length) rows.push(['Grants', def!.grants.join(', ')]);
+        if (def!.upkeep > 0) rows.push(['Upkeep', `§${def!.upkeep}/mo`]);
+        rows.push(['Powered', t.powered ? 'yes' : 'no']);
+      }
+
       // What an authored building does, read off its definition.
       const authored = buildingBySlot(t.zone);
       if (authored?.visual) {
