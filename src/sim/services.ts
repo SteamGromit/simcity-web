@@ -98,8 +98,10 @@ const isBuilding = (t: { zone: Zone }) =>
 /**
  * Monthly ignition roll: developed buildings with zero fire coverage can
  * catch fire. The fire itself burns and spreads per tick in updateFires.
+ * Returns how many broke out, for the charts.
  */
-export function fireRisk(city: CityState, rand: () => number): void {
+export function fireRisk(city: CityState, rand: () => number): number {
+  let ignitions = 0;
   for (let i = 0; i < city.tiles.length; i++) {
     const t = city.tiles[i];
     if (!isBuilding(t) || t.stage === 0 || t.abandoned || t.fireCov > 0 || t.burning > 0) continue;
@@ -108,11 +110,13 @@ export function fireRisk(city: CityState, rand: () => number): void {
     if (city.biome === 'desert') risk *= 1.5; // dry air, drier timber
     if (rand() < risk) {
       t.burning = FIRE_BURN_TICKS;
+      ignitions++;
       const x = i % GRID;
       const y = (i / GRID) | 0;
       city.notices.push(`Fire has broken out at (${x}, ${y})!`);
     }
   }
+  return ignitions;
 }
 
 /**

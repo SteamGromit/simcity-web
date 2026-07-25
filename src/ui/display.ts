@@ -3,6 +3,7 @@ import { getWeatherFx, setWeatherFx } from '../render/fx';
 import { getDayNight, setDayNight } from '../render/daynight';
 import { RenderStyle, getRenderStyle, setRenderStyle } from '../render/renderstyle';
 import { getSeasonFx, setSeasonFx } from '../render/seasonfx';
+import { panelHandle } from './panel';
 
 /** Config panel: presentation and audio preferences — city style,
  * weather visuals, music, lighting, and volume levels. No city state. */
@@ -146,9 +147,11 @@ export function buildDisplay(
     music.setMusicVolume(Number(musicVol.value) / 100);
   });
 
+  const handle = panelHandle(panel);
   return {
-    toggle() {
-      panel.classList.toggle('hidden');
-    },
+    toggle: handle.toggle,
+    open: handle.open,
+    close: handle.close,
+    isOpen: handle.isOpen,
   };
 }

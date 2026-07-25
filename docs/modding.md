@@ -242,7 +242,25 @@ draw code.
   normal, `< 1` squats buildings, `> 1` stretches them.
 - **`grassSat`** (required) — multiplier on ground/grass saturation.
 - **`roadFill`** (required) — a CSS color string for road fill, e.g.
-  `'#3a3d42'`.
+  `'#3a3d42'`. Highways darken this rather than replacing it, so the whole
+  road ladder restyles with the skin. Use a six-digit hex if you want that
+  darkening — any other notation is used as-is at every class.
+
+### Retuning the road ladder
+
+The five road classes (street, route, boulevard, highway, highway II)
+share the one registered `core:road` building — a class is a property of
+the *tile*, not a separate slot. Their prices and upkeep are multipliers
+on `core:road`'s, so overriding that one building moves the whole ladder
+together:
+
+```json
+{ "overrides": { "buildings": [{ "id": "core:road", "cost": 20, "upkeep": 2 }] } }
+```
+
+The widths, per-tile traffic capacities, and population unlocks live in
+`sim/roads.ts` and are not yet content-driven; making them so is tracked
+in `TODO.md`.
 
 ## Overrides: changing content that already exists
 

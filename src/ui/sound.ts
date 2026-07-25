@@ -75,6 +75,11 @@ const EVENT_GAP_MS: Partial<Record<EventId, number>> = {
 
 const TOOL_SOUNDS: Record<ToolId, SoundSpec> = {
   road: { wave: 'triangle', freq: 130, freqEnd: 80, dur: 0.07, vol: 0.5 },
+  // the road ladder: the same asphalt thunk, deeper and longer the wider it gets
+  route: { wave: 'triangle', freq: 120, freqEnd: 72, dur: 0.09, vol: 0.55 },
+  boulevard: { wave: 'triangle', freq: 110, freqEnd: 66, dur: 0.11, vol: 0.6 },
+  highway: { wave: 'triangle', freq: 96, freqEnd: 56, dur: 0.14, vol: 0.65 },
+  highway2: { wave: 'triangle', freq: 84, freqEnd: 48, dur: 0.17, vol: 0.7 },
   zoneR: { wave: 'sine', freq: 620, freqEnd: 560, dur: 0.05, vol: 0.35 },
   zoneC: { wave: 'sine', freq: 740, freqEnd: 680, dur: 0.05, vol: 0.35 },
   zoneI: { wave: 'sine', freq: 500, freqEnd: 440, dur: 0.05, vol: 0.35 },

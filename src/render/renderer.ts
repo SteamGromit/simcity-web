@@ -28,6 +28,7 @@ import { VegTint, vegTint } from './seasonfx';
 import { seasonOf } from '../sim/weather';
 import { setCanopyColor } from './buildings';
 import { getSkin } from './skins';
+import { roadPaint, roadSurface } from './roadlook';
 import { getWeatherFx } from './fx';
 
 export interface ViewState {
@@ -40,8 +41,9 @@ export interface ViewState {
   line: [number, number][] | null;
   /** Tool the pending line will build (road / power line / pipe). */
   lineTool: BuildTool | null;
-  /** Coverage footprint preview while placing a service building. */
-  halo: { x: number; y: number; radius: number } | null;
+  /** Coverage footprint preview while placing a building with an area effect;
+   * `blight` is the (smaller) radius over which it also spoils the area. */
+  halo: { x: number; y: number; radius: number; blight?: number } | null;
   /** Live transit-wizard preview: drawn path, stops, pending segment. */
   transitDraft: {
     color: string;
@@ -306,12 +308,26 @@ export class Renderer {
 
     const elevOf = (x: number, y: number) => city.tiles[idx(x, y)].elevation;
     if (view.halo) {
-      const { x: hx, y: hy, radius } = view.halo;
+      const { x: hx, y: hy, radius, blight } = view.halo;
+      // Survey pink, not the data views' green: this is *proposed* work, and a
+      // coverage view left on underneath must stay readable through it. Green
+      // on green made "what would change" impossible to pick out from "what is
+      // already covered", which is exactly when the preview matters most.
       for (const [nx, ny] of tilesWithin(hx, hy, radius)) {
         const d = Math.max(Math.abs(nx - hx), Math.abs(ny - hy));
         const cov = 1 - d / (radius + 1);
-        // same tint the coverage data views use for covered tiles
-        fillTile(ctx, tileGeom(nx, ny, elevOf(nx, ny)), `rgba(80,220,100,${0.15 + 0.4 * cov})`);
+        fillTile(ctx, tileGeom(nx, ny, elevOf(nx, ny)), `rgba(255,79,163,${0.12 + 0.3 * cov})`);
+        if (d === radius) {
+          // a bright rim marks exactly where the reach stops
+          strokeTile(ctx, tileGeom(nx, ny, elevOf(nx, ny)), 'rgba(255,79,163,0.55)', 1);
+        }
+      }
+      // and the reach over which it makes the neighbourhood worse
+      if (blight && blight > 0) {
+        for (const [nx, ny] of tilesWithin(hx, hy, blight)) {
+          if (Math.max(Math.abs(nx - hx), Math.abs(ny - hy)) !== blight) continue;
+          strokeTile(ctx, tileGeom(nx, ny, elevOf(nx, ny)), 'rgba(242,145,31,0.85)', 1.5);
+        }
       }
     }
     if (view.rect) {
@@ -448,23 +464,20 @@ export class Renderer {
           if (py > geom.cy) this.ctx.fillRect(px - 1.5, py - 2, 3, 7);
         }
         fillTile(this.ctx, geom, '#4a4e55');
-      } else {
-        fillTile(this.ctx, geom, getSkin().roadFill);
-        // curb line along every edge that borders non-road land
-        this.ctx.strokeStyle = 'rgba(150, 155, 160, 0.8)';
-        this.ctx.lineWidth = 1.5;
-        for (let k = 0; k < 4; k++) {
-          const [dx, dy] = Renderer.EDGE_DIRS[k];
-          if (inBounds(x + dx, y + dy) && city.tiles[idx(x + dx, y + dy)].zone === Zone.Road) {
-            continue;
-          }
-          const c1 = geom.corners[k];
-          const c2 = geom.corners[(k + 1) % 4];
-          this.ctx.beginPath();
-          this.ctx.moveTo(c1[0], c1[1]);
-          this.ctx.lineTo(c2[0], c2[1]);
-          this.ctx.stroke();
+      } else if (t.median) {
+        // a boulevard's planted centre strip: grass, a tree, kerbs both sides
+        const v = this.variants[i];
+        fillTile(this.ctx, geom, `hsl(${104 + v * 8 + this.veg.grassHue} 34% ${30 + this.veg.grassLight}%)`);
+        // kerbed all the way round: the strip is an island in the carriageway
+        strokeTile(this.ctx, geom, 'rgba(150, 155, 160, 0.8)', 1.5);
+        if (this.detail >= 1) {
+          tree(this.ctx, geom.cx - 4 + v * 8, geom.cy + 1, this.storm ? this.wind : 0);
         }
+        if (t.wire) drawPole(this.ctx, geom.cx, geom.cy);
+        return; // no lane markings, no streetlight pool, and never any cars
+      } else {
+        fillTile(this.ctx, geom, roadSurface(t.road));
+        this.drawRoadKerbs(geom, city, x, y);
       }
       this.drawRoadLinks(geom, city, x, y);
       if (t.wire) drawPole(this.ctx, geom.cx, geom.cy);
@@ -693,11 +706,33 @@ export class Renderer {
     return false;
   }
 
-  /** Lane markings toward orthogonally-adjacent roads; a dot for dead ends. */
+  /** Kerb line along every edge that borders something other than road. */
+  private drawRoadKerbs(geom: TileGeom, city: CityState, x: number, y: number) {
+    this.ctx.strokeStyle = 'rgba(150, 155, 160, 0.8)';
+    this.ctx.lineWidth = 1.5;
+    for (let k = 0; k < 4; k++) {
+      const [dx, dy] = Renderer.EDGE_DIRS[k];
+      if (inBounds(x + dx, y + dy) && city.tiles[idx(x + dx, y + dy)].zone === Zone.Road) {
+        continue;
+      }
+      const c1 = geom.corners[k];
+      const c2 = geom.corners[(k + 1) % 4];
+      this.ctx.beginPath();
+      this.ctx.moveTo(c1[0], c1[1]);
+      this.ctx.lineTo(c2[0], c2[1]);
+      this.ctx.stroke();
+    }
+  }
+
+  /** Lane markings toward orthogonally-adjacent roads; a dot for dead ends.
+   * The paint follows the class: yellow centre lines on ordinary streets,
+   * white lane edges once the corridor is a highway. */
   private drawRoadLinks(geom: TileGeom, city: CityState, x: number, y: number) {
     const { ctx } = this;
-    ctx.strokeStyle = 'rgba(220,210,140,0.7)';
-    ctx.lineWidth = 1.5;
+    const cls = city.tiles[idx(x, y)].road;
+    const paint = roadPaint(cls);
+    ctx.strokeStyle = paint.color;
+    ctx.lineWidth = paint.width;
     let links = 0;
     for (const [dx, dy] of [
       [1, 0],
@@ -707,7 +742,7 @@ export class Renderer {
     ] as const) {
       if (!inBounds(x + dx, y + dy)) continue;
       const n = city.tiles[idx(x + dx, y + dy)];
-      if (n.zone !== Zone.Road) continue;
+      if (n.zone !== Zone.Road || n.median) continue;
       const own = city.tiles[idx(x, y)].elevation;
       if (Math.abs(n.elevation - own) > 1) continue; // cliff: no connection
       links++;
@@ -720,7 +755,7 @@ export class Renderer {
       ctx.stroke();
     }
     if (links === 0) {
-      ctx.fillStyle = 'rgba(220,210,140,0.7)';
+      ctx.fillStyle = paint.color;
       ctx.fillRect(geom.cx - 1.5, geom.cy - 1.5, 3, 3);
     }
   }

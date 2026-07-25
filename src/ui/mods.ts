@@ -11,6 +11,7 @@ import { allBuildings, allOrdinances } from '../content/registry';
 import { drawAuthoredBuilding } from '../render/buildings';
 import { TILE_W, TILE_H } from '../render/iso';
 import type { BuildingDraft, ModStore, OrdinanceDraft, OverrideKind, StoredMod } from './modstore';
+import { addPanelClose } from './panel';
 
 /** Plain-language names for the modifier vocabulary. */
 const MODIFIER_LABELS: Record<ModifierKey, string> = {
@@ -32,7 +33,7 @@ export function buildModsPanel(
   root: HTMLElement,
   store: ModStore,
   opts: { toast: (msg: string, kind?: 'error' | 'info') => void },
-): { toggle(): void } {
+): { toggle(): void; open(): void; close(): void; isOpen(): boolean } {
   const panel = document.createElement('div');
   panel.id = 'mods-panel';
   panel.className = 'panel hidden';
@@ -65,6 +66,7 @@ export function buildModsPanel(
     const open = openModId ? store.list().find((m) => m.pack.id === openModId) : undefined;
     if (open) renderModEditor(open);
     else renderModList();
+    addPanelClose(panel, () => panel.classList.add('hidden')); // the render wiped the last one
   }
 
   function renderModList() {
@@ -696,10 +698,19 @@ export function buildModsPanel(
     return el('div', { className: 'mods-field' }, [el('span', { textContent: label }), control]);
   }
 
+  const isOpen = () => !panel.classList.contains('hidden');
+  const open = () => {
+    panel.classList.remove('hidden');
+    render();
+  };
+  const close = () => panel.classList.add('hidden');
   return {
+    isOpen,
+    open,
+    close,
     toggle() {
-      panel.classList.toggle('hidden');
-      if (!panel.classList.contains('hidden')) render();
+      if (isOpen()) close();
+      else open();
     },
   };
 }

@@ -1,6 +1,8 @@
 import { defaultOrdinances, ensureCoreContent } from './content';
 import { idOfSlot, slotOf } from '../content/registry';
 import { blankTile } from './grid';
+import { emptyHistory, HISTORY_KEYS } from './history';
+import { clampRoadClass } from './roads';
 import { INDUSTRY_KINDS } from './tiers';
 import { defaultWeather, WEATHER_KINDS, WeatherKind } from './weather';
 import {
@@ -118,6 +120,10 @@ function reviveTile(raw: unknown, remap: Map<number, number> | null): Tile {
   t.powered = r.powered === true;
   t.watered = r.watered === true;
   t.abandoned = r.abandoned === true;
+  // a class or median claimed off a road tile would be invisible state; the
+  // ladder only exists on asphalt, and pre-v0.54 saves have neither field
+  t.road = t.zone === Zone.Road ? clampRoadClass(r.road) : 0;
+  t.median = t.zone === Zone.Road && r.median === true;
   t.wire = r.wire === true;
   t.pipe = r.pipe === true;
   t.fireCov = finite(r.fireCov, 0);
@@ -242,18 +248,36 @@ function reviveTransitLines(raw: unknown): CityState['transitLines'] {
   return out;
 }
 
+/**
+ * Revive the monthly ledger. `pop` and `funds` are the anchor pair — they set
+ * the length every other series is held to, and junk in either throws the
+ * whole ledger away rather than plotting a lie. A series a save predates (or
+ * one it mangled) comes back as zeros of the right length, so a v0.53 city
+ * opens with its population and funds intact and flat lines behind the newer
+ * charts, instead of losing its history to the new format.
+ */
 function reviveHistory(raw: unknown): CityState['history'] {
-  const empty = { pop: [], funds: [] };
-  if (!raw || typeof raw !== 'object') return empty;
+  const out = emptyHistory();
+  if (!raw || typeof raw !== 'object') return out;
   const h = raw as Record<string, unknown>;
-  if (!Array.isArray(h.pop) || !Array.isArray(h.funds)) return empty;
-  if (h.pop.length !== h.funds.length) return empty;
-  const pop = h.pop.slice(-HISTORY_MAX);
-  const funds = h.funds.slice(-HISTORY_MAX);
-  if (![...pop, ...funds].every((v) => typeof v === 'number' && Number.isFinite(v))) {
-    return empty;
+  const clean = (v: unknown): number[] | null => {
+    if (!Array.isArray(v)) return null;
+    const slice = v.slice(-HISTORY_MAX);
+    return slice.every((n) => typeof n === 'number' && Number.isFinite(n))
+      ? (slice as number[])
+      : null;
+  };
+  const pop = clean(h.pop);
+  const funds = clean(h.funds);
+  if (!pop || !funds || pop.length !== funds.length) return out;
+  const n = pop.length;
+  for (const key of HISTORY_KEYS) {
+    const series = clean(h[key]);
+    out[key] = series && series.length === n ? series : new Array<number>(n).fill(0);
   }
-  return { pop: pop as number[], funds: funds as number[] };
+  out.pop = pop;
+  out.funds = funds;
+  return out;
 }
 
 /**

@@ -74,6 +74,10 @@ export interface Tile {
   /** Connected to a working water pump; stages 3+ require it. */
   watered: boolean;
   abandoned: boolean;
+  /** Class of road on this tile (street/route/boulevard/highway); 0 off-road. */
+  road: import('./roads').RoadClass;
+  /** This road tile is a boulevard's planted median: landscaped, never driven. */
+  median: boolean;
   /** Power line strung over a road tile (lines elsewhere use Zone.PowerLine). */
   wire: boolean;
   /** Water main under a road tile (pipes elsewhere use Zone.WaterPipe). */
@@ -213,8 +217,9 @@ export interface CityState {
   weather: import('./weather').Weather;
   /** Event messages (fires, etc.) queued for the UI; newest last, capped. */
   notices: string[];
-  /** Monthly samples for the charts panel, newest last, capped at HISTORY_MAX. */
-  history: { pop: number[]; funds: number[] };
+  /** Monthly samples for the charts panel, newest last, capped at HISTORY_MAX.
+   * One array per series; the series list lives in sim/history.ts. */
+  history: import('./history').History;
   /** Player-drawn transit routes; stops are ordinary station tiles. */
   transitLines: import('./transitlines').TransitLine[];
   /** Slot → content id for every slot this city uses, so a save survives
@@ -239,6 +244,10 @@ export const DENSITY_COST_MULT = [0, 1, 2, 4];
 
 export type ToolId =
   | 'road'
+  | 'route'
+  | 'boulevard'
+  | 'highway'
+  | 'highway2'
   | 'zoneR'
   | 'zoneC'
   | 'zoneI'
@@ -317,7 +326,8 @@ export const BRIDGE_COST = 50;
 /** A pump only works within this Chebyshev distance of open water. */
 export const PUMP_WATER_RANGE = 2;
 
-/** Commuter volume a road tile carries comfortably; beyond it, congestion. */
+/** Commuter volume a plain street tile carries comfortably; beyond it,
+ * congestion. Wider classes scale it by their own capacity (see sim/roads). */
 export const ROAD_CAPACITY = 12;
 /** Extra route cost (on a base of 1) for a fully jammed tile. */
 export const CONGESTION_MAX_EXTRA = 3;

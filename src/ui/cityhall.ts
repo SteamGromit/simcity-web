@@ -1,10 +1,18 @@
 import { allOrdinances } from '../content/registry';
 import type { OrdinanceDef } from '../content/types';
 import { CityState, DisasterKind } from '../sim/types';
-import { adviseTips } from '../sim/tips';
 import { tierBreakdown } from '../sim/tierstats';
+import { panelHandle } from './panel';
 
-/** City Hall: the advisor board (every active tip) and ordinance toggles. */
+/**
+ * City Hall: what the city is made of, what it has legislated, and the button
+ * that tempts fate.
+ *
+ * The advisors used to head this panel, and their list grew and shrank as the
+ * city's mood changed — which moved every control below it out from under the
+ * cursor. The advisors now speak through the event log (see ui/eventlog.ts),
+ * and everything left here has a fixed height.
+ */
 export function buildCityHall(
   root: HTMLElement,
   city: () => CityState,
@@ -16,8 +24,6 @@ export function buildCityHall(
   panel.className = 'panel hidden';
   panel.innerHTML = `
     <h3>City Hall</h3>
-    <h4>Advisors</h4>
-    <ul id="advisor-list"></ul>
     <h4>City make-up</h4>
     <div id="tier-breakdown"></div>
     <h4>Ordinances · monthly cost</h4>
@@ -27,7 +33,6 @@ export function buildCityHall(
   `;
   root.appendChild(panel);
 
-  const advisorList = panel.querySelector('#advisor-list') as HTMLElement;
   const tierPanel = panel.querySelector('#tier-breakdown') as HTMLElement;
   const ordinanceList = panel.querySelector('#ordinance-list') as HTMLElement;
 
@@ -67,7 +72,7 @@ export function buildCityHall(
     disasterList.appendChild(btn);
   }
 
-  let lastTipRender = 0;
+  let lastRender = 0;
   const syncBoxes = () => {
     const boxes = ordinanceList.querySelectorAll<HTMLInputElement>('input');
     allOrdinances().forEach((o, i) => {
@@ -77,22 +82,19 @@ export function buildCityHall(
     });
   };
 
-  return {
-    toggle() {
-      panel.classList.toggle('hidden');
-      if (!panel.classList.contains('hidden')) {
-        syncBoxes();
-        lastTipRender = 0; // force a fresh advisor list
-      }
-    },
-    update(c: CityState, now: number) {
-      if (panel.classList.contains('hidden') || now - lastTipRender < 1000) return;
-      lastTipRender = now;
-      const tips = adviseTips(c);
-      advisorList.innerHTML = tips.length
-        ? tips.map((t) => `<li>${t.text}</li>`).join('')
-        : '<li class="quiet">No complaints — the city hums along.</li>';
+  const handle = panelHandle(panel, () => {
+    syncBoxes();
+    lastRender = 0; // force a fresh make-up read
+  });
 
+  return {
+    toggle: handle.toggle,
+    open: handle.open,
+    close: handle.close,
+    isOpen: handle.isOpen,
+    update(c: CityState, now: number) {
+      if (!handle.isOpen() || now - lastRender < 1000) return;
+      lastRender = now;
       const b = tierBreakdown(c);
       const pop = b.wealth[1] + b.wealth[2] + b.wealth[3];
       const jobs = b.industry.ag + b.industry.dirty + b.industry.manu + b.industry.tech;

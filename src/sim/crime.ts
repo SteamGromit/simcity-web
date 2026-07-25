@@ -97,8 +97,9 @@ export function updateCrime(city: CityState): void {
 
 /** Monthly: roll each occupied lot against its own rate. A hit is a notice
  * and a brief marker — the sim pressure is the rate itself, this is the
- * feedback the player hears and sees. */
-export function crimeIncidents(city: CityState, rand: () => number): void {
+ * feedback the player hears and sees. Returns the count, for the charts. */
+export function crimeIncidents(city: CityState, rand: () => number): number {
+  let incidents = 0;
   for (let i = 0; i < city.tiles.length; i++) {
     const t = city.tiles[i];
     if (!isRCI(t.zone) || t.stage === 0 || t.abandoned) continue;
@@ -109,8 +110,10 @@ export function crimeIncidents(city: CityState, rand: () => number): void {
       const pick = Math.floor(rand() * NOTICES.length) % NOTICES.length;
       city.notices.push(NOTICES[pick](x, y));
       t.crimeFlash = FLASH_FRAMES;
+      incidents++;
     }
   }
+  return incidents;
 }
 
 /** Highest crime rate anywhere developed — cheap read for the advisor/HUD. */
