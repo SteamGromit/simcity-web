@@ -1,5 +1,6 @@
 import { BuildTool, Density, SERVICE_RADII, ToolId, mapScaled } from '../sim/types';
 import { ROAD_TOOLS } from '../sim/roads';
+import { buildingByTool } from '../content/registry';
 import { OverlayId } from '../render/overlays';
 
 /** Keys already claimed by camera/help/sound bindings — never map tools here. */
@@ -128,6 +129,33 @@ export const BLIGHT_RADII: Partial<Record<BuildTool, number>> = {
   plant: 5,
   nuclear: 5,
 };
+
+export interface HaloSpec {
+  /** Reach of the good the building does — coverage, or the value it adds. */
+  radius: number;
+  /** Reach over which it makes the neighbourhood worse, if it does. */
+  blight?: number;
+  /** Footprint edge, so the preview outlines the ground it will claim. */
+  size: number;
+}
+
+/**
+ * What to preview while a tool hovers the map.
+ *
+ * The static tables above stay authoritative — they are what the tests pin,
+ * and they are readable without a live registry. Anything they don't mention
+ * falls back to the building's own definition, which is how rewards and
+ * authored mod content get a preview without being listed here by hand. The
+ * lookup is deliberately at call time: this module is imported long before
+ * any city has bootstrapped the content registry.
+ */
+export function haloFor(tool: BuildTool): HaloSpec | null {
+  const def = buildingByTool(tool);
+  const radius = HALO_RADII[tool] ?? def?.service?.radius ?? def?.amenity?.radius;
+  const size = def?.size ?? 1;
+  if (radius === undefined) return size > 1 ? { radius: 0, size } : null;
+  return { radius, blight: BLIGHT_RADII[tool] ?? def?.blight?.radius, size };
+}
 
 /**
  * True when a keydown's target is a form control that owns keystrokes

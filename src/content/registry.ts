@@ -167,6 +167,7 @@ function mergeBuilding(base: BuildingDef, p: BuildingOverride): BuildingDef {
   if (p.name !== undefined) out.name = p.name;
   if (p.cost !== undefined) out.cost = p.cost;
   if (p.upkeep !== undefined) out.upkeep = p.upkeep;
+  if (p.jobs !== undefined) out.jobs = p.jobs;
   if (p.unlock !== undefined) out.unlock = p.unlock;
   if (p.visual !== undefined) out.visual = p.visual;
   if (p.power) out.power = { capacity: 0, pollution: 0, ...base.power, ...p.power };
@@ -174,6 +175,7 @@ function mergeBuilding(base: BuildingDef, p: BuildingOverride): BuildingDef {
   if (p.transit) out.transit = { radius: 0, share: 1, ...base.transit, ...p.transit };
   if (p.waste) out.waste = { capacity: 0, ...base.waste, ...p.waste };
   if (p.blight) out.blight = { amount: 0, radius: 0, ...base.blight, ...p.blight };
+  if (p.amenity) out.amenity = { amount: 0, radius: 0, ...base.amenity, ...p.amenity };
   if (p.siting) out.siting = { ...base.siting, ...p.siting };
   return out;
 }

@@ -31,6 +31,18 @@ const ZONE_COLORS: Record<Zone, string> = {
   [Zone.Incinerator]: '#7a6f66',
   [Zone.RecyclingCentre]: '#4f8f5a',
   [Zone.Prison]: '#6d7075',
+  // rewards read as one civic family on the minimap — a warm stone
+  [Zone.Ballpark]: '#c98f4e',
+  [Zone.Arena]: '#c98f4e',
+  [Zone.Stadium]: '#c98f4e',
+  [Zone.Colosseum]: '#c98f4e',
+  [Zone.Library]: '#b9a06a',
+  [Zone.Museum]: '#b9a06a',
+  [Zone.Monument]: '#e0d3a8',
+  [Zone.College]: '#8fae6a',
+  [Zone.University]: '#8fae6a',
+  [Zone.ResearchUniversity]: '#8fae6a',
+  [Zone.FusionPlant]: '#6b4a3f',
 };
 
 export interface Camera {

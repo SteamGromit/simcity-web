@@ -11,7 +11,10 @@ import {
   type OrdinanceOverride,
   BUILDING_PROPS,
   BUILDING_ROOFS,
+  CIVIC_GRANTS,
+  isCivicGrant,
   MAX_BUILDING_PROPS,
+  MAX_FOOTPRINT,
   UNLOCK_CONTEXT_KEYS,
   type BuildingDef,
   type BuildingProp,
@@ -149,8 +152,34 @@ function validateBuildings(
       }
     }
 
+    if (entry.size !== undefined) {
+      if (
+        !isNum(entry.size) ||
+        !Number.isInteger(entry.size) ||
+        entry.size < 1 ||
+        entry.size > MAX_FOOTPRINT
+      ) {
+        errors.push(`${where} (${id}): "size" must be an integer 1..${MAX_FOOTPRINT}`);
+      }
+    }
+
+    if (entry.jobs !== undefined && (!isNum(entry.jobs) || entry.jobs < 0)) {
+      errors.push(`${where} (${id}): "jobs" must be a number >= 0`);
+    }
+
+    if (entry.reward !== undefined && typeof entry.reward !== 'boolean') {
+      errors.push(`${where} (${id}): "reward" must be a boolean`);
+    }
+
+    if (entry.grants !== undefined) {
+      if (!Array.isArray(entry.grants) || !entry.grants.every(isCivicGrant)) {
+        errors.push(`${where} (${id}): "grants" must be an array of ${CIVIC_GRANTS.join(', ')}`);
+      }
+    }
+
     if (entry.waste !== undefined) validateWaste(entry.waste, `${where} (${id})`, errors);
     if (entry.blight !== undefined) validateBlight(entry.blight, `${where} (${id})`, errors);
+    if (entry.amenity !== undefined) validateAmenity(entry.amenity, `${where} (${id})`, errors);
 
     if (entry.visual !== undefined) validateVisual(entry.visual, `${where} (${id})`, errors);
 
@@ -205,10 +234,17 @@ function validateOverrides(
             `${at}: "slot" cannot be overridden — it is the identity every save stores`,
           );
         }
+        if (entry.size !== undefined) {
+          // Footprint is stamped onto tiles at build time; changing it under a
+          // standing building would orphan the block it already occupies.
+          errors.push(
+            `${at}: "size" cannot be overridden — placed blocks already claim that ground`,
+          );
+        }
         if (entry.name !== undefined && !isStr(entry.name)) {
           errors.push(`${at}: "name" must be a non-empty string`);
         }
-        for (const k of ['cost', 'upkeep'] as const) {
+        for (const k of ['cost', 'upkeep', 'jobs'] as const) {
           if (entry[k] !== undefined && (!isNum(entry[k]) || (entry[k] as number) < 0)) {
             errors.push(`${at}: "${k}" must be a number >= 0`);
           }
@@ -256,6 +292,7 @@ function validateOverrides(
         }
         if (entry.waste !== undefined) validateWaste(entry.waste, at, errors, true);
         if (entry.blight !== undefined) validateBlight(entry.blight, at, errors, true);
+        if (entry.amenity !== undefined) validateAmenity(entry.amenity, at, errors, true);
         if (entry.siting !== undefined && !isObj(entry.siting)) {
           errors.push(`${at}: "siting" must be an object`);
         }
@@ -311,6 +348,24 @@ function validateWaste(raw: unknown, at: string, errors: string[], partial = fal
 }
 
 /** Check a blight block; `partial` relaxes required fields for an override. */
+/** Same shape and the same bounds as blight — it just lands the other way. */
+function validateAmenity(raw: unknown, at: string, errors: string[], partial = false): void {
+  if (!isObj(raw)) {
+    errors.push(`${at}: "amenity" must be an object`);
+    return;
+  }
+  const amount = raw.amount;
+  if (partial ? amount !== undefined : true) {
+    if (!isNum(amount) || amount < 0 || amount > 1) {
+      errors.push(`${at}: "amenity.amount" must be a number 0..1`);
+    }
+  }
+  const radius = raw.radius;
+  if (partial ? radius !== undefined : true) {
+    if (!isNum(radius) || radius < 0) errors.push(`${at}: "amenity.radius" must be a number >= 0`);
+  }
+}
+
 function validateBlight(raw: unknown, at: string, errors: string[], partial = false): void {
   if (!isObj(raw)) {
     errors.push(`${at}: "blight" must be an object`);

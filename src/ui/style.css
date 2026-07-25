@@ -281,6 +281,12 @@ body {
   position: fixed;
   top: 72px;
   left: 8px;
+  /* the column grew past the viewport once Rewards joined it; scroll rather
+     than run off the bottom of the screen where nothing can reach it */
+  max-height: calc(100vh - 84px);
+  overflow-y: auto;
+  overflow-x: visible;
+  scrollbar-width: thin;
 }
 
 .tool-panel {
@@ -384,6 +390,11 @@ body {
 
 .tool-panel button[data-tool='park'] {
   --spine: var(--greenspace);
+}
+
+/* rewards are the mayor's office spending its own credit: brass, like civic */
+.tool-panel button[data-reward] {
+  --spine: var(--brass);
 }
 
 /* APWA white: proposed excavation — which is exactly what terraforming is */
@@ -1016,23 +1027,24 @@ input[type='radio']:checked::after {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(360px, calc(100vw - 40px));
+  width: min(430px, calc(100vw - 40px));
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
   padding: 14px 16px;
   z-index: 25;
 }
 
-#file-entries {
+.file-actions {
   display: flex;
-  flex-direction: column;
   gap: 6px;
 }
 
-.file-entry {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  text-align: left;
-  padding: 8px 10px;
+.file-btn {
+  flex: 1;
+  padding: 7px 8px;
+  font: 600 10px var(--f-display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--chalk);
   background: var(--plate);
   border: 1px solid var(--keyline);
@@ -1040,36 +1052,120 @@ input[type='radio']:checked::after {
   cursor: pointer;
 }
 
-.file-entry:hover:not(:disabled) {
+.file-btn:hover {
   background: var(--plate-hi);
   border-color: rgba(255, 79, 163, 0.5);
 }
 
-.file-entry:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+.file-btn.file-primary {
+  flex: none;
+  color: #fff;
+  border-color: rgba(255, 79, 163, 0.55);
+  background: rgba(255, 79, 163, 0.12);
 }
 
-.file-entry.file-primary {
+.file-save-row {
+  display: flex;
+  gap: 6px;
+}
+
+.file-save-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  font: 12px var(--f-body);
+  color: var(--chalk);
+  background: var(--plate);
+  border: 1px solid var(--keyline);
+  border-radius: 0;
+}
+
+.file-error {
+  min-height: 14px;
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--electric);
+}
+
+/* one row per saved city: the row itself loads it, the tools sit alongside */
+.file-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.file-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  padding: 7px 10px;
+  color: var(--chalk);
+  background: var(--plate);
+  border: 1px solid var(--keyline);
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.file-open:hover {
+  background: var(--plate-hi);
+  border-color: rgba(255, 79, 163, 0.5);
+}
+
+/* the city you are actually in keeps the survey mark */
+.file-row.file-current .file-open {
   border-color: rgba(255, 79, 163, 0.55);
   background: rgba(255, 79, 163, 0.1);
 }
 
 .file-label {
   font: 600 12px var(--f-display);
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .file-blurb {
-  font-size: 11px;
+  font-family: var(--f-data);
+  font-size: 10px;
   line-height: 1.35;
   color: var(--dim);
 }
 
+.file-row-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.file-row-tools button {
+  padding: 2px 7px;
+  font: 600 9px var(--f-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+  background: var(--plate);
+  border: 1px solid var(--keyline);
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.file-row-tools button:hover {
+  color: var(--chalk);
+  background: var(--plate-hi);
+}
+
+.file-row-tools .file-danger:hover {
+  color: var(--electric);
+  border-color: rgba(238, 74, 44, 0.5);
+}
+
 .file-note {
-  margin-top: 10px;
+  margin-top: 4px;
   font-size: 11px;
+  line-height: 1.4;
   color: var(--faint);
 }
 

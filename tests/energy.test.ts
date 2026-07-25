@@ -18,13 +18,14 @@ beforeAll(() => {
 });
 
 describe('plant roster', () => {
-  it('covers all five plant zones', () => {
+  it('covers all six plant zones', () => {
     expect(plantZones()).toContain(Zone.PowerPlant);
     expect(plantZones()).toContain(Zone.SolarPlant);
     expect(plantZones()).toContain(Zone.WindTurbine);
     expect(plantZones()).toContain(Zone.HydroPlant);
     expect(plantZones()).toContain(Zone.NuclearPlant);
-    expect(plantZones()).toHaveLength(5);
+    expect(plantZones()).toContain(Zone.FusionPlant); // unlocked by research
+    expect(plantZones()).toHaveLength(6);
   });
 
   it('isPlant separates plants from other structures', () => {

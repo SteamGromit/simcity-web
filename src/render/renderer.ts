@@ -1,4 +1,4 @@
-import { idx, inBounds, neighbors4, tilesWithin } from '../sim/grid';
+import { idx, inBounds, neighbors4 } from '../sim/grid';
 import { mulberry32 } from '../sim/city';
 import { BuildTool, CityState, GRID, MAX_ELEV, Terrain, Zone } from '../sim/types';
 import { Automata } from './automata';
@@ -15,7 +15,18 @@ import {
   strokeTile,
   tree,
 } from './buildings';
-import { ELEV_PX, TileGeom, isoToScreen, screenToIso, setViewAngle, tileDepth, tileGeom } from './iso';
+import {
+  ELEV_PX,
+  TileGeom,
+  blockGeom,
+  deepestOfBlock,
+  isoToScreen,
+  screenToIso,
+  setViewAngle,
+  tileDepth,
+  tileGeom,
+} from './iso';
+import { anchorOf, distanceToBlock, sizeOfSlot, tilesAroundBlock } from '../sim/footprint';
 import { DisasterFx } from './disasterfx';
 import { OverlayId, drawOverlay } from './overlays';
 import { darknessAlpha, getDayNight, nightFactor, nightTint } from './daynight';
@@ -42,8 +53,9 @@ export interface ViewState {
   /** Tool the pending line will build (road / power line / pipe). */
   lineTool: BuildTool | null;
   /** Coverage footprint preview while placing a building with an area effect;
-   * `blight` is the (smaller) radius over which it also spoils the area. */
-  halo: { x: number; y: number; radius: number; blight?: number } | null;
+   * `blight` is the (smaller) radius over which it also spoils the area, and
+   * `size` the block of ground the building itself would claim. */
+  halo: { x: number; y: number; radius: number; blight?: number; size?: number } | null;
   /** Live transit-wizard preview: drawn path, stops, pending segment. */
   transitDraft: {
     color: string;
@@ -222,18 +234,25 @@ export class Renderer {
       this.drawGround(geom, city, x, y);
       if (t.rubble > 0) drawRubble(ctx, geom, this.variants[i]);
       if (t.zone !== Zone.None && t.zone !== Zone.Road) {
-        drawBuilding(
-          ctx,
-          geom,
-          t.zone,
-          t.stage,
-          t.tier,
-          t.abandoned,
-          t.powered,
-          this.variants[i],
-          this.night,
-          detail,
-        );
+        // A block is one building: it draws once, spanning its whole
+        // footprint, and it draws with whichever of its tiles paints last so
+        // the neighbours in front of it are not overdrawn.
+        const size = sizeOfSlot(t.zone);
+        const drawGeom = size > 1 ? this.blockDrawGeom(city, i, size) : geom;
+        if (drawGeom) {
+          drawBuilding(
+            ctx,
+            drawGeom,
+            t.zone,
+            t.stage,
+            t.tier,
+            t.abandoned,
+            t.powered,
+            this.variants[i],
+            this.night,
+            detail,
+          );
+        }
       }
       if (t.burning > 0) drawFire(ctx, geom, now, this.variants[i]);
       if (t.crimeFlash > 0) {
@@ -308,26 +327,50 @@ export class Renderer {
 
     const elevOf = (x: number, y: number) => city.tiles[idx(x, y)].elevation;
     if (view.halo) {
-      const { x: hx, y: hy, radius, blight } = view.halo;
+      const { x: hx, y: hy, radius, blight, size } = view.halo;
       // Survey pink, not the data views' green: this is *proposed* work, and a
       // coverage view left on underneath must stay readable through it. Green
       // on green made "what would change" impossible to pick out from "what is
       // already covered", which is exactly when the preview matters most.
-      for (const [nx, ny] of tilesWithin(hx, hy, radius)) {
-        const d = Math.max(Math.abs(nx - hx), Math.abs(ny - hy));
-        const cov = 1 - d / (radius + 1);
-        fillTile(ctx, tileGeom(nx, ny, elevOf(nx, ny)), `rgba(255,79,163,${0.12 + 0.3 * cov})`);
-        if (d === radius) {
-          // a bright rim marks exactly where the reach stops
-          strokeTile(ctx, tileGeom(nx, ny, elevOf(nx, ny)), 'rgba(255,79,163,0.55)', 1);
+      // Distances run to the whole footprint, matching what the sim will do.
+      const box = { ax: hx, ay: hy, size: size ?? 1 };
+      if (radius > 0) {
+        for (const [nx, ny] of tilesAroundBlock(box, radius)) {
+          const d = distanceToBlock(box, nx, ny);
+          const cov = 1 - d / (radius + 1);
+          fillTile(ctx, tileGeom(nx, ny, elevOf(nx, ny)), `rgba(255,79,163,${0.12 + 0.3 * cov})`);
+          if (d === radius) {
+            // a bright rim marks exactly where the reach stops
+            strokeTile(ctx, tileGeom(nx, ny, elevOf(nx, ny)), 'rgba(255,79,163,0.55)', 1);
+          }
         }
       }
       // and the reach over which it makes the neighbourhood worse
       if (blight && blight > 0) {
-        for (const [nx, ny] of tilesWithin(hx, hy, blight)) {
-          if (Math.max(Math.abs(nx - hx), Math.abs(ny - hy)) !== blight) continue;
+        for (const [nx, ny] of tilesAroundBlock(box, blight)) {
+          if (distanceToBlock(box, nx, ny) !== blight) continue;
           strokeTile(ctx, tileGeom(nx, ny, elevOf(nx, ny)), 'rgba(242,145,31,0.85)', 1.5);
         }
+      }
+      // the ground the building itself would take, for anything bigger than
+      // a tile — otherwise the cursor says "here" and the building lands there
+      if (size && size > 1) {
+        for (let dy = 0; dy < size; dy++) {
+          for (let dx = 0; dx < size; dx++) {
+            if (!inBounds(hx + dx, hy + dy)) continue;
+            fillTile(
+              ctx,
+              tileGeom(hx + dx, hy + dy, elevOf(hx + dx, hy + dy)),
+              'rgba(255,255,255,0.16)',
+            );
+          }
+        }
+        strokeTile(
+          ctx,
+          blockGeom(hx, hy, size, elevOf(hx, hy)),
+          view.hoverValid ? 'rgba(255,255,255,0.95)' : 'rgba(255,70,60,0.95)',
+          2,
+        );
       }
     }
     if (view.rect) {
@@ -704,6 +747,21 @@ export class Renderer {
       if ((city.tiles[idx(nx, ny)].terrain === Terrain.Water) !== wet) return true;
     }
     return false;
+  }
+
+  /**
+   * The geometry a multi-tile building draws into when the painter's loop
+   * reaches tile `i`, or null when this is not the tile that should draw it.
+   * Exactly one tile of a block ever returns a geometry.
+   */
+  private blockDrawGeom(city: CityState, i: number, size: number): TileGeom | null {
+    const a = anchorOf(city.tiles[i], i);
+    const ax = a % GRID;
+    const ay = (a / GRID) | 0;
+    const offset = deepestOfBlock(ax, ay, size);
+    const drawAt = idx(ax + (offset % size), ay + ((offset / size) | 0));
+    if (drawAt !== i) return null;
+    return blockGeom(ax, ay, size, city.tiles[a].elevation);
   }
 
   /** Kerb line along every edge that borders something other than road. */

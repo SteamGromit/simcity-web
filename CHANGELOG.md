@@ -4,6 +4,58 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.55.0] — 2026-07-25 · Rewards & named cities
+
+### Added
+- **Rewards — what the mayor's office buys once the city has earned it.**
+  Ten special buildings, each unlocked by a milestone and listed in a new
+  **Rewards** section of the toolbar as the city grows into them:
+  **Ballpark** → **Arena** → **Stadium** → **Colosseum** (pop 2k / 15k /
+  40k / 100k), **Library** (5k), **Museum** (20k + a schooled city),
+  **Monument** (50k), and **College** → **University** → **Research
+  University** (10k / 30k+educated / 60k+well-educated). They employ
+  people directly, cost real money to keep, and are the only buildings a
+  mayor places for prestige rather than utility.
+- **Multi-tile buildings.** Every reward occupies a block — 2×2 up to
+  5×5 — of level, clear ground, previewed under the cursor before you
+  commit. A block is one building: one upkeep, one service source, one
+  plume, razed as a unit from any tile of it.
+- **A Research University unlocks the Cold Fusion Plant** (4×4, 2,400
+  capacity, no pollution) in the Power Plant menu. Content declares what
+  it `grants` — learning, research, culture, sport — and other content
+  gates itself on that grant, so the connection is data, not a special
+  case. Bulldoze the university and fusion locks again.
+- **Rewards push on the land around them.** A new `amenity` block is the
+  mirror of `blight`: the sport ladder lifts a whole district while
+  making the streets directly outside it worse, so the best address is a
+  few blocks from the stadium rather than across from it. The Monument is
+  pure amenity — almost no jobs, a large and expensive halo of desirability.
+- **Named cities.** Save under any name and keep as many as your browser
+  will hold: the File menu lists each with its date, population, funds and
+  when it was last written, and every one can be renamed, exported to a
+  `.json` file, re-imported, or deleted. Saving under a name you already
+  used overwrites that city; a new name keeps the one you started from.
+  The single pre-v0.55 save is adopted as “My City” on first launch.
+
+### Changed
+- **Saves are about 30× smaller** — 3.5 MB down to ~115 KB for a
+  developed city. A tile now omits every field that is already the
+  default, which is nearly all of them on the empty grass that makes up
+  most of a map. This is what makes keeping several cities possible at
+  all; the format is unchanged in every other respect and round-trips
+  identically.
+- **Area effects measure from the whole building, not its corner tile.**
+  Coverage, pollution, blight and amenity all run to the nearest part of
+  a block, so a five-tile campus covers a ring around itself rather than
+  a circle centred on one corner. Identical to the old behaviour for
+  every one-tile building.
+- The toolbar scrolls when it outgrows the window, Query reports a
+  reward's footprint, jobs, area effects and grants, and the placement
+  preview outlines the ground a block would claim.
+- A save's slot-range check is derived from the `Zone` enum rather than
+  naming its last member — the named bound had gone stale, so a save
+  without a legend entry for a recently-added zone dropped those tiles.
+
 ## [0.54.0] — 2026-07-25 · Road ladder & interface overhaul
 
 ### Added

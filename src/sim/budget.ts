@@ -1,4 +1,5 @@
 import { buildingBySlot, allOrdinances } from '../content/registry';
+import { isBody } from './footprint';
 import { ROAD_CLASSES } from './roads';
 import { capacityFor, taxYieldFor } from './tiers';
 import { BudgetReport, CityState, Zone } from './types';
@@ -14,7 +15,8 @@ export function collectBudget(city: CityState): BudgetReport {
   let cIncome = 0;
   let iIncome = 0;
 
-  for (const t of city.tiles) {
+  for (let i = 0; i < city.tiles.length; i++) {
+    const t = city.tiles[i];
     if (t.stage > 0 && !t.abandoned) {
       const cap = capacityFor(t.zone, t.tier, t.stage);
       if (t.zone === Zone.Residential) {
@@ -33,7 +35,8 @@ export function collectBudget(city: CityState): BudgetReport {
       expenses += (def?.upkeep ?? 0) * ROAD_CLASSES[t.road].upkeepMult;
       if (t.wire) expenses += buildingBySlot(Zone.PowerLine)?.upkeep ?? 0;
       if (t.pipe) expenses += buildingBySlot(Zone.WaterPipe)?.upkeep ?? 0;
-    } else if (def) {
+    } else if (def && !isBody(t, i)) {
+      // a block pays one upkeep, not one per tile of ground it stands on
       expenses += def.upkeep;
     }
   }

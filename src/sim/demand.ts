@@ -19,9 +19,12 @@ function taxAdjust(raw: number, tax: number): number {
  * Also recomputes population and job totals from developed tiles.
  */
 export function updateDemand(city: CityState): void {
-  const { population, cJobs, iJobs } = sumCapacities(city);
+  const { population, cJobs, iJobs, civicJobs } = sumCapacities(city);
   city.population = population;
-  city.jobs = cJobs + iJobs;
+  // Reward buildings employ people directly, so they feed residential demand
+  // like any other employer — but they are nobody's commerce or industry, and
+  // so leave the C and I sector balances alone.
+  city.jobs = cJobs + iJobs + civicJobs;
 
   const workforce = population * WORKFORCE_FRACTION;
   const extMarket = Math.min(400, 30 + city.month * 2);

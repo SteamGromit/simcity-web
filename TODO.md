@@ -7,13 +7,23 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 ## Backlog (in order)
 
 1. **Region play** — multiple city tiles, neighbor deals (SC4 headline; deferred until single-city play is deep enough).
-2. **Rewards** — special buildings the mayor's office can purchase after city milestones are hit (e.g. Ballpark -> Arena -> Stadium -> Colesium, Library, Museum, Monument, College -> University -> Research University), They occupy > square. They provide jobs. They mpact the surrounding area (+ and/or -, context dependent) and sometimes the whole city (e.g. Research university unlocks access to Cold fusion power plant)
-3. **Modding: the parts the editor doesn't cover yet** — freehand/pixel
+2. **Modding: the parts the editor doesn't cover yet** — freehand/pixel
    drawing of buildings (today's look is composed from a mass, roof and
-   props, not drawn), multi-tile footprints, modding the growable R/C/I
-   ladders (population/jobs tables, stage heights, archetypes are still
+   props, not drawn), authoring multi-tile buildings (the *engine* now
+   supports any footprint up to 6×6 — the building editor just can't set
+   `size` yet, and the generic renderer draws one mass rather than
+   composing across a block), modding the growable R/C/I ladders
+   (population/jobs tables, stage heights, archetypes are still
    hardcoded), and sharing beyond copy-paste JSON (URL-encoded or
    hosted). Low priority — the editor is usable without them.
+
+3. **Rewards follow-ups** — the catalogue is in but a few things it
+   suggests are not: rewards ignore road access entirely (a stadium in
+   the wilderness works as well as one downtown), the sport ladder has no
+   sense of events or crowds over time, nothing yet consumes the
+   `culture` or `sport` grants, and a reward cannot be relocated — only
+   razed and rebuilt at full price. Also: rewards are never destroyed by
+   fire, collapse or disaster, which is generous.
 
 4. **Road ladder follow-ups** — the classes exist but nothing else knows
    about them yet: buildings still front a highway as if it were a
@@ -24,6 +34,15 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    corridor is partly blocked.
 
 ## Done
+
+- **Rewards & named cities** — shipped v0.55.0 (ten milestone-unlocked
+  reward buildings on 2×2–5×5 footprints, with jobs, an `amenity` block
+  mirroring `blight`, and civic `grants` that let a Research University
+  unlock the Cold Fusion Plant; multi-tile buildings throughout the sim —
+  one upkeep, one coverage source, razed as a unit — with area effects
+  measured from the whole block; named save slots with rename, export,
+  import and delete, and a ~30× smaller save format that makes keeping
+  several cities possible). Follow-ups in backlog #3.
 
 - **Road ladder & interface overhaul** — shipped v0.54.0 (Street →
   Route → Boulevard → Highway → Highway II, unlocked by population and

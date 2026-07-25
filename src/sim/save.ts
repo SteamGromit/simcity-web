@@ -1,5 +1,6 @@
 import { defaultOrdinances, ensureCoreContent } from './content';
 import { idOfSlot, slotOf } from '../content/registry';
+import { sizeOfSlot } from './footprint';
 import { blankTile } from './grid';
 import { emptyHistory, HISTORY_KEYS } from './history';
 import { clampRoadClass } from './roads';
@@ -34,6 +35,12 @@ function isTierShape(v: unknown): v is Tier {
   return v === 1 || v === 2 || v === 3 || (typeof v === 'string' && (INDUSTRY_KINDS as readonly string[]).includes(v));
 }
 
+/** The highest slot core content pins, read off the enum so it never goes
+ * stale. Anything above it is a mod slot and must come through the legend. */
+const LAST_CORE_SLOT = Math.max(
+  ...Object.values(Zone).filter((v): v is number => typeof v === 'number'),
+);
+
 /** Slot → id for every slot the city actually uses. */
 function legendFor(city: CityState): Record<number, string> {
   const out: Record<number, string> = {};
@@ -45,16 +52,46 @@ function legendFor(city: CityState): Record<number, string> {
   return out;
 }
 
-/** JSON can't hold Infinity; commute uses −1 on the wire. Every save also
- * carries a zoneIds legend (slot → content id) so it survives being opened
- * with a different set of packs loaded. */
+/**
+ * Fields a tile never needs to carry: render-only timers, and coverage that
+ * the next field pass recomputes from scratch anyway (reviveTile has always
+ * ignored transitShare, so writing it was pure weight).
+ */
+const UNSAVED_TILE_FIELDS = new Set<string>(['crimeFlash', 'collapseFlash', 'transitShare']);
+
+/**
+ * A tile, minus everything that is already the default.
+ *
+ * A 96×96 map is 9,216 tiles and the overwhelming majority of them are empty
+ * grass with nothing to say — yet spelled out in full each one cost about 390
+ * bytes, putting a single city at 3.5 MB and making two of them impossible to
+ * keep in a 5 MB localStorage. Since reviveTile builds every tile from
+ * blankTile() and only overwrites what the save mentions, a field equal to its
+ * default is pure noise: dropping it round-trips to exactly the same tile.
+ */
+function thinTile(t: Tile, blank: Tile): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(t) as (keyof Tile)[]) {
+    if (UNSAVED_TILE_FIELDS.has(key)) continue;
+    const v = t[key];
+    if (v === blank[key]) continue;
+    // JSON can't hold Infinity; commute uses −1 on the wire. (An unreachable
+    // commute *is* the default, so this only fires on a finite one.)
+    out[key] = key === 'commute' && v === Infinity ? -1 : v;
+  }
+  return out;
+}
+
+/** Every save carries a zoneIds legend (slot → content id) so it survives
+ * being opened with a different set of packs loaded. */
 export function serialize(city: CityState): string {
-  const withLegend: CityState = { ...city, zoneIds: legendFor(city) };
-  return JSON.stringify(withLegend, (key, value) => {
-    if (key === 'commute' && value === Infinity) return -1; // JSON can't hold Infinity
-    if (key === 'crimeFlash' || key === 'collapseFlash') return undefined; // render-only timers
-    return value;
-  });
+  const blank = blankTile();
+  const withLegend = {
+    ...city,
+    tiles: city.tiles.map((t) => thinTile(t, blank)),
+    zoneIds: legendFor(city),
+  };
+  return JSON.stringify(withLegend);
 }
 
 function finite(v: unknown, fallback: number): number {
@@ -92,16 +129,17 @@ function reviveTile(raw: unknown, remap: Map<number, number> | null): Tile {
   if (typeof r.zone === 'number') {
     // The legend, when present, is authoritative for slots it mentions —
     // slotRemap already resolved each id through the live registry, so a
-    // mapped value (including a mod slot far above RailTerminal, or Zone.None
-    // for an id nobody registers anymore) is trusted as-is. A slot the
-    // legend doesn't mention (or a legacy save with no legend at all) falls
-    // back to the plain range check: RailTerminal is the last Zone member —
-    // keep this bound at the enum's tail when new zones are appended, or
-    // saves silently drop them.
+    // mapped value (including a mod slot far above the core range, or
+    // Zone.None for an id nobody registers anymore) is trusted as-is. A slot
+    // the legend doesn't mention (or a legacy save with no legend at all)
+    // falls back to a plain range check against the core enum. That bound is
+    // derived from Zone itself rather than named, because naming it meant
+    // remembering to move it every time a zone was appended — and forgetting
+    // dropped those tiles silently.
     const mapped = remap?.get(r.zone);
     if (mapped !== undefined) {
       t.zone = mapped;
-    } else if (r.zone >= Zone.None && r.zone <= Zone.RailTerminal) {
+    } else if (r.zone >= Zone.None && r.zone <= LAST_CORE_SLOT) {
       t.zone = r.zone;
     }
   }
@@ -124,6 +162,17 @@ function reviveTile(raw: unknown, remap: Map<number, number> | null): Tile {
   // ladder only exists on asphalt, and pre-v0.54 saves have neither field
   t.road = t.zone === Zone.Road ? clampRoadClass(r.road) : 0;
   t.median = t.zone === Zone.Road && r.median === true;
+  // a block membership is only meaningful on an occupied tile, and only
+  // within the grid; reconcileBlocks then checks it against the anchor
+  if (
+    t.zone !== Zone.None &&
+    typeof r.anchor === 'number' &&
+    Number.isInteger(r.anchor) &&
+    r.anchor >= 0 &&
+    r.anchor < GRID * GRID
+  ) {
+    t.anchor = r.anchor;
+  }
   t.wire = r.wire === true;
   t.pipe = r.pipe === true;
   t.fireCov = finite(r.fireCov, 0);
@@ -216,6 +265,41 @@ function migrateLegacy(data: { tiles: unknown[]; disasters?: unknown }): void {
   }
 }
 
+/**
+ * Make every multi-tile block agree with itself.
+ *
+ * A block is only ever written as a whole, but a save is untrusted input and a
+ * crafted or truncated one can claim a body tile whose anchor is missing, the
+ * wrong slot, or another body tile. Rather than trying to repair the block —
+ * which would mean inventing ground the player never paid for — a tile whose
+ * claim doesn't hold is cleared to bare land. The anchor's own tile is checked
+ * the same way, so a half-written block leaves no half-building standing.
+ */
+function reconcileBlocks(tiles: Tile[]): void {
+  const clear = (t: Tile) => {
+    const terrain = t.terrain;
+    const elevation = t.elevation;
+    Object.assign(t, blankTile(), { terrain, elevation });
+  };
+  for (let i = 0; i < tiles.length; i++) {
+    const t = tiles[i];
+    if (t.anchor < 0) continue;
+    const a = tiles[t.anchor];
+    // the anchor must exist, be the same building, and claim itself
+    if (!a || a.zone !== t.zone || a.anchor !== t.anchor) {
+      clear(t);
+      continue;
+    }
+    const size = sizeOfSlot(a.zone);
+    const ax = t.anchor % GRID;
+    const ay = (t.anchor / GRID) | 0;
+    const x = i % GRID;
+    const y = (i / GRID) | 0;
+    // …and this tile must actually lie inside the block it claims
+    if (x < ax || y < ay || x >= ax + size || y >= ay + size) clear(t);
+  }
+}
+
 const isPair = (p: unknown): p is [number, number] =>
   Array.isArray(p) && p.length === 2 && p.every((n) => Number.isInteger(n));
 
@@ -300,11 +384,13 @@ export function deserialize(json: string): CityState | null {
     const demand = data.demand ?? {};
     const budget = data.lastBudget ?? {};
     const remap = slotRemap(data.zoneIds);
+    const tiles = data.tiles.map((t: unknown) => reviveTile(t, remap));
+    reconcileBlocks(tiles);
     return {
       version: 1,
       seed: finite(data.seed, 1),
       biome: data.biome === 'desert' ? 'desert' : 'temperate',
-      tiles: data.tiles.map((t: unknown) => reviveTile(t, remap)),
+      tiles,
       funds: data.funds,
       tick: data.tick,
       month: data.month,

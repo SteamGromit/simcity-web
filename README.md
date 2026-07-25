@@ -236,8 +236,9 @@ streetlights and lit windows carve glowing pools where people live;
 unpowered blocks vanish into the black). Open **City Hall** to see what the
 city is made of and to enact **ordinances** — monthly-cost policies like
 the Clean Air Act or Free Bus Service that bend the simulation in your
-favor. **File** gathers New, Save, Load and Mods, and opens on launch so
-you pick up your saved city or start a fresh one deliberately.
+favor. **File** gathers New, Save, Load, Import and Mods, and opens on
+launch so you pick which city to carry on with — or start a fresh one —
+deliberately.
 
 | Control | Action |
 | --- | --- |
@@ -283,8 +284,25 @@ leave Health Cover on and still see exactly what a new hospital would
 change. An **amber ring** marks the smaller radius over which a prison,
 dump or power plant spoils the neighbourhood.
 
-Save/Load keeps one city in your browser's localStorage; both live under
-**File**.
+**Rewards.** As the city passes milestones, the mayor's office earns the
+right to buy special buildings, listed in the toolbar's **Rewards**
+section: a **Ballpark** → **Arena** → **Stadium** → **Colosseum** ladder,
+a **Library**, a **Museum**, a **Monument**, and **College** →
+**University** → **Research University**. Each occupies a block of level,
+clear ground — 2×2 up to 5×5 — employs people directly, and costs real
+money to keep. They pull on the land around them in both directions: a
+stadium lifts a whole district while making the streets directly outside
+it worse, so the good address is a few blocks away rather than across the
+road. Build a **Research University** and the city knows enough to run a
+**Cold Fusion Plant** — enormous, clean, and the last rung of the power
+ladder. Bulldoze the university and fusion locks again.
+
+**Cities are named, and you can keep as many as you like.** **File**
+lists every saved city with its date, population, funds and when you last
+wrote it; each can be renamed, exported to a `.json` file you can keep or
+share, re-imported, or deleted. Saving under a name you have already used
+overwrites that city; typing a new one keeps the city you started from.
+Everything lives in your browser's localStorage.
 
 Stuck? Press **H** for the in-game help panel, and read the **event
 strip** — fires, crimes, crashes and the city's advisors all stream

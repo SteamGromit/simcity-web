@@ -147,6 +147,7 @@ export function blankTile(): Tile {
     powered: false,
     watered: false,
     abandoned: false,
+    anchor: -1,
     road: 0,
     median: false,
     wire: false,

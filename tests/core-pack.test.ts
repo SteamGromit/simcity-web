@@ -10,8 +10,8 @@ describe('core pack', () => {
     expect(r.ok).toBe(true);
   });
 
-  test('defines all 23 placeable buildings', () => {
-    expect(CORE_PACK.buildings).toHaveLength(23);
+  test('defines all 34 placeable buildings', () => {
+    expect(CORE_PACK.buildings).toHaveLength(34);
   });
 
   test('every building pins a slot, and slots match the Zone enum', () => {

@@ -115,6 +115,31 @@ Field by field:
   transit takes its cut — lower is better; the core lineup ranges from 0.4
   (streetcar) down to 0.15 (rail). When both trip ends are covered, the
   worse (higher-share) end bounds the ride.
+- **`size`** (optional) — footprint edge in tiles, an integer 1..6. Anything
+  above 1 claims a `size`×`size` block of level, clear ground and behaves as
+  one building: one upkeep, one coverage source, one plume, razed as a unit.
+  Area effects measure from the whole block, so a 4×4 building's radius reads
+  from its walls rather than from one corner. **Cannot be overridden** — tiles
+  are stamped with the footprint at build time, so changing it under a
+  standing building would orphan the ground it already claims.
+- **`jobs`** (optional) — jobs the building provides directly, counted into
+  the city's job total. Zoned lots get theirs from development stages; this is
+  for buildings that employ people the moment they exist.
+- **`amenity`** (optional) — `{ amount, radius }`, the mirror of `blight`:
+  land value *added* at the building's tile, falling off linearly to the rim.
+  A building may declare both, which is how a stadium lifts its district while
+  making the streets right outside it worse — give the blight the steeper
+  gradient (a larger `amount / (radius + 1)`) and the best address lands just
+  beyond the blight rim.
+- **`grants`** (optional) — civic capabilities the building confers on the
+  city while it stands, from a closed vocabulary: `learning`, `research`,
+  `culture`, `sport`. Each reads as `1` in an unlock expression while
+  something conferring it stands, so `{ "expr": "research", "label": "a
+  Research University" }` gates a building on the city having one — without
+  either building naming the other. Raze the grantor and the gate closes again.
+- **`reward`** (optional boolean) — list this building in the toolbar's
+  **Rewards** section, shown only once its `unlock` milestone is met, rather
+  than in the ordinary build palette.
 - **`siting`** (optional) — placement restrictions beyond road/power. Today
   the only key is `needsWater`, which the core hydro plant uses (it must sit
   next to open water).
@@ -404,6 +429,11 @@ arbitrary code through it.
 `population`, `funds`, `jobs`, `month`, `year`, `eduLevel`, `demandR`,
 `demandC`, `demandI`, `brownouts`
 
+…plus one key per **civic grant** — `learning`, `research`, `culture`,
+`sport` — each `1` while some standing building declares it in `grants`
+and `0` otherwise. That is how one building unlocks another without
+either of them knowing the other's id.
+
 **Grammar:** number literals, the context identifiers above, parentheses,
 unary `-` and `!`, and the binary operators `|| && == != < <= > >= + - * / %`
 with ordinary precedence (`||` lowest, then `&&`, then comparisons, then
@@ -420,6 +450,7 @@ Examples:
 population >= 2000
 population >= 10000 && eduLevel > 0.5
 funds > 5000 || year >= 10
+research && population >= 50000
 ```
 
 A malformed expression (bad syntax, an identifier outside the allowed set, a

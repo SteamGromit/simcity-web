@@ -41,6 +41,18 @@ export enum Zone {
   RecyclingCentre,
   // appended for save compatibility — crime (v0.51)
   Prison,
+  // appended for save compatibility — rewards (v0.55). All multi-tile.
+  Ballpark,
+  Arena,
+  Stadium,
+  Colosseum,
+  Library,
+  Museum,
+  Monument,
+  College,
+  University,
+  ResearchUniversity,
+  FusionPlant,
 }
 
 export type Stage = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -74,6 +86,13 @@ export interface Tile {
   /** Connected to a working water pump; stages 3+ require it. */
   watered: boolean;
   abandoned: boolean;
+  /**
+   * Tile index of the multi-tile block this tile belongs to, or −1 when it
+   * stands alone. Equal to the tile's own index on the block's anchor — the
+   * one tile of a block that carries its service, upkeep, jobs and drawing
+   * (see sim/footprint.ts). −1 everywhere in a pre-v0.55 save.
+   */
+  anchor: number;
   /** Class of road on this tile (street/route/boulevard/highway); 0 off-road. */
   road: import('./roads').RoadClass;
   /** This road tile is a boulevard's planted median: landscaped, never driven. */
@@ -269,6 +288,17 @@ export type ToolId =
   | 'incinerator'
   | 'recycling'
   | 'prison'
+  | 'ballpark'
+  | 'arena'
+  | 'stadium'
+  | 'colosseum'
+  | 'library'
+  | 'museum'
+  | 'monument'
+  | 'college'
+  | 'university'
+  | 'researchUniversity'
+  | 'fusion'
   | 'streetcar'
   | 'monorail'
   | 'subway'
