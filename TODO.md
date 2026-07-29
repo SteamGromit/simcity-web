@@ -33,7 +33,23 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    currently refuses tiles it cannot take rather than warning that the
    corridor is partly blocked.
 
+5. **Touch follow-ups** — the map is playable by finger now, but not
+   everything is: rotating the view (Q/E) has no gesture, so a two-finger
+   twist is the obvious gap; the transit wizard still finishes on a
+   double-click, which touch reports unreliably; Query needs the tool armed
+   rather than offering a long-press; and the compact breakpoint is a width
+   test, so a short landscape phone gets the roomy layout it cannot fit.
+   Worth a pass on hit-target sizes in the drawer too — the tool rows are
+   sized for a cursor, not a thumb.
+
 ## Done
+
+- **Touch and small screens** — shipped v0.57.0 (one finger builds, two
+  fingers pan and pinch-zoom, and a second finger cancels a pending build;
+  on-screen +/− zoom, since the wheel was the only zoom in the game; a
+  compact layout below 820px that drawers the toolbar behind ☰, drops the
+  minimap, wraps the HUD and turns panels into bottom sheets; all zoom paths
+  unified on `zoomAbout()`). Follow-ups in backlog #5.
 
 - **Public release** — shipped v0.56.0 (the game is playable from a link at
   steamgromit.github.io/simcity-web with no install; `base: './'` makes the

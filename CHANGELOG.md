@@ -4,6 +4,39 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.57.0] — 2026-07-29 · Touch and small screens
+
+The game was unplayable on a phone: there was no way to zoom at all, no way
+to pan, and a first swipe paved whatever it crossed. On a 390px screen the
+tool column alone took 38% of the width.
+
+### Added
+- **Touch controls.** One finger builds — drag-to-draw roads, lines and
+  rectangles all behave as they do with a mouse — and **two fingers pan and
+  pinch to zoom**. Landing a second finger abandons whatever the first was
+  drawing, so a pinch never leaves a stray preview or paves on release. With
+  no tool armed, one finger pans, so a fresh map is explorable before you
+  pick anything up.
+- **On-screen + / − zoom buttons.** Zoom was reachable only through the
+  mouse wheel, which left touch devices with none at all; a trackpad-less
+  desktop gets them too.
+- **A compact layout below 820px.** The toolbar becomes a drawer behind a
+  **☰** toggle, the minimap steps aside, the readout strip wraps instead of
+  hiding nine controls in a scroll region with no scrollbar, and panels open
+  as bottom sheets. All of it is CSS — one layout, not a separate mobile build.
+
+### Changed
+- Every zoom — wheel, buttons and pinch — now goes through one `zoomAbout()`
+  in `render/camera.ts`, which keeps the world point under the anchor fixed.
+  The wheel's behaviour is unchanged, to the same 1.1× per notch.
+- `#city` takes `touch-action: none`, so the browser stops claiming the
+  gestures to scroll-bounce or page-zoom the interface.
+- `pointercancel` is handled alongside `pointerup`. iOS raises it when the
+  system takes a touch — a call, the app switcher, an edge swipe — and
+  without it that finger stayed stuck in the map.
+- The debug hook exposes a read-only `camera()`, since the touch and zoom
+  paths have no other observable output.
+
 ## [0.56.0] — 2026-07-29 · Public release
 
 The game is now playable from a link, and the project is open source. No

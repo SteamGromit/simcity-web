@@ -15,13 +15,15 @@ import { idx } from './sim/grid';
 import { createSaveStore, type SaveMeta } from './ui/savestore';
 import { CityState, Density, Zone } from './sim/types';
 import { Renderer, ViewState } from './render/renderer';
-import { clampZoom } from './render/iso';
+import { zoomAbout } from './render/camera';
+import { pinchFrame, pinchPan, pinchZoomFactor, type PinchFrame } from './ui/gestures';
 import { OverlayId } from './render/overlays';
 import { ActiveTool, buildToolbar } from './ui/toolbar';
 import { buildHud } from './ui/hud';
 import { buildQuery } from './ui/query';
 import { buildCharts } from './ui/charts';
 import { buildMinimap } from './ui/minimap';
+import { buildViewControls } from './ui/viewcontrols';
 import { buildCityHall } from './ui/cityhall';
 import { buildDisplay } from './ui/display';
 import { createModStore } from './ui/modstore';
@@ -92,6 +94,9 @@ const renderer = new Renderer(canvas, city.seed);
     if (result.ok) renderer.reseed(city.seed); // pick up any new content
     return result;
   },
+  /** Read-only camera snapshot. The touch and zoom paths have no other visible
+   * output — they only move this — so tests and the console watch it here. */
+  camera: () => ({ ...renderer.camera }),
 };
 
 const view: ViewState = {
@@ -175,6 +180,9 @@ const toolbar = buildToolbar(
     syncHalo();
     if (tool !== 'query') query.hide();
     if (tool) sound.play(UI_SOUNDS.select);
+    // On a narrow screen the tools are a drawer over the map: once one is
+    // armed, get out of the way so the player can see where to put it.
+    if (tool) document.body.classList.remove('tools-open');
   },
   (overlay: OverlayId | null) => {
     view.overlay = overlay;
@@ -203,6 +211,11 @@ const charts = buildCharts(uiRoot, () => city);
 const minimap = buildMinimap(uiRoot, (wx, wy) => {
   renderer.camera.x = wx - canvas.clientWidth / 2 / renderer.camera.zoom;
   renderer.camera.y = wy - canvas.clientHeight / 2 / renderer.camera.zoom;
+});
+buildViewControls(uiRoot, {
+  zoomIn: () => zoomStep(1.25),
+  zoomOut: () => zoomStep(1 / 1.25),
+  toggleTools: () => document.body.classList.toggle('tools-open'),
 });
 const cityHall = buildCityHall(
   uiRoot,
@@ -380,6 +393,34 @@ let panning = false;
 let spaceHeld = false;
 let panStart = { x: 0, y: 0, camX: 0, camY: 0 };
 
+/** Live touch points by pointerId. A pinch needs both fingers tracked at once,
+ * which a single pointer event cannot tell us. */
+const touches = new Map<number, { x: number; y: number }>();
+/** The previous frame of an in-progress two-finger gesture, or null. */
+let pinch: PinchFrame | null = null;
+
+const touchPoints = () => [...touches.values()];
+
+/** Drop any half-drawn shape. Called when a gesture takes over from a build,
+ * and on every pointerup once the shape has had its chance to apply. */
+function cancelPendingBuild() {
+  rectAnchor = null;
+  view.rect = null;
+  lineAnchor = null;
+  lineSpine = null;
+  view.line = null;
+  view.lineTool = null;
+  painting = false;
+  lastPainted = -1;
+}
+
+/** Zoom by a fixed step about the middle of the canvas — what the on-screen
+ * +/- buttons do, and the only zoom available without a wheel or a pinch. */
+function zoomStep(factor: number) {
+  const rect = canvas.getBoundingClientRect();
+  zoomAbout(renderer.camera, factor, rect.width / 2, rect.height / 2, rect.width, rect.height);
+}
+
 function applyRect(rect: { x0: number; y0: number; x1: number; y1: number }) {
   if (!activeTool || activeTool === 'query') return;
   let applied = 0;
@@ -415,6 +456,27 @@ function paintAt(x: number, y: number, firstClick: boolean) {
 }
 
 canvas.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'touch') {
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (touches.size === 2) {
+      // A second finger means the player wants to move the map, not build.
+      // Abandon whatever the first finger started — otherwise a pinch would
+      // leave a stray road preview behind, or pave on release.
+      cancelPendingBuild();
+      panning = false;
+      const [a, b] = touchPoints();
+      pinch = pinchFrame(a, b);
+      return;
+    }
+    if (touches.size > 2) return;
+    // One finger with nothing selected pans, so the map is explorable before
+    // picking a tool. With a tool up, one finger builds and two fingers move.
+    if (!activeTool) {
+      panning = true;
+      panStart = { x: e.clientX, y: e.clientY, camX: renderer.camera.x, camY: renderer.camera.y };
+      return;
+    }
+  }
   if (e.button === 1 || (e.button === 0 && spaceHeld)) {
     panning = true;
     panStart = { x: e.clientX, y: e.clientY, camX: renderer.camera.x, camY: renderer.camera.y };
@@ -451,6 +513,29 @@ canvas.addEventListener('pointerdown', (e) => {
 });
 
 canvas.addEventListener('pointermove', (e) => {
+  if (e.pointerType === 'touch' && touches.has(e.pointerId)) {
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch && touches.size >= 2) {
+      const [a, b] = touchPoints();
+      const next = pinchFrame(a, b);
+      const rect = canvas.getBoundingClientRect();
+      // Drag by however far the midpoint moved, then scale about where it
+      // ended up — so the map stays pinned under both fingers.
+      const pan = pinchPan(pinch, next);
+      renderer.camera.x -= pan.x / renderer.camera.zoom;
+      renderer.camera.y -= pan.y / renderer.camera.zoom;
+      zoomAbout(
+        renderer.camera,
+        pinchZoomFactor(pinch, next),
+        next.center.x - rect.left,
+        next.center.y - rect.top,
+        rect.width,
+        rect.height,
+      );
+      pinch = next;
+      return;
+    }
+  }
   if (panning) {
     renderer.camera.x = panStart.camX - (e.clientX - panStart.x) / renderer.camera.zoom;
     renderer.camera.y = panStart.camY - (e.clientY - panStart.y) / renderer.camera.zoom;
@@ -474,7 +559,13 @@ canvas.addEventListener('pointermove', (e) => {
   }
 });
 
-window.addEventListener('pointerup', (e) => {
+function endPointer(e: PointerEvent) {
+  if (e.pointerType === 'touch') {
+    touches.delete(e.pointerId);
+    // Lifting one finger of a pinch ends the gesture rather than handing the
+    // map to the finger still down, which would make it jump.
+    if (touches.size < 2) pinch = null;
+  }
   // releasing over UI chrome cancels the pending shape (Esc also works)
   if (rectAnchor && view.rect && e.target === canvas) applyRect(view.rect);
   if (lineAnchor && lineSpine && view.lineTool && e.target === canvas) {
@@ -485,16 +576,14 @@ window.addEventListener('pointerup', (e) => {
       sound.play(UI_SOUNDS.error);
     }
   }
-  rectAnchor = null;
-  view.rect = null;
-  lineAnchor = null;
-  lineSpine = null;
-  view.line = null;
-  view.lineTool = null;
-  painting = false;
+  cancelPendingBuild();
   panning = false;
-  lastPainted = -1;
-});
+}
+
+window.addEventListener('pointerup', endPointer);
+// iOS raises pointercancel when the system claims the touch (a call, the
+// app switcher, an edge swipe). Without this the finger stays in the map.
+window.addEventListener('pointercancel', endPointer);
 
 canvas.addEventListener('dblclick', () => {
   if (wizard.isOpen()) wizard.dblClick();
@@ -503,14 +592,15 @@ canvas.addEventListener('dblclick', () => {
 canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
   const rect = canvas.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
-  const wx = renderer.camera.x + mx / renderer.camera.zoom;
-  const wy = renderer.camera.y + my / renderer.camera.zoom;
   const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-  renderer.camera.zoom = clampZoom(renderer.camera.zoom * factor, rect.width, rect.height);
-  renderer.camera.x = wx - mx / renderer.camera.zoom;
-  renderer.camera.y = wy - my / renderer.camera.zoom;
+  zoomAbout(
+    renderer.camera,
+    factor,
+    e.clientX - rect.left,
+    e.clientY - rect.top,
+    rect.width,
+    rect.height,
+  );
 });
 
 const rotateKeys = new Set<string>();

@@ -39,7 +39,11 @@ export function buildHelp(root: HTMLElement) {
               Transit) show one button until the city unlocks a second option,
               then open a flyout. Their key always arms the <em>first</em>
               member — <b>R</b> is always a plain street.</li>
-          <li><b>Middle-drag or Space+drag</b> — pan · <b>Wheel</b> — zoom</li>
+          <li><b>Middle-drag or Space+drag</b> — pan · <b>Wheel</b> or the
+              <b>+ / −</b> buttons — zoom</li>
+          <li><b>Touch</b> — one finger builds (or pans with no tool armed),
+              two fingers pan and pinch to zoom. On a narrow screen <b>☰</b>
+              slides the tools in and out.</li>
           <li><b>Q / E</b> — rotate the view · <b>Arrows</b> — pan</li>
           <li><b>⇧ + letter</b> — toggle data views: ⇧P power, ⇧O pollution,
               ⇧L land value, ⇧T traffic, ⇧D demand, ⇧F fire, ⇧V police, ⇧S school,
