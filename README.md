@@ -266,11 +266,19 @@ deliberately.
 | × on a title bar | close that panel |
 | Middle-drag or Space+drag | pan (arrow keys work too) |
 | Q / E (hold) | rotate the view — full 360° |
-| Mouse wheel | zoom |
+| Mouse wheel or + / − | zoom |
+| One finger (touch) | build — or pan the map when no tool is armed |
+| Two fingers (touch) | pan and pinch to zoom |
+| ☰ (narrow screens) | slide the tools in and out |
 | H or ? | help panel |
 | M | mute / unmute sound |
 | Esc | deselect tool |
 | ⏸ ▶ ▶▶ ▶▶▶ | pause / normal / fast / cheetah |
+
+**On a phone or a narrow window** the interface reorganises itself: the
+toolbar becomes a drawer behind the **☰** button, the minimap steps aside,
+the readout strip wraps so no control is stranded off-screen, and panels
+open as full-width sheets. The map keeps the rest of the screen.
 
 Panels are yours to arrange: drag the toolbar, HUD, and info panels by
 their title bars, and close any of them with the **×** at the top right.
