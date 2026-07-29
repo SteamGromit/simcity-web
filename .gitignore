@@ -3,4 +3,11 @@ dist
 *.local
 .DS_Store
 .playwright-mcp
-.claude/settings.local.json
+
+# Private working notes — kept on disk, never published. The full history of
+# these lives in the private archive repo.
+CLAUDE.md
+docs/superpowers/
+.claude/
+.remember/
+.superpowers/
