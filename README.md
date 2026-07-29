@@ -4,6 +4,9 @@ A browser city-building game inspired by **SimCity 4**, built with TypeScript
 and Canvas 2D. No frameworks, no art assets — every building is drawn
 procedurally and every sound is synthesized in the browser.
 
+**▶ [Play it now](https://steamgromit.github.io/simcity-web/)** — no install,
+no account, runs entirely in your browser.
+
 ![Screenshot](docs/media/screenshot.png)
 
 ## The defining feature
@@ -41,7 +44,15 @@ decides what happens next:
   (Dunder Mifflin, Wonka, Initech, Strickland Propane…) with signs on
   their walls; the Query tool tells you who moved in.
 
-## Run it
+## Play it
+
+The hosted build is the quickest way in:
+**[steamgromit.github.io/simcity-web](https://steamgromit.github.io/simcity-web/)**.
+Nothing to install. There is no server and no account — the simulation runs on
+your machine, and your cities are saved to your own browser's local storage.
+(Clearing site data clears your cities; use **File → Export** to keep one.)
+
+## Run it locally
 
 You need two things installed:
 
@@ -55,7 +66,8 @@ Get the code either way:
 
 - **Download ZIP** — on the GitHub repo page, click **Code → Download
   ZIP**, then unzip it (no git needed), or
-- **Clone** — `git clone <repo URL>` if you have git set up.
+- **Clone** — `git clone https://github.com/SteamGromit/simcity-web.git`
+  if you have git set up.
 
 Then, in Terminal, from inside the project folder:
 
@@ -77,7 +89,10 @@ and turn off weather effects in the Config panel (day/night lighting
 is already off by default).
 
 `npm test` runs the simulation's unit suite; `npm run build` makes a
-production bundle.
+production bundle in `dist/`, which `npm run preview` then serves. Opening
+`dist/index.html` straight off the disk will *not* work — browsers refuse to
+load ES modules over `file://` — so reach it through `npm run preview`, any
+static file server, or the hosted link above.
 
 ## How to play
 
@@ -350,9 +365,22 @@ disabling the mod restores the original numbers. A building's identity
 (the slot every save stores) is never touched, so your cities keep
 opening whatever mods you have loaded.
 
-## Design docs
+## Docs
 
-- Spec: `docs/superpowers/specs/2026-07-18-simcity-web-design.md`
-- Plan: `docs/superpowers/plans/2026-07-18-simcity-v1.md`
 - Modding: `docs/modding.md`
 - Backlog: `TODO.md`
+- Version history: `CHANGELOG.md`
+
+## License
+
+MIT — see [LICENSE](LICENSE). Do what you like with it; a credit is welcome
+but not required.
+
+## A note on the name
+
+This is an independent, non-commercial fan project. It is not affiliated with,
+endorsed by, or connected to Electronic Arts or Maxis, and shares no code or
+assets with any SimCity title — every building here is drawn by the code in
+this repository. "SimCity" and any other trademarks referenced (including the
+homage business names that appear on shopfronts) belong to their respective
+owners and are used only as affectionate references.

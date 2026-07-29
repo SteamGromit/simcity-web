@@ -4,6 +4,32 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.56.0] — 2026-07-29 · Public release
+
+The game is now playable from a link, and the project is open source. No
+simulation or interface behavior changed in this drop.
+
+### Added
+- **Hosted build at
+  [steamgromit.github.io/simcity-web](https://steamgromit.github.io/simcity-web/).**
+  No install, no account, no server — the simulation still runs entirely in
+  the browser and cities still save to local storage on your own machine.
+- **Continuous deployment.** A GitHub Actions workflow runs the type check,
+  the 867-test simulation suite and a production build on every push to
+  `main`, then publishes `dist/` to GitHub Pages. A failing test blocks the
+  deploy, so the live site never gets a red build.
+- **MIT license**, plus a README note recording that this is an independent
+  fan project unaffiliated with Electronic Arts or Maxis.
+
+### Changed
+- **`vite.config.ts` sets `base: './'`** so the built game resolves its assets
+  relatively. It now runs from any location — a Pages project subpath, a
+  custom domain, or a folder on any static host — instead of assuming it sits
+  at a domain root.
+- **README** leads with the play link and separates playing from local
+  development; it also warns that opening `dist/index.html` over `file://`
+  cannot work, because browsers block ES modules on that scheme.
+
 ## [0.55.0] — 2026-07-25 · Rewards & named cities
 
 ### Added

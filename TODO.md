@@ -35,6 +35,13 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Done
 
+- **Public release** — shipped v0.56.0 (the game is playable from a link at
+  steamgromit.github.io/simcity-web with no install; `base: './'` makes the
+  build location-independent; a GitHub Actions workflow type-checks, tests and
+  builds on every push to `main` before publishing `dist/` to Pages, so a red
+  test blocks the deploy; MIT license and an EA/Maxis disclaimer). No
+  simulation or interface behavior changed.
+
 - **Rewards & named cities** — shipped v0.55.0 (ten milestone-unlocked
   reward buildings on 2×2–5×5 footprints, with jobs, an `amenity` block
   mirroring `blight`, and civic `grants` that let a Research University
