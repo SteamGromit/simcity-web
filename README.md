@@ -36,7 +36,16 @@ decides what happens next:
   archetypes that compose distinctly across tiles: silhouettes (L-shapes,
   setbacks, twin masses), roof styles (flat/parapet/gabled/sawtooth),
   rooftop and yard props, palette families per tier, and window styles.
-  Farms vary in barn placement, furrow direction, and a silo or coop.
+  Towers over about six storeys take a crown — a setback, a stepped
+  ziggurat, a sloped glazed cap or a machine floor. Farms vary in barn
+  placement, furrow direction, and a silo or coop.
+- **A city that's lit, not just coloured** — one sun sits low in the west
+  for the whole map, so every wall takes the brightness its orientation
+  earns and every building throws a shadow that lies along the ground and
+  lengthens with its height. Walls are brick, render, concrete, glass,
+  metal, timber or stone, each with its own courses, panel joints and
+  sheen, and windows are real openings that light up floor by floor after
+  dark.
 - **Context-aware traffic** — vehicles pick roles by location: trucks move
   goods on industrial roads, taxis and vans favor commercial routes, and
   buses cluster near transit stops. Each kind has distinct speeds and paint.
@@ -79,14 +88,17 @@ npm run dev      # starts the game server
 Open the printed `http://localhost:5173` URL in your browser. That's
 it — the game runs entirely locally.
 
-Pick a **render style** in Config: retro **Pixel** sprite art (the
-default — it also draws far fewer pixels), plain **Smooth**, or
-**Realistic** with soft shadows, grounded walls, deep water, and
-atmospheric haze.
+Pick a **render style** in Config. All three draw the same city — they
+differ in how the frame is finished. **Realistic** (the default) adds
+aerial haze, a bloom that lets lit windows spill, a warm/cool grade and a
+vignette; **Smooth** is the same scene without them; **Pixel** renders the
+whole thing small and blits it back with nearest-neighbour for a retro
+sprite-art crunch.
 
-On older machines: if the frame rate dips, open the **Config** panel
-and turn off weather effects in the Config panel (day/night lighting
-is already off by default).
+On older machines: if the frame rate dips, switch to **Smooth** and turn
+off weather effects in the Config panel (day/night lighting is already off
+by default). The renderer also lowers its own sprite resolution by itself
+if a city grows large enough to overrun the sprite cache.
 
 `npm test` runs the simulation's unit suite; `npm run build` makes a
 production bundle in `dist/`, which `npm run preview` then serves. Opening
@@ -265,7 +277,6 @@ deliberately.
 | Query tool | inspect any tile |
 | × on a title bar | close that panel |
 | Middle-drag or Space+drag | pan (arrow keys work too) |
-| Q / E (hold) | rotate the view — full 360° |
 | Mouse wheel or + / − | zoom |
 | One finger (touch) | build — or pan the map when no tool is armed |
 | Two fingers (touch) | pan and pinch to zoom |

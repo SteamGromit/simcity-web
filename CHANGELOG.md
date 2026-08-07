@@ -4,6 +4,108 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.58.0] — 2026-08-07 · Graphics overhaul
+
+The city was drawn the same way it had been since v0.1: every building, tree
+and road tile re-derived from scratch as flat-filled polygons, sixty times a
+second, at whichever of 360° the camera happened to be pointing. That budget
+is what kept the art thin — a wall was one colour, a window was a stripe, a
+tree was a circle on a stick, and the sun was a fudge that swung round with
+the camera.
+
+This drop rebuilds the whole rendering pipeline around one trade: **the
+camera no longer rotates.** Everything else follows from that.
+
+### Added
+- **A sprite cache.** With the view angle fixed, a lot draws the same pixels
+  every frame, so it is painted once into an offscreen canvas and afterwards
+  copied in a single `drawImage`. The point isn't speed for its own sake —
+  it's that a sprite drawn once can afford a hundred times the detail a
+  per-frame painter can. Sprites bake at the display's pixel density, are
+  evicted least-recently-used past a pixel budget, and if a city is big
+  enough to thrash the cache the bake resolution steps down on its own rather
+  than re-baking the same buildings forever.
+- **One sun for the whole city** (`render/sun.ts`). A real direction, low in
+  the west: two visible walls at two brightnesses, roofs brightest, and every
+  mass throwing a **cast shadow that lies along the ground plane** and
+  lengthens with height. Shadows get their own render pass, before any
+  building is drawn, because a tower's shadow falls toward the camera onto
+  tiles that paint after it.
+- **Materials** (`render/massing.ts`, `render/palette.ts`). Walls are brick,
+  render, concrete, glass, metal, timber or stone — each with its own grain,
+  trim and sheen, drawn in *wall space* so brick courses, precast panel
+  joints, spandrels, mullions and lit panes are plain rectangles that land
+  correctly sheared on the isometric face. Walls carry a vertical falloff
+  (sky light at the parapet, bounced light at the base), glass returns a sky
+  gradient, and everything meets the ground through an occlusion band.
+- **Real windows,** on a floor grid sized to the building — punched openings,
+  ribbon glazing or a curtain wall — each with a dark head reveal so they
+  read as openings rather than decals. A second, mostly transparent sprite
+  holds only the **lit** panes and is added over the first after dark.
+- **Tower crowns.** Anything over about six storeys takes a setback box, a
+  stepped ziggurat, a sloped glazed cap or a machine floor from its seed. A
+  skyline of identical flat caps was the thing that most made a procedural
+  city look procedural.
+- **Roads that look like roads** (`render/roadart.ts`). Painted from the
+  connectivity mask: asphalt with wear and tyre polish, kerbed footways along
+  every edge that isn't carrying the road onward, a centre line only where
+  the road runs through, curves through bends, turning heads at stubs, and
+  crosswalk ladders on every approach to a junction.
+- **Landscape** (`render/ground.ts`, `render/scenery.ts`, `render/noise.ts`).
+  Ground colour comes from a noise field rather than two sine waves, so
+  meadows have patches instead of a moiré weave, with parched and damp
+  ground drifting apart. Every tile takes a transparent texture blit —
+  blades, tufts, dune ripples, rock flecks — that works over any base colour.
+  Water is depth-shaded from a breadth-first distance to the shore, with
+  drifting crests, sun glint and a graded sand-and-foam shoreline. Cliffs get
+  bedded strata, occlusion at the foot and a grass lip breaking over the top.
+  Trees are baked sprites — broadleaf, conifer, scrub, palm, dead — with
+  layered canopies, seasonal palettes and contact shadows.
+- **Lot ground.** A built lot stands on a plot: paving under a shop or works,
+  clipped lawn and a garden path around a house, hatched parking bays on
+  anything with a car park.
+- **A finishing pass** (`render/grade.ts`): a sky gradient behind the map
+  instead of a flat void, aerial perspective over the far half of it, a
+  bloom that lets lit windows and floodlights spill, a warm/cool grade and a
+  vignette.
+- **Reworked effects.** Fire licks, throws embers, lights the ground around
+  it and trails smoke; the tornado is a twisting funnel with a spiralling
+  band; rain falls in two layers at different speeds; vehicles have shadows,
+  glazed cabins and headlights that throw a beam after dark; pedestrians have
+  heads and shadows.
+- **`__simcity.profile()`** reports where the last frame went and what the
+  sprite cache is holding, alongside the existing `camera()` hook.
+
+### Changed
+- **The camera no longer rotates.** Q and E do nothing; the arrow keys still
+  pan. This is the trade the rest of the drop is built on — a fixed angle is
+  what lets every mass be baked once and lets the sun be a direction rather
+  than a screen-space fudge. The projection maths in `render/iso.ts` is
+  unchanged and still handles any angle; nothing calls it with one.
+- **Rendering runs in passes** — sky, ground, cast shadows, everything that
+  stands up, atmosphere, night, finishing, cursors — and skips tiles outside
+  the viewport.
+- **Four palette families per tier** instead of three, spread far enough
+  apart that a downtown reads as bronze and green and blue glass rather than
+  one curtain wall repeated forty times. Pitched roofs pick from six
+  roofings. The §§§ prestige mast now goes to about one tower in four.
+- **Night is properly dark.** The ambient wash is deeper and the street-light
+  pools much tighter — they used to be wide enough that a dense downtown
+  punched every hole into every other, leaving nothing for the darkness layer
+  to do. The lit windows carry the brightness now.
+- The three render styles are now *finishes* over one pipeline: **Realistic**
+  adds haze, bloom, grade and vignette, **Smooth** is the same scene without
+  them, and **Pixel** is the whole thing rendered small and blitted back with
+  nearest-neighbour.
+- Changing skin clears the sprite cache, since every baked building is
+  restyled by it.
+
+### Performance
+A 180,000-person city measured **33 ms/frame against the old renderer's
+48 ms** in the same browser — faster than what it replaced, with an order of
+magnitude more detail on screen. Almost all of the remaining per-frame cost
+is the ground pass; buildings, trees and roads are one blit each.
+
 ## [0.57.0] — 2026-07-29 · Touch and small screens
 
 The game was unplayable on a phone: there was no way to zoom at all, no way
