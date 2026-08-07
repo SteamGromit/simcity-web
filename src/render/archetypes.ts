@@ -212,19 +212,31 @@ export function pickArchetype(zone: Zone, tier: Tier, stage: Stage, pick: number
   return options[Math.min(options.length - 1, Math.floor(pick * options.length))];
 }
 
-/** [dh, ds, dl] wall-family deltas per tier; entry 0 is the familiar base
- * ramp. Large hue deltas are deliberate — they move slate to brick, not
- * just warm it. Values are a starting point for the visual pass. */
+/**
+ * [dh, ds, dl] wall-family deltas per tier; entry 0 is the familiar base ramp.
+ *
+ * Large hue deltas are deliberate — they move slate to brick, not just warm
+ * it. Four families per tier, spread far enough apart that a downtown block
+ * reads as bronze-and-green-and-blue glass rather than one blue curtain wall
+ * repeated forty times; the ladder's *value* progression is what still says
+ * "this lot is richer than that one".
+ */
 const FAMILIES: Record<FamilyKey, [number, number, number][]> = {
-  R1: [[0, 0, 0], [15, 8, -3], [-18, -4, 4]],
-  R2: [[0, 0, 0], [160, 14, -4], [24, 6, 8]], // slate / brick / pale clapboard
-  R3: [[0, 0, 0], [-12, 4, -4], [8, -6, 3]],
-  C1: [[0, 0, 0], [12, 6, -4], [-20, -8, 5]],
-  C2: [[0, 0, 0], [-18, 8, -6], [14, -10, 6]],
-  C3: [[0, 0, 0], [10, 6, 4], [-8, -6, -4]],
-  dirty: [[0, 0, 0], [10, 8, -4], [-6, -5, 5]],
-  manu: [[0, 0, 0], [8, 4, -4], [-10, 3, 4]],
-  tech: [[0, 0, 0], [-12, 6, -4], [14, -6, 4]],
+  // timber brown → warmer stain → cool grey-wash → sage green
+  R1: [[0, 0, 0], [15, 8, -3], [-18, -4, 4], [72, -8, 6]],
+  // slate / brick / pale clapboard / mid-century green
+  R2: [[0, 0, 0], [160, 14, -4], [24, 6, 8], [-70, -6, 3]],
+  // pale stone / cool stone / warm limestone / bronze glass
+  R3: [[0, 0, 0], [-12, 4, -4], [8, -6, 3], [-162, -6, 5]],
+  // warm render / ochre / teal / oxblood brick
+  C1: [[0, 0, 0], [12, 6, -4], [-20, -8, 5], [170, -4, 1]],
+  // blue glass / bronze glass / green glass / graphite
+  C2: [[0, 0, 0], [-176, -8, 2], [-62, -12, 0], [26, -22, -7]],
+  // dark blue glass / near-black bronze / deep teal / charcoal
+  C3: [[0, 0, 0], [-190, -10, 5], [-88, -14, 3], [22, -20, -3]],
+  dirty: [[0, 0, 0], [10, 8, -4], [-6, -5, 5], [186, -6, 2]],
+  manu: [[0, 0, 0], [8, 4, -4], [-10, 3, 4], [-40, 6, -2]],
+  tech: [[0, 0, 0], [-12, 6, -4], [14, -6, 4], [-160, -4, 6]],
 };
 
 export function paletteFamily(zone: Zone, tier: Tier, pick: number): [number, number, number] {

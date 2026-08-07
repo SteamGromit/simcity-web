@@ -37,3 +37,9 @@ const TINTS: Record<Season, VegTint> = {
 export function vegTint(season: Season): VegTint {
   return on ? TINTS[season] : TINTS.summer;
 }
+
+/** The season anything *baked* should be wearing: summer while the toggle is
+ * off, so a sprite key never disagrees with the ground under it. */
+export function effectiveSeason(season: Season): Season {
+  return on ? season : 'summer';
+}

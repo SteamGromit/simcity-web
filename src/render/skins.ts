@@ -8,6 +8,7 @@
 
 import { allSkins } from '../content/registry';
 import type { SkinDef } from '../content/types';
+import { clearSprites } from './spritecache';
 
 export type SkinId = string;
 
@@ -68,7 +69,9 @@ const FALLBACK: Skin = compileSkin({
 let active: Skin = FALLBACK;
 
 export function setSkin(id: string): void {
-  active = skins().find((s) => s.id === id) ?? skins()[0] ?? FALLBACK;
+  const next = skins().find((s) => s.id === id) ?? skins()[0] ?? FALLBACK;
+  if (next.id !== active.id) clearSprites(); // every baked building is restyled
+  active = next;
 }
 
 export function getSkin(): Skin {

@@ -4,16 +4,17 @@ import { BuildTool, CityState, GRID, MAX_ELEV, Terrain, Zone } from '../sim/type
 import { Automata } from './automata';
 import {
   drawBuilding,
+  drawCastShadow,
+  drawLotApron,
   drawFire,
   drawCrimeFlash,
   drawAccident,
   drawCollapse,
   drawPole,
   drawRubble,
-  fillPoly,
   fillTile,
+  setRenderSeason,
   strokeTile,
-  tree,
 } from './buildings';
 import {
   ELEV_PX,
@@ -23,7 +24,6 @@ import {
   isoToScreen,
   screenToIso,
   setViewAngle,
-  tileDepth,
   tileGeom,
 } from './iso';
 import { anchorOf, distanceToBlock, sizeOfSlot, tilesAroundBlock } from '../sim/footprint';
@@ -31,16 +31,21 @@ import { DisasterFx } from './disasterfx';
 import { OverlayId, drawOverlay } from './overlays';
 import { darknessAlpha, getDayNight, nightFactor, nightTint } from './daynight';
 import { isPlant } from '../sim/energy';
-import { groundShade } from './terrainshade';
 import { detailLevel } from './detail';
 import { drawLineVehicles } from './linevehicles';
 import { PIXEL_SCALE, getRenderStyle } from './renderstyle';
 import { VegTint, vegTint } from './seasonfx';
 import { seasonOf } from '../sim/weather';
-import { setCanopyColor } from './buildings';
 import { getSkin } from './skins';
-import { roadPaint, roadSurface } from './roadlook';
+import { drawBridge, drawRoad, medianTone, roadMask } from './roadart';
 import { getWeatherFx } from './fx';
+import { GroundKind, groundTone, paintCliff, paintGround, paintShore, paintWater } from './ground';
+import { paintBloom, paintGrade, paintHaze, paintSky, paintVignette } from './grade';
+import { css, hsl, lit, mix } from './palette';
+import { LIGHT } from './sun';
+import { drawTree } from './scenery';
+import { hash2 } from './noise';
+import { blit, sprite } from './spritecache';
 
 export interface ViewState {
   hover: { x: number; y: number } | null;
@@ -70,20 +75,29 @@ const TAU = Math.PI * 2;
 /** Automata time multiplier per sim speed (pause/normal/fast/cheetah). */
 const AUTOMATA_SCALE = [0, 1, 1.8, 3] as const;
 
+/** Direction across each edge of TileGeom.corners: [k] → [k+1] borders these. */
+const EDGE_DIRS: [number, number][] = [
+  [0, -1],
+  [1, 0],
+  [0, 1],
+  [-1, 0],
+];
+
 export class Renderer {
   camera = { x: 0, y: 0, zoom: 1 };
   /** Current sim speed, fed by the UI so street life keeps pace. */
   simSpeed: 0 | 1 | 2 | 3 = 1;
-  private angle = 0;
   private ctx: CanvasRenderingContext2D;
   private mainCtx: CanvasRenderingContext2D;
   private buffer: HTMLCanvasElement | null = null;
   private variants: Float32Array;
+  /** Distance-from-shore for every water tile, rebuilt when the coast moves. */
+  private depth: Float32Array;
+  private depthStamp = -1;
   private automata = new Automata();
   private disasterFx = new DisasterFx();
-  /** tile paint order for the current angle, ascending depth */
+  /** tile paint order, ascending depth — fixed, because the camera is */
   private order: Uint16Array;
-  private orderDirty = true;
   /** city from the latest draw; pick() needs elevations between frames */
   private lastCity: CityState | null = null;
   /** current 0..1 darkness, refreshed each draw */
@@ -98,16 +112,25 @@ export class Renderer {
   private detail: 0 | 1 | 2 = 1;
   /** Seasonal vegetation tint for the current frame. */
   private veg: VegTint = vegTint('summer');
+  /** Inclusive tile bounds visible this frame, so off-screen work is skipped. */
+  private clip = { x0: 0, y0: 0, x1: GRID - 1, y1: GRID - 1 };
+  /** Milliseconds each pass took last frame. Read by the `__simcity.profile`
+   * debug hook; the cost of filling it is four `performance.now()` calls. */
+  readonly timings: Record<string, number> = {};
 
   constructor(private canvas: HTMLCanvasElement, seed: number) {
     this.ctx = canvas.getContext('2d')!;
     this.mainCtx = this.ctx;
     this.variants = new Float32Array(GRID * GRID);
+    this.depth = new Float32Array(GRID * GRID);
     this.order = new Uint16Array(GRID * GRID);
     this.reseed(seed);
     this.resize();
+    // One fixed viewing angle. It is what lets every building, tree and road
+    // tile be baked once and blitted afterwards — and what lets the sun be a
+    // real direction rather than a screen-space fudge.
     setViewAngle(0);
-    // start centered on the middle of the map
+    this.buildOrder();
     const mid = isoToScreen(GRID / 2, GRID / 2);
     this.camera.x = mid.sx - this.canvas.clientWidth / 2;
     this.camera.y = mid.sy - this.canvas.clientHeight / 2;
@@ -117,31 +140,13 @@ export class Renderer {
   reseed(seed: number) {
     const rand = mulberry32(seed);
     for (let i = 0; i < this.variants.length; i++) this.variants[i] = rand();
+    this.depthStamp = -1;
   }
 
   resize() {
     const dpr = window.devicePixelRatio || 1;
     this.canvas.width = this.canvas.clientWidth * dpr;
     this.canvas.height = this.canvas.clientHeight * dpr;
-  }
-
-  getAngle(): number {
-    return this.angle;
-  }
-
-  /** Rotate the view, keeping the grid point at the screen center fixed. */
-  rotateBy(delta: number) {
-    const w = this.canvas.clientWidth;
-    const h = this.canvas.clientHeight;
-    const wx = this.camera.x + w / 2 / this.camera.zoom;
-    const wy = this.camera.y + h / 2 / this.camera.zoom;
-    const g = screenToIso(wx, wy);
-    this.angle = (((this.angle + delta) % TAU) + TAU) % TAU;
-    setViewAngle(this.angle);
-    const p = isoToScreen(g.x, g.y);
-    this.camera.x = p.sx - w / 2 / this.camera.zoom;
-    this.camera.y = p.sy - h / 2 / this.camera.zoom;
-    this.orderDirty = true;
   }
 
   /** Canvas-client coordinates → tile, or null when off-map. Probes from the
@@ -163,20 +168,91 @@ export class Renderer {
     return ground; // cursor on a cliff face — snap to the tile below
   }
 
-  private rebuildOrder() {
-    const depths = new Float64Array(GRID * GRID);
-    for (let i = 0; i < depths.length; i++) {
-      depths[i] = tileDepth(i % GRID, (i / GRID) | 0);
+  /** Painter's order for the fixed view: rows of constant x+y, back to front. */
+  private buildOrder() {
+    let n = 0;
+    for (let d = 0; d <= 2 * (GRID - 1); d++) {
+      for (let y = Math.max(0, d - GRID + 1); y <= Math.min(GRID - 1, d); y++) {
+        this.order[n++] = (d - y) + y * GRID;
+      }
     }
-    const indices = Array.from({ length: GRID * GRID }, (_, i) => i);
-    indices.sort((a, b) => depths[a] - depths[b]);
-    this.order.set(indices);
-    this.orderDirty = false;
+  }
+
+  /** Tile bounds the viewport can possibly touch, with a generous margin for
+   * tall towers whose tops poke into view from below the screen. */
+  private computeClip() {
+    const w = this.canvas.clientWidth / this.camera.zoom;
+    const h = this.canvas.clientHeight / this.camera.zoom;
+    const pad = 6;
+    let x0 = GRID;
+    let y0 = GRID;
+    let x1 = -1;
+    let y1 = -1;
+    // the four screen corners, pushed out to cover elevation and building height
+    for (const [sx, sy] of [
+      [this.camera.x, this.camera.y - 260],
+      [this.camera.x + w, this.camera.y - 260],
+      [this.camera.x + w, this.camera.y + h + 60],
+      [this.camera.x, this.camera.y + h + 60],
+    ]) {
+      const g = screenToIso(sx, sy);
+      x0 = Math.min(x0, Math.floor(g.x));
+      x1 = Math.max(x1, Math.ceil(g.x));
+      y0 = Math.min(y0, Math.floor(g.y));
+      y1 = Math.max(y1, Math.ceil(g.y));
+    }
+    this.clip = {
+      x0: Math.max(0, x0 - pad),
+      y0: Math.max(0, y0 - pad),
+      x1: Math.min(GRID - 1, x1 + pad),
+      y1: Math.min(GRID - 1, y1 + pad),
+    };
+  }
+
+  private visible(x: number, y: number): boolean {
+    const c = this.clip;
+    return x >= c.x0 && x <= c.x1 && y >= c.y0 && y <= c.y1;
+  }
+
+  /** Breadth-first distance from the shore for every water tile, so open water
+   * can read deeper than a bay. Rebuilt only when the coastline changes. */
+  private ensureDepth(city: CityState) {
+    let stamp = 0;
+    for (let i = 0; i < city.tiles.length; i += 37) {
+      if (city.tiles[i].terrain === Terrain.Water) stamp = (stamp * 31 + i) | 0;
+    }
+    if (stamp === this.depthStamp) return;
+    this.depthStamp = stamp;
+    const q: number[] = [];
+    this.depth.fill(0);
+    for (let i = 0; i < city.tiles.length; i++) {
+      if (city.tiles[i].terrain !== Terrain.Water) continue;
+      const x = i % GRID;
+      const y = (i / GRID) | 0;
+      let edge = false;
+      for (const [nx, ny] of neighbors4(x, y)) {
+        if (city.tiles[idx(nx, ny)].terrain !== Terrain.Water) edge = true;
+      }
+      if (x === 0 || y === 0 || x === GRID - 1 || y === GRID - 1) edge = edge || false;
+      if (edge) {
+        this.depth[i] = 1;
+        q.push(i);
+      }
+    }
+    for (let head = 0; head < q.length; head++) {
+      const i = q[head];
+      const x = i % GRID;
+      const y = (i / GRID) | 0;
+      for (const [nx, ny] of neighbors4(x, y)) {
+        const n = idx(nx, ny);
+        if (city.tiles[n].terrain !== Terrain.Water || this.depth[n] > 0) continue;
+        this.depth[n] = this.depth[i] + 1;
+        q.push(n);
+      }
+    }
   }
 
   draw(city: CityState, view: ViewState) {
-    // Pixel look: draw the frame on a smaller buffer, then blit it up
-    // with nearest-neighbor so every mark lands on chunky pixels.
     const style = getRenderStyle();
     const ps = style === 'pixel' ? PIXEL_SCALE : 1;
     if (ps < 1) {
@@ -191,52 +267,98 @@ export class Renderer {
     }
     const { ctx } = this;
     this.lastCity = city;
-    setViewAngle(this.angle);
-    if (this.orderDirty) this.rebuildOrder();
+    setViewAngle(0);
     const now = performance.now();
     this.night = getDayNight() ? nightFactor(now) : 0;
-    // clamp the frame delta so a background tab doesn't fast-forward
     this.lineClock +=
       Math.min(100, Math.max(0, now - this.frameNow)) * AUTOMATA_SCALE[this.simSpeed];
     this.frameNow = now;
     this.storm = city.disasters.hurricaneTicks > 0;
-    this.wind = this.storm ? -4 + Math.sin(now / 120) * 3 : 0;
+    this.wind = this.storm ? -5 + Math.sin(now / 120) * 3.5 : 0;
     this.automata.step(city, now, AUTOMATA_SCALE[this.simSpeed]);
     this.disasterFx.step(city, now, AUTOMATA_SCALE[this.simSpeed]);
+    this.ensureDepth(city);
+    this.computeClip();
 
+    const W = this.ctx.canvas.width;
+    const H = this.ctx.canvas.height;
     const dpr = (window.devicePixelRatio || 1) * ps;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = '#10151c';
-    ctx.fillRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
-    ctx.setTransform(
-      this.camera.zoom * dpr,
-      0,
-      0,
-      this.camera.zoom * dpr,
-      -this.camera.x * this.camera.zoom * dpr,
-      -this.camera.y * this.camera.zoom * dpr,
-    );
 
-    // Depth-sorted painter's order: valid at every view angle. Buildings
-    // stay inside their tile footprint (see buildings.ts), so tile depth
-    // alone decides occlusion.
+    // --- sky ------------------------------------------------------------
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    paintSky(ctx, W, H, this.night);
+
+    const camera = () =>
+      ctx.setTransform(
+        this.camera.zoom * dpr,
+        0,
+        0,
+        this.camera.zoom * dpr,
+        -this.camera.x * this.camera.zoom * dpr,
+        -this.camera.y * this.camera.zoom * dpr,
+      );
+    camera();
+
     const detail = detailLevel(this.camera.zoom);
     this.detail = detail;
-    this.veg = vegTint(seasonOf(city.month));
-    setCanopyColor(this.veg.canopy);
+    const season = seasonOf(city.month);
+    this.veg = vegTint(season);
+    setRenderSeason(season);
+
+    const mark = (name: string, from: number) => {
+      this.timings[name] = performance.now() - from;
+    };
+    let t0 = performance.now();
+
+    // --- pass 1: ground -------------------------------------------------
+    // Terrain, cliffs and roads for every visible tile, in painter's order.
     for (let n = 0; n < this.order.length; n++) {
       const i = this.order[n];
       const x = i % GRID;
       const y = (i / GRID) | 0;
+      if (!this.visible(x, y)) continue;
       const t = city.tiles[i];
       const geom = tileGeom(x, y, t.elevation);
       this.drawCliffs(geom, city, x, y);
-      this.drawGround(geom, city, x, y);
+      this.drawGround(geom, city, x, y, now);
+    }
+
+    mark('ground', t0);
+    t0 = performance.now();
+
+    // --- pass 2: cast shadows -------------------------------------------
+    // Their own pass because a tower's shadow falls toward the camera, onto
+    // tiles that are painted *after* it. Drawn onto the finished ground, so
+    // it lands on the street rather than being overdrawn by it.
+    if (detail >= 1) {
+      for (let n = 0; n < this.order.length; n++) {
+        const i = this.order[n];
+        const x = i % GRID;
+        const y = (i / GRID) | 0;
+        if (!this.visible(x, y)) continue;
+        const t = city.tiles[i];
+        if (t.zone === Zone.None || t.zone === Zone.Road) continue;
+        const size = sizeOfSlot(t.zone);
+        const g = size > 1 ? this.blockDrawGeom(city, i, size) : tileGeom(x, y, t.elevation);
+        if (!g) continue;
+        drawCastShadow(ctx, g, t.zone, t.stage, t.tier, this.variants[i], size);
+      }
+    }
+
+    mark('shadows', t0);
+    t0 = performance.now();
+
+    // --- pass 3: everything that stands up ------------------------------
+    for (let n = 0; n < this.order.length; n++) {
+      const i = this.order[n];
+      const x = i % GRID;
+      const y = (i / GRID) | 0;
+      if (!this.visible(x, y)) continue;
+      const t = city.tiles[i];
+      const geom = tileGeom(x, y, t.elevation);
       if (t.rubble > 0) drawRubble(ctx, geom, this.variants[i]);
+      this.drawScenery(geom, city, x, y);
       if (t.zone !== Zone.None && t.zone !== Zone.Road) {
-        // A block is one building: it draws once, spanning its whole
-        // footprint, and it draws with whichever of its tiles paints last so
-        // the neighbours in front of it are not overdrawn.
         const size = sizeOfSlot(t.zone);
         const drawGeom = size > 1 ? this.blockDrawGeom(city, i, size) : geom;
         if (drawGeom) {
@@ -251,6 +373,7 @@ export class Renderer {
             this.variants[i],
             this.night,
             detail,
+            size,
           );
         }
       }
@@ -264,51 +387,32 @@ export class Renderer {
         drawCollapse(ctx, geom, Math.min(1, t.collapseFlash / 90));
         t.collapseFlash -= 1; // render-only decay
       }
-      this.automata.drawTile(ctx, i);
+      this.automata.drawTile(ctx, i, this.night);
     }
 
-    if (style === 'realistic') {
-      // atmospheric depth: the far half of the frame cools and hazes
-      ctx.save();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      const H = this.ctx.canvas.height;
-      const haze = ctx.createLinearGradient(0, 0, 0, H * 0.55);
-      haze.addColorStop(0, 'rgba(185, 200, 222, 0.16)');
-      haze.addColorStop(1, 'rgba(185, 200, 222, 0)');
-      ctx.fillStyle = haze;
-      ctx.fillRect(0, 0, this.ctx.canvas.width, H * 0.55);
-      ctx.restore();
-    }
+    mark('scene', t0);
+    t0 = performance.now();
 
     this.drawTransitLines(city, view);
+
+    // --- pass 4: atmosphere ---------------------------------------------
+    if (style !== 'smooth') {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      paintHaze(ctx, W, H, this.camera.zoom, this.night);
+      camera();
+    }
 
     if (view.overlay) drawOverlay(ctx, city, view.overlay);
 
     if (this.night > 0.02) {
-      // dim ambient wash everywhere, then deep darkness that street
-      // and building light punches through — settled areas glow, the
-      // wilds go properly black
-      ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = nightTint(this.night);
-      ctx.fillRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
-      ctx.restore();
+      ctx.fillRect(0, 0, W, H);
       this.drawDarkness(city, dpr);
+      camera();
     }
 
-    if (city.disasters.tornado) {
-      const tor = city.disasters.tornado;
-      const g = tileGeom(tor.x, tor.y, city.tiles[idx(tor.x, tor.y)].elevation);
-      // swirling stacked funnel
-      for (let k = 0; k < 6; k++) {
-        const rr = 4 + k * 3.2;
-        const wob = Math.sin(now / 90 + k * 1.7) * 3;
-        ctx.fillStyle = `rgba(120, 118, 125, ${0.55 - k * 0.06})`;
-        ctx.beginPath();
-        ctx.ellipse(g.cx + wob, g.cy - 6 - k * 7, rr, rr * 0.45, 0, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
+    if (city.disasters.tornado) this.drawTornado(city, now);
     this.disasterFx.drawWorld(ctx, city, now);
 
     const storm = city.disasters.hurricaneTicks > 0;
@@ -319,20 +423,41 @@ export class Renderer {
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = 'rgba(120, 130, 150, 0.10)';
-      ctx.fillRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
+      ctx.fillRect(0, 0, W, H);
       ctx.restore();
     }
-    // storm washes go before the cursor layers so the cursor stays readable
     this.disasterFx.drawScreen(ctx, city, now);
 
+    // --- pass 5: finishing ----------------------------------------------
+    if (style === 'realistic') {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      paintBloom(ctx, W, H, 0.05 + this.night * 0.17);
+      paintGrade(ctx, W, H, this.night);
+      paintVignette(ctx, W, H);
+      camera();
+    }
+
+    mark('finish', t0);
+
+    // --- pass 6: cursor layers, which must stay unfiltered ---------------
+    this.drawCursors(city, view);
+
+    if (ps < 1 && this.buffer) {
+      const m = this.mainCtx;
+      m.setTransform(1, 0, 0, 1, 0, 0);
+      m.imageSmoothingEnabled = false;
+      m.drawImage(this.buffer, 0, 0, this.canvas.width, this.canvas.height);
+    }
+  }
+
+  /** Halo, rect, line and hover previews — drawn last so nothing washes them. */
+  private drawCursors(city: CityState, view: ViewState) {
+    const { ctx } = this;
     const elevOf = (x: number, y: number) => city.tiles[idx(x, y)].elevation;
     if (view.halo) {
       const { x: hx, y: hy, radius, blight, size } = view.halo;
       // Survey pink, not the data views' green: this is *proposed* work, and a
-      // coverage view left on underneath must stay readable through it. Green
-      // on green made "what would change" impossible to pick out from "what is
-      // already covered", which is exactly when the preview matters most.
-      // Distances run to the whole footprint, matching what the sim will do.
+      // coverage view left on underneath must stay readable through it.
       const box = { ax: hx, ay: hy, size: size ?? 1 };
       if (radius > 0) {
         for (const [nx, ny] of tilesAroundBlock(box, radius)) {
@@ -340,20 +465,16 @@ export class Renderer {
           const cov = 1 - d / (radius + 1);
           fillTile(ctx, tileGeom(nx, ny, elevOf(nx, ny)), `rgba(255,79,163,${0.12 + 0.3 * cov})`);
           if (d === radius) {
-            // a bright rim marks exactly where the reach stops
             strokeTile(ctx, tileGeom(nx, ny, elevOf(nx, ny)), 'rgba(255,79,163,0.55)', 1);
           }
         }
       }
-      // and the reach over which it makes the neighbourhood worse
       if (blight && blight > 0) {
         for (const [nx, ny] of tilesAroundBlock(box, blight)) {
           if (distanceToBlock(box, nx, ny) !== blight) continue;
           strokeTile(ctx, tileGeom(nx, ny, elevOf(nx, ny)), 'rgba(242,145,31,0.85)', 1.5);
         }
       }
-      // the ground the building itself would take, for anything bigger than
-      // a tile — otherwise the cursor says "here" and the building lands there
       if (size && size > 1) {
         for (let dy = 0; dy < size; dy++) {
           for (let dx = 0; dx < size; dx++) {
@@ -381,15 +502,12 @@ export class Renderer {
         }
       }
     }
-
     if (view.line) {
-      const tint =
-        view.lineTool === 'pipe' ? 'rgba(120,180,255,0.35)' : 'rgba(255,235,150,0.35)';
+      const tint = view.lineTool === 'pipe' ? 'rgba(120,180,255,0.35)' : 'rgba(255,235,150,0.35)';
       for (const [x, y] of view.line) {
         fillTile(ctx, tileGeom(x, y, elevOf(x, y)), tint);
       }
     }
-
     if (view.hover) {
       strokeTile(
         ctx,
@@ -398,212 +516,236 @@ export class Renderer {
         2,
       );
     }
+  }
 
-    if (ps < 1 && this.buffer) {
-      // the whole frame lands as chunky pixels in one nearest-neighbor blit
-      const m = this.mainCtx;
-      m.setTransform(1, 0, 0, 1, 0, 0);
-      m.imageSmoothingEnabled = false;
-      m.drawImage(this.buffer, 0, 0, this.canvas.width, this.canvas.height);
+  /** A twisting funnel: stacked ellipses with a rotating banding on the wall. */
+  private drawTornado(city: CityState, now: number) {
+    const { ctx } = this;
+    const tor = city.disasters.tornado!;
+    const g = tileGeom(tor.x, tor.y, city.tiles[idx(tor.x, tor.y)].elevation);
+    const H = 96;
+    ctx.save();
+    for (let k = 0; k < 22; k++) {
+      const t = k / 21;
+      const r = 5 + t * t * 26;
+      const wob = Math.sin(now / 90 + t * 5) * (5 + t * 9);
+      const y = g.cy - 4 - t * H;
+      ctx.fillStyle = `rgba(${112 + t * 26}, ${110 + t * 24}, ${118 + t * 22}, ${0.5 - t * 0.2})`;
+      ctx.beginPath();
+      ctx.ellipse(g.cx + wob, y, r, r * 0.42, 0, 0, TAU);
+      ctx.fill();
+      // a lighter band spiralling up the funnel
+      ctx.strokeStyle = `rgba(206, 202, 208, ${0.2 - t * 0.11})`;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.ellipse(g.cx + wob, y, r * 0.86, r * 0.36, 0, (now / 260 + t * 3) % TAU, ((now / 260 + t * 3) % TAU) + 2.4);
+      ctx.stroke();
     }
+    ctx.restore();
   }
 
   /** Screen-space driving rain; intensity 1 = full hurricane. */
   private drawRain(now: number, intensity: number) {
     const { ctx } = this;
+    const W = this.ctx.canvas.width;
+    const H = this.ctx.canvas.height;
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = `rgba(40, 55, 80, ${0.18 * intensity})`;
-    ctx.fillRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
-    ctx.strokeStyle = `rgba(180, 200, 230, ${0.35 * intensity})`;
-    ctx.lineWidth = 1;
-    const shift = (now / 3) % 40;
-    const step = intensity >= 1 ? 17 : 31;
-    ctx.beginPath();
-    for (let ry = 0; ry < this.ctx.canvas.height; ry += 34) {
-      for (let rx = ((ry * 13) % 29) - 29; rx < this.ctx.canvas.width; rx += step) {
-        ctx.moveTo(rx + shift, ry + ((now / 4) % 34));
-        ctx.lineTo(rx + shift - 6, ry + 14 + ((now / 4) % 34));
+    ctx.fillRect(0, 0, W, H);
+    // two layers at different speeds read as depth rather than wallpaper
+    for (const [speed, alpha, len, step] of [
+      [2.2, 0.22, 10, 44],
+      [4.0, 0.34, 17, 26],
+    ] as const) {
+      ctx.strokeStyle = `rgba(186, 206, 234, ${alpha * intensity})`;
+      ctx.lineWidth = 1;
+      const shift = ((now / 3) * speed) % 60;
+      ctx.beginPath();
+      for (let ry = -40; ry < H; ry += 34) {
+        for (let rx = ((ry * 13) % 29) - 40; rx < W; rx += step * (intensity >= 1 ? 0.6 : 1)) {
+          const yy = ry + ((now / 4) * speed) % 40;
+          ctx.moveTo(rx + shift, yy);
+          ctx.lineTo(rx + shift - len * 0.45, yy + len);
+        }
       }
+      ctx.stroke();
     }
-    ctx.stroke();
     ctx.restore();
   }
 
   /** Screen-space drifting snowfall with a faint ground whitening. */
   private drawSnow(now: number) {
     const { ctx } = this;
+    const w = this.ctx.canvas.width;
+    const h = this.ctx.canvas.height;
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = 'rgba(235, 240, 250, 0.08)';
-    ctx.fillRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
-    ctx.fillStyle = 'rgba(250, 252, 255, 0.8)';
-    const w = this.ctx.canvas.width;
-    const h = this.ctx.canvas.height;
-    for (let k = 0; k < 160; k++) {
-      const seed = k * 2654435761;
-      const x = (seed % w) + Math.sin(now / 900 + k) * 14;
-      const y = (((seed >> 8) % h) + now * (0.02 + (k % 5) * 0.006)) % h;
-      ctx.fillRect(((x % w) + w) % w, y, 2, 2);
+    ctx.fillRect(0, 0, w, h);
+    for (let layer = 0; layer < 2; layer++) {
+      const size = layer ? 3 : 2;
+      ctx.fillStyle = `rgba(250, 252, 255, ${layer ? 0.9 : 0.55})`;
+      for (let k = 0; k < (layer ? 70 : 130); k++) {
+        const seed = (k * 2654435761 + layer * 7919) >>> 0;
+        const x = (seed % w) + Math.sin(now / 900 + k) * (14 + layer * 10);
+        const y = (((seed >> 8) % h) + now * (0.02 + (k % 5) * 0.006) * (1 + layer)) % h;
+        ctx.fillRect(((x % w) + w) % w, y, size, size);
+      }
     }
     ctx.restore();
   }
 
-  /** Direction across each edge of TileGeom.corners: [k] → [k+1] borders these. */
-  private static EDGE_DIRS: [number, number][] = [
-    [0, -1],
-    [1, 0],
-    [0, 1],
-    [-1, 0],
-  ];
-
-  /** Fill the vertical faces where this tile stands above a neighbor. Only
-   * camera-facing edges are drawn; back faces hide behind the tile itself. */
+  /** Fill the vertical faces where this tile stands above a neighbor. */
   private drawCliffs(geom: TileGeom, city: CityState, x: number, y: number) {
     const t = city.tiles[idx(x, y)];
     if (t.elevation === 0) return;
+    const grass = groundTone(this.groundKind(city, x, y), x, y, this.veg, getSkin().grassSat);
     for (let k = 0; k < 4; k++) {
-      const [dx, dy] = Renderer.EDGE_DIRS[k];
+      const [dx, dy] = EDGE_DIRS[k];
       const nElev = inBounds(x + dx, y + dy) ? city.tiles[idx(x + dx, y + dy)].elevation : 0;
       const drop = (t.elevation - nElev) * ELEV_PX;
       if (drop <= 0) continue;
       const c1 = geom.corners[k];
       const c2 = geom.corners[(k + 1) % 4];
-      const midY = (c1[1] + c2[1]) / 2;
-      if (midY <= geom.cy) continue; // back edge, hidden
-      const midX = (c1[0] + c2[0]) / 2;
-      const lit = midX < geom.cx ? 26 : 32; // two faces, two shades
-      fillPoly(
-        this.ctx,
-        [c1, c2, [c2[0], c2[1] + drop], [c1[0], c1[1] + drop]],
-        `hsl(28 32% ${lit}%)`,
-      );
-      // strata soften the raw wedge; a lip highlight catches the edge
-      this.ctx.strokeStyle = 'rgba(60, 45, 30, 0.35)';
-      this.ctx.lineWidth = 1;
-      for (const fr of [1 / 3, 2 / 3]) {
-        this.ctx.beginPath();
-        this.ctx.moveTo(c1[0], c1[1] + drop * fr);
-        this.ctx.lineTo(c2[0], c2[1] + drop * fr);
-        this.ctx.stroke();
-      }
-      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-      this.ctx.beginPath();
-      this.ctx.moveTo(c1[0], c1[1]);
-      this.ctx.lineTo(c2[0], c2[1]);
-      this.ctx.stroke();
+      if ((c1[1] + c2[1]) / 2 <= geom.cy) continue; // back edge, hidden
+      paintCliff(this.ctx, c1, c2, drop, k === 2, grass, idx(x, y));
     }
   }
 
-  private drawGround(geom: TileGeom, city: CityState, x: number, y: number) {
+  private groundKind(city: CityState, x: number, y: number): GroundKind {
+    const t = city.tiles[idx(x, y)];
+    if (t.elevation >= 5) return 'snow';
+    if (t.elevation === 4) return 'rock';
+    return city.biome === 'desert' ? 'desert' : 'meadow';
+  }
+
+  /** Per-tile ground colours, rebuilt only when the season, skin or biome
+   * moves. Deriving them per frame cost more than drawing them. */
+  private toneCache: string[] = [];
+  private toneKey = '';
+
+  private groundStyle(city: CityState, x: number, y: number, kind: GroundKind): string {
+    const key = `${this.veg.grassHue}|${this.veg.grassLight}|${getSkin().id}|${city.biome}`;
+    if (key !== this.toneKey) {
+      this.toneKey = key;
+      this.toneCache = [];
+    }
+    const i = idx(x, y);
+    const hit = this.toneCache[i];
+    if (hit) return hit;
+    return (this.toneCache[i] = css(
+      groundTone(kind, x, y, this.veg, getSkin().grassSat),
+    ));
+  }
+
+  private drawGround(geom: TileGeom, city: CityState, x: number, y: number, now: number) {
     const i = idx(x, y);
     const t = city.tiles[i];
+    const { ctx } = this;
+
     if (t.zone === Zone.Road) {
+      const mask = roadMask(city, x, y);
       if (t.terrain === Terrain.Water) {
-        // bridge: water below, pylons at the front corners, then the deck
-        fillTile(this.ctx, geom, `hsl(207 54% ${30 + this.variants[i] * 5}%)`);
-        this.ctx.fillStyle = '#33363b';
-        for (const [px, py] of geom.corners) {
-          if (py > geom.cy) this.ctx.fillRect(px - 1.5, py - 2, 3, 7);
-        }
-        fillTile(this.ctx, geom, '#4a4e55');
+        paintWater(ctx, geom, x, y, Math.min(1, (this.depth[i] - 1) / 9), now, this.detail);
+        drawBridge(ctx, geom, t.road, mask, i);
       } else if (t.median) {
-        // a boulevard's planted centre strip: grass, a tree, kerbs both sides
-        const v = this.variants[i];
-        fillTile(this.ctx, geom, `hsl(${104 + v * 8 + this.veg.grassHue} 34% ${30 + this.veg.grassLight}%)`);
-        // kerbed all the way round: the strip is an island in the carriageway
-        strokeTile(this.ctx, geom, 'rgba(150, 155, 160, 0.8)', 1.5);
+        const tone = medianTone(this.veg);
+        fillTile(ctx, geom, css(lit(tone, LIGHT.roof)));
+        strokeTile(ctx, geom, css(hsl(210, 8, 62), 0.8), 1.5);
         if (this.detail >= 1) {
-          tree(this.ctx, geom.cx - 4 + v * 8, geom.cy + 1, this.storm ? this.wind : 0);
+          drawTree(
+            ctx,
+            geom.cx,
+            geom.cy + 2,
+            'broadleaf',
+            14,
+            i % 6,
+            'summer',
+            this.storm ? this.wind : 0,
+          );
         }
-        if (t.wire) drawPole(this.ctx, geom.cx, geom.cy);
-        return; // no lane markings, no streetlight pool, and never any cars
+        if (t.wire) drawPole(ctx, geom.cx, geom.cy);
+        return;
       } else {
-        fillTile(this.ctx, geom, roadSurface(t.road));
-        this.drawRoadKerbs(geom, city, x, y);
+        drawRoad(ctx, geom, t.road, mask, i);
       }
-      this.drawRoadLinks(geom, city, x, y);
-      if (t.wire) drawPole(this.ctx, geom.cx, geom.cy);
+      if (t.wire) drawPole(ctx, geom.cx, geom.cy);
       if (this.night > 0.3) {
-        // streetlight pool
-        this.ctx.fillStyle = `rgba(255, 214, 130, ${(0.22 * this.night).toFixed(3)})`;
-        this.ctx.beginPath();
-        this.ctx.arc(geom.cx, geom.cy, 7, 0, Math.PI * 2);
-        this.ctx.fill();
+        const r = 12;
+        ctx.fillStyle = `rgba(255, 214, 130, ${(0.16 * this.night).toFixed(3)})`;
+        ctx.beginPath();
+        ctx.ellipse(geom.cx, geom.cy, r, r * 0.5, 0, 0, TAU);
+        ctx.fill();
       }
       return;
     }
-    const v = this.variants[i];
+
     if (t.terrain === Terrain.Water) {
-      fillTile(this.ctx, geom, `hsl(${205 + v * 8} ${52 + v * 6}% ${30 + v * 5}%)`);
-      if (this.storm && this.shoreline(city, x, y)) {
-        // storm surge: whitecaps churning against the shore
-        const pulse = 0.25 + 0.2 * Math.sin(this.frameNow / 160 + (x + y) * 1.7);
-        fillTile(this.ctx, geom, `rgba(230, 240, 250, ${pulse.toFixed(3)})`);
-      } else if (!this.storm) {
-        if (getRenderStyle() === 'realistic' && !this.shoreline(city, x, y)) {
-          // depth shading: interior water sits darker than the shallows
-          fillTile(this.ctx, geom, `hsla(${209 + v * 6} 60% 22% / 0.55)`);
-        }
-        // calm shore: a sand strip and foam line along every land edge
+      const depth = Math.min(1, (this.depth[i] - 1) / 9);
+      paintWater(ctx, geom, x, y, depth, now, this.detail);
+      if (this.storm) {
+        const pulse = 0.2 + 0.2 * Math.sin(this.frameNow / 160 + (x + y) * 1.7);
+        fillTile(ctx, geom, `rgba(226, 238, 250, ${pulse.toFixed(3)})`);
+      }
+      if (this.depth[i] === 1) {
         for (let k = 0; k < 4; k++) {
-          const [dx, dy] = Renderer.EDGE_DIRS[k];
+          const [dx, dy] = EDGE_DIRS[k];
           if (!inBounds(x + dx, y + dy)) continue;
           if (city.tiles[idx(x + dx, y + dy)].terrain === Terrain.Water) continue;
-          const c1 = geom.corners[k];
-          const c2 = geom.corners[(k + 1) % 4];
-          const inward = (p: [number, number]): [number, number] => [
-            p[0] + (geom.cx - p[0]) * 0.22,
-            p[1] + (geom.cy - p[1]) * 0.22,
-          ];
-          fillPoly(this.ctx, [c1, c2, inward(c2), inward(c1)], 'hsl(45 38% 62%)');
-          this.ctx.strokeStyle = 'rgba(235, 244, 250, 0.5)';
-          this.ctx.lineWidth = 1;
-          this.ctx.beginPath();
-          this.ctx.moveTo(c1[0], c1[1]);
-          this.ctx.lineTo(c2[0], c2[1]);
-          this.ctx.stroke();
+          paintShore(ctx, geom, k, now, this.storm ? 1 : 0);
         }
       }
       return;
     }
-    if (t.elevation >= 5) {
-      // snowcapped summit
-      fillTile(this.ctx, geom, `hsl(210 ${14 + v * 10}% ${82 + v * 6}%)`);
-    } else if (t.elevation === 4) {
-      // bare rock above the treeline
-      fillTile(this.ctx, geom, `hsl(28 ${10 + v * 6}% ${42 + v * 6}%)`);
-    } else if (city.biome === 'desert') {
-      const gs = Math.min(95, (40 + v * 8) * getSkin().grassSat);
-      fillTile(this.ctx, geom, `hsl(${42 + v * 8} ${gs}% ${56 + groundShade(x, y, v)}%)`);
-    } else {
-      const gs = Math.min(95, (30 + v * 8) * getSkin().grassSat);
-      fillTile(
-        this.ctx,
-        geom,
-        `hsl(${96 + v * 10 + this.veg.grassHue} ${gs}% ${34 + groundShade(x, y, v) + this.veg.grassLight}%)`,
-      );
+
+    const kind = this.groundKind(city, x, y);
+    const tone = this.groundStyle(city, x, y, kind);
+    const developed =
+      t.stage > 0 &&
+      (t.zone === Zone.Residential || t.zone === Zone.Commercial || t.zone === Zone.Industrial);
+    // A built lot's apron covers the turf, so its texture would never be seen
+    paintGround(ctx, geom, kind, tone, i, developed ? 0 : this.detail);
+    if (this.detail >= 1 && developed) {
+      drawLotApron(ctx, geom, t.zone, t.stage, t.tier, this.variants[i]);
     }
     if (this.storm && this.shoreline(city, x, y)) {
-      // surge sloshing up onto the waterfront
-      const pulse = 0.12 + 0.12 * Math.sin(this.frameNow / 200 + (x * 3 + y) * 1.3);
-      fillTile(this.ctx, geom, `rgba(225, 238, 248, ${pulse.toFixed(3)})`);
+      const pulse = 0.1 + 0.1 * Math.sin(this.frameNow / 200 + (x * 3 + y) * 1.3);
+      fillTile(ctx, geom, `rgba(225, 238, 248, ${pulse.toFixed(3)})`);
     }
-    if (this.detail >= 1 && t.zone === Zone.None && t.terrain === Terrain.Grass && t.elevation < 4) {
-      // pixel-grass flecks: sparse darker tufts seeded by the variant
-      this.ctx.fillStyle = 'rgba(18, 38, 14, 0.20)';
-      for (let k = 0; k < 3; k++) {
-        const fx = ((v * (13 + k * 7)) % 1) - 0.5;
-        const fy = ((v * (29 + k * 11)) % 1) - 0.5;
-        this.ctx.fillRect(geom.cx + fx * 38, geom.cy + fy * 18, 2, 2);
-      }
+  }
+
+  /** Trees and boulders — drawn in the standing pass so they occlude properly. */
+  private drawScenery(geom: TileGeom, city: CityState, x: number, y: number) {
+    const i = idx(x, y);
+    const t = city.tiles[i];
+    if (t.terrain !== Terrain.Forest || t.zone !== Zone.None) return;
+    if (this.detail === 0) {
+      // far out, a wood reads better as one dark mass than as many dots
+      fillTile(this.ctx, geom, css(mix(hsl(126, 32, 24), hsl(96, 20, 30), 0.4), 0.62));
+      return;
     }
-    if (t.terrain === Terrain.Forest) {
-      const wind = this.storm ? this.wind * (0.7 + v * 0.6) : 0;
-      tree(this.ctx, geom.cx - 9 + v * 6, geom.cy - 3, wind);
-      tree(this.ctx, geom.cx + 5 - v * 4, geom.cy + 2 + v * 3, wind);
-      tree(this.ctx, geom.cx - 2 + v * 3, geom.cy - 8 + v * 2, wind);
+    const wind = this.storm ? this.wind * (0.7 + this.variants[i] * 0.6) : 0;
+    const desert = city.biome === 'desert';
+    const n = 3 + (hash2(x, y, 3) > 0.55 ? 1 : 0);
+    for (let k = 0; k < n; k++) {
+      const u = hash2(x * 7 + k, y * 3, 11) * 1.7 - 0.85;
+      const v = hash2(x * 5, y * 11 + k, 17) * 1.7 - 0.85;
+      if (Math.abs(u) + Math.abs(v) > 1) continue;
+      const r = hash2(x + k, y, 29);
+      const kindPick = desert ? 'palm' : r > 0.72 ? 'conifer' : r > 0.06 ? 'broadleaf' : 'dead';
+      drawTree(
+        this.ctx,
+        geom.cx + u * 26,
+        geom.cy + v * 13,
+        kindPick,
+        14 + hash2(x, y + k, 41) * 10,
+        (i + k) % 6,
+        seasonOf(city.month),
+        wind,
+      );
     }
+    if (hash2(x, y, 77) > 0.9) drawRockAt(this.ctx, geom.cx + 14, geom.cy + 5, i);
   }
 
   /** Cached radial glow sprite; drawn with destination-out to punch
@@ -627,21 +769,26 @@ export class Renderer {
     return c;
   }
 
-  /** Radius (world px) a tile's lights throw, or 0 for darkness. */
+  /** Radius (world px) a tile's lights throw, or 0 for darkness.
+   *
+   * Kept tight on purpose. The pools used to be wide enough that a dense
+   * downtown punched every hole into every other and the darkness layer had
+   * nothing left to do; the lit windows carry the brightness now, and these
+   * only need to say "someone lives on this street". */
   private lightRadius(t: CityState['tiles'][number]): number {
-    if (t.zone === Zone.Road) return 24; // streetlights line every road
+    if (t.zone === Zone.Road) return t.median ? 0 : 15;
     if (t.zone === Zone.None) return 0;
-    if (t.abandoned || !t.powered) return 0; // dark windows, dark lot
+    if (t.abandoned || !t.powered) return 0;
     if (
       t.zone === Zone.Residential ||
       t.zone === Zone.Commercial ||
       t.zone === Zone.Industrial
     ) {
-      return t.stage > 0 ? 18 + t.stage * 5 : 0;
+      return t.stage > 0 ? 9 + t.stage * 2.4 : 0;
     }
     if (t.zone === Zone.PowerLine || t.zone === Zone.WaterPipe || t.zone === Zone.Park) return 0;
-    if (isPlant(t.zone)) return 40; // plants run lit all night
-    return 26; // civic buildings and stations keep their lights on
+    if (isPlant(t.zone)) return 28;
+    return 16;
   }
 
   /** Deep-night darkness with light punched out of settled areas. */
@@ -657,7 +804,6 @@ export class Renderer {
     d.fillStyle = `rgba(6, 9, 22, ${darknessAlpha(this.night).toFixed(3)})`;
     d.fillRect(0, 0, this.darkLayer.width, this.darkLayer.height);
 
-    // same camera transform the scene used, so glows land on their tiles
     d.setTransform(
       this.camera.zoom * dpr,
       0,
@@ -669,10 +815,11 @@ export class Renderer {
     d.globalCompositeOperation = 'destination-out';
     const glow = this.ensureGlow();
     for (let i = 0; i < city.tiles.length; i++) {
-      const r = this.lightRadius(city.tiles[i]);
-      if (r === 0) continue;
       const x = i % GRID;
       const y = (i / GRID) | 0;
+      if (!this.visible(x, y)) continue;
+      const r = this.lightRadius(city.tiles[i]);
+      if (r === 0) continue;
       const g = tileGeom(x, y, city.tiles[i].elevation);
       d.drawImage(glow, g.cx - r, g.cy - r, r * 2, r * 2);
     }
@@ -752,7 +899,6 @@ export class Renderer {
   /**
    * The geometry a multi-tile building draws into when the painter's loop
    * reaches tile `i`, or null when this is not the tile that should draw it.
-   * Exactly one tile of a block ever returns a geometry.
    */
   private blockDrawGeom(city: CityState, i: number, size: number): TileGeom | null {
     const a = anchorOf(city.tiles[i], i);
@@ -763,58 +909,24 @@ export class Renderer {
     if (drawAt !== i) return null;
     return blockGeom(ax, ay, size, city.tiles[a].elevation);
   }
+}
 
-  /** Kerb line along every edge that borders something other than road. */
-  private drawRoadKerbs(geom: TileGeom, city: CityState, x: number, y: number) {
-    this.ctx.strokeStyle = 'rgba(150, 155, 160, 0.8)';
-    this.ctx.lineWidth = 1.5;
-    for (let k = 0; k < 4; k++) {
-      const [dx, dy] = Renderer.EDGE_DIRS[k];
-      if (inBounds(x + dx, y + dy) && city.tiles[idx(x + dx, y + dy)].zone === Zone.Road) {
-        continue;
-      }
-      const c1 = geom.corners[k];
-      const c2 = geom.corners[(k + 1) % 4];
-      this.ctx.beginPath();
-      this.ctx.moveTo(c1[0], c1[1]);
-      this.ctx.lineTo(c2[0], c2[1]);
-      this.ctx.stroke();
-    }
-  }
-
-  /** Lane markings toward orthogonally-adjacent roads; a dot for dead ends.
-   * The paint follows the class: yellow centre lines on ordinary streets,
-   * white lane edges once the corridor is a highway. */
-  private drawRoadLinks(geom: TileGeom, city: CityState, x: number, y: number) {
-    const { ctx } = this;
-    const cls = city.tiles[idx(x, y)].road;
-    const paint = roadPaint(cls);
-    ctx.strokeStyle = paint.color;
-    ctx.lineWidth = paint.width;
-    let links = 0;
-    for (const [dx, dy] of [
-      [1, 0],
-      [-1, 0],
-      [0, 1],
-      [0, -1],
-    ] as const) {
-      if (!inBounds(x + dx, y + dy)) continue;
-      const n = city.tiles[idx(x + dx, y + dy)];
-      if (n.zone !== Zone.Road || n.median) continue;
-      const own = city.tiles[idx(x, y)].elevation;
-      if (Math.abs(n.elevation - own) > 1) continue; // cliff: no connection
-      links++;
-      // toward the shared edge, meeting the neighbor's ramp halfway up
-      const edge = isoToScreen(x + 0.5 + dx / 2, y + 0.5 + dy / 2);
-      const edgeY = edge.sy - ((own + n.elevation) / 2) * ELEV_PX;
-      ctx.beginPath();
-      ctx.moveTo(geom.cx, geom.cy);
-      ctx.lineTo(edge.sx, edgeY);
-      ctx.stroke();
-    }
-    if (links === 0) {
-      ctx.fillStyle = paint.color;
-      ctx.fillRect(geom.cx - 1.5, geom.cy - 1.5, 3, 3);
-    }
-  }
+/** A boulder, kept out of the class so the scenery pass stays readable. */
+function drawRockAt(ctx: CanvasRenderingContext2D, x: number, y: number, seed: number) {
+  const s = sprite(`bldr${seed % 5}`, { w: 20, h: 16, ax: 10, ay: 11 }, (c) => {
+    c.fillStyle = 'rgba(26, 32, 46, 0.24)';
+    c.beginPath();
+    c.ellipse(2, 0, 7, 3, 0, 0, TAU);
+    c.fill();
+    const body = hsl(28, 10, 44);
+    c.fillStyle = css(lit(body, LIGHT.right));
+    c.beginPath();
+    c.ellipse(0, -2.6, 6, 4, 0, 0, TAU);
+    c.fill();
+    c.fillStyle = css(lit(body, LIGHT.roof));
+    c.beginPath();
+    c.ellipse(-1.4, -4.4, 4, 2.4, 0, 0, TAU);
+    c.fill();
+  });
+  blit(ctx, s, x, y);
 }

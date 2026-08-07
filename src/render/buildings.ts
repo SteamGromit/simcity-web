@@ -2,10 +2,34 @@ import { buildingBySlot } from '../content/registry';
 import { MAX_BUILDING_PROPS, MOD_SLOT_BASE, type VisualDef } from '../content/types';
 import { IndustryKind, Stage, Tier, Wealth, Zone } from '../sim/types';
 import { normalizeTier } from '../sim/tiers';
-import { Entity, entityFor } from '../sim/entities';
-import { getRenderStyle } from './renderstyle';
-import { TileGeom } from './iso';
+import { entityFor } from '../sim/entities';
+import { TILE_H, TILE_W, TileGeom } from './iso';
 import { getSkin } from './skins';
+import { hash2 } from './noise';
+import {
+  Quad,
+  castShadow,
+  contactShadow,
+  css,
+  diamond,
+  fill,
+  inset,
+  lit,
+  material,
+  mix,
+  parapet,
+  prism,
+  raise,
+  type Hsl,
+  type MaterialKind,
+  type WindowPattern,
+} from './massing';
+import { LAMP, hsl } from './palette';
+import { LIGHT, type Pt } from './sun';
+import { Sprite, blit, sprite } from './spritecache';
+import { drawHedge, drawRock, drawTree } from './scenery';
+import { effectiveSeason } from './seasonfx';
+import type { Season } from '../sim/weather';
 import {
   Archetype,
   channels,
@@ -16,123 +40,122 @@ import {
   paletteFamily,
   PropKind,
   RoofStyle,
-  WindowStyle,
 } from './archetypes';
 
 /** Heights (px) by zone and stage 1..7. */
 const HEIGHTS: Partial<Record<Zone, number[]>> = {
-  [Zone.Residential]: [0, 14, 26, 44, 60, 78, 96, 116],
-  [Zone.Commercial]: [0, 16, 34, 58, 76, 96, 118, 142],
-  [Zone.Industrial]: [0, 12, 22, 36, 48, 62, 78, 95],
+  [Zone.Residential]: [0, 15, 27, 46, 63, 82, 102, 124],
+  [Zone.Commercial]: [0, 17, 35, 60, 80, 102, 126, 152],
+  [Zone.Industrial]: [0, 13, 23, 37, 50, 64, 80, 98],
 };
 
 /** Base wall colors [h, s, l] by tier and stage. Index 0 is unused (stage 0). */
 const R_PALETTES: Record<Wealth, [number, number, number][]> = {
   1: [
     [0, 0, 0],
-    [28, 22, 48], // cottage, weathered brown
-    [30, 20, 44],
-    [32, 18, 40],
-    [34, 16, 38],
-    [35, 15, 36],
-    [36, 14, 34],
-    [37, 13, 32],
+    [26, 26, 50], // cottage, weathered timber
+    [28, 24, 46],
+    [30, 22, 42],
+    [32, 20, 40],
+    [33, 18, 38],
+    [34, 17, 36],
+    [35, 16, 34],
   ],
   2: [
     [0, 0, 0],
-    [95, 30, 62], // small house, pale green
-    [150, 25, 55], // rowhouse teal-green
-    [205, 30, 52], // apartment slate-blue
-    [212, 33, 49], // mid-rise
-    [218, 36, 46], // block tower
-    [224, 39, 43], // high-rise
-    [230, 42, 40], // residential tower
+    [92, 26, 60], // small house, pale green
+    [16, 42, 42], // rowhouse brick
+    [206, 18, 52], // apartment slate
+    [212, 20, 50], // mid-rise
+    [218, 22, 47], // block tower
+    [222, 24, 45], // high-rise
+    [228, 26, 43], // residential tower
   ],
   3: [
     [0, 0, 0],
-    [42, 18, 78], // villa, pale stone
-    [40, 16, 76],
-    [38, 14, 74],
-    [200, 22, 70], // glass-and-stone mid-rise
-    [202, 24, 68],
-    [204, 26, 66],
-    [206, 28, 64],
+    [42, 20, 76], // villa, pale stone
+    [40, 18, 74],
+    [38, 16, 72],
+    [200, 20, 66], // glass-and-stone mid-rise
+    [202, 22, 62],
+    [204, 24, 58],
+    [206, 26, 54],
   ],
 };
 
 const C_PALETTES: Record<Wealth, [number, number, number][]> = {
   1: [
     [0, 0, 0],
-    [18, 45, 58], // strip retail, warm awning
-    [22, 42, 54],
-    [26, 38, 50],
-    [28, 36, 48],
-    [30, 34, 46],
-    [32, 32, 44],
-    [34, 30, 42],
+    [20, 38, 56], // strip retail, warm render
+    [24, 34, 52],
+    [26, 30, 48],
+    [28, 28, 46],
+    [30, 26, 44],
+    [32, 24, 42],
+    [34, 22, 40],
   ],
   2: [
     [0, 0, 0],
-    [190, 35, 60], // shop
-    [195, 45, 55], // office, glassy cyan
-    [210, 40, 48], // tower
-    [206, 46, 50], // glass mid-rise
-    [211, 50, 46], // office slab
-    [216, 53, 44], // corporate tower
-    [221, 56, 42], // skyscraper
+    [188, 28, 58], // shop
+    [196, 32, 50], // office, glassy cyan
+    [208, 32, 44], // tower
+    [204, 36, 42], // glass mid-rise
+    [209, 38, 40], // office slab
+    [214, 40, 38], // corporate tower
+    [219, 42, 36], // skyscraper
   ],
   3: [
     [0, 0, 0],
-    [222, 30, 40],
-    [224, 32, 36],
-    [226, 34, 32], // dark glass tower
-    [228, 36, 30],
-    [230, 38, 28],
-    [232, 40, 26],
-    [234, 42, 24],
+    [220, 22, 46],
+    [222, 24, 43],
+    [224, 26, 40], // dark glass tower — dark by *saturation*, not by going
+    [226, 28, 38], // black: a wall at l≈24 lit at 0.6 is unreadable mud, and
+    [228, 30, 36], // a downtown of them reads as a hole in the map
+    [230, 32, 34],
+    [232, 34, 32],
   ],
 };
 
 const I_PALETTES: Record<IndustryKind, [number, number, number][]> = {
   ag: [
     [0, 0, 0],
-    [14, 48, 42], // barn red
-    [14, 46, 40],
-    [14, 44, 38],
-    [14, 44, 38],
-    [14, 44, 38],
-    [14, 44, 38],
-    [14, 44, 38],
+    [12, 44, 40], // barn red
+    [12, 42, 38],
+    [12, 40, 36],
+    [12, 40, 36],
+    [12, 40, 36],
+    [12, 40, 36],
+    [12, 40, 36],
   ],
   dirty: [
     [0, 0, 0],
-    [35, 35, 55], // shed, ochre
-    [25, 30, 48], // works, rust
-    [20, 25, 42], // factory
-    [18, 23, 40], // heavy works
-    [15, 21, 38], // refinery block
-    [12, 19, 36], // industrial complex
-    [10, 17, 34], // mega-plant
+    [34, 30, 52], // shed, ochre
+    [24, 26, 46], // works, rust
+    [20, 22, 40], // factory
+    [18, 20, 38], // heavy works
+    [15, 18, 36], // refinery block
+    [12, 17, 34], // industrial complex
+    [10, 15, 32], // mega-plant
   ],
   manu: [
     [0, 0, 0],
-    [210, 8, 58], // mid-grey shed
-    [210, 8, 54],
-    [212, 9, 50],
-    [212, 9, 48],
-    [214, 10, 46],
-    [214, 10, 44],
-    [216, 11, 42],
+    [206, 7, 56], // mid-grey shed
+    [206, 7, 52],
+    [208, 8, 48],
+    [208, 8, 46],
+    [210, 9, 44],
+    [210, 9, 42],
+    [212, 10, 40],
   ],
   tech: [
     [0, 0, 0],
-    [175, 22, 72], // clean white-teal
-    [175, 24, 70],
-    [177, 26, 68],
-    [177, 28, 66],
-    [179, 30, 64],
-    [179, 32, 62],
-    [181, 34, 60],
+    [176, 18, 70], // clean white-teal
+    [176, 20, 68],
+    [178, 22, 65],
+    [178, 24, 62],
+    [180, 26, 59],
+    [180, 28, 56],
+    [182, 30, 53],
   ],
 };
 
@@ -144,22 +167,17 @@ function paletteFor(zone: Zone, tier: Tier, stage: Stage): [number, number, numb
   return [0, 0, 50];
 }
 
-function hsl(h: number, s: number, l: number): string {
-  return `hsl(${h} ${s}% ${l}%)`;
-}
+// ---------------------------------------------------------------------------
+// Small shared helpers, kept at their old names for the rest of the renderer
+// ---------------------------------------------------------------------------
 
-export function fillPoly(ctx: CanvasRenderingContext2D, pts: [number, number][], fill: string) {
-  ctx.beginPath();
-  ctx.moveTo(pts[0][0], pts[0][1]);
-  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
-  ctx.closePath();
-  ctx.fillStyle = fill;
-  ctx.fill();
+export function fillPoly(ctx: CanvasRenderingContext2D, pts: [number, number][], style: string) {
+  fill(ctx, pts, style);
 }
 
 /** Fill the tile's ground quad. */
-export function fillTile(ctx: CanvasRenderingContext2D, geom: TileGeom, fill: string) {
-  fillPoly(ctx, geom.corners, fill);
+export function fillTile(ctx: CanvasRenderingContext2D, geom: TileGeom, style: string) {
+  fill(ctx, geom.corners, style);
 }
 
 export function strokeTile(
@@ -177,369 +195,65 @@ export function strokeTile(
   ctx.stroke();
 }
 
-interface Face {
-  a: [number, number]; // bottom corners of a visible wall
-  b: [number, number];
-  brightness: number; // 0..1 lighting factor
+/** The tile geometry as the massing module's Quad. */
+function quadOf(geom: TileGeom): Quad {
+  return geom.corners.slice(0, 4) as Quad;
 }
 
-type Pt = [number, number];
-const mid = (a: Pt, b: Pt): Pt => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-const lerp2 = (a: Pt, b: Pt, t: number): Pt => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
-
-/** Shift a tile's geometry by a tile-space offset (ox, oy in tile-fraction
- * units), so sub-boxes and props rotate with the view for free. */
-function shiftGeom(geom: TileGeom, ox: number, oy: number): TileGeom {
-  const [c0, c1, , c3] = geom.corners;
-  const dx = ox * (c1[0] - c0[0]) + oy * (c3[0] - c0[0]);
-  const dy = ox * (c1[1] - c0[1]) + oy * (c3[1] - c0[1]);
-  return {
-    cx: geom.cx + dx,
-    cy: geom.cy + dy,
-    corners: geom.corners.map(([px, py]) => [px + dx, py + dy] as Pt),
-  };
+/** Shift a quad by a tile-space offset, in units of the tile's own diagonal. */
+function offsetQuad(q: Quad, ox: number, oy: number): Quad {
+  const dx = ox * (q[1][0] - q[0][0]) + oy * (q[3][0] - q[0][0]);
+  const dy = ox * (q[1][1] - q[0][1]) + oy * (q[3][1] - q[0][1]);
+  return q.map(([x, y]) => [x + dx, y + dy] as Pt) as Quad;
 }
 
-/** Point on the roof at fractional (u, v) across the footprint quad. */
-function roofPt(foot: Pt[], h: number, u: number, v: number): Pt {
-  const top = lerp2(foot[0], foot[1], u);
-  const bot = lerp2(foot[3], foot[2], u);
-  const p = lerp2(top, bot, v);
-  return [p[0], p[1] - h];
+/** The season the trees are wearing this frame. */
+let season: Season = 'summer';
+export function setRenderSeason(s: Season): void {
+  season = effectiveSeason(s);
 }
 
-/**
- * Pseudo-3D box rising from the tile. Footprint is the ground quad inset
- * toward the center by fraction f. The corners run clockwise on screen at
- * every view angle, so a wall is camera-facing exactly when its projected
- * edge runs right-to-left (dx < 0); brightness follows the outward normal
- * so the "sun" stays screen-left at every rotation.
- */
-function box(
-  ctx: CanvasRenderingContext2D,
-  geom: TileGeom,
-  f: number,
-  h: number,
-  hue: number,
-  sat: number,
-  lit: number,
-): { faces: Face[]; foot: [number, number][] } {
-  const skin = getSkin();
-  [hue, sat, lit] = skin.building(hue, sat, lit);
-  const foot: [number, number][] = geom.corners.map(([px, py]) => [
-    geom.cx + (px - geom.cx) * f,
-    geom.cy + (py - geom.cy) * f,
-  ]);
-
-  const faces: Face[] = [];
-  for (let i = 0; i < 4; i++) {
-    const a = foot[i];
-    const b = foot[(i + 1) % 4];
-    const dx = b[0] - a[0];
-    if (dx >= -1e-9) continue; // back face (or edge-on sliver at axis angles)
-    const dy = b[1] - a[1];
-    const len = Math.hypot(dx, dy) || 1;
-    const brightness = 0.62 + 0.18 * (dy / len + 1) / 2;
-    faces.push({ a, b, brightness });
-    fillPoly(
-      ctx,
-      [a, b, [b[0], b[1] - h], [a[0], a[1] - h]],
-      hsl(hue, sat, lit * brightness),
-    );
-  }
-
-  if (getRenderStyle() === 'realistic' && h > 8) {
-    // ambient occlusion: walls darken where they meet the ground
-    ctx.strokeStyle = 'rgba(15, 18, 14, 0.20)';
-    ctx.lineWidth = 3;
-    for (const face of faces) {
-      ctx.beginPath();
-      ctx.moveTo(face.a[0], face.a[1] - 1.5);
-      ctx.lineTo(face.b[0], face.b[1] - 1.5);
-      ctx.stroke();
-    }
-  }
-
-  fillPoly(
-    ctx,
-    foot.map(([px, py]) => [px, py - h] as [number, number]),
-    hsl(hue, sat * 0.7, Math.min(90, lit * 1.12)),
-  );
-
-  if (skin.outline > 0) {
-    // cartoon ink: outline every visible face and the roof
-    ctx.strokeStyle = 'rgba(25, 18, 28, 0.85)';
-    ctx.lineWidth = skin.outline;
-    for (const face of faces) {
-      ctx.beginPath();
-      ctx.moveTo(face.a[0], face.a[1]);
-      ctx.lineTo(face.b[0], face.b[1]);
-      ctx.lineTo(face.b[0], face.b[1] - h);
-      ctx.lineTo(face.a[0], face.a[1] - h);
-      ctx.closePath();
-      ctx.stroke();
-    }
-    ctx.beginPath();
-    const roof = foot.map(([px, py]) => [px, py - h] as [number, number]);
-    ctx.moveTo(roof[0][0], roof[0][1]);
-    for (let i = 1; i < 4; i++) ctx.lineTo(roof[i][0], roof[i][1]);
-    ctx.closePath();
-    ctx.stroke();
-  }
-  return { faces, foot };
+/** Kept for compatibility with the old canopy hook; the season now drives it. */
+export function setCanopyColor(_c: string): void {
+  /* trees take their colour from the season, see scenery.ts */
 }
 
-function windows(
-  ctx: CanvasRenderingContext2D,
-  faces: Face[],
-  h: number,
-  litUp: boolean,
-  night: number,
-  style: WindowStyle,
-) {
-  ctx.strokeStyle = litUp
-    ? `rgba(255, ${Math.round(240 - 30 * night)}, ${Math.round(160 - 60 * night)}, ${0.55 + 0.4 * night})`
-    : 'rgba(20,20,30,0.45)';
-  ctx.lineWidth = 1.5;
-  if (style === 'columns') {
-    for (const face of faces) {
-      for (let t = 0.2; t <= 0.81; t += 0.15) {
-        const x = face.a[0] + (face.b[0] - face.a[0]) * t;
-        const y = face.a[1] + (face.b[1] - face.a[1]) * t;
-        ctx.beginPath();
-        ctx.moveTo(x, y - 4);
-        ctx.lineTo(x, y - Math.max(5, h - 5));
-        ctx.stroke();
-      }
-    }
-    return;
-  }
-  if (style === 'grid') ctx.setLineDash([2.5, 2.5]);
-  for (const face of faces) {
-    const ax = face.a[0] + (face.b[0] - face.a[0]) * 0.12;
-    const ay = face.a[1] + (face.b[1] - face.a[1]) * 0.12;
-    const bx = face.a[0] + (face.b[0] - face.a[0]) * 0.88;
-    const by = face.a[1] + (face.b[1] - face.a[1]) * 0.88;
-    for (let wy = 6; wy < h - 4; wy += 6) {
-      ctx.beginPath();
-      ctx.moveTo(ax, ay - wy);
-      ctx.lineTo(bx, by - wy);
-      ctx.stroke();
-    }
-  }
-  ctx.setLineDash([]);
-}
-
-/** Sprite windows for close zoom: discrete cells in a grid, a few lit
- * at night — the pixel-art read the stripe shorthand can't give. */
-function windowCells(
-  ctx: CanvasRenderingContext2D,
-  faces: Face[],
-  h: number,
-  occupied: boolean,
-  night: number,
-) {
-  for (const face of faces) {
-    const len = Math.hypot(face.b[0] - face.a[0], face.b[1] - face.a[1]);
-    const cols = Math.max(2, Math.floor(len / 7));
-    for (let wy = 6; wy < h - 4; wy += 7) {
-      for (let c = 0; c < cols; c++) {
-        const u = 0.14 + (0.72 * (c + 0.5)) / cols;
-        const p = lerp2(face.a, face.b, u);
-        // a stable pseudo-random per cell decides who's home after dark
-        const litRoll = Math.abs(Math.sin(p[0] * 12.9898 + wy * 78.233)) % 1;
-        const lit = occupied && night > 0.25 && litRoll > 0.45;
-        ctx.fillStyle = lit
-          ? `rgba(255, 214, 130, ${0.5 + 0.4 * night})`
-          : occupied
-            ? 'rgba(50, 60, 76, 0.55)'
-            : 'rgba(25, 26, 30, 0.6)';
-        ctx.fillRect(p[0] - 1.5, p[1] - wy - 4, 3, 4);
-      }
-    }
-  }
-}
-
-/** Roof cap over the full-height mass. 'flat' is box()'s own lightened cap. */
-function drawRoof(
-  ctx: CanvasRenderingContext2D,
-  foot: Pt[],
-  h: number,
-  style: RoofStyle,
-  hue: number,
-  sat: number,
-  lit: number,
-) {
-  const roof = foot.map(([x, y]) => [x, y - h] as Pt);
-  if (style === 'parapet') {
-    ctx.strokeStyle = hsl(hue, sat, lit * 0.55);
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(roof[0][0], roof[0][1]);
-    for (let i = 1; i < 4; i++) ctx.lineTo(roof[i][0], roof[i][1]);
-    ctx.closePath();
-    ctx.stroke();
-    return;
-  }
-  if (style === 'gabled') {
-    const rh = Math.min(10, 4 + h * 0.2);
-    const a = mid(roof[0], roof[3]);
-    const b = mid(roof[1], roof[2]);
-    // gable ends first, then the slopes over them
-    fillPoly(ctx, [roof[0], roof[3], [a[0], a[1] - rh]], hsl(hue, sat, lit * 0.9));
-    fillPoly(ctx, [roof[1], roof[2], [b[0], b[1] - rh]], hsl(hue, sat, lit * 0.9));
-    fillPoly(ctx, [roof[0], roof[1], [b[0], b[1] - rh], [a[0], a[1] - rh]], hsl(hue, sat * 0.9, lit * 0.8));
-    fillPoly(ctx, [roof[3], roof[2], [b[0], b[1] - rh], [a[0], a[1] - rh]], hsl(hue, sat * 0.9, lit * 0.62));
-    return;
-  }
-  if (style === 'sawtooth') {
-    const q = (t: number, s: number): Pt =>
-      lerp2(lerp2(roof[0], roof[1], t), lerp2(roof[3], roof[2], t), s);
-    for (let k = 0; k < 3; k++) {
-      const t0 = k / 3;
-      const t1 = (k + 1) / 3;
-      const a = q(t0, 0);
-      const b = q(t0, 1);
-      const c = q(t1, 1);
-      const d = q(t1, 0);
-      fillPoly(ctx, [a, b, [b[0], b[1] - 3], [a[0], a[1] - 3]], hsl(hue, sat, lit * 0.5));
-      fillPoly(ctx, [[a[0], a[1] - 3], [b[0], b[1] - 3], c, d], hsl(hue, sat, lit * 0.78));
-    }
-  }
-}
-
-function drawProp(ctx: CanvasRenderingContext2D, kind: PropKind, x: number, y: number) {
-  switch (kind) {
-    case 'waterTower':
-      ctx.strokeStyle = '#5a5248';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x - 3, y);
-      ctx.lineTo(x - 3, y - 6);
-      ctx.moveTo(x + 3, y);
-      ctx.lineTo(x + 3, y - 6);
-      ctx.stroke();
-      ctx.fillStyle = '#8a7f6d';
-      ctx.fillRect(x - 4, y - 13, 8, 7);
-      fillPoly(ctx, [[x - 4, y - 13], [x + 4, y - 13], [x, y - 17]], '#6e6557');
-      break;
-    case 'acUnit':
-      ctx.fillStyle = '#9aa0a6';
-      ctx.fillRect(x - 3, y - 3, 5, 4);
-      ctx.fillStyle = '#7d838a';
-      ctx.fillRect(x + 3, y - 2, 3, 3);
-      break;
-    case 'antenna':
-      ctx.strokeStyle = '#cfd2d6';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x, y - 12);
-      ctx.stroke();
-      ctx.fillStyle = '#e05548';
-      ctx.fillRect(x - 1, y - 13, 2, 2);
-      break;
-    case 'chimney':
-      ctx.fillStyle = '#8a5a48';
-      ctx.fillRect(x - 1.5, y - 9, 3, 9);
-      ctx.fillStyle = '#6e483a';
-      ctx.fillRect(x - 2, y - 10, 4, 2);
-      break;
-    case 'vent':
-      ctx.fillStyle = '#848a90';
-      ctx.fillRect(x - 3, y - 4, 6, 4);
-      ctx.strokeStyle = '#5f646a';
-      ctx.lineWidth = 0.8;
-      ctx.beginPath();
-      ctx.moveTo(x - 2, y - 3);
-      ctx.lineTo(x + 2, y - 3);
-      ctx.moveTo(x - 2, y - 1.5);
-      ctx.lineTo(x + 2, y - 1.5);
-      ctx.stroke();
-      break;
-    case 'tank':
-      ctx.fillStyle = '#b9bdb6';
-      ctx.beginPath();
-      ctx.arc(x, y - 4, 4.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#8f948d';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(x, y - 4, 4.5, 0, Math.PI * 2);
-      ctx.stroke();
-      break;
-    case 'yardTree':
-      tree(ctx, x, y);
-      break;
-    case 'hedge':
-      ctx.fillStyle = 'hsl(115 40% 26%)';
-      ctx.fillRect(x - 5, y - 3, 10, 3);
-      break;
-    case 'awning':
-      break; // drawn along the wall base in drawArchetype
-  }
-}
-
-function smokestack(ctx: CanvasRenderingContext2D, cx: number, cy: number, h: number) {
-  ctx.fillStyle = '#6b625c';
-  ctx.fillRect(cx, cy - h - 16, 5, 16);
-  ctx.fillStyle = '#544d48';
-  ctx.fillRect(cx, cy - h - 16, 5, 3);
-}
-
-/** Canopy color for the current frame; the renderer sets it from the
- * season each draw so every tree — forest or yard — turns together. */
-let canopyColor = 'hsl(120 45% 30%)';
-
-export function setCanopyColor(c: string): void {
-  canopyColor = c;
-}
-
+/** A tree at (tx, ty). Retained for the handful of one-off call sites. */
 export function tree(ctx: CanvasRenderingContext2D, tx: number, ty: number, wind = 0) {
-  ctx.fillStyle = '#5d4534';
-  ctx.fillRect(tx - 1, ty, 2, 6);
-  ctx.beginPath();
-  // canopy whips leeward and droops slightly under hurricane wind
-  ctx.arc(tx + wind, ty - 3 + Math.abs(wind) * 0.15, 5, 0, Math.PI * 2);
-  ctx.fillStyle = canopyColor;
-  ctx.fill();
+  const v = Math.abs(Math.round(tx * 7 + ty * 13)) % 6;
+  drawTree(ctx, tx, ty, v === 4 ? 'conifer' : 'broadleaf', 15 + (v % 3) * 3, v, season, wind);
 }
 
 /** Utility pole glyph, used for power-line tiles and wires over roads. */
 export function drawPole(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
-  ctx.strokeStyle = '#8a7f72';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(cx, cy + 12);
-  ctx.lineTo(cx, cy - 22);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(cx - 8, cy - 18);
-  ctx.lineTo(cx + 8, cy - 18);
-  ctx.stroke();
+  const s = sprite('pole', { w: 24, h: 42, ax: 12, ay: 34 }, (c) => {
+    c.fillStyle = 'rgba(24, 30, 44, 0.22)';
+    c.beginPath();
+    c.ellipse(3, 0, 6, 2.6, 0, 0, Math.PI * 2);
+    c.fill();
+    const wood = hsl(28, 22, 34);
+    c.fillStyle = css(lit(wood, LIGHT.right));
+    c.fillRect(-1.4, -30, 2.8, 30);
+    c.fillStyle = css(lit(wood, LIGHT.left * 1.1));
+    c.fillRect(-1.4, -30, 1.1, 30);
+    c.fillStyle = css(lit(wood, LIGHT.roof));
+    c.fillRect(-8, -26, 16, 1.6);
+    c.fillStyle = 'rgba(140, 160, 180, 0.9)';
+    for (const dx of [-6, -2, 2, 6]) c.fillRect(dx - 0.5, -28.5, 1, 2.5);
+  });
+  blit(ctx, s, cx, cy);
 }
 
-/** Soft ground shadow: the footprint diamond nudged SE. The sun is fixed
- * in screen space, so shadows swing with camera rotation — an accepted
- * stylization that keeps every frame consistent. */
+/** Soft ground shadow under a small object. */
 export function drawShadow(ctx: CanvasRenderingContext2D, geom: TileGeom, f: number) {
-  const at = (scale: number, dx: number, dy: number) =>
-    geom.corners.map(
-      ([px, py]) =>
-        [geom.cx + (px - geom.cx) * f * scale + dx, geom.cy + (py - geom.cy) * f * scale + dy] as Pt,
-    );
-  if (getRenderStyle() === 'realistic') {
-    // a wide faint penumbra under a tighter core reads as a soft shadow
-    fillPoly(ctx, at(1.25, 6, 4), 'rgba(20, 24, 18, 0.14)');
-    fillPoly(ctx, at(1.0, 5, 3), 'rgba(20, 24, 18, 0.22)');
-    return;
-  }
-  fillPoly(ctx, at(1.0, 5, 3), 'rgba(20, 24, 18, 0.30)');
+  contactShadow(ctx, inset(quadOf(geom), f), 1);
 }
 
 /** Yellow "no power" bolt centered at (bx, by). */
 export function drawNoPowerBolt(ctx: CanvasRenderingContext2D, bx: number, by: number) {
   ctx.fillStyle = '#ffd23f';
+  ctx.strokeStyle = 'rgba(40, 30, 0, 0.55)';
+  ctx.lineWidth = 1.2;
   ctx.beginPath();
   ctx.moveTo(bx + 2, by - 10);
   ctx.lineTo(bx - 3, by - 1);
@@ -548,6 +262,7 @@ export function drawNoPowerBolt(ctx: CanvasRenderingContext2D, bx: number, by: n
   ctx.lineTo(bx + 4, by - 3);
   ctx.lineTo(bx + 0.5, by - 3);
   ctx.closePath();
+  ctx.stroke();
   ctx.fill();
 }
 
@@ -558,244 +273,1464 @@ export const ZONE_TINT: Partial<Record<Zone, string>> = {
   [Zone.Industrial]: 'rgba(235,200,60,0.30)',
 };
 
-/** Farmland: tilled ground stripes and a low barn. Never a smokestack. */
-function farm(ctx: CanvasRenderingContext2D, geom: TileGeom, variant: number) {
-  const { cx, cy } = geom;
-  const chan = channels(variant);
-  const layout = pickFarmLayout(chan());
-  fillTile(ctx, geom, `hsl(74 32% ${36 + Math.floor(chan() * 6)}%)`);
-  ctx.strokeStyle = 'rgba(60, 48, 28, 0.35)';
-  ctx.lineWidth = 1;
-  for (let k = -2; k <= 2; k++) {
-    ctx.beginPath();
-    if (layout.furrowAngle === 0) {
-      ctx.moveTo(cx - 20 + k * 3, cy + k * 5);
-      ctx.lineTo(cx + 20 + k * 3, cy + k * 5 - 2);
-    } else {
-      ctx.moveTo(cx + k * 6 - 2, cy - 10 + k * 2);
-      ctx.lineTo(cx + k * 6 + 2, cy + 10 + k * 2);
-    }
-    ctx.stroke();
-  }
-  const bg = shiftGeom(geom, layout.barnOx, layout.barnOy);
-  box(ctx, bg, 0.3, 10 + chan() * 5, 14, 48, 42);
-  if (layout.extra === 'silo') {
-    const sg = shiftGeom(geom, -layout.barnOx, -layout.barnOy);
-    ctx.fillStyle = '#c9c4b4';
-    ctx.fillRect(sg.cx - 2.5, sg.cy - 16, 5, 14);
-    ctx.fillStyle = '#a8a294';
-    ctx.beginPath();
-    ctx.arc(sg.cx, sg.cy - 16, 2.5, Math.PI, 0);
-    ctx.fill();
-  } else if (layout.extra === 'coop') {
-    const cg = shiftGeom(geom, -layout.barnOx * 0.8, -layout.barnOy * 0.8);
-    box(ctx, cg, 0.16, 5, 30, 35, 55);
+const ZONE_STAKE: Partial<Record<Zone, Hsl>> = {
+  [Zone.Residential]: hsl(126, 62, 48),
+  [Zone.Commercial]: hsl(214, 74, 58),
+  [Zone.Industrial]: hsl(46, 78, 54),
+};
+
+/** A zoned but undeveloped lot: graded ground, boundary pegs, survey string. */
+function drawSurveyedLot(ctx: CanvasRenderingContext2D, geom: TileGeom, zone: Zone) {
+  const q = inset(quadOf(geom), 0.9);
+  fill(ctx, q, 'rgba(122, 104, 74, 0.34)');
+  const peg = ZONE_STAKE[zone];
+  if (!peg) return;
+  ctx.strokeStyle = css(peg, 0.75);
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  ctx.moveTo(q[0][0], q[0][1]);
+  for (let i = 1; i < 4; i++) ctx.lineTo(q[i][0], q[i][1]);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = css(peg);
+  for (const [px, py] of q) ctx.fillRect(px - 1, py - 4, 2, 4);
+}
+
+// ---------------------------------------------------------------------------
+// Growable lots: R / C / I
+// ---------------------------------------------------------------------------
+
+type FamilyKey = 'R1' | 'R2' | 'R3' | 'C1' | 'C2' | 'C3' | 'dirty' | 'manu' | 'tech' | 'ag';
+
+function familyOf(zone: Zone, tier: Tier): FamilyKey {
+  const t = normalizeTier(zone, tier);
+  if (zone === Zone.Industrial) return t as FamilyKey;
+  return `${zone === Zone.Residential ? 'R' : 'C'}${t as Wealth}` as FamilyKey;
+}
+
+interface LotStyle {
+  wall: MaterialKind;
+  windows: WindowPattern;
+  /** Draw a parapet lip round flat roofs. */
+  lip: boolean;
+}
+
+/** What a lot is *made of*: the difference between a brick terrace and a
+ * curtain-wall tower is a material, not another colour ramp. */
+function styleFor(fam: FamilyKey, stage: Stage, pick: number): LotStyle {
+  const tall = stage >= 5;
+  const mid = stage >= 3;
+  switch (fam) {
+    case 'R1':
+      return { wall: stage <= 2 ? 'timber' : 'render', windows: 'punched', lip: mid };
+    case 'R2':
+      return {
+        wall: stage <= 2 ? (pick > 0.5 ? 'brick' : 'render') : tall ? 'concrete' : 'brick',
+        windows: 'punched',
+        lip: mid,
+      };
+    case 'R3':
+      return {
+        wall: tall ? 'glass' : stage <= 2 ? 'stone' : 'render',
+        windows: tall ? 'curtain' : 'punched',
+        lip: true,
+      };
+    case 'C1':
+      return { wall: stage <= 2 ? 'render' : 'brick', windows: 'punched', lip: mid };
+    case 'C2':
+      return {
+        wall: mid ? 'glass' : pick > 0.45 ? 'render' : 'brick',
+        windows: mid ? 'ribbon' : 'punched',
+        lip: true,
+      };
+    case 'C3':
+      return { wall: 'glass', windows: tall ? 'curtain' : 'ribbon', lip: true };
+    case 'dirty':
+      return { wall: mid ? 'concrete' : 'metal', windows: stage >= 2 ? 'ribbon' : 'none', lip: false };
+    case 'manu':
+      return { wall: 'metal', windows: 'ribbon', lip: false };
+    case 'tech':
+      return { wall: mid ? 'glass' : 'metal', windows: 'ribbon', lip: true };
+    case 'ag':
+    default:
+      return { wall: 'timber', windows: 'punched', lip: false };
   }
 }
 
-const GROUND_SPOTS: Pt[] = [[0.3, 0.3], [-0.32, 0.25], [0.28, -0.3], [-0.3, -0.3]];
-const GROUND_PROPS: PropKind[] = ['tank', 'yardTree', 'hedge'];
+/** How many distinct looks a (zone, stage, tier) gets. Enough that a street
+ * never repeats next door; few enough that the sprite cache stays small.
+ * Each bucket also draws a different archetype and palette family, so six
+ * buckets is well over six visibly different buildings. */
+const VARIANTS = 6;
 
-function drawArchetype(
-  ctx: CanvasRenderingContext2D,
-  geom: TileGeom,
-  arch: Archetype,
-  stage: Stage,
-  zone: Zone,
-  baseH: number,
-  hue: number,
-  sat: number,
-  lit: number,
-  abandoned: boolean,
-  night: number,
-  chan: () => number,
-  detail: 0 | 1 | 2 = 1,
-): { faces: Face[]; foot: Pt[] } | null {
-  const budget = footprintBudget(stage);
-  // draw masses back-to-front under the current rotation
-  const masses = arch.boxes
-    .map((sb) => ({ sb, g: shiftGeom(geom, sb.ox * budget, sb.oy * budget) }))
-    .sort((a, b) => a.g.cy - b.g.cy);
-  let primary: { faces: Face[]; foot: Pt[] } | null = null;
-  for (const { sb, g } of masses) {
-    const r = box(ctx, g, sb.f * budget, baseH * sb.hf, hue, sat, lit);
-    if (sb.hf === 1) primary = r;
-  }
-  if (!primary) return null;
-
-  // decorations run through the skin exactly like walls do
-  const [dh, ds, dl] = getSkin().building(hue, sat, lit);
-  drawRoof(ctx, primary.foot, baseH, arch.roof, dh, ds, dl);
-  if (detail >= 1 && stage >= 2 && zone !== Zone.Industrial) {
-    if (detail === 2) {
-      windowCells(ctx, primary.faces, baseH, !abandoned, night);
-    } else {
-      windows(ctx, primary.faces, baseH, !abandoned, night, arch.windows);
-    }
-  }
-
-  if (abandoned) return primary; // ruins keep walls and roof, lose the trimmings
-  if (detail === 0) return primary; // far zoom: masses and roofs carry the read
-  let spot = 0;
-  for (const kind of arch.props) {
-    if (chan() > 0.85) continue; // most lots carry the prop; some go without
-    if (kind === 'awning') {
-      ctx.strokeStyle = hsl((dh + 150) % 360, 55, 55);
-      ctx.lineWidth = 2.5;
-      for (const face of primary.faces) {
-        const a = lerp2(face.a, face.b, 0.1);
-        const b = lerp2(face.a, face.b, 0.9);
-        ctx.beginPath();
-        ctx.moveTo(a[0], a[1] - 6);
-        ctx.lineTo(b[0], b[1] - 6);
-        ctx.stroke();
-      }
-    } else if (GROUND_PROPS.includes(kind)) {
-      const [gx, gy] = GROUND_SPOTS[spot++ % GROUND_SPOTS.length];
-      const g = shiftGeom(geom, gx, gy);
-      drawProp(ctx, kind, g.cx, g.cy);
-    } else {
-      const p = roofPt(primary.foot, baseH, 0.3 + chan() * 0.4, 0.3 + chan() * 0.4);
-      drawProp(ctx, kind, p[0], p[1]);
-    }
-  }
-  return primary;
+export function variantBucket(variant: number): number {
+  return Math.min(VARIANTS - 1, Math.floor(variant * VARIANTS));
 }
 
-/** Street-level life: doors on houses and shops, an entry band on
- * towers, a storefront strip (plus close-up signage) on commercial.
- * Expects a non-abandoned lot at detail ≥ 1. */
-function drawStreetLevel(
-  ctx: CanvasRenderingContext2D,
-  primary: { faces: Face[]; foot: Pt[] },
-  zone: Zone,
-  stage: Stage,
-  detail: 0 | 1 | 2,
-  chan: () => number,
-  entity: Entity | null = null,
-) {
-  if (zone !== Zone.Residential && zone !== Zone.Commercial && zone !== Zone.Industrial) return;
-  if (primary.faces.length === 0) return;
-  const front = primary.faces.reduce(
-    (p, f) => (f.a[1] + f.b[1] > p.a[1] + p.b[1] ? f : p),
-    primary.faces[0],
+/** The height a growable lot's tallest mass reaches, in screen pixels. */
+export function growableHeight(zone: Zone, stage: Stage, tier: Tier, bucket: number): number {
+  return (
+    (HEIGHTS[zone]?.[stage] ?? 12) *
+    heightScaleFor(zone, tier) *
+    (0.9 + (bucket / VARIANTS) * 0.2) *
+    getSkin().heightScale
   );
-  if (entity) {
-    // the business board: entity-colored sign hung on the front wall
-    const p = lerp2(front.a, front.b, 0.35);
-    ctx.fillStyle = `hsl(${entity.hue} 65% 48%)`;
-    ctx.fillRect(p[0] - 5.5, p[1] - 14, 11, 5.5);
-    ctx.strokeStyle = 'rgba(250, 250, 245, 0.85)';
-    ctx.lineWidth = 0.8;
-    ctx.strokeRect(p[0] - 5.5, p[1] - 14, 11, 5.5);
-    if (detail === 2) {
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 5px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(entity.initials, p[0], p[1] - 9.8);
-      ctx.textAlign = 'left';
+}
+
+/** Rooftop furniture, drawn on the lifted roof quad. */
+function roofKit(
+  ctx: CanvasRenderingContext2D,
+  roof: Quad,
+  kinds: PropKind[],
+  body: Hsl,
+  seed: number,
+  h: number,
+): void {
+  const cx = (roof[0][0] + roof[2][0]) / 2;
+  const cy = (roof[1][1] + roof[3][1]) / 2;
+  const hw = roof[1][0] - cx;
+  const hh = roof[2][1] - cy;
+  const spot = (k: number): [number, number] => {
+    const u = hash2(k, 1, seed) * 1.1 - 0.55;
+    const v = hash2(k, 2, seed) * 1.1 - 0.55;
+    const s = Math.min(1, 0.72 / (Math.abs(u) + Math.abs(v) + 1e-6));
+    return [cx + u * s * hw, cy + v * s * hh];
+  };
+  const metal = material('metal', hsl(210, 5, 58));
+  let k = 0;
+  for (const kind of kinds) {
+    // Most lots carry their props; a mast is the exception. Antennas on every
+    // tower turned downtown into a pin cushion, so only about one in five gets
+    // one and the rest take their silhouette from the crown instead.
+    const chance = kind === 'antenna' ? 0.2 : 0.82;
+    if (hash2(k, 9, seed) > chance) {
+      k++;
+      continue;
+    }
+    const [x, y] = spot(k++);
+    switch (kind) {
+      case 'acUnit': {
+        const q = diamond(x, y, 5, 2.5);
+        prism(ctx, q, 4, metal, { seed, groundAo: false });
+        ctx.fillStyle = 'rgba(30, 36, 44, 0.6)';
+        for (let f = -1; f <= 1; f++) ctx.fillRect(x - 3 + f * 2.4, y - 5.6, 1.2, 2.6);
+        break;
+      }
+      case 'vent': {
+        const q = diamond(x, y, 3.4, 1.7);
+        prism(ctx, q, 3, metal, { seed, groundAo: false });
+        break;
+      }
+      case 'waterTower': {
+        ctx.strokeStyle = css(lit(hsl(26, 20, 34), LIGHT.right));
+        ctx.lineWidth = 1.2;
+        for (const dx of [-3.4, 3.4]) {
+          ctx.beginPath();
+          ctx.moveTo(x + dx, y);
+          ctx.lineTo(x + dx * 0.6, y - 8);
+          ctx.stroke();
+        }
+        const tank = hsl(30, 22, 44);
+        ctx.fillStyle = css(lit(tank, LIGHT.right));
+        ctx.fillRect(x - 4.6, y - 16, 9.2, 8);
+        ctx.fillStyle = css(lit(tank, LIGHT.left * 1.12));
+        ctx.fillRect(x - 4.6, y - 16, 3.4, 8);
+        fill(
+          ctx,
+          [
+            [x - 5, y - 16],
+            [x + 5, y - 16],
+            [x, y - 21],
+          ],
+          css(lit(tank, LIGHT.roof * 0.9)),
+        );
+        break;
+      }
+      case 'antenna': {
+        const th = 11 + hash2(k, 4, seed) * 9 + h * 0.06;
+        ctx.strokeStyle = 'rgba(196, 204, 214, 0.95)';
+        ctx.lineWidth = 1.1;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y - th);
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(196, 204, 214, 0.55)';
+        ctx.lineWidth = 0.7;
+        for (const dx of [-4, 4]) {
+          ctx.beginPath();
+          ctx.moveTo(x, y - th * 0.72);
+          ctx.lineTo(x + dx, y);
+          ctx.stroke();
+        }
+        ctx.fillStyle = '#ff5a4a';
+        ctx.fillRect(x - 1, y - th - 2, 2, 2);
+        break;
+      }
+      case 'chimney': {
+        const q = diamond(x, y, 2.4, 1.2);
+        prism(ctx, q, 9 + hash2(k, 5, seed) * 4, material('brick', mix(body, hsl(14, 34, 34), 0.7)), {
+          seed,
+          groundAo: false,
+        });
+        break;
+      }
+      case 'tank': {
+        const c = hsl(200, 8, 62);
+        ctx.fillStyle = css(lit(c, LIGHT.right));
+        ctx.beginPath();
+        ctx.ellipse(x, y - 4, 5, 4.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = css(lit(c, LIGHT.roof));
+        ctx.beginPath();
+        ctx.ellipse(x - 1.2, y - 5.6, 3.4, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      }
+      default:
+        break;
     }
   }
-  if (zone === Zone.Industrial) return; // doors/storefronts are R/C dressing
-  if (zone === Zone.Commercial && stage >= 2) {
-    // storefront strip along the base of every visible wall
-    ctx.strokeStyle = 'rgba(240, 235, 210, 0.5)';
-    ctx.lineWidth = 2.5;
-    for (const face of primary.faces) {
+  // a stair penthouse on anything with a real roof to reach
+  if (h > 40) {
+    const q = diamond(cx + hw * 0.24, cy + hh * 0.18, Math.max(5, hw * 0.24), Math.max(2.6, hh * 0.24));
+    prism(ctx, q, 7, material('concrete', mix(body, hsl(216, 5, 44), 0.6)), { seed, groundAo: false });
+  }
+}
+
+/**
+ * What a tall building does at the top. A skyline of identical flat caps is
+ * the thing that most makes a procedural city look procedural, so anything
+ * over about six storeys takes one of four crowns from its seed: a setback
+ * box, a stepped ziggurat, a sloped cap, or a plain machine floor.
+ */
+function towerCrown(
+  ctx: CanvasRenderingContext2D,
+  roof: Quad,
+  mat: ReturnType<typeof material>,
+  body: Hsl,
+  seed: number,
+): Quad {
+  const style = Math.floor(hash2(seed, 3, 517) * 4);
+  const cx = (roof[0][0] + roof[2][0]) / 2;
+  const cy = (roof[1][1] + roof[3][1]) / 2;
+  if (style === 0) {
+    // a single setback: one smaller box standing on the roof
+    const q = inset(roof, 0.66);
+    const r = prism(ctx, q, 12, mat, { seed, windows: 'ribbon', groundAo: false });
+    parapet(ctx, r.roof, material('concrete', mix(body, hsl(212, 6, 60), 0.5)), 1.6);
+    return r.roof;
+  }
+  if (style === 1) {
+    // stepped: three shrinking boxes, the classic setback skyscraper
+    let top = roof;
+    for (let k = 0; k < 3; k++) {
+      const r = prism(ctx, inset(top, 0.76), 8 - k * 1.6, mat, {
+        seed: seed + k,
+        windows: 'ribbon',
+        groundAo: false,
+      });
+      top = r.roof;
+    }
+    parapet(ctx, top, material('concrete', mix(body, hsl(212, 6, 62), 0.5)), 1.4);
+    return top;
+  }
+  if (style === 2) {
+    // a sloped cap: the roof pulled to a ridge, glazed on the sunny side
+    const rise = 14;
+    const a: Pt = [(roof[0][0] + roof[3][0]) / 2, (roof[0][1] + roof[3][1]) / 2 - rise];
+    const b: Pt = [(roof[1][0] + roof[2][0]) / 2, (roof[1][1] + roof[2][1]) / 2 - rise];
+    fill(ctx, [roof[1], roof[2], b], css(lit(mat.body, LIGHT.right * 0.95)));
+    fill(ctx, [roof[3], roof[2], b, a], css(lit(mat.glass, LIGHT.left * 1.2)));
+    fill(ctx, [roof[0], roof[1], b, a], css(lit(mat.body, LIGHT.roof * 0.9)));
+    ctx.strokeStyle = css(lit(mat.trim, LIGHT.roof * 1.15));
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+    ctx.stroke();
+    return [[cx, cy - rise], [cx, cy - rise], [cx, cy - rise], [cx, cy - rise]] as Quad;
+  }
+  // plain machine floor with a heavy cornice
+  parapet(ctx, roof, material('concrete', mix(body, hsl(210, 8, 56), 0.55)), 3);
+  return roof;
+}
+
+/** Roofing a pitched building can be wearing: terracotta, slate, weathered
+ * shingle, blue-grey tile, tin, and moss-stained green. */
+const ROOF_TILES: Hsl[] = [
+  hsl(14, 34, 32), // terracotta
+  hsl(210, 8, 30), // slate
+  hsl(28, 16, 26), // dark shingle
+  hsl(198, 14, 40), // blue-grey tile
+  hsl(36, 10, 46), // weathered tin
+  hsl(96, 12, 30), // moss-stained
+];
+
+/** Pitched, sawtooth and parapet roof caps over the main mass. */
+function roofCap(
+  ctx: CanvasRenderingContext2D,
+  roof: Quad,
+  style: RoofStyle,
+  body: Hsl,
+  seed: number,
+): void {
+  const cx = (roof[0][0] + roof[2][0]) / 2;
+  const cy = (roof[1][1] + roof[3][1]) / 2;
+  if (style === 'gabled') {
+    const rise = Math.min(13, 5 + (roof[1][0] - cx) * 0.32);
+    // A street of identical terracotta roofs is the giveaway that a town was
+    // generated; real ones mix slate, tile, shingle and tin.
+    const tile = mix(body, ROOF_TILES[Math.floor(hash2(seed, 6, 331) * ROOF_TILES.length)], 0.78);
+    const a: Pt = [(roof[0][0] + roof[3][0]) / 2, (roof[0][1] + roof[3][1]) / 2 - rise];
+    const b: Pt = [(roof[1][0] + roof[2][0]) / 2, (roof[1][1] + roof[2][1]) / 2 - rise];
+    // the two slopes, then the gable ends peeking out at the sides
+    fill(ctx, [roof[0], roof[3], a], css(lit(mix(body, tile, 0.3), LIGHT.left * 0.96)));
+    fill(ctx, [roof[1], roof[2], b], css(lit(mix(body, tile, 0.3), LIGHT.right * 0.96)));
+    fill(ctx, [roof[0], roof[1], b, a], css(lit(tile, LIGHT.roof * 0.92)));
+    fill(ctx, [roof[3], roof[2], b, a], css(lit(tile, LIGHT.left * 0.82)));
+    // ridge and a courses hint
+    ctx.strokeStyle = css(lit(tile, LIGHT.roof * 1.2));
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+    ctx.stroke();
+    ctx.strokeStyle = css(lit(tile, LIGHT.roof * 0.7), 0.5);
+    ctx.lineWidth = 0.8;
+    for (let t = 0.25; t < 1; t += 0.25) {
       ctx.beginPath();
-      ctx.moveTo(face.a[0], face.a[1] - 2);
-      ctx.lineTo(face.b[0], face.b[1] - 2);
+      ctx.moveTo(roof[0][0] + (a[0] - roof[0][0]) * t, roof[0][1] + (a[1] - roof[0][1]) * t);
+      ctx.lineTo(roof[1][0] + (b[0] - roof[1][0]) * t, roof[1][1] + (b[1] - roof[1][1]) * t);
       ctx.stroke();
     }
-    if (detail === 2) {
-      // a seeded-color sign hung over the storefront
-      const p = lerp2(front.a, front.b, 0.68);
-      ctx.fillStyle = `hsl(${Math.floor(chan() * 360)} 60% 55%)`;
-      ctx.fillRect(p[0] - 3, p[1] - 10, 6, 3.5);
+    return;
+  }
+  if (style === 'sawtooth') {
+    const teeth = 3;
+    const q = (t: number, s: number): Pt => {
+      const top: Pt = [
+        roof[0][0] + (roof[1][0] - roof[0][0]) * t,
+        roof[0][1] + (roof[1][1] - roof[0][1]) * t,
+      ];
+      const bot: Pt = [
+        roof[3][0] + (roof[2][0] - roof[3][0]) * t,
+        roof[3][1] + (roof[2][1] - roof[3][1]) * t,
+      ];
+      return [top[0] + (bot[0] - top[0]) * s, top[1] + (bot[1] - top[1]) * s];
+    };
+    const shell = mix(body, hsl(206, 6, 46), 0.55);
+    for (let k = 0; k < teeth; k++) {
+      const t0 = k / teeth;
+      const t1 = (k + 1) / teeth;
+      const a = q(t0, 0);
+      const b = q(t0, 1);
+      const c = q(t1, 1);
+      const d = q(t1, 0);
+      // the glazed north light, then the sloped deck over it
+      fill(
+        ctx,
+        [a, b, [b[0], b[1] - 4], [a[0], a[1] - 4]],
+        css(lit(hsl(198, 30, 52), LIGHT.left * 1.1)),
+      );
+      fill(ctx, [[a[0], a[1] - 4], [b[0], b[1] - 4], c, d], css(lit(shell, LIGHT.roof * 0.94)));
+    }
+    return;
+  }
+  if (style === 'parapet') {
+    parapet(ctx, roof, material('concrete', mix(body, hsl(210, 6, 62), 0.5)), 2.4);
+    return;
+  }
+  // 'flat' — prism() already capped it; add a drip edge so it isn't a bare plate
+  ctx.strokeStyle = css(lit(body, LIGHT.roof * 1.25), 0.6);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(roof[0][0], roof[0][1]);
+  for (let i = 1; i < 4; i++) ctx.lineTo(roof[i][0], roof[i][1]);
+  ctx.closePath();
+  ctx.stroke();
+  void seed;
+  void cy;
+}
+
+/** Doors, shopfronts and signage along the front wall — the marks that make a
+ * lot legible as somewhere people go. */
+function streetLevel(
+  ctx: CanvasRenderingContext2D,
+  foot: Quad,
+  zone: Zone,
+  stage: Stage,
+  mat: ReturnType<typeof material>,
+  seed: number,
+  entityHue: number | null,
+  initials: string | null,
+): void {
+  // the front wall is the screen-left face: corners S → W
+  const a = foot[2];
+  const b = foot[3];
+  const at = (t: number): Pt => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  if (zone === Zone.Commercial && stage >= 2) {
+    // a glazed shopfront band the full width of both visible walls
+    for (const [p, q2] of [
+      [foot[1], foot[2]],
+      [foot[2], foot[3]],
+    ] as [Pt, Pt][]) {
+      const level = p === foot[1] ? LIGHT.right : LIGHT.left;
+      fill(
+        ctx,
+        [p, q2, [q2[0], q2[1] - 6], [p[0], p[1] - 6]],
+        css(lit(mat.glass, level * 1.25)),
+      );
+      ctx.strokeStyle = css(lit(mat.trim, level));
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(p[0], p[1] - 6.4);
+      ctx.lineTo(q2[0], q2[1] - 6.4);
+      ctx.stroke();
     }
   }
   if (stage >= 5) {
-    // tower entry: a dark full-width band at the base of the front wall
-    ctx.strokeStyle = 'rgba(20, 22, 26, 0.65)';
-    ctx.lineWidth = 3;
-    const a = lerp2(front.a, front.b, 0.15);
-    const b = lerp2(front.a, front.b, 0.85);
+    // tower lobby: a tall recessed entrance under a canopy
+    const e1 = at(0.32);
+    const e2 = at(0.68);
+    fill(ctx, [e1, e2, [e2[0], e2[1] - 10], [e1[0], e1[1] - 10]], 'rgba(16, 20, 28, 0.72)');
+    ctx.strokeStyle = css(lit(mat.trim, LIGHT.left * 1.2));
+    ctx.lineWidth = 1.6;
     ctx.beginPath();
-    ctx.moveTo(a[0], a[1] - 1.5);
-    ctx.lineTo(b[0], b[1] - 1.5);
+    ctx.moveTo(e1[0], e1[1] - 10.5);
+    ctx.lineTo(e2[0], e2[1] - 10.5);
     ctx.stroke();
-    return;
+  } else {
+    const d1 = at(0.42);
+    const d2 = at(0.58);
+    fill(ctx, [d1, d2, [d2[0], d2[1] - 7], [d1[0], d1[1] - 7]], 'rgba(28, 22, 18, 0.85)');
+    ctx.strokeStyle = css(lit(mat.trim, LIGHT.left * 1.1));
+    ctx.lineWidth = 0.9;
+    ctx.beginPath();
+    ctx.moveTo(d1[0], d1[1] - 7.4);
+    ctx.lineTo(d2[0], d2[1] - 7.4);
+    ctx.stroke();
+    if (zone === Zone.Residential && hash2(3, 4, seed) > 0.5) {
+      // a stoop light beside the door
+      ctx.fillStyle = css(LAMP, 0.5);
+      ctx.beginPath();
+      ctx.arc(d2[0] + 1.5, d2[1] - 6, 1.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
-  const m = mid(front.a, front.b);
-  ctx.fillStyle = 'rgba(25, 22, 20, 0.85)';
-  ctx.fillRect(m[0] - 2, m[1] - 6, 4, 6);
-  if (detail === 2) {
-    ctx.strokeStyle = 'rgba(235, 228, 210, 0.5)';
-    ctx.lineWidth = 0.8;
-    ctx.strokeRect(m[0] - 2, m[1] - 6, 4, 6);
+  if (entityHue !== null) {
+    const p = at(0.2);
+    const w = 12;
+    const y = stage >= 5 ? p[1] - 13 : p[1] - 12;
+    ctx.fillStyle = `hsl(${entityHue} 62% 46%)`;
+    ctx.fillRect(p[0] - w / 2, y - 6, w, 6);
+    ctx.strokeStyle = 'rgba(248, 248, 244, 0.8)';
+    ctx.lineWidth = 0.7;
+    ctx.strokeRect(p[0] - w / 2, y - 6, w, 6);
+    if (initials) {
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 5px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(initials, p[0], y - 1.4);
+      ctx.textAlign = 'left';
+    }
   }
 }
 
-/** Small marks that make a lot's tier legible: §§§ roofline trim and
- * top-band spire, § worn tar cap, dirty grime band, tech glass line.
- * Expects the normalized tier; never called for abandoned lots. */
-function drawTierAccents(
+/** Farmland: tilled ground, a barn, and whatever the layout adds. */
+function paintFarm(ctx: CanvasRenderingContext2D, q: Quad, bucket: number): void {
+  const chan = channels((bucket + 0.5) / VARIANTS);
+  const layout = pickFarmLayout(chan());
+  const soil = hsl(74 + chan() * 10, 30, 34 + chan() * 6);
+  fill(ctx, q, css(soil));
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(q[0][0], q[0][1]);
+  for (let i = 1; i < 4; i++) ctx.lineTo(q[i][0], q[i][1]);
+  ctx.closePath();
+  ctx.clip();
+  // furrows running one way or the other across the field
+  const cx = (q[0][0] + q[2][0]) / 2;
+  const cy = (q[1][1] + q[3][1]) / 2;
+  ctx.lineWidth = 1.4;
+  for (let k = -5; k <= 5; k++) {
+    ctx.strokeStyle = k % 2 ? css(lit(soil, 0.86), 0.7) : css(lit(soil, 1.14), 0.55);
+    ctx.beginPath();
+    if (layout.furrowAngle === 0) {
+      ctx.moveTo(cx - 34, cy + k * 3.4 - 17);
+      ctx.lineTo(cx + 34, cy + k * 3.4 + 17);
+    } else {
+      ctx.moveTo(cx - 34, cy - k * 3.4 + 17);
+      ctx.lineTo(cx + 34, cy - k * 3.4 - 17);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+  const barnQ = inset(offsetQuad(q, layout.barnOx, layout.barnOy), 0.42);
+  const barn = material('timber', hsl(9, 44, 34));
+  const r = prism(ctx, barnQ, 10 + chan() * 4, barn, { seed: bucket + 3, windows: 'none' });
+  roofCap(ctx, r.roof, 'gabled', barn.body, bucket);
+  // the big sliding door, which is what actually says "barn"
+  const a = barnQ[2];
+  const b = barnQ[3];
+  const at = (t: number): Pt => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  const d1 = at(0.3);
+  const d2 = at(0.7);
+  fill(ctx, [d1, d2, [d2[0], d2[1] - 7], [d1[0], d1[1] - 7]], css(lit(hsl(30, 20, 26), LIGHT.left)));
+  ctx.strokeStyle = css(lit(hsl(38, 22, 74), LIGHT.left * 1.1));
+  ctx.lineWidth = 0.9;
+  ctx.beginPath();
+  ctx.moveTo(d1[0], d1[1] - 7.3);
+  ctx.lineTo(d2[0], d2[1] - 7.3);
+  ctx.moveTo(d1[0], d1[1]);
+  ctx.lineTo(d2[0], d2[1] - 7);
+  ctx.stroke();
+  if (layout.extra === 'silo') {
+    const s = offsetQuad(q, -layout.barnOx, -layout.barnOy);
+    const scx = (s[0][0] + s[2][0]) / 2;
+    const scy = (s[1][1] + s[3][1]) / 2;
+    // corrugated concrete, not bare metal — a white post was reading as a mast
+    const body = hsl(38, 12, 56);
+    const h = 15;
+    ctx.fillStyle = css(lit(body, LIGHT.right));
+    ctx.fillRect(scx - 3.4, scy - h, 6.8, h);
+    ctx.fillStyle = css(lit(body, LIGHT.left * 1.06));
+    ctx.fillRect(scx - 3.4, scy - h, 2.4, h);
+    ctx.fillStyle = css(lit(body, LIGHT.right * 0.86), 0.5);
+    for (let v = 2; v < h; v += 3) ctx.fillRect(scx - 3.4, scy - v, 6.8, 0.6);
+    fill(
+      ctx,
+      [
+        [scx - 3.8, scy - h],
+        [scx + 3.8, scy - h],
+        [scx, scy - h - 5],
+      ],
+      css(lit(hsl(206, 8, 46), LIGHT.roof)),
+    );
+  } else if (layout.extra === 'coop') {
+    const c = inset(offsetQuad(q, -layout.barnOx * 0.8, -layout.barnOy * 0.8), 0.2);
+    const r2 = prism(ctx, c, 5, material('timber', hsl(34, 26, 52)), { seed: bucket });
+    roofCap(ctx, r2.roof, 'gabled', hsl(34, 26, 52), bucket + 1);
+  }
+}
+
+/**
+ * Sprite padding. Every pixel here is paid for on every distinct lot in the
+ * city, so the box is only as big as what actually overhangs: props and masts
+ * above the roof, and nothing much to the sides — the archetype invariant
+ * keeps masses inside the tile diamond.
+ */
+const GROWABLE_MARGIN_X = 7;
+const GROWABLE_MARGIN_BOT = 10;
+/** Headroom over the mass: a crown as well as a mast once it's tall enough. */
+function marginTop(h: number): number {
+  return h > 62 ? 56 : 30;
+}
+
+interface LotKey {
+  zone: Zone;
+  stage: Stage;
+  tier: Tier;
+  bucket: number;
+  size: number;
+  abandoned: boolean;
+  glow: boolean;
+}
+
+/**
+ * Bake one growable lot. Everything static about it — masses, materials,
+ * windows, roof, signage — lands in a bitmap that is afterwards copied in a
+ * single call, which is what makes this much detail affordable at all.
+ */
+function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
+  const { zone, stage, tier, bucket, size, abandoned, glow } = k;
+  const kind = normalizeTier(zone, tier);
+  const fam = familyOf(zone, tier);
+  const half = (bucket + 0.5) / VARIANTS;
+  const chan = channels(half);
+  const hw = (TILE_W * size) / 2;
+  const hh = (TILE_H * size) / 2;
+  const base = diamond(0, 0, hw, hh);
+
+  if (fam === 'ag' && !abandoned) {
+    if (!glow) paintFarm(ctx, base, bucket);
+    return;
+  }
+
+  const h = growableHeight(zone, stage, tier, bucket);
+  const arch: Archetype = pickArchetype(zone, tier, stage, chan());
+  const style = styleFor(fam, stage, chan());
+  const [ph, ps, pl] = paletteFor(zone, tier, stage);
+  const [fh, fs, fl] = paletteFamily(zone, tier, chan());
+  let body: Hsl = {
+    h: (ph + fh + Math.floor(chan() * 12) - 6 + 360) % 360,
+    s: Math.max(0, Math.min(100, ps + fs)),
+    l: Math.max(0, Math.min(100, pl + fl)),
+  };
+  if (abandoned) body = { h: body.h, s: 5, l: 30 };
+  const skinned = getSkin().building(body.h, body.s, body.l);
+  body = { h: skinned[0], s: skinned[1], l: skinned[2] };
+  const mat = material(abandoned ? 'render' : style.wall, body);
+
+  const budget = footprintBudget(stage);
+  const masses = arch.boxes
+    .map((sb) => ({ sb, q: inset(offsetQuad(base, sb.ox * budget, sb.oy * budget), sb.f * budget) }))
+    .sort((a, b) => a.q[2][1] - b.q[2][1]);
+
+  let primary: { roof: Quad; foot: Quad } | null = null;
+  for (const { sb, q } of masses) {
+    const mh = h * sb.hf;
+    const r = prism(ctx, q, mh, mat, {
+      seed: bucket * 13 + stage,
+      windows: abandoned ? 'punched' : style.windows,
+      glow,
+      occupied: !abandoned,
+      noRoof: false,
+    });
+    if (sb.hf === 1) primary = { roof: r.roof, foot: q };
+  }
+  if (!primary || glow) return;
+
+  let top = primary.roof;
+  if (h > 62 && arch.roof !== 'gabled' && arch.roof !== 'sawtooth') {
+    top = towerCrown(ctx, primary.roof, mat, body, bucket * 11 + stage);
+  } else {
+    roofCap(ctx, primary.roof, arch.roof, body, bucket);
+    if (style.lip && arch.roof === 'flat') {
+      parapet(ctx, primary.roof, material('concrete', mix(body, hsl(212, 6, 60), 0.55)), 1.8);
+    }
+  }
+  if (!abandoned) {
+    roofKit(ctx, top, arch.props, body, bucket * 7 + 1, h);
+    const ent = entityFor(zone, kind, stage, half);
+    streetLevel(
+      ctx,
+      primary.foot,
+      zone,
+      stage,
+      mat,
+      bucket * 5 + 2,
+      ent ? ent.hue : null,
+      ent ? ent.initials : null,
+    );
+    tierAccents(ctx, { roof: top, foot: primary.foot }, zone, kind, stage, bucket * 3 + stage);
+  } else {
+    // boarded up: planks over the openings and a broken roofline
+    ctx.strokeStyle = 'rgba(48, 38, 28, 0.85)';
+    ctx.lineWidth = 2;
+    for (const [p, q2] of [
+      [primary.foot[1], primary.foot[2]],
+      [primary.foot[2], primary.foot[3]],
+    ] as [Pt, Pt][]) {
+      for (const t of [0.35, 0.62]) {
+        ctx.beginPath();
+        ctx.moveTo(p[0] + (q2[0] - p[0]) * 0.15, p[1] + (q2[1] - p[1]) * 0.15 - h * t);
+        ctx.lineTo(p[0] + (q2[0] - p[0]) * 0.85, p[1] + (q2[1] - p[1]) * 0.85 - h * t - 3);
+        ctx.stroke();
+      }
+    }
+  }
+
+  const skin = getSkin();
+  if (skin.outline > 0) {
+    // cartoon ink around the silhouette only — inking every face turned the
+    // old skin into a wireframe once the masses gained detail
+    ctx.strokeStyle = 'rgba(28, 20, 32, 0.9)';
+    ctx.lineWidth = skin.outline;
+    const f = primary.foot;
+    ctx.beginPath();
+    ctx.moveTo(f[1][0], f[1][1]);
+    ctx.lineTo(f[2][0], f[2][1]);
+    ctx.lineTo(f[3][0], f[3][1]);
+    ctx.lineTo(f[3][0], f[3][1] - h);
+    ctx.lineTo(f[0][0], f[0][1] - h);
+    ctx.lineTo(f[1][0], f[1][1] - h);
+    ctx.closePath();
+    ctx.stroke();
+  }
+
+  if (zone === Zone.Industrial && stage >= 2 && !abandoned && (kind === 'dirty' || kind === 'manu')) {
+    const stackH = 18 + stage * 3;
+    const sx = hw * 0.34;
+    const sy = hh * 0.2;
+    const q = diamond(sx, sy - h, 3.2, 1.6);
+    prism(ctx, q, stackH, material('brick', hsl(16, 22, 34)), { seed: bucket, groundAo: false });
+    ctx.fillStyle = 'rgba(30, 26, 24, 0.8)';
+    ctx.fillRect(sx - 3.4, sy - h - stackH - 2, 6.8, 2.4);
+    if (kind === 'dirty' && stage >= 3) {
+      const q2 = diamond(-sx * 0.4, sy * 1.6 - h, 2.6, 1.3);
+      prism(ctx, q2, stackH * 0.7, material('brick', hsl(16, 20, 30)), { seed: bucket + 1, groundAo: false });
+    }
+  }
+}
+
+/** The small marks that make wealth and industry type legible at a glance. */
+function tierAccents(
   ctx: CanvasRenderingContext2D,
-  primary: { faces: Face[]; foot: Pt[] },
+  primary: { roof: Quad; foot: Quad },
   zone: Zone,
   tier: Tier,
   stage: Stage,
-  h: number,
-) {
-  const roofline = (color: string) => {
-    const roof = primary.foot.map(([x, y]) => [x, y - h] as Pt);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1.5;
+  seed = 0,
+): void {
+  const rc = zone === Zone.Residential || zone === Zone.Commercial;
+  const roof = primary.roof;
+  const cx = (roof[0][0] + roof[2][0]) / 2;
+  const cy = (roof[1][1] + roof[3][1]) / 2;
+  if (rc && tier === 3 && stage >= 3) {
+    ctx.strokeStyle = 'rgba(255, 238, 196, 0.7)';
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
     ctx.moveTo(roof[0][0], roof[0][1]);
     for (let i = 1; i < 4; i++) ctx.lineTo(roof[i][0], roof[i][1]);
     ctx.closePath();
     ctx.stroke();
-    return roof;
-  };
-  const rc = zone === Zone.Residential || zone === Zone.Commercial;
-  if (rc && tier === 3 && stage >= 3) {
-    const roof = roofline('rgba(255, 240, 200, 0.9)');
-    if (stage >= 6) {
-      const sx = (roof[0][0] + roof[2][0]) / 2;
-      const sy = (roof[0][1] + roof[2][1]) / 2;
+    // A gilded mast marks a prestige tower — but only some of them. Giving one
+    // to every §§§ lot turned a wealthy downtown into a pin cushion.
+    if (stage >= 6 && hash2(seed, 12, 883) > 0.72) {
       ctx.strokeStyle = '#e8e2d2';
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 1.6;
       ctx.beginPath();
-      ctx.moveTo(sx, sy);
-      ctx.lineTo(sx, sy - 14);
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx, cy - 18);
       ctx.stroke();
       ctx.fillStyle = '#ffd76a';
-      ctx.fillRect(sx - 1, sy - 16, 2, 2);
+      ctx.fillRect(cx - 1.2, cy - 20, 2.4, 2.4);
     }
   } else if (rc && tier === 1) {
-    fillPoly(ctx, primary.foot.map(([x, y]) => [x, y - h] as Pt), 'rgba(40, 36, 30, 0.28)');
-  } else if (zone === Zone.Industrial && tier === 'dirty') {
-    ctx.strokeStyle = 'rgba(35, 30, 24, 0.5)';
-    ctx.lineWidth = 3;
-    for (const face of primary.faces) {
-      ctx.beginPath();
-      ctx.moveTo(face.a[0], face.a[1] - 2);
-      ctx.lineTo(face.b[0], face.b[1] - 2);
-      ctx.stroke();
-    }
+    fill(ctx, roof, 'rgba(38, 34, 28, 0.24)');
   } else if (zone === Zone.Industrial && tier === 'tech' && stage >= 5) {
-    roofline('rgba(140, 230, 255, 0.85)');
+    ctx.strokeStyle = 'rgba(150, 232, 255, 0.8)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(roof[0][0], roof[0][1]);
+    for (let i = 1; i < 4; i++) ctx.lineTo(roof[i][0], roof[i][1]);
+    ctx.closePath();
+    ctx.stroke();
   }
 }
 
+function lotSprite(k: LotKey): Sprite {
+  const h = k.stage > 0 ? growableHeight(k.zone, k.stage, k.tier, k.bucket) : 0;
+  const hw = (TILE_W * k.size) / 2;
+  const hh = (TILE_H * k.size) / 2;
+  const ay = h + hh + marginTop(h);
+  const key = `L${k.zone}.${k.stage}.${k.tier}.${k.bucket}.${k.size}${k.abandoned ? 'a' : ''}${
+    k.glow ? 'g' : ''
+  }${getSkin().id}`;
+  return sprite(
+    key,
+    {
+      w: hw * 2 + GROWABLE_MARGIN_X * 2,
+      h: ay + hh + GROWABLE_MARGIN_BOT,
+      ax: hw + GROWABLE_MARGIN_X,
+      ay,
+    },
+    (ctx) => paintLot(ctx, k),
+    k.glow ? 1 : undefined,
+  );
+}
+
+/** Yard dressing drawn live rather than baked, so it can follow the season. */
+function yardProps(
+  ctx: CanvasRenderingContext2D,
+  geom: TileGeom,
+  zone: Zone,
+  tier: Tier,
+  stage: Stage,
+  bucket: number,
+  size: number,
+): void {
+  if (stage >= 4 || zone === Zone.Industrial) return;
+  const kind = normalizeTier(zone, tier);
+  const hw = (TILE_W * size) / 2;
+  const hh = (TILE_H * size) / 2;
+  const n = kind === 3 ? 3 : kind === 2 ? 2 : 1;
+  for (let k = 0; k < n; k++) {
+    const u = hash2(k, bucket, 71) * 1.6 - 0.8;
+    const v = hash2(k, bucket, 91) * 1.6 - 0.8;
+    if (Math.abs(u) + Math.abs(v) < 0.78) continue;
+    const x = geom.cx + u * hw * 0.92;
+    const y = geom.cy + v * hh * 0.92;
+    if (kind === 3 && k === 0) drawHedge(ctx, x, y, 11, season);
+    else drawTree(ctx, x, y, 'broadleaf', 12 + hash2(k, bucket, 5) * 6, (bucket + k) % 6, season);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Civic, utility and transit buildings
+// ---------------------------------------------------------------------------
+
+interface CivicSpec {
+  h: number;
+  f: number;
+  body: Hsl;
+  wall: MaterialKind;
+  windows: WindowPattern;
+  roof: RoofStyle;
+}
+
+const CIVIC: Partial<Record<Zone, CivicSpec>> = {
+  [Zone.FireStation]: { h: 19, f: 0.82, body: hsl(2, 56, 44), wall: 'brick', windows: 'punched', roof: 'parapet' },
+  [Zone.PoliceStation]: { h: 19, f: 0.82, body: hsl(216, 34, 44), wall: 'brick', windows: 'punched', roof: 'parapet' },
+  [Zone.Hospital]: { h: 26, f: 0.84, body: hsl(190, 10, 70), wall: 'concrete', windows: 'ribbon', roof: 'flat' },
+  [Zone.School]: { h: 14, f: 0.86, body: hsl(38, 34, 54), wall: 'brick', windows: 'punched', roof: 'gabled' },
+  [Zone.Prison]: { h: 12, f: 0.88, body: hsl(210, 5, 44), wall: 'concrete', windows: 'none', roof: 'flat' },
+  [Zone.BusStop]: { h: 7, f: 0.42, body: hsl(178, 34, 44), wall: 'metal', windows: 'ribbon', roof: 'flat' },
+  [Zone.StreetcarStop]: { h: 8, f: 0.46, body: hsl(178, 36, 46), wall: 'metal', windows: 'ribbon', roof: 'flat' },
+  [Zone.MonorailStation]: { h: 7, f: 0.48, body: hsl(196, 20, 52), wall: 'concrete', windows: 'ribbon', roof: 'flat' },
+  [Zone.SubwayStation]: { h: 7, f: 0.46, body: hsl(220, 14, 40), wall: 'concrete', windows: 'none', roof: 'flat' },
+  [Zone.RailTerminal]: { h: 18, f: 0.82, body: hsl(12, 40, 38), wall: 'brick', windows: 'punched', roof: 'gabled' },
+  [Zone.RecyclingCentre]: { h: 16, f: 0.72, body: hsl(140, 20, 50), wall: 'metal', windows: 'ribbon', roof: 'sawtooth' },
+  [Zone.Incinerator]: { h: 21, f: 0.76, body: hsl(28, 10, 42), wall: 'concrete', windows: 'ribbon', roof: 'flat' },
+  [Zone.WaterPump]: { h: 13, f: 0.6, body: hsl(206, 38, 46), wall: 'concrete', windows: 'punched', roof: 'flat' },
+  [Zone.PowerPlant]: { h: 22, f: 0.86, body: hsl(20, 12, 38), wall: 'concrete', windows: 'ribbon', roof: 'flat' },
+  [Zone.SolarPlant]: { h: 4, f: 0.82, body: hsl(220, 10, 30), wall: 'concrete', windows: 'none', roof: 'flat' },
+  [Zone.HydroPlant]: { h: 15, f: 0.72, body: hsl(208, 34, 40), wall: 'concrete', windows: 'ribbon', roof: 'flat' },
+  [Zone.NuclearPlant]: { h: 12, f: 0.8, body: hsl(46, 7, 58), wall: 'concrete', windows: 'ribbon', roof: 'flat' },
+  [Zone.WindTurbine]: { h: 4, f: 0.3, body: hsl(0, 0, 58), wall: 'concrete', windows: 'none', roof: 'flat' },
+};
+
+/** How tall a zone's mass stands, for the shadow pass. */
+export function massHeight(zone: Zone, stage: Stage, tier: Tier, bucket: number): number {
+  const authored = buildingBySlot(zone);
+  if (authored?.visual) return authored.visual.height * getSkin().heightScale;
+  if (REWARD_HEIGHT[zone] !== undefined) return REWARD_HEIGHT[zone]! * getSkin().heightScale;
+  const civic = CIVIC[zone];
+  if (civic) return civic.h * getSkin().heightScale;
+  if (zone === Zone.Park || zone === Zone.PowerLine || zone === Zone.WaterPipe) return 0;
+  if (zone === Zone.Residential || zone === Zone.Commercial || zone === Zone.Industrial) {
+    if (stage === 0) return 0;
+    if (zone === Zone.Industrial && normalizeTier(zone, tier) === 'ag') return 12;
+    return growableHeight(zone, stage, tier, bucket);
+  }
+  return 0;
+}
+
+/** The footprint fraction a zone's mass occupies, for the shadow pass. */
+export function massFootprint(zone: Zone, stage: Stage): number {
+  const authored = buildingBySlot(zone);
+  if (authored?.visual) return authored.visual.footprint;
+  if (REWARD_HEIGHT[zone] !== undefined) return 0.9;
+  const civic = CIVIC[zone];
+  if (civic) return civic.f;
+  if (zone === Zone.Residential || zone === Zone.Commercial || zone === Zone.Industrial) {
+    return stage === 0 ? 0 : footprintBudget(stage);
+  }
+  return 0;
+}
+
+function drawCivic(
+  ctx: CanvasRenderingContext2D,
+  geom: TileGeom,
+  zone: Zone,
+  powered: boolean,
+  detail: 0 | 1 | 2,
+): boolean {
+  const spec = CIVIC[zone];
+  if (!spec) return false;
+  const s = getSkin();
+  const skinned = s.building(spec.body.h, spec.body.s, spec.body.l);
+  const body: Hsl = { h: skinned[0], s: skinned[1], l: skinned[2] };
+  const mat = material(spec.wall, body);
+  const h = spec.h * s.heightScale;
+  const q = inset(quadOf(geom), spec.f);
+  const cx = geom.cx;
+  const cy = geom.cy;
+  contactShadow(ctx, q);
+  const r = prism(ctx, q, h, mat, { seed: zone * 7 + 1, windows: spec.windows });
+  roofCap(ctx, r.roof, spec.roof, body, zone);
+
+  switch (zone) {
+    case Zone.FireStation: {
+      // engine bay doors and a hose tower
+      const a = q[2];
+      const b = q[3];
+      for (const t of [0.24, 0.58]) {
+        const p1: Pt = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+        const p2: Pt = [a[0] + (b[0] - a[0]) * (t + 0.2), a[1] + (b[1] - a[1]) * (t + 0.2)];
+        fill(ctx, [p1, p2, [p2[0], p2[1] - 10], [p1[0], p1[1] - 10]], 'rgba(226, 226, 222, 0.9)');
+        ctx.strokeStyle = 'rgba(60, 40, 36, 0.5)';
+        ctx.lineWidth = 0.7;
+        for (let k = 1; k < 4; k++) {
+          ctx.beginPath();
+          ctx.moveTo(p1[0], p1[1] - k * 2.4);
+          ctx.lineTo(p2[0], p2[1] - k * 2.4);
+          ctx.stroke();
+        }
+      }
+      prism(ctx, diamond(cx + 12, cy - h - 4, 4, 2), 12, mat, { seed: 3, groundAo: false });
+      break;
+    }
+    case Zone.PoliceStation: {
+      ctx.fillStyle = powered ? '#4aa8ff' : '#5a6470';
+      ctx.fillRect(cx - 6, cy - h - 9, 12, 3.5);
+      ctx.fillStyle = 'rgba(240, 244, 250, 0.9)';
+      ctx.fillRect(cx - 6, cy - h - 9, 12, 1);
+      break;
+    }
+    case Zone.Hospital: {
+      ctx.fillStyle = '#d8443a';
+      ctx.fillRect(cx - 2, cy - h - 12, 4, 12);
+      ctx.fillRect(cx - 6, cy - h - 8, 12, 4);
+      // a helipad ring on the roof
+      ctx.strokeStyle = 'rgba(240, 244, 250, 0.5)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.ellipse(cx + 12, cy - h + 4, 8, 4, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      break;
+    }
+    case Zone.School: {
+      ctx.strokeStyle = '#cfc8ba';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(cx - 16, cy - h - 16);
+      ctx.lineTo(cx - 16, cy - h + 2);
+      ctx.stroke();
+      ctx.fillStyle = '#d24b3f';
+      ctx.fillRect(cx - 16, cy - h - 16, 8, 4.5);
+      // a small yard with a court marking
+      ctx.strokeStyle = 'rgba(240, 244, 250, 0.4)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(cx + 16, cy + 6, 7, 3.5, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      break;
+    }
+    case Zone.Prison: {
+      // perimeter wall with a watchtower on the near corner
+      ctx.strokeStyle = css(lit(body, LIGHT.roof * 1.1));
+      ctx.lineWidth = 2;
+      const w = inset(quadOf(geom), 0.98);
+      ctx.beginPath();
+      ctx.moveTo(w[0][0], w[0][1]);
+      for (let i = 1; i < 4; i++) ctx.lineTo(w[i][0], w[i][1]);
+      ctx.closePath();
+      ctx.stroke();
+      prism(ctx, diamond(cx - 22, cy + 2, 4, 2), 20, material('concrete', body), { seed: 5 });
+      ctx.fillStyle = powered ? 'rgba(255, 236, 170, 0.9)' : 'rgba(110, 116, 124, 0.9)';
+      ctx.fillRect(cx - 26, cy - 22, 8, 3);
+      break;
+    }
+    case Zone.PowerPlant: {
+      for (const [dx, sh] of [
+        [-16, 26],
+        [-3, 32],
+      ] as const) {
+        prism(ctx, diamond(cx + dx, cy - h + 4, 4, 2), sh, material('brick', hsl(18, 16, 36)), {
+          seed: 9,
+          groundAo: false,
+        });
+        ctx.fillStyle = 'rgba(30, 26, 24, 0.8)';
+        ctx.fillRect(cx + dx - 4.4, cy - h + 2 - sh, 8.8, 2.6);
+      }
+      // coal heap and a conveyor
+      fill(
+        ctx,
+        [
+          [cx + 8, cy + 6],
+          [cx + 20, cy + 1],
+          [cx + 26, cy + 6],
+          [cx + 15, cy + 11],
+        ],
+        'hsl(24 10% 22%)',
+      );
+      break;
+    }
+    case Zone.SolarPlant: {
+      const panel = hsl(218, 56, 40);
+      for (let k = -1; k <= 1; k++) {
+        const oy = k * 8;
+        fill(
+          ctx,
+          [
+            [cx - 18 + k * 4, cy - 4 + oy],
+            [cx + 6 + k * 4, cy - 16 + oy],
+            [cx + 14 + k * 4, cy - 12 + oy],
+            [cx - 10 + k * 4, cy + oy],
+          ],
+          css(lit(panel, LIGHT.roof)),
+        );
+        ctx.strokeStyle = css(lit(panel, LIGHT.roof * 1.5), 0.55);
+        ctx.lineWidth = 0.8;
+        for (let t = 0.25; t < 1; t += 0.25) {
+          ctx.beginPath();
+          ctx.moveTo(cx - 18 + k * 4 + 24 * t, cy - 4 + oy - 12 * t);
+          ctx.lineTo(cx - 10 + k * 4 + 24 * t, cy + oy - 12 * t);
+          ctx.stroke();
+        }
+      }
+      break;
+    }
+    case Zone.WindTurbine: {
+      const mast = 40;
+      ctx.strokeStyle = 'rgba(238, 242, 246, 0.95)';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 3);
+      ctx.lineTo(cx, cy - mast);
+      ctx.stroke();
+      ctx.lineWidth = 1.8;
+      for (const a of [Math.PI / 2, Math.PI / 2 + (2 * Math.PI) / 3, Math.PI / 2 + (4 * Math.PI) / 3]) {
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - mast);
+        ctx.quadraticCurveTo(
+          cx + Math.cos(a) * 7,
+          cy - mast - Math.sin(a) * 7,
+          cx + Math.cos(a) * 14,
+          cy - mast - Math.sin(a) * 14,
+        );
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#d23b30';
+      ctx.fillRect(cx - 1.6, cy - mast - 1.6, 3.2, 3.2);
+      break;
+    }
+    case Zone.HydroPlant: {
+      ctx.strokeStyle = css(lit(hsl(206, 8, 62), LIGHT.right));
+      ctx.lineWidth = 4;
+      for (const dx of [-6, 4]) {
+        ctx.beginPath();
+        ctx.moveTo(cx + dx, cy - h);
+        ctx.lineTo(cx + dx + 8, cy + 4);
+        ctx.stroke();
+      }
+      fill(
+        ctx,
+        [
+          [cx + 2, cy + 4],
+          [cx + 16, cy + 9],
+          [cx + 5, cy + 12],
+        ],
+        'rgba(226, 244, 252, 0.85)',
+      );
+      break;
+    }
+    case Zone.NuclearPlant: {
+      // the waisted cooling tower, with steam if it is running
+      const tx = cx + 15;
+      const ty = cy - 2;
+      fill(
+        ctx,
+        [
+          [tx - 9, ty],
+          [tx + 9, ty],
+          [tx + 6, ty - 22],
+          [tx - 6, ty - 22],
+        ],
+        css(lit(hsl(40, 5, 66), LIGHT.right)),
+      );
+      fill(
+        ctx,
+        [
+          [tx - 9, ty],
+          [tx - 3, ty],
+          [tx - 2, ty - 22],
+          [tx - 6, ty - 22],
+        ],
+        css(lit(hsl(40, 5, 66), LIGHT.left * 1.1)),
+      );
+      fill(
+        ctx,
+        [
+          [tx - 6, ty - 22],
+          [tx + 6, ty - 22],
+          [tx + 8, ty - 32],
+          [tx - 8, ty - 32],
+        ],
+        css(lit(hsl(40, 5, 72), LIGHT.roof * 0.9)),
+      );
+      if (powered) {
+        ctx.fillStyle = 'rgba(248, 250, 252, 0.5)';
+        ctx.beginPath();
+        ctx.arc(tx, ty - 38, 6, 0, Math.PI * 2);
+        ctx.arc(tx + 6, ty - 44, 4.5, 0, Math.PI * 2);
+        ctx.arc(tx - 3, ty - 47, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    }
+    case Zone.Incinerator: {
+      prism(ctx, diamond(cx + 8, cy - h + 3, 4, 2), 38, material('concrete', hsl(24, 8, 50)), {
+        seed: 4,
+        groundAo: false,
+      });
+      ctx.fillStyle = 'rgba(30, 26, 24, 0.8)';
+      ctx.fillRect(cx + 3.4, cy - h - 36, 9, 2.6);
+      if (detail >= 1) {
+        ctx.fillStyle = 'rgba(250, 250, 250, 0.3)';
+        ctx.beginPath();
+        ctx.arc(cx + 10, cy - h - 46, 5, 0, Math.PI * 2);
+        ctx.arc(cx + 15, cy - h - 53, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    }
+    case Zone.RecyclingCentre: {
+      if (detail >= 1) {
+        ['#2f7fbf', '#3f9f56', '#c9a227'].forEach((c, i) => {
+          const bq = diamond(cx - 14 + i * 11, cy + 7, 4.4, 2.2);
+          prism(ctx, bq, 5, material('metal', hsl(i === 0 ? 208 : i === 1 ? 136 : 46, 44, 44)), {
+            seed: i,
+          });
+          void c;
+        });
+      }
+      break;
+    }
+    case Zone.WaterPump: {
+      const p = hsl(200, 34, 62);
+      ctx.fillStyle = css(lit(p, LIGHT.right));
+      ctx.fillRect(cx - 3, cy - h - 13, 6, 13);
+      ctx.fillStyle = css(lit(p, LIGHT.left * 1.1));
+      ctx.fillRect(cx - 3, cy - h - 13, 2, 13);
+      ctx.fillStyle = css(lit(hsl(206, 40, 34), LIGHT.roof));
+      ctx.fillRect(cx - 4.4, cy - h - 15.4, 8.8, 2.6);
+      break;
+    }
+    case Zone.BusStop:
+    case Zone.StreetcarStop: {
+      ctx.strokeStyle = 'rgba(206, 214, 212, 0.95)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(cx + 11, cy + 3);
+      ctx.lineTo(cx + 11, cy - (zone === Zone.StreetcarStop ? 22 : 16));
+      ctx.stroke();
+      ctx.fillStyle = '#2fa38f';
+      ctx.fillRect(cx + 11, cy - (zone === Zone.StreetcarStop ? 22 : 16), 6.5, 5);
+      if (zone === Zone.StreetcarStop) {
+        ctx.strokeStyle = 'rgba(206, 214, 212, 0.6)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cx - 16, cy - 19);
+        ctx.lineTo(cx + 16, cy - 19);
+        ctx.stroke();
+      }
+      break;
+    }
+    case Zone.MonorailStation: {
+      prism(ctx, diamond(cx, cy, 3, 1.5), 24, material('concrete', hsl(206, 6, 58)), { seed: 2 });
+      fill(
+        ctx,
+        [
+          [cx - 16, cy - 25],
+          [cx + 16, cy - 25],
+          [cx + 16, cy - 22],
+          [cx - 16, cy - 22],
+        ],
+        css(lit(hsl(206, 6, 50), LIGHT.roof)),
+      );
+      ctx.fillStyle = '#eef2f4';
+      if (ctx.roundRect) {
+        ctx.beginPath();
+        ctx.roundRect(cx - 11, cy - 34, 22, 9, 3.5);
+        ctx.fill();
+      } else {
+        ctx.fillRect(cx - 11, cy - 34, 22, 9);
+      }
+      ctx.fillStyle = '#3f8f8a';
+      ctx.fillRect(cx - 8, cy - 32, 16, 3);
+      break;
+    }
+    case Zone.SubwayStation: {
+      fill(
+        ctx,
+        [
+          [cx - 9, cy + 3],
+          [cx + 2, cy - 2],
+          [cx + 7, cy + 1],
+          [cx - 4, cy + 6],
+        ],
+        '#181c22',
+      );
+      ctx.strokeStyle = 'rgba(206, 214, 212, 0.95)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(cx + 11, cy + 2);
+      ctx.lineTo(cx + 11, cy - 18);
+      ctx.stroke();
+      ctx.fillStyle = powered ? '#2456c8' : '#3a4050';
+      ctx.fillRect(cx + 6.5, cy - 26, 9.5, 8.5);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 7px sans-serif';
+      ctx.fillText('M', cx + 8.5, cy - 19.5);
+      break;
+    }
+    case Zone.RailTerminal: {
+      ctx.fillStyle = '#f2efe6';
+      ctx.beginPath();
+      ctx.arc(cx - 2, cy - h - 6, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#3a3630';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx - 2, cy - h - 6);
+      ctx.lineTo(cx - 2, cy - h - 9);
+      ctx.moveTo(cx - 2, cy - h - 6);
+      ctx.lineTo(cx + 0.2, cy - h - 5);
+      ctx.stroke();
+      break;
+    }
+    default:
+      break;
+  }
+  if (!powered) drawNoPowerBolt(ctx, cx, cy - h - 14);
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Rewards
+// ---------------------------------------------------------------------------
+
+const REWARD_HEIGHT: Partial<Record<Zone, number>> = {
+  [Zone.Ballpark]: 14,
+  [Zone.Arena]: 20,
+  [Zone.Stadium]: 26,
+  [Zone.Colosseum]: 30,
+  [Zone.Library]: 20,
+  [Zone.Museum]: 28,
+  [Zone.Monument]: 62,
+  [Zone.College]: 20,
+  [Zone.University]: 27,
+  [Zone.ResearchUniversity]: 34,
+  [Zone.FusionPlant]: 20,
+};
+
+/** Slots the reward painter owns; everything else falls through to its own art. */
+const REWARD_ZONES = new Set<Zone>(Object.keys(REWARD_HEIGHT).map(Number) as Zone[]);
+
+function drawReward(
+  ctx: CanvasRenderingContext2D,
+  geom: TileGeom,
+  zone: Zone,
+  powered: boolean,
+  detail: 0 | 1 | 2,
+): void {
+  const { cx, cy } = geom;
+  const q = quadOf(geom);
+  const hw = q[1][0] - cx;
+  const hh = q[2][1] - cy;
+  const skin = getSkin();
+  const scale = skin.heightScale;
+  const tone = (c: Hsl): Hsl => {
+    const [h, s, l] = skin.building(c.h, c.s, c.l);
+    return { h, s, l };
+  };
+  const disc = (f: number, lift: number, style: string) => {
+    ctx.fillStyle = style;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - lift, hw * f, hh * f, 0, 0, Math.PI * 2);
+    ctx.fill();
+  };
+  contactShadow(ctx, inset(q, 0.94));
+
+  switch (zone) {
+    case Zone.Ballpark:
+    case Zone.Arena:
+    case Zone.Stadium:
+    case Zone.Colosseum: {
+      const wall = (REWARD_HEIGHT[zone] ?? 16) * scale;
+      const stand = tone(hsl(32, 12, 40));
+      // the bowl: an extruded ring, lit on top, in shade on the far side
+      for (let k = 0; k <= wall; k += 1.5) {
+        const t = k / wall;
+        disc(0.93, k, css(lit(stand, LIGHT.right + (LIGHT.roof - LIGHT.right) * t * 0.9)));
+      }
+      disc(0.93, wall, css(lit(stand, LIGHT.roof)));
+      // seating rings
+      for (let r = 0.88; r > 0.66; r -= 0.055) {
+        disc(r, wall + 0.6, css(lit(tone(hsl(214, 22, 40 + (0.9 - r) * 60)), LIGHT.roof), 0.9));
+      }
+      // the pitch, with mown stripes
+      const turf = zone === Zone.Ballpark ? hsl(108, 40, 34) : hsl(112, 34, 32);
+      disc(0.64, wall - 1, css(lit(turf, LIGHT.roof)));
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(cx, cy - wall + 1, hw * 0.64, hh * 0.64, 0, 0, Math.PI * 2);
+      ctx.clip();
+      for (let k = -6; k <= 6; k += 2) {
+        ctx.fillStyle = css(lit(turf, LIGHT.roof * 1.14), 0.5);
+        ctx.fillRect(cx + k * hw * 0.11, cy - wall - hh, hw * 0.11, hh * 2);
+      }
+      ctx.restore();
+      if (detail >= 1) {
+        for (const [ox, oy] of [
+          [-hw * 0.7, 0],
+          [hw * 0.7, 0],
+          [0, -hh * 0.7],
+          [0, hh * 0.7],
+        ]) {
+          ctx.strokeStyle = '#cfd6dc';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(cx + ox, cy + oy - wall);
+          ctx.lineTo(cx + ox, cy + oy - wall - 14 * scale);
+          ctx.stroke();
+          ctx.fillStyle = powered ? '#fdf6d0' : '#6f7378';
+          ctx.fillRect(cx + ox - 4, cy + oy - wall - 17 * scale, 8, 3.4);
+          if (powered) {
+            ctx.fillStyle = 'rgba(255, 246, 200, 0.16)';
+            ctx.beginPath();
+            ctx.moveTo(cx + ox - 4, cy + oy - wall - 15 * scale);
+            ctx.lineTo(cx + ox + 4, cy + oy - wall - 15 * scale);
+            ctx.lineTo(cx, cy + oy - wall + 4);
+            ctx.closePath();
+            ctx.fill();
+          }
+        }
+      }
+      break;
+    }
+
+    case Zone.Library:
+    case Zone.Museum: {
+      const h = (REWARD_HEIGHT[zone] ?? 20) * scale;
+      const stone = material('stone', tone(hsl(44, 12, 74)));
+      // a plinth the block sits on
+      prism(ctx, inset(q, 0.92), 4, material('stone', tone(hsl(44, 10, 64))), { seed: 1 });
+      const bodyQ = inset(q, 0.78);
+      const r = prism(ctx, raise(bodyQ, 4) as Quad, h, stone, { seed: 2, windows: 'punched' });
+      roofCap(ctx, r.roof, 'gabled', stone.body, 3);
+      if (detail >= 1) {
+        // a colonnade across the front
+        const cols = zone === Zone.Museum ? 7 : 5;
+        const a = bodyQ[2];
+        const b = bodyQ[3];
+        for (let k = 0; k < cols; k++) {
+          const t = (k + 0.5) / cols;
+          const x = a[0] + (b[0] - a[0]) * t;
+          const y = a[1] + (b[1] - a[1]) * t - 4;
+          ctx.fillStyle = css(lit(stone.trim, LIGHT.left * 1.1));
+          ctx.fillRect(x - 1.8, y - h, 3.6, h);
+          ctx.fillStyle = css(lit(stone.trim, LIGHT.roof));
+          ctx.fillRect(x - 2.6, y - h - 1.6, 5.2, 1.6);
+        }
+      }
+      break;
+    }
+
+    case Zone.Monument: {
+      const stone = tone(hsl(42, 10, 78));
+      prism(ctx, inset(q, 0.66), 8 * scale, material('stone', tone(hsl(40, 8, 66))), { seed: 1 });
+      prism(ctx, inset(q, 0.4), 14 * scale, material('stone', tone(hsl(40, 8, 72))), { seed: 2 });
+      const top = cy - 14 * scale;
+      const spire = 46 * scale;
+      const w = hw * 0.1;
+      fill(
+        ctx,
+        [
+          [cx - w, top],
+          [cx, top + w * 0.5],
+          [cx, top - spire + w * 0.2],
+          [cx - w * 0.4, top - spire],
+        ],
+        css(lit(stone, LIGHT.left * 1.08)),
+      );
+      fill(
+        ctx,
+        [
+          [cx + w, top],
+          [cx, top + w * 0.5],
+          [cx, top - spire + w * 0.2],
+          [cx + w * 0.4, top - spire],
+        ],
+        css(lit(stone, LIGHT.right)),
+      );
+      fill(
+        ctx,
+        [
+          [cx - w * 0.4, top - spire],
+          [cx + w * 0.4, top - spire],
+          [cx, top - spire - 11 * scale],
+        ],
+        css(lit(tone(hsl(45, 28, 70)), LIGHT.roof * 1.1)),
+      );
+      break;
+    }
+
+    case Zone.College:
+    case Zone.University:
+    case Zone.ResearchUniversity: {
+      const h = (REWARD_HEIGHT[zone] ?? 20) * scale;
+      disc(0.82, 0, css(lit(hsl(106, 32, 34), LIGHT.roof)));
+      // paths across the lawn
+      ctx.strokeStyle = css(lit(hsl(44, 14, 68), LIGHT.roof), 0.7);
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(cx - hw * 0.7, cy);
+      ctx.lineTo(cx + hw * 0.7, cy);
+      ctx.moveTo(cx, cy - hh * 0.7);
+      ctx.lineTo(cx, cy + hh * 0.7);
+      ctx.stroke();
+      const brick = material('brick', tone(hsl(20, 28, 44)));
+      for (const [fx, fy] of [
+        [-0.52, 0],
+        [0.52, 0],
+        [0, -0.52],
+        [0, 0.52],
+      ]) {
+        const wing = inset(
+          q.map(([px, py]) => [cx + fx * hw + (px - cx) * 0.34, cy + fy * hh + (py - cy) * 0.34] as Pt) as Quad,
+          0.96,
+        );
+        const r = prism(ctx, wing, h, brick, { seed: 4, windows: 'punched' });
+        roofCap(ctx, r.roof, 'gabled', brick.body, 5);
+      }
+      if (zone !== Zone.College) {
+        const th = h + (zone === Zone.ResearchUniversity ? 34 : 20) * scale;
+        const t = prism(ctx, inset(q, 0.2), th, brick, { seed: 6, windows: 'punched' });
+        if (zone === Zone.ResearchUniversity) {
+          ctx.fillStyle = css(lit(tone(hsl(206, 12, powered ? 78 : 48)), LIGHT.roof));
+          ctx.beginPath();
+          ctx.ellipse(cx, cy - th, hw * 0.17, hh * 0.3, 0, Math.PI, 0);
+          ctx.fill();
+          ctx.fillStyle = css(lit(tone(hsl(206, 12, powered ? 88 : 54)), LIGHT.roof * 1.2));
+          ctx.beginPath();
+          ctx.ellipse(cx - hw * 0.05, cy - th - hh * 0.06, hw * 0.09, hh * 0.16, 0, Math.PI, 0);
+          ctx.fill();
+        } else {
+          parapet(ctx, t.roof, material('stone', tone(hsl(40, 12, 68))), 2.4);
+        }
+      }
+      break;
+    }
+
+    case Zone.FusionPlant: {
+      const h = 18 * scale;
+      const shell = material('concrete', tone(hsl(204, 8, 48)));
+      const r = prism(ctx, inset(q, 0.9), h, shell, { seed: 1, windows: 'ribbon' });
+      parapet(ctx, r.roof, shell, 2.4);
+      ctx.strokeStyle = powered ? 'hsl(184 92% 64%)' : 'hsl(204 12% 42%)';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy - h - 8 * scale, hw * 0.42, hh * 0.42, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      if (powered) {
+        ctx.strokeStyle = 'rgba(184, 246, 255, 0.45)';
+        ctx.lineWidth = 12;
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(230, 252, 255, 0.9)';
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+      }
+      break;
+    }
+  }
+
+  if (!powered) drawNoPowerBolt(ctx, cx, cy - 30 * scale);
+}
+
+// ---------------------------------------------------------------------------
+// Authored (mod) buildings
+// ---------------------------------------------------------------------------
+
 /**
- * Draw a building a player authored, from its declarative spec. Everything
- * here is the same primitive core buildings are made of — one isometric mass,
- * a roof cap, a few rooftop props — so an authored building picks up the
- * active skin, the render style, and the zoom LOD without knowing they exist.
- * Exported so the Mods panel can render a live preview with the same code the
- * map uses.
+ * Draw a building a player authored, from its declarative spec. It goes
+ * through the same massing primitives core buildings do, so an authored
+ * building picks up the sun, the materials and the active skin for free.
+ * Exported so the Mods panel can preview with the code the map uses.
  */
 export function drawAuthoredBuilding(
   ctx: CanvasRenderingContext2D,
@@ -805,220 +1740,70 @@ export function drawAuthoredBuilding(
   detail: 0 | 1 | 2 = 1,
 ) {
   const { cx, cy } = geom;
-  const h = v.height * getSkin().heightScale;
+  const skin = getSkin();
+  const h = v.height * skin.heightScale;
+  const skinned = skin.building(v.hue, v.sat, v.light);
+  const body: Hsl = { h: skinned[0], s: skinned[1], l: skinned[2] };
+  const mat = material(v.light > 60 ? 'render' : v.sat > 40 ? 'brick' : 'concrete', body);
+  const q = inset(quadOf(geom), v.footprint);
+  contactShadow(ctx, q);
+  const r = prism(ctx, q, h, mat, { seed: v.height | 0, windows: 'punched' });
+  roofCap(ctx, r.roof, v.roof as RoofStyle, body, 1);
 
-  drawShadow(ctx, geom, v.footprint);
-  const { foot } = box(ctx, geom, v.footprint, h, v.hue, v.sat, v.light);
-  drawRoof(ctx, foot, h, v.roof as RoofStyle, v.hue, v.sat, v.light);
-
-  // Props are roof furniture; at the farthest zoom the masses read better bare.
   if (detail >= 1) {
     const props = v.props.slice(0, MAX_BUILDING_PROPS);
     props.forEach((p, i) => {
-      const dx = (i - (props.length - 1) / 2) * 9;
-      if (p === 'smokestack') smokestack(ctx, cx + dx - 2, cy, h);
-      else drawProp(ctx, p as PropKind, cx + dx, cy - h);
+      const dx = (i - (props.length - 1) / 2) * 10;
+      if (p === 'smokestack') {
+        prism(ctx, diamond(cx + dx, cy - h + 2, 3.4, 1.7), 20, material('brick', hsl(16, 20, 34)), {
+          seed: i,
+          groundAo: false,
+        });
+      } else {
+        roofKit(ctx, shiftQuad(r.roof, dx, 0), [p as PropKind], body, i * 3 + 1, h);
+      }
     });
   }
-
-  if (!powered) drawNoPowerBolt(ctx, cx, cy - h - 12);
+  if (!powered) drawNoPowerBolt(ctx, cx, cy - h - 14);
 }
 
-/**
- * The mayor's-office rewards.
- *
- * Each spans a whole block, so these draw into a geom covering the footprint
- * rather than a single tile — the ellipse of a stadium bowl, the colonnade of
- * a museum, and the quads of a campus all scale with it for free. Half-extents
- * come off the geom's own corners so a two-tile ballpark and a five-tile
- * colosseum are the same drawing at different sizes.
- */
-function drawReward(
-  ctx: CanvasRenderingContext2D,
-  geom: TileGeom,
-  zone: Zone,
-  powered: boolean,
-  detail: 0 | 1 | 2,
-): void {
-  const { cx, cy } = geom;
-  const hw = geom.corners[1][0] - cx; // half-width of the block diamond
-  const hh = geom.corners[2][1] - cy; // half-height
-  const skin = getSkin();
-  const scale = skin.heightScale;
-  const tone = (hue: number, sat: number, lit: number) => {
-    const [h, s, l] = skin.building(hue, sat, lit);
-    return hsl(h, s, l);
-  };
-
-  /** A filled ellipse in the tile plane, at a given share of the block. */
-  const disc = (f: number, lift: number, fill: string) => {
-    ctx.fillStyle = fill;
-    ctx.beginPath();
-    ctx.ellipse(cx, cy - lift, hw * f, hh * f, 0, 0, Math.PI * 2);
-    ctx.fill();
-  };
-
-  drawShadow(ctx, geom, 0.9);
-
-  switch (zone) {
-    case Zone.Ballpark:
-    case Zone.Arena:
-    case Zone.Stadium:
-    case Zone.Colosseum: {
-      // a bowl: outer stand ring lifted off the ground, playing surface inside
-      const wall = (zone === Zone.Colosseum ? 26 : zone === Zone.Stadium ? 22 : zone === Zone.Arena ? 17 : 11) * scale;
-      disc(0.94, 0, tone(28, 12, 30)); // footing shadow ring
-      // stand wall, drawn as a stack so the ring reads as having height
-      for (let k = wall; k >= 0; k -= 2) {
-        disc(0.92, k, tone(30, 14, 34 + (k / wall) * 16));
-      }
-      disc(0.66, wall, zone === Zone.Ballpark ? 'hsl(108 42% 38%)' : 'hsl(108 30% 34%)');
-      if (detail >= 1) {
-        // floodlight masts at the four compass points of the ring
-        ctx.strokeStyle = '#cfd6dc';
-        ctx.lineWidth = 1.5;
-        for (const [ox, oy] of [
-          [-hw * 0.72, 0],
-          [hw * 0.72, 0],
-          [0, -hh * 0.72],
-          [0, hh * 0.72],
-        ]) {
-          ctx.beginPath();
-          ctx.moveTo(cx + ox, cy + oy - wall);
-          ctx.lineTo(cx + ox, cy + oy - wall - 12 * scale);
-          ctx.stroke();
-          ctx.fillStyle = powered ? '#fdf3c8' : '#6f7378';
-          ctx.fillRect(cx + ox - 3, cy + oy - wall - 15 * scale, 6, 3);
-        }
-      }
-      break;
-    }
-
-    case Zone.Library:
-    case Zone.Museum: {
-      // a classical block: plinth, colonnade across the front, pediment
-      const h = (zone === Zone.Museum ? 26 : 18) * scale;
-      const { foot } = box(ctx, geom, 0.82, h, 44, 12, 74);
-      drawRoof(ctx, foot, h, 'gabled', 44, 10, 70);
-      if (detail >= 1) {
-        ctx.fillStyle = tone(44, 8, 88);
-        const cols = zone === Zone.Museum ? 6 : 4;
-        for (let k = 0; k < cols; k++) {
-          const t = (k + 0.5) / cols;
-          const x = cx - hw * 0.62 + t * hw * 1.24;
-          ctx.fillRect(x - 1.5, cy + hh * 0.18 - h, 3, h);
-        }
-      }
-      break;
-    }
-
-    case Zone.Monument: {
-      // a stepped plinth under a tall obelisk — pure civic prestige
-      const h = 12 * scale;
-      box(ctx, geom, 0.7, h, 40, 8, 70);
-      box(ctx, geom, 0.42, h + 8 * scale, 40, 6, 78);
-      const top = cy - h - 8 * scale;
-      const spire = 46 * scale;
-      fillPoly(
-        ctx,
-        [
-          [cx - hw * 0.1, top],
-          [cx + hw * 0.1, top],
-          [cx + hw * 0.03, top - spire],
-          [cx - hw * 0.03, top - spire],
-        ],
-        tone(42, 10, 84),
-      );
-      fillPoly(
-        ctx,
-        [
-          [cx - hw * 0.03, top - spire],
-          [cx + hw * 0.03, top - spire],
-          [cx, top - spire - 10 * scale],
-        ],
-        tone(45, 30, 72),
-      );
-      break;
-    }
-
-    case Zone.College:
-    case Zone.University:
-    case Zone.ResearchUniversity: {
-      // a quad: wings around a lawn, with a tower that grows up the ladder
-      const h = (zone === Zone.ResearchUniversity ? 30 : zone === Zone.University ? 24 : 18) * scale;
-      disc(0.8, 0, 'hsl(105 34% 36%)'); // the lawn
-      for (const [fx, fy] of [
-        [-0.5, 0],
-        [0.5, 0],
-        [0, -0.5],
-        [0, 0.5],
-      ]) {
-        const wing: TileGeom = {
-          cx: cx + fx * hw,
-          cy: cy + fy * hh,
-          corners: geom.corners.map(([px, py]) => [
-            cx + fx * hw + (px - cx) * 0.34,
-            cy + fy * hh + (py - cy) * 0.34,
-          ]) as [number, number][],
-        };
-        const { foot } = box(ctx, wing, 0.95, h, 22, 26, 52);
-        drawRoof(ctx, foot, h, 'gabled', 20, 24, 44);
-      }
-      if (zone !== Zone.College) {
-        const th = h + (zone === Zone.ResearchUniversity ? 34 : 20) * scale;
-        box(ctx, geom, 0.22, th, 24, 22, 60);
-        if (zone === Zone.ResearchUniversity) {
-          // an observatory dome: the visible sign the city can do research
-          ctx.fillStyle = tone(210, 14, powered ? 76 : 46);
-          ctx.beginPath();
-          ctx.ellipse(cx, cy - th, hw * 0.16, hh * 0.28, 0, Math.PI, 0);
-          ctx.fill();
-        }
-      }
-      break;
-    }
-
-    case Zone.FusionPlant: {
-      // a low containment slab with a torus that glows when it's running
-      const h = 16 * scale;
-      box(ctx, geom, 0.88, h, 205, 8, 46);
-      ctx.strokeStyle = powered ? 'hsl(185 90% 62%)' : 'hsl(205 12% 40%)';
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.ellipse(cx, cy - h - 6 * scale, hw * 0.42, hh * 0.42, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      if (powered) {
-        ctx.strokeStyle = 'rgba(180, 245, 255, 0.5)';
-        ctx.lineWidth = 10;
-        ctx.stroke();
-      }
-      break;
-    }
-  }
-
-  if (!powered) drawNoPowerBolt(ctx, cx, cy - 26 * scale);
+function shiftQuad(q: Quad, dx: number, dy: number): Quad {
+  return q.map(([x, y]) => [x + dx, y + dy] as Pt) as Quad;
 }
-
-/** Slots the reward painter owns; everything else falls through to its own art. */
-const REWARD_ZONES = new Set<Zone>([
-  Zone.Ballpark,
-  Zone.Arena,
-  Zone.Stadium,
-  Zone.Colosseum,
-  Zone.Library,
-  Zone.Museum,
-  Zone.Monument,
-  Zone.College,
-  Zone.University,
-  Zone.ResearchUniversity,
-  Zone.FusionPlant,
-]);
 
 /** A placed building whose pack isn't loaded: show a blank, not a guess. */
 function drawMissingBuilding(ctx: CanvasRenderingContext2D, geom: TileGeom) {
-  drawShadow(ctx, geom, 0.6);
-  box(ctx, geom, 0.6, 12, 0, 0, 38);
+  const q = inset(quadOf(geom), 0.6);
+  contactShadow(ctx, q);
+  prism(ctx, q, 12, material('concrete', hsl(0, 0, 38)), { seed: 1 });
 }
+
+/** A park: turf, a path, benches, and a stand of trees. */
+function drawPark(ctx: CanvasRenderingContext2D, geom: TileGeom, bucket: number) {
+  const q = quadOf(geom);
+  fill(ctx, q, css(hsl(106, 38, 36)));
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(q[0][0], q[0][1]);
+  for (let i = 1; i < 4; i++) ctx.lineTo(q[i][0], q[i][1]);
+  ctx.closePath();
+  ctx.clip();
+  ctx.strokeStyle = css(hsl(44, 16, 66), 0.75);
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(geom.cx - 34, geom.cy + (bucket % 2 ? -6 : 6));
+  ctx.quadraticCurveTo(geom.cx, geom.cy + (bucket % 2 ? 8 : -8), geom.cx + 34, geom.cy + (bucket % 2 ? -4 : 4));
+  ctx.stroke();
+  ctx.restore();
+  drawTree(ctx, geom.cx - 12, geom.cy - 4, 'broadleaf', 18, bucket % 6, season);
+  drawTree(ctx, geom.cx + 10, geom.cy + 3, bucket % 3 === 0 ? 'conifer' : 'broadleaf', 15, (bucket + 2) % 6, season);
+  if (bucket % 3 === 1) drawHedge(ctx, geom.cx + 2, geom.cy + 9, 14, season);
+  else drawRock(ctx, geom.cx + 16, geom.cy - 3, 3, bucket);
+}
+
+// ---------------------------------------------------------------------------
+// Entry point
+// ---------------------------------------------------------------------------
 
 export function drawBuilding(
   ctx: CanvasRenderingContext2D,
@@ -1029,21 +1814,18 @@ export function drawBuilding(
   abandoned: boolean,
   powered: boolean,
   variant: number, // 0..1 stable per tile
-  night = 0, // 0 day .. 1 midnight, brightens lit windows
-  detail: 0 | 1 | 2 = 1, // zoom LOD: 0 far (masses only), 2 close (extra trim)
+  night = 0, // 0 day .. 1 midnight, brings the lit-window overlay up
+  detail: 0 | 1 | 2 = 1, // zoom LOD
+  size = 1,
 ) {
   const { cx, cy } = geom;
+  const bucket = variantBucket(variant);
 
-  // Authored content draws from its spec. Core buildings carry no `visual`, so
-  // this never intercepts them; a mod slot with no definition loaded (its pack
-  // was disabled while its buildings stood) gets a blank placeholder rather
-  // than falling through and being drawn as some unrelated house.
   const authored = buildingBySlot(zone);
   if (authored?.visual) {
     drawAuthoredBuilding(ctx, geom, authored.visual, powered, detail);
     return;
   }
-  // rewards span a block and have their own painter; geom is the whole footprint
   if (REWARD_ZONES.has(zone)) {
     drawReward(ctx, geom, zone, powered, detail);
     return;
@@ -1052,586 +1834,236 @@ export function drawBuilding(
     drawMissingBuilding(ctx, geom);
     return;
   }
-
   if (zone === Zone.Park) {
-    fillTile(ctx, geom, 'hsl(105 45% 42%)');
-    tree(ctx, cx - 10, cy - 4);
-    tree(ctx, cx + 8, cy + 1);
+    drawPark(ctx, geom, bucket);
     return;
   }
-
-  if (zone === Zone.PowerPlant) {
-    drawShadow(ctx, geom, 0.85);
-    box(ctx, geom, 0.85, 20, 15, 12, 38);
-    smokestack(ctx, cx - 16, cy - 16, 22);
-    smokestack(ctx, cx - 4, cy - 16, 26);
-    return;
-  }
-
-  if (zone === Zone.SolarPlant) {
-    // low plinth under three angled panel rows catching the sky
-    drawShadow(ctx, geom, 0.8);
-    box(ctx, geom, 0.8, 3, 220, 12, 28);
-    for (let k = -1; k <= 1; k++) {
-      fillPoly(
-        ctx,
-        [
-          [cx - 14 + k * 5, cy - 5 + k * 6],
-          [cx + 10 + k * 5, cy - 11 + k * 6],
-          [cx + 14 + k * 5, cy - 7 + k * 6],
-          [cx - 10 + k * 5, cy - 1 + k * 6],
-        ],
-        'hsl(215 62% 46%)',
-      );
-    }
-    return;
-  }
-
-  if (zone === Zone.WindTurbine) {
-    // concrete pad, white mast, three-blade rotor
-    drawShadow(ctx, geom, 0.3);
-    box(ctx, geom, 0.3, 4, 0, 0, 55);
-    ctx.strokeStyle = '#e8eaec';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - 2);
-    ctx.lineTo(cx, cy - 32);
-    ctx.stroke();
-    ctx.lineWidth = 1.5;
-    for (const a of [Math.PI / 2, Math.PI / 2 + (2 * Math.PI) / 3, Math.PI / 2 + (4 * Math.PI) / 3]) {
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - 32);
-      ctx.lineTo(cx + Math.cos(a) * 11, cy - 32 - Math.sin(a) * 11);
-      ctx.stroke();
-    }
-    ctx.fillStyle = '#d23b30';
-    ctx.fillRect(cx - 1.5, cy - 33.5, 3, 3);
-    return;
-  }
-
-  if (zone === Zone.HydroPlant) {
-    // blue powerhouse with twin penstocks and a spill of white water
-    drawShadow(ctx, geom, 0.7);
-    box(ctx, geom, 0.7, 14, 210, 48, 38);
-    ctx.strokeStyle = '#9fb2c2';
-    ctx.lineWidth = 3;
-    for (const dx of [-5, 3]) {
-      ctx.beginPath();
-      ctx.moveTo(cx + dx, cy - 14);
-      ctx.lineTo(cx + dx + 6, cy + 2);
-      ctx.stroke();
-    }
-    fillPoly(
-      ctx,
-      [
-        [cx + 2, cy + 2],
-        [cx + 12, cy + 6],
-        [cx + 4, cy + 8],
-      ],
-      'rgba(210, 235, 250, 0.85)',
-    );
-    return;
-  }
-
-  if (zone === Zone.NuclearPlant) {
-    // pale reactor hall beside the waisted cooling tower and its steam
-    drawShadow(ctx, geom, 0.8);
-    box(ctx, geom, 0.8, 11, 45, 8, 60);
-    fillPoly(
-      ctx,
-      [
-        [cx + 7, cy - 1],
-        [cx + 19, cy - 1],
-        [cx + 16, cy - 15],
-        [cx + 10, cy - 15],
-      ],
-      '#c3c8c5',
-    );
-    fillPoly(
-      ctx,
-      [
-        [cx + 10, cy - 15],
-        [cx + 16, cy - 15],
-        [cx + 18, cy - 25],
-        [cx + 8, cy - 25],
-      ],
-      '#d7dcd9',
-    );
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.beginPath();
-    ctx.arc(cx + 13, cy - 29, 4, 0, Math.PI * 2);
-    ctx.arc(cx + 17, cy - 32, 3, 0, Math.PI * 2);
-    ctx.fill();
-    return;
-  }
-
   if (zone === Zone.PowerLine) {
     drawPole(ctx, cx, cy);
     return;
   }
-
-  if (zone === Zone.WaterPump) {
-    // squat blue pumphouse with an intake stack
-    drawShadow(ctx, geom, 0.6);
-    box(ctx, geom, 0.6, 12, 210, 45, 45);
-    ctx.fillStyle = '#7fb3d8';
-    ctx.fillRect(cx - 3, cy - 24, 6, 12);
-    ctx.fillStyle = '#2d5f8a';
-    ctx.fillRect(cx - 4, cy - 26, 8, 3);
-    if (!powered) drawNoPowerBolt(ctx, cx, cy - 30);
-    return;
-  }
-
   if (zone === Zone.WaterPipe) {
-    // buried main: a low blue-grey conduit bump
-    fillPoly(
+    fill(
       ctx,
       [
-        [cx - 10, cy],
-        [cx, cy - 5],
-        [cx + 10, cy],
-        [cx, cy + 5],
+        [cx - 11, cy],
+        [cx, cy - 5.5],
+        [cx + 11, cy],
+        [cx, cy + 5.5],
       ],
-      'hsl(207 25% 40%)',
+      css(lit(hsl(206, 22, 42), LIGHT.roof)),
     );
-    return;
-  }
-
-  if (zone === Zone.BusStop) {
-    // small teal shelter with a stop-sign post
-    drawShadow(ctx, geom, 0.45);
-    box(ctx, geom, 0.45, 7, 178, 40, 42);
-    ctx.strokeStyle = '#cfd6d4';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(cx + 10, cy + 2);
-    ctx.lineTo(cx + 10, cy - 14);
-    ctx.stroke();
-    ctx.fillStyle = '#2fa38f';
-    ctx.fillRect(cx + 10, cy - 14, 6, 5);
-    if (!powered) drawNoPowerBolt(ctx, cx, cy - 18);
-    return;
-  }
-
-  if (zone === Zone.StreetcarStop) {
-    // teal shelter under a catenary pole and its contact wire
-    drawShadow(ctx, geom, 0.5);
-    box(ctx, geom, 0.5, 8, 178, 42, 44);
-    ctx.strokeStyle = '#cfd6d4';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(cx + 9, cy + 3);
-    ctx.lineTo(cx + 9, cy - 20);
-    ctx.moveTo(cx + 3, cy - 18);
-    ctx.lineTo(cx + 15, cy - 18);
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(207, 214, 212, 0.6)';
-    ctx.beginPath();
-    ctx.moveTo(cx - 14, cy - 16);
-    ctx.lineTo(cx + 14, cy - 16);
-    ctx.stroke();
-    if (!powered) drawNoPowerBolt(ctx, cx, cy - 24);
-    return;
-  }
-
-  if (zone === Zone.MonorailStation) {
-    // concrete pylon carrying a beam with a white car parked on it
-    drawShadow(ctx, geom, 0.5);
-    box(ctx, geom, 0.5, 6, 178, 30, 46);
-    ctx.fillStyle = '#9aa0a2';
-    ctx.fillRect(cx - 2, cy - 22, 4, 20);
-    ctx.fillStyle = '#7d8486';
-    ctx.fillRect(cx - 14, cy - 24, 28, 3);
-    ctx.fillStyle = '#e8ecee';
-    if (ctx.roundRect) {
-      ctx.beginPath();
-      ctx.roundRect(cx - 10, cy - 32, 20, 8, 3);
-      ctx.fill();
-    } else {
-      // Safari ≤ 15 (pre-2022 Macs) has no roundRect; square car is fine
-      ctx.fillRect(cx - 10, cy - 32, 20, 8);
-    }
-    ctx.fillStyle = '#3f8f8a';
-    ctx.fillRect(cx - 7, cy - 30, 14, 2.5);
-    if (!powered) drawNoPowerBolt(ctx, cx, cy - 38);
-    return;
-  }
-
-  if (zone === Zone.SubwayStation) {
-    // stair kiosk descending underground, lit M sign on a post
-    drawShadow(ctx, geom, 0.5);
-    box(ctx, geom, 0.5, 7, 220, 18, 38);
-    ctx.fillStyle = '#1e2226';
-    fillPoly(
-      ctx,
-      [
-        [cx - 8, cy + 2],
-        [cx + 2, cy - 2],
-        [cx + 6, cy + 1],
-        [cx - 4, cy + 5],
-      ],
-      '#1e2226',
-    );
-    ctx.strokeStyle = '#cfd6d4';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(cx + 10, cy + 2);
-    ctx.lineTo(cx + 10, cy - 16);
-    ctx.stroke();
-    ctx.fillStyle = '#2456c8';
-    ctx.fillRect(cx + 6, cy - 24, 9, 8);
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 7px sans-serif';
-    ctx.fillText('M', cx + 8, cy - 17.5);
-    if (!powered) drawNoPowerBolt(ctx, cx, cy - 30);
-    return;
-  }
-
-  if (zone === Zone.RailTerminal) {
-    // brick terminal hall with a white clock face on the gable
-    drawShadow(ctx, geom, 0.8);
-    box(ctx, geom, 0.8, 16, 12, 45, 40);
-    fillPoly(
-      ctx,
-      [
-        [cx - 12, cy - 16],
-        [cx + 12, cy - 16],
-        [cx, cy - 26],
-      ],
-      'hsl(12 40% 34%)',
-    );
-    ctx.fillStyle = '#f2efe6';
-    ctx.beginPath();
-    ctx.arc(cx, cy - 19, 3.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#3a3630';
+    ctx.strokeStyle = css(lit(hsl(206, 20, 56), LIGHT.roof * 1.2), 0.6);
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(cx, cy - 19);
-    ctx.lineTo(cx, cy - 21.5);
-    ctx.moveTo(cx, cy - 19);
-    ctx.lineTo(cx + 1.8, cy - 18.2);
+    ctx.moveTo(cx - 8, cy - 1.5);
+    ctx.lineTo(cx, cy - 5.5);
+    ctx.lineTo(cx + 8, cy - 1.5);
     ctx.stroke();
-    if (!powered) drawNoPowerBolt(ctx, cx, cy - 32);
     return;
   }
-
-  if (zone === Zone.Landfill) {
-    // a bulldozed mound of refuse: earth berm, litter, and gulls over it
-    drawShadow(ctx, geom, 0.9);
-    fillTile(ctx, geom, 'hsl(74 18% 34%)');
-    fillPoly(
-      ctx,
-      [
-        [cx - 22, cy + 2],
-        [cx - 6, cy - 11],
-        [cx + 10, cy - 9],
-        [cx + 22, cy + 3],
-        [cx, cy + 13],
-      ],
-      'hsl(46 14% 40%)',
-    );
-    fillPoly(
-      ctx,
-      [
-        [cx - 6, cy - 11],
-        [cx + 10, cy - 9],
-        [cx + 22, cy + 3],
-        [cx + 4, cy - 1],
-      ],
-      'hsl(46 12% 33%)',
-    );
-    if (detail >= 1) {
-      // scraps caught on the heap
-      const litter: [number, number, string][] = [
-        [-12, 1, '#b9b2a2'],
-        [-2, -5, '#8f9a86'],
-        [7, -2, '#a89a8c'],
-        [14, 3, '#9aa4ad'],
-        [1, 6, '#b0a68f'],
-      ];
-      for (const [dx, dy, fill] of litter) {
-        ctx.fillStyle = fill;
-        ctx.fillRect(cx + dx, cy + dy, 2.5, 2);
-      }
-      // gulls
-      ctx.strokeStyle = 'rgba(245,245,240,0.9)';
-      ctx.lineWidth = 1;
-      for (const [gx, gy] of [
-        [-8, -20],
-        [6, -25],
-      ] as const) {
-        ctx.beginPath();
-        ctx.moveTo(cx + gx - 3, cy + gy);
-        ctx.quadraticCurveTo(cx + gx, cy + gy - 2, cx + gx + 3, cy + gy);
-        ctx.stroke();
-      }
-    }
-    return;
-  }
-
-  if (zone === Zone.Incinerator) {
-    // squat furnace hall under a tall stack trailing smoke
-    drawShadow(ctx, geom, 0.75);
-    box(ctx, geom, 0.75, 20, 28, 8, 42);
-    smokestack(ctx, cx + 6, cy - 14, 34);
-    ctx.fillStyle = 'hsl(20 45% 42%)';
-    ctx.fillRect(cx - 16, cy - 14, 14, 4); // charging door
-    if (detail >= 1) {
-      ctx.fillStyle = 'rgba(255,255,255,0.35)';
-      ctx.beginPath();
-      ctx.arc(cx + 9, cy - 52, 5, 0, Math.PI * 2);
-      ctx.arc(cx + 14, cy - 57, 3.5, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    if (!powered) drawNoPowerBolt(ctx, cx, cy - 44);
-    return;
-  }
-
-  if (zone === Zone.RecyclingCentre) {
-    // open sorting shed with colour-coded bays out front
-    drawShadow(ctx, geom, 0.7);
-    box(ctx, geom, 0.7, 15, 140, 22, 52);
-    if (detail >= 1) {
-      const bays = ['#2f7fbf', '#3f9f56', '#c9a227'];
-      bays.forEach((fill, i) => {
-        ctx.fillStyle = fill;
-        ctx.fillRect(cx - 15 + i * 10, cy + 1, 8, 5);
-      });
-      // recycling chevrons on the roof
-      ctx.strokeStyle = '#eaf3ea';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(cx - 5, cy - 18);
-      ctx.lineTo(cx, cy - 22);
-      ctx.lineTo(cx + 5, cy - 18);
-      ctx.stroke();
-    }
-    if (!powered) drawNoPowerBolt(ctx, cx, cy - 26);
-    return;
-  }
-
-  if (zone === Zone.Prison) {
-    // a walled yard with a low block and a corner watchtower
-    drawShadow(ctx, geom, 0.85);
-    box(ctx, geom, 0.85, 10, 210, 6, 40); // grey perimeter block
-    // inner cell block, slightly taller and colder
-    fillPoly(
-      ctx,
-      [
-        [cx - 12, cy - 2],
-        [cx + 2, cy - 9],
-        [cx + 14, cy - 3],
-        [cx, cy + 4],
-      ],
-      'hsl(210 6% 46%)',
-    );
-    // watchtower on the near corner
-    ctx.fillStyle = 'hsl(210 8% 38%)';
-    ctx.fillRect(cx - 20, cy - 20, 6, 18);
-    ctx.fillStyle = 'hsl(48 30% 60%)';
-    ctx.fillRect(cx - 21, cy - 23, 8, 4); // lit cap
-    if (detail >= 1) {
-      // window slits along the block
-      ctx.strokeStyle = 'rgba(20,24,28,0.7)';
-      ctx.lineWidth = 1;
-      for (let k = -1; k <= 2; k++) {
-        ctx.beginPath();
-        ctx.moveTo(cx - 8 + k * 5, cy - 4 - k * 1.4);
-        ctx.lineTo(cx - 8 + k * 5, cy - 8 - k * 1.4);
-        ctx.stroke();
-      }
-    }
-    if (!powered) drawNoPowerBolt(ctx, cx, cy - 26);
-    return;
-  }
-
-  if (
-    zone === Zone.FireStation ||
-    zone === Zone.PoliceStation ||
-    zone === Zone.School ||
-    zone === Zone.Hospital
-  ) {
-    const style =
-      zone === Zone.FireStation
-        ? { h: 18, f: 0.8, hue: 2, sat: 62, lit: 46 }
-        : zone === Zone.PoliceStation
-          ? { h: 18, f: 0.8, hue: 215, sat: 45, lit: 44 }
-          : zone === Zone.Hospital
-            ? { h: 22, f: 0.82, hue: 190, sat: 12, lit: 68 }
-            : { h: 12, f: 0.85, hue: 45, sat: 42, lit: 56 };
-    drawShadow(ctx, geom, style.f);
-    const { faces } = box(ctx, geom, style.f, style.h, style.hue, style.sat, style.lit);
-    // white service band across the visible walls
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-    ctx.lineWidth = 2;
-    const bandY = style.h * 0.45;
-    for (const face of faces) {
-      ctx.beginPath();
-      ctx.moveTo(face.a[0], face.a[1] - bandY);
-      ctx.lineTo(face.b[0], face.b[1] - bandY);
-      ctx.stroke();
-    }
-    if (zone === Zone.School) {
-      ctx.strokeStyle = '#cfc8ba';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - style.h - 14);
-      ctx.lineTo(cx, cy - style.h);
-      ctx.stroke();
-      ctx.fillStyle = '#d24b3f';
-      ctx.fillRect(cx, cy - style.h - 14, 7, 4);
-    }
-    if (zone === Zone.Hospital) {
-      // red cross on the roof
-      ctx.fillStyle = '#d23b30';
-      ctx.fillRect(cx - 1.5, cy - style.h - 9, 3, 9);
-      ctx.fillRect(cx - 4.5, cy - style.h - 6, 9, 3);
-    }
-    if (!powered) drawNoPowerBolt(ctx, cx, cy - style.h - 12);
-    return;
-  }
+  if (drawCivic(ctx, geom, zone, powered, detail)) return;
 
   if (stage === 0) {
-    const tint = ZONE_TINT[zone];
-    if (tint) fillTile(ctx, geom, tint);
+    drawSurveyedLot(ctx, geom, zone);
     if (!powered) drawNoPowerBolt(ctx, cx, cy - 4);
     return;
   }
 
+  const key: LotKey = { zone, stage, tier, bucket, size, abandoned, glow: false };
+  blit(ctx, lotSprite(key), cx, cy);
+  if (night > 0.06 && !abandoned && powered) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    blit(ctx, lotSprite({ ...key, glow: true }), cx, cy, Math.min(0.8, night * 1.1));
+    ctx.restore();
+  }
+  if (detail >= 1) yardProps(ctx, geom, zone, tier, stage, bucket, size);
+  if (!powered && !abandoned) {
+    drawNoPowerBolt(ctx, cx, cy - growableHeight(zone, stage, tier, bucket) - 14);
+  }
+}
+
+/** The ground shadow for whatever stands on this tile. Called from the shadow
+ * pass, before any building is drawn, so the shadow lands on the street. */
+export function drawCastShadow(
+  ctx: CanvasRenderingContext2D,
+  geom: TileGeom,
+  zone: Zone,
+  stage: Stage,
+  tier: Tier,
+  variant: number,
+  size = 1,
+): void {
+  const h = massHeight(zone, stage, tier, variantBucket(variant));
+  if (h < 4) return;
+  const f = massFootprint(zone, stage);
+  if (f <= 0) return;
+  castShadow(ctx, inset(quadOf(geom), f), h, size > 1 ? 0.3 : 0.34);
+}
+
+/**
+ * The ground a lot actually occupies: paving under a shop or works, clipped
+ * lawn round a house, and a path out to the kerb. Drawn with the terrain,
+ * before shadows, so a building stands on a plot instead of on a meadow.
+ */
+export function drawLotApron(
+  ctx: CanvasRenderingContext2D,
+  geom: TileGeom,
+  zone: Zone,
+  stage: Stage,
+  tier: Tier,
+  variant: number,
+): void {
+  if (stage === 0) return;
   const kind = normalizeTier(zone, tier);
-
-  if (zone === Zone.Industrial && kind === 'ag' && !abandoned) {
-    farm(ctx, geom, variant);
-    if (!powered) drawNoPowerBolt(ctx, cx, cy - 20);
-    return;
-  }
-
-  const h =
-    (HEIGHTS[zone]?.[stage] ?? 12) *
-    heightScaleFor(zone, tier) *
-    (0.92 + variant * 0.16) *
-    getSkin().heightScale;
-  const chan = channels(variant);
-  const arch = pickArchetype(zone, tier, stage, chan());
-  const [fh, fs, fl] = paletteFamily(zone, tier, chan());
-  let [hue, sat, lit] = paletteFor(zone, tier, stage);
-  // family shift plus a narrowed jitter (±6°, was ±12°) — families carry
-  // the variety now, jitter just breaks up rows
-  hue = (hue + fh + Math.floor(chan() * 12) - 6 + 360) % 360;
-  sat = Math.max(0, Math.min(100, sat + fs));
-  lit = Math.max(0, Math.min(100, lit + fl));
-
-  if (abandoned) {
-    sat = 6;
-    lit = 32;
-  }
-  drawShadow(ctx, geom, footprintBudget(stage));
-  const primary = drawArchetype(ctx, geom, arch, stage, zone, h, hue, sat, lit, abandoned, night, chan, detail);
-  if (primary && !abandoned && detail >= 1) {
-    drawTierAccents(ctx, primary, zone, kind, stage, h);
-    drawStreetLevel(ctx, primary, zone, stage, detail, chan, entityFor(zone, kind, stage, variant));
-  }
-  // Only smoky industry gets stacks; high-tech is clean and farms have none.
-  if (zone === Zone.Industrial && stage >= 2 && !abandoned && (kind === 'dirty' || kind === 'manu')) {
-    smokestack(ctx, cx + 8, cy - 8, h + 8);
-    if (kind === 'dirty' && stage >= 3) smokestack(ctx, cx - 2, cy - 4, h + 4);
-  }
-
-  if (abandoned) {
-    // boarded-up cross over the roof
-    ctx.strokeStyle = 'rgba(30,25,20,0.8)';
-    ctx.lineWidth = 2;
-    const r = 0.5 * footprintBudget(stage);
+  if (zone === Zone.Industrial && kind === 'ag') return; // a field is its own ground
+  const bucket = variantBucket(variant);
+  const q = quadOf(geom);
+  const paved =
+    zone === Zone.Industrial
+      ? hsl(36, 5, 40)
+      : zone === Zone.Commercial || stage >= 4
+        ? hsl(216, 4, 46)
+        : hsl(96, 22, 34);
+  fill(ctx, inset(q, 0.96), css(lit(paved, LIGHT.roof * 0.94), stage >= 4 ? 0.92 : 0.68));
+  if (stage < 4 && zone !== Zone.Industrial) {
+    // a garden path from the front corner to the middle of the lot
+    ctx.strokeStyle = css(lit(hsl(40, 12, 62), LIGHT.roof), 0.75);
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(cx - 14 * r, cy - h - 5 * r);
-    ctx.lineTo(cx + 14 * r, cy - h + 5 * r);
-    ctx.moveTo(cx + 14 * r, cy - h - 5 * r);
-    ctx.lineTo(cx - 14 * r, cy - h + 5 * r);
+    ctx.moveTo(geom.cx, geom.cy);
+    ctx.lineTo(q[2][0] * 0.5 + geom.cx * 0.5, q[2][1] * 0.5 + geom.cy * 0.5);
     ctx.stroke();
   }
-
-  if (!powered && !abandoned) {
-    drawNoPowerBolt(ctx, cx, cy - h - 12);
+  if (stage >= 4) {
+    // parking bays hatched along the near edge
+    ctx.strokeStyle = 'rgba(226, 230, 236, 0.28)';
+    ctx.lineWidth = 1;
+    for (let k = -2; k <= 2; k++) {
+      const t = 0.5 + k * 0.13;
+      const px = q[2][0] + (q[3][0] - q[2][0]) * t;
+      const py = q[2][1] + (q[3][1] - q[2][1]) * t;
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(px + (geom.cx - px) * 0.22, py + (geom.cy - py) * 0.22);
+      ctx.stroke();
+    }
   }
+  void bucket;
 }
 
-/** Disaster debris strewn over a wrecked lot; layout seeded by variant so
- * it holds still frame to frame. Drawn under the surviving building. */
+// ---------------------------------------------------------------------------
+// Transient marks
+// ---------------------------------------------------------------------------
+
+/** Disaster debris strewn over a wrecked lot; layout seeded by variant. */
 export function drawRubble(ctx: CanvasRenderingContext2D, geom: TileGeom, variant: number) {
-  const { cx, cy } = geom;
-  fillTile(ctx, geom, 'rgba(70, 62, 55, 0.45)'); // ash-brown ground stain
-  let h = 1 + variant * 976;
-  const rand = () => {
-    h = (h * 1103515245 + 12345) % 2147483648;
-    return h / 2147483648;
-  };
-  for (let k = 0; k < 7; k++) {
-    const px = cx + (rand() - 0.5) * 22;
-    const py = cy + (rand() - 0.5) * 11;
-    const w = 2 + rand() * 4;
-    ctx.fillStyle = `hsl(${25 + rand() * 12} ${8 + rand() * 10}% ${35 + rand() * 25}%)`;
-    ctx.fillRect(px - w / 2, py - w / 4, w, w / 2);
-  }
-  // splintered beams
-  ctx.strokeStyle = '#4a3f33';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(cx - 8 + variant * 4, cy + 3);
-  ctx.lineTo(cx + 2 + variant * 4, cy - 2);
-  ctx.moveTo(cx + 6 - variant * 3, cy + 4);
-  ctx.lineTo(cx - 2 - variant * 3, cy - 1);
-  ctx.stroke();
+  const bucket = variantBucket(variant);
+  const s = sprite(
+    `rub${bucket}`,
+    { w: TILE_W + 4, h: TILE_H + 20, ax: TILE_W / 2 + 2, ay: TILE_H / 2 + 14 },
+    (c) => {
+      c.beginPath();
+      c.moveTo(0, -TILE_H / 2);
+      c.lineTo(TILE_W / 2, 0);
+      c.lineTo(0, TILE_H / 2);
+      c.lineTo(-TILE_W / 2, 0);
+      c.closePath();
+      c.fillStyle = 'rgba(64, 56, 50, 0.5)';
+      c.fill();
+      c.save();
+      c.clip();
+      for (let k = 0; k < 16; k++) {
+        const u = hash2(k, 1, bucket) * 2 - 1;
+        const v = hash2(k, 2, bucket) * 2 - 1;
+        if (Math.abs(u) + Math.abs(v) > 1) continue;
+        const px = u * (TILE_W / 2);
+        const py = v * (TILE_H / 2);
+        const w = 2 + hash2(k, 3, bucket) * 5;
+        const tone = hsl(24 + hash2(k, 4, bucket) * 14, 8 + hash2(k, 5, bucket) * 10, 30 + hash2(k, 6, bucket) * 26);
+        c.fillStyle = css(lit(tone, LIGHT.right));
+        c.fillRect(px - w / 2, py - w / 4, w, w / 2);
+        c.fillStyle = css(lit(tone, LIGHT.roof));
+        c.fillRect(px - w / 2, py - w / 4 - 1, w, 1);
+      }
+      c.strokeStyle = '#463a2e';
+      c.lineWidth = 1.6;
+      for (let k = 0; k < 3; k++) {
+        const a = hash2(k, 7, bucket) * Math.PI;
+        c.beginPath();
+        c.moveTo(Math.cos(a) * -11, Math.sin(a) * -5);
+        c.lineTo(Math.cos(a) * 11, Math.sin(a) * 5);
+        c.stroke();
+      }
+      c.restore();
+    },
+  );
+  blit(ctx, s, geom.cx, geom.cy);
 }
 
-/** Animated flames over a burning building; flicker driven by time. */
-/** A dust burst over a fresh collapse. `life` is 0..1, fading; a few grey
- * puffs rising off the rubble. Render-only, decayed by the renderer. */
+/** A dust burst over a fresh collapse. `life` is 0..1, fading. */
 export function drawCollapse(ctx: CanvasRenderingContext2D, geom: TileGeom, life: number) {
   const { cx, cy } = geom;
-  ctx.globalAlpha = Math.min(1, life) * 0.7;
-  for (let k = 0; k < 4; k++) {
-    const rise = (1 - life) * 18;
-    const px = cx + (k - 1.5) * 7;
-    const py = cy - 4 - rise - k * 2;
-    const r = 4 + (1 - life) * 5;
-    ctx.fillStyle = k % 2 ? 'rgba(150,140,130,1)' : 'rgba(120,112,104,1)';
+  const rise = (1 - life) * 22;
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, life) * 0.62;
+  for (let k = 0; k < 6; k++) {
+    const px = cx + (k - 2.5) * 7 + Math.sin(k * 2.1) * 3;
+    const py = cy - 4 - rise - k * 2.4;
+    const r = 4 + (1 - life) * 7 + k * 0.6;
+    const g = ctx.createRadialGradient(px, py, 0, px, py, r);
+    g.addColorStop(0, k % 2 ? 'rgba(178, 168, 156, 0.95)' : 'rgba(146, 136, 126, 0.95)');
+    g.addColorStop(1, 'rgba(140, 130, 120, 0)');
+    ctx.fillStyle = g;
     ctx.beginPath();
     ctx.arc(px, py, r, 0, Math.PI * 2);
     ctx.fill();
   }
-  ctx.globalAlpha = 1;
+  ctx.restore();
 }
 
-/** A crashed-car marker over a blocked road: hazard cones and a flashing
- * amber/blue bar. Drawn while the block is live (a real sim state). */
+/** A crashed-car marker over a blocked road. */
 export function drawAccident(ctx: CanvasRenderingContext2D, geom: TileGeom, timeMs: number) {
   const { cx, cy } = geom;
-  // two orange cones flanking the lane
-  ctx.fillStyle = '#e8721f';
   for (const dx of [-9, 9]) {
-    fillPoly(ctx, [
-      [cx + dx - 3, cy + 3],
-      [cx + dx + 3, cy + 3],
-      [cx + dx, cy - 6],
-    ], '#e8721f');
+    fill(
+      ctx,
+      [
+        [cx + dx - 3, cy + 3],
+        [cx + dx + 3, cy + 3],
+        [cx + dx, cy - 7],
+      ],
+      '#e8721f',
+    );
     ctx.fillStyle = '#f4f0ea';
-    ctx.fillRect(cx + dx - 2, cy - 1, 4, 1.5); // reflective band
-    ctx.fillStyle = '#e8721f';
+    ctx.fillRect(cx + dx - 2, cy - 1.5, 4, 1.5);
   }
-  // a stalled vehicle
-  ctx.fillStyle = '#b53a34';
+  ctx.fillStyle = 'rgba(20, 24, 36, 0.3)';
+  ctx.beginPath();
+  ctx.ellipse(cx + 3, cy + 2, 9, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#a8332c';
   ctx.fillRect(cx - 6, cy - 5, 12, 6);
-  // flashing emergency bar, amber↔blue
+  ctx.fillStyle = 'rgba(180, 200, 220, 0.6)';
+  ctx.fillRect(cx - 4, cy - 4, 5, 3);
   const on = Math.sin(timeMs / 140) > 0;
-  ctx.fillStyle = on ? '#3aa0ff' : '#ffcf3f';
-  ctx.fillRect(cx - 5, cy - 8, 4, 2.5);
-  ctx.fillStyle = on ? '#ffcf3f' : '#3aa0ff';
-  ctx.fillRect(cx + 1, cy - 8, 4, 2.5);
+  for (const [dx, first] of [
+    [-5, true],
+    [1, false],
+  ] as const) {
+    const c = (on === first ? '#3aa0ff' : '#ffcf3f');
+    ctx.fillStyle = c;
+    ctx.fillRect(cx + dx, cy - 8.5, 4, 2.5);
+    ctx.fillStyle = c.replace(')', ', 0.28)').replace('#', 'rgba(');
+    ctx.beginPath();
+    ctx.arc(cx + dx + 2, cy - 7, 7, 0, Math.PI * 2);
+    ctx.fillStyle = on === first ? 'rgba(58, 160, 255, 0.22)' : 'rgba(255, 207, 63, 0.22)';
+    ctx.fill();
+  }
 }
 
-/** A brief pulsing "!" over a tile where crime just struck. `life` is 0..1,
- * fading out; kept small and quiet — crime is texture, not a set-piece. */
+/** A brief pulsing "!" over a tile where crime just struck. */
 export function drawCrimeFlash(
   ctx: CanvasRenderingContext2D,
   geom: TileGeom,
@@ -1640,19 +2072,21 @@ export function drawCrimeFlash(
 ) {
   const { cx, cy } = geom;
   const pulse = 0.6 + 0.4 * Math.sin(timeMs / 90);
-  const y = cy - 24 - (1 - life) * 8; // drifts up as it fades
+  const y = cy - 26 - (1 - life) * 9;
+  ctx.save();
   ctx.globalAlpha = Math.min(1, life * 1.5) * pulse;
   ctx.fillStyle = '#ffd23f';
-  ctx.strokeStyle = 'rgba(30,20,0,0.8)';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(30,20,0,0.85)';
+  ctx.lineWidth = 2.4;
   ctx.font = 'bold 15px sans-serif';
   ctx.textAlign = 'center';
   ctx.strokeText('!', cx, y);
   ctx.fillText('!', cx, y);
   ctx.textAlign = 'left';
-  ctx.globalAlpha = 1;
+  ctx.restore();
 }
 
+/** Flames over a burning building: a licking core, embers, and a smoke plume. */
 export function drawFire(
   ctx: CanvasRenderingContext2D,
   geom: TileGeom,
@@ -1660,20 +2094,54 @@ export function drawFire(
   variant: number,
 ) {
   const { cx, cy } = geom;
-  const t = timeMs / 90 + variant * 37; // per-tile phase offset
-  fillTile(ctx, geom, 'rgba(255,120,20,0.28)'); // ember glow on the ground
-  for (let k = 0; k < 3; k++) {
-    const fx = cx + (k - 1) * 7 + Math.sin(t + k * 2.1) * 2;
-    const base = cy - 2;
-    const hgt = 14 + Math.sin(t * 1.7 + k * 1.3) * 4;
-    fillPoly(
-      ctx,
-      [
-        [fx - 4, base],
-        [fx + 4, base],
-        [fx + Math.sin(t + k) * 2, base - hgt],
-      ],
-      k === 1 ? 'rgba(255,205,60,0.9)' : 'rgba(240,110,25,0.85)',
-    );
+  const t = timeMs / 90 + variant * 37;
+  // the ground the fire is lighting
+  const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, 34);
+  glow.addColorStop(0, 'rgba(255, 168, 60, 0.55)');
+  glow.addColorStop(0.5, 'rgba(255, 110, 30, 0.22)');
+  glow.addColorStop(1, 'rgba(255, 90, 20, 0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, 34, 18, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (let k = 0; k < 5; k++) {
+    const fx = cx + (k - 2) * 6 + Math.sin(t + k * 2.1) * 3;
+    const base = cy - 1 + Math.cos(k * 1.7) * 2;
+    const hgt = 15 + Math.sin(t * 1.7 + k * 1.3) * 6 + (k === 2 ? 8 : 0);
+    const g = ctx.createLinearGradient(fx, base, fx, base - hgt);
+    g.addColorStop(0, 'rgba(255, 96, 20, 0.85)');
+    g.addColorStop(0.55, 'rgba(255, 172, 48, 0.7)');
+    g.addColorStop(1, 'rgba(255, 240, 170, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(fx - 4.5, base);
+    ctx.quadraticCurveTo(fx - 3 + Math.sin(t + k) * 2, base - hgt * 0.6, fx + Math.sin(t + k) * 3, base - hgt);
+    ctx.quadraticCurveTo(fx + 3 + Math.sin(t + k) * 2, base - hgt * 0.6, fx + 4.5, base);
+    ctx.closePath();
+    ctx.fill();
+  }
+  // embers riding the column
+  for (let k = 0; k < 7; k++) {
+    const p = ((t * 0.28 + k * 0.37) % 1);
+    const ex = cx + Math.sin(t * 0.6 + k * 2.3) * 9;
+    const ey = cy - 4 - p * 40;
+    ctx.fillStyle = `rgba(255, ${Math.round(190 - p * 90)}, 70, ${(1 - p) * 0.85})`;
+    ctx.fillRect(ex, ey, 1.6, 1.6);
+  }
+  ctx.restore();
+
+  // smoke, leaning with the column
+  for (let k = 0; k < 4; k++) {
+    const p = ((t * 0.16 + k * 0.25) % 1);
+    const sx = cx + 4 + Math.sin(t * 0.3 + k) * 7 + p * 8;
+    const sy = cy - 22 - p * 34;
+    const r = 5 + p * 12;
+    ctx.fillStyle = `rgba(58, 54, 52, ${(1 - p) * 0.35})`;
+    ctx.beginPath();
+    ctx.arc(sx, sy, r, 0, Math.PI * 2);
+    ctx.fill();
   }
 }

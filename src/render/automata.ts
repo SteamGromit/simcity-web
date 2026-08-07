@@ -288,7 +288,7 @@ export class Automata {
   }
 
   /** Draw the automata that belong to tile i. Called inside the painter's loop. */
-  drawTile(ctx: CanvasRenderingContext2D, i: number): void {
+  drawTile(ctx: CanvasRenderingContext2D, i: number, night = 0): void {
     const cars = this.carBuckets.get(i);
     if (cars) {
       for (const car of cars) {
@@ -297,57 +297,132 @@ export class Automata {
         const sx = a.sx + (b.sx - a.sx) * car.t;
         const sy = a.sy + (b.sy - a.sy) * car.t;
         const angle = Math.atan2(b.sy - a.sy, b.sx - a.sx);
-        ctx.save();
-        ctx.translate(sx, sy);
-        ctx.rotate(angle);
-        ctx.translate(0, car.laneSide * 4);
-        switch (car.kind) {
-          case 'truck':
-            ctx.fillStyle = '#3d434b';
-            ctx.fillRect(-6, -2, 4, 4); // cab
-            ctx.fillStyle = car.color;
-            ctx.fillRect(-1, -2.5, 7, 5); // trailer
-            break;
-          case 'bus':
-            ctx.fillStyle = car.color;
-            ctx.fillRect(-7, -2.5, 14, 5);
-            ctx.fillStyle = 'rgba(255,255,255,0.7)';
-            ctx.fillRect(-6, -1.5, 12, 1.5); // window band
-            break;
-          case 'van':
-            ctx.fillStyle = car.color;
-            ctx.fillRect(-4.5, -2.5, 9, 5);
-            ctx.fillStyle = 'rgba(20,25,35,0.55)';
-            ctx.fillRect(-3.5, -1.5, 3, 3);
-            break;
-          case 'taxi':
-            ctx.fillStyle = car.color;
-            ctx.fillRect(-4, -2, 8, 4);
-            ctx.fillStyle = 'rgba(20,25,35,0.55)';
-            ctx.fillRect(-1.5, -1.5, 3.5, 3);
-            ctx.fillStyle = '#2b2b2b';
-            ctx.fillRect(-0.5, -2.7, 2, 1); // roof sign
-            break;
-          default:
-            ctx.fillStyle = car.color;
-            ctx.fillRect(-4, -2, 8, 4);
-            ctx.fillStyle = 'rgba(20,25,35,0.55)';
-            ctx.fillRect(-1.5, -1.5, 3.5, 3);
-        }
-        ctx.restore();
+        drawVehicle(ctx, sx, sy + car.laneSide * 4, angle, car.kind, car.color, night);
       }
     }
     const peds = this.pedBuckets.get(i);
     if (peds) {
       for (const p of peds) {
         const c = center(p.tile);
+        const x = c.sx + p.ox;
+        const y = c.sy + p.oy;
+        // a squashed shadow first, so a walker stands on the pavement
+        ctx.fillStyle = 'rgba(20, 24, 38, 0.22)';
+        ctx.fillRect(x - p.w / 2 + 1, y - 0.5, p.w + 1, 1.5);
         ctx.fillStyle = p.color;
-        ctx.fillRect(c.sx + p.ox - p.w / 2, c.sy + p.oy - p.h + 1, p.w, p.h);
+        ctx.fillRect(x - p.w / 2, y - p.h + 1, p.w, p.h);
+        // a head, one shade lighter, so the figure reads at close zoom
+        ctx.fillStyle = 'rgba(226, 202, 178, 0.9)';
+        ctx.fillRect(x - p.w / 2, y - p.h - 0.4, p.w, 1.4);
         if (this.pandemic) {
           ctx.fillStyle = '#f2f5f8'; // masked up
-          ctx.fillRect(c.sx + p.ox - p.w / 2, c.sy + p.oy - p.h + 1, p.w, 1);
+          ctx.fillRect(x - p.w / 2, y - p.h + 0.4, p.w, 1);
         }
       }
     }
   }
+}
+
+/** Mix a hex body colour toward black or white; |t| in 0..1. */
+function shade(hex: string, t: number): string {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const to = t < 0 ? 0 : 255;
+  const k = Math.min(1, Math.abs(t));
+  const mix = (c: number) => Math.round(c + (to - c) * k);
+  const r = mix((n >> 16) & 255);
+  const g = mix((n >> 8) & 255);
+  const b = mix(n & 255);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+
+const BODY: Record<VehicleKind, { len: number; wid: number; roof: number }> = {
+  car: { len: 9, wid: 4.4, roof: 2.6 },
+  taxi: { len: 9, wid: 4.4, roof: 2.6 },
+  van: { len: 10.5, wid: 5, roof: 3.6 },
+  truck: { len: 15, wid: 5.4, roof: 4 },
+  bus: { len: 16, wid: 5.4, roof: 4 },
+};
+
+/**
+ * One vehicle: a shadow on the tarmac, a body with a lit upper surface, a
+ * glazed cabin, and — after dark — headlights that actually throw a beam.
+ */
+function drawVehicle(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  angle: number,
+  kind: VehicleKind,
+  color: string,
+  night: number,
+): void {
+  const b = BODY[kind];
+  ctx.save();
+  ctx.translate(x, y);
+  // the shadow lies on the ground, so it is drawn before the body rotates in
+  ctx.fillStyle = 'rgba(18, 22, 36, 0.3)';
+  ctx.save();
+  ctx.rotate(angle);
+  ctx.fillRect(-b.len / 2 + 1.6, -b.wid / 2 + 1.4, b.len, b.wid);
+  ctx.restore();
+
+  ctx.rotate(angle);
+  const lower = shade(color, -0.28);
+  const upper = shade(color, 0.14);
+  if (kind === 'truck') {
+    ctx.fillStyle = shade('#3d434b', -0.1);
+    ctx.fillRect(-b.len / 2, -b.wid / 2, 5, b.wid);
+    ctx.fillStyle = '#5a626c';
+    ctx.fillRect(-b.len / 2, -b.wid / 2, 5, b.wid * 0.45);
+    ctx.fillStyle = lower;
+    ctx.fillRect(-b.len / 2 + 5.5, -b.wid / 2, b.len - 5.5, b.wid);
+    ctx.fillStyle = upper;
+    ctx.fillRect(-b.len / 2 + 5.5, -b.wid / 2, b.len - 5.5, b.wid * 0.42);
+  } else {
+    ctx.fillStyle = lower;
+    ctx.fillRect(-b.len / 2, -b.wid / 2, b.len, b.wid);
+    ctx.fillStyle = upper;
+    ctx.fillRect(-b.len / 2, -b.wid / 2, b.len, b.wid * 0.44);
+    // cabin glass
+    ctx.fillStyle = night > 0.3 ? 'rgba(40, 52, 74, 0.9)' : 'rgba(150, 178, 202, 0.75)';
+    if (kind === 'bus') {
+      ctx.fillRect(-b.len / 2 + 1, -b.roof / 2, b.len - 2, b.roof * 0.7);
+    } else {
+      ctx.fillRect(-1.4, -b.roof / 2, b.len * 0.42, b.roof);
+    }
+    if (kind === 'taxi') {
+      ctx.fillStyle = '#25262a';
+      ctx.fillRect(-0.6, -b.wid / 2 - 1.1, 2.4, 1.1);
+    }
+  }
+  // wheels: a dark strip along the underside sells the contact
+  ctx.fillStyle = 'rgba(16, 18, 24, 0.75)';
+  ctx.fillRect(-b.len / 2 + 1, b.wid / 2 - 0.9, b.len - 2, 0.9);
+
+  if (night > 0.25) {
+    const a = Math.min(1, (night - 0.25) * 2.2);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const beam = ctx.createLinearGradient(b.len / 2, 0, b.len / 2 + 22, 0);
+    beam.addColorStop(0, `rgba(255, 238, 190, ${0.4 * a})`);
+    beam.addColorStop(1, 'rgba(255, 238, 190, 0)');
+    ctx.fillStyle = beam;
+    ctx.beginPath();
+    ctx.moveTo(b.len / 2, -b.wid / 2);
+    ctx.lineTo(b.len / 2 + 22, -b.wid * 1.4);
+    ctx.lineTo(b.len / 2 + 22, b.wid * 1.4);
+    ctx.lineTo(b.len / 2, b.wid / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = `rgba(255, 246, 214, ${0.95 * a})`;
+    ctx.fillRect(b.len / 2 - 0.8, -b.wid / 2 + 0.4, 1.4, 1.2);
+    ctx.fillRect(b.len / 2 - 0.8, b.wid / 2 - 1.6, 1.4, 1.2);
+    ctx.fillStyle = `rgba(255, 70, 50, ${0.9 * a})`;
+    ctx.fillRect(-b.len / 2 - 0.4, -b.wid / 2 + 0.4, 1.2, 1.1);
+    ctx.fillRect(-b.len / 2 - 0.4, b.wid / 2 - 1.5, 1.2, 1.1);
+    ctx.restore();
+  }
+  ctx.restore();
 }
