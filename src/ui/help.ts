@@ -44,7 +44,7 @@ export function buildHelp(root: HTMLElement) {
           <li><b>Touch</b> — one finger builds (or pans with no tool armed),
               two fingers pan and pinch to zoom. On a narrow screen <b>☰</b>
               slides the tools in and out.</li>
-          <li><b>Arrows</b> — pan the map</li>
+          <li><b>Q / E</b> — turn the view a quarter · <b>Arrows</b> — pan</li>
           <li><b>⇧ + letter</b> — toggle data views: ⇧P power, ⇧O pollution,
               ⇧L land value, ⇧T traffic, ⇧D demand, ⇧F fire, ⇧V police, ⇧S school,
               ⇧H health, ⇧W water</li>

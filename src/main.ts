@@ -610,6 +610,14 @@ window.addEventListener('keydown', (e) => {
   if (isFormControl(e.target)) return; // a focused slider owns its arrow keys
   const pan = 60 / renderer.camera.zoom;
   switch (e.key) {
+    case 'q':
+    case 'Q':
+      renderer.rotateQuarter(-1);
+      break;
+    case 'e':
+    case 'E':
+      renderer.rotateQuarter(1);
+      break;
     case ' ':
       spaceHeld = true;
       e.preventDefault();
@@ -683,6 +691,7 @@ window.addEventListener('resize', () => renderer.resize());
   /** Move the camera outright — the hook automated screenshots drive. */
   camera: (patch: Partial<{ x: number; y: number; zoom: number }>) =>
     Object.assign(renderer.camera, patch),
+  rotate: (delta: 1 | -1) => renderer.rotateQuarter(delta),
 };
 
 // --- render loop ---

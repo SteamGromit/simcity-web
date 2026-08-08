@@ -59,6 +59,18 @@ export function roadMask(city: CityState, x: number, y: number): number {
   return mask;
 }
 
+/**
+ * Turn a world-space connectivity mask into the screen-space one the baked
+ * sprites are drawn for. A quarter turn moves the neighbour in grid direction
+ * k to the screen position direction k+1 occupied before, so rotating the
+ * bits is all it takes — the road sprites themselves are reused unchanged at
+ * every angle.
+ */
+export function rotateMask(mask: number, quarter: number): number {
+  const q = ((quarter % 4) + 4) % 4;
+  return ((mask << q) | (mask >> (4 - q))) & 0b1111;
+}
+
 /** How wide the footway is for a class, as a share of the half-tile. */
 function footwayWidth(cls: RoadClass): number {
   return cls >= 3 ? 0.1 : cls >= 1 ? 0.16 : 0.24;
@@ -290,6 +302,131 @@ export function drawBridge(
     ctx.moveTo(c1[0], c1[1] - 3);
     ctx.lineTo(c2[0], c2[1] - 3);
     ctx.stroke();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Street furniture
+// ---------------------------------------------------------------------------
+
+/** A lamp standard: post, arm, and a head that lights up after dark. */
+function lampSprite(lit_: boolean) {
+  return sprite(`lamp${lit_ ? 1 : 0}`, { w: 22, h: 40, ax: 8, ay: 34 }, (c) => {
+    c.fillStyle = 'rgba(22, 26, 40, 0.24)';
+    c.beginPath();
+    c.ellipse(3, 0, 5, 2.2, 0, 0, Math.PI * 2);
+    c.fill();
+    const post = hsl(210, 6, 40);
+    c.fillStyle = css(lit(post, LIGHT.right));
+    c.fillRect(-1, -30, 2, 30);
+    c.fillStyle = css(lit(post, LIGHT.left * 1.15));
+    c.fillRect(-1, -30, 0.8, 30);
+    // the arm reaching over the carriageway
+    c.strokeStyle = css(lit(post, LIGHT.left));
+    c.lineWidth = 1.6;
+    c.beginPath();
+    c.moveTo(0, -30);
+    c.quadraticCurveTo(4, -33, 8, -32);
+    c.stroke();
+    c.fillStyle = lit_ ? '#ffe9b0' : css(lit(hsl(46, 10, 62), LIGHT.roof));
+    c.fillRect(6, -32.4, 4.4, 1.8);
+    if (lit_) {
+      const g = c.createRadialGradient(8, -31, 0, 8, -31, 11);
+      g.addColorStop(0, 'rgba(255, 226, 150, 0.55)');
+      g.addColorStop(1, 'rgba(255, 226, 150, 0)');
+      c.fillStyle = g;
+      c.beginPath();
+      c.arc(8, -31, 11, 0, Math.PI * 2);
+      c.fill();
+    }
+  });
+}
+
+/** A signal head on a post, red over amber over green. */
+function signalSprite(phase: number) {
+  return sprite(`sig${phase}`, { w: 14, h: 34, ax: 7, ay: 29 }, (c) => {
+    c.fillStyle = 'rgba(22, 26, 40, 0.24)';
+    c.beginPath();
+    c.ellipse(2, 0, 4, 1.8, 0, 0, Math.PI * 2);
+    c.fill();
+    const post = hsl(200, 6, 34);
+    c.fillStyle = css(lit(post, LIGHT.right));
+    c.fillRect(-0.9, -22, 1.8, 22);
+    c.fillStyle = css(lit(post, LIGHT.roof));
+    c.fillRect(-2.6, -30, 5.2, 8);
+    const lamps = ['#ff4436', '#ffc23a', '#3ad46a'];
+    for (let k = 0; k < 3; k++) {
+      c.fillStyle = k === phase ? lamps[k] : 'rgba(24, 26, 30, 0.85)';
+      c.fillRect(-1.3, -29 + k * 2.4, 2.6, 1.8);
+    }
+  });
+}
+
+/** A car left at the kerb; the street looks abandoned without them. */
+function parkedSprite(variant: number, along: boolean) {
+  const colors = ['#c9c4bb', '#8f9aa6', '#7d5a4a', '#4a6a94', '#3d4249', '#a8483c'];
+  return sprite(`park${variant}${along ? 'a' : 'b'}`, { w: 20, h: 14, ax: 10, ay: 9 }, (c) => {
+    const body = colors[variant % colors.length];
+    c.save();
+    c.rotate(along ? 0.4636 : -0.4636); // along the two street directions
+    c.fillStyle = 'rgba(18, 22, 36, 0.28)';
+    c.fillRect(-4.6, -1.6, 10, 4);
+    c.fillStyle = body;
+    c.fillRect(-5, -2.2, 10, 4.4);
+    c.fillStyle = 'rgba(255,255,255,0.14)';
+    c.fillRect(-5, -2.2, 10, 1.9);
+    c.fillStyle = 'rgba(120, 150, 178, 0.7)';
+    c.fillRect(-1.6, -1.6, 3.6, 3);
+    c.fillStyle = 'rgba(16, 18, 24, 0.7)';
+    c.fillRect(-4, 1.4, 8, 0.8);
+    c.restore();
+  });
+}
+
+/**
+ * What stands on the pavement. Drawn in the standing pass rather than with the
+ * road surface, so a building in front occludes it properly.
+ */
+export function drawStreetFurniture(
+  ctx: CanvasRenderingContext2D,
+  geom: TileGeom,
+  mask: number,
+  seed: number,
+  detail: 0 | 1 | 2,
+  night: number,
+  timeMs: number,
+): void {
+  if (detail === 0) return;
+  const bits = (mask & 1 ? 1 : 0) + (mask & 2 ? 1 : 0) + (mask & 4 ? 1 : 0) + (mask & 8 ? 1 : 0);
+  if (bits >= 3 && detail >= 1) {
+    // a signal on the near corner of every real junction, all four in step
+    const phase = Math.floor(timeMs / 3200 + seed * 0.11) % 3;
+    blit(ctx, signalSprite(phase === 2 ? 2 : phase), geom.cx - HW * 0.42, geom.cy + HH * 0.42);
+    return;
+  }
+  // lamps every few tiles along a street, on the footway side
+  if (hash2(seed, 1, 404) > 0.72) {
+    for (let k = 0; k < 4; k++) {
+      if (mask & (1 << k)) continue;
+      const [mx, my] = SIDE_MID[k];
+      blit(ctx, lampSprite(night > 0.28), geom.cx + mx * 0.78, geom.cy + my * 0.78);
+      break;
+    }
+  }
+  if (detail === 2 && hash2(seed, 2, 909) > 0.55) {
+    // a couple parked against the kerb, angled with the street
+    for (let k = 0; k < 4; k++) {
+      if (mask & (1 << k)) continue;
+      const [mx, my] = SIDE_MID[k];
+      const along = k === 1 || k === 3;
+      blit(
+        ctx,
+        parkedSprite(Math.floor(hash2(seed, k, 31) * 6), along),
+        geom.cx + mx * 0.52,
+        geom.cy + my * 0.52,
+      );
+      break;
+    }
   }
 }
 

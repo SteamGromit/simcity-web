@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { SIDE_DIRS, SIDE_MID, roadMask } from '../src/render/roadart';
+import { SIDE_DIRS, SIDE_MID, roadMask, rotateMask } from '../src/render/roadart';
 import { newCity } from '../src/sim/city';
 import { GRID, Zone } from '../src/sim/types';
 import { idx } from '../src/sim/grid';
@@ -84,6 +84,53 @@ describe('roadMask', () => {
     road(city, 10, 10);
     city.tiles[idx(11, 10)].zone = Zone.Residential;
     expect(roadMask(city, 10, 10)).toBe(0);
+  });
+});
+
+describe('rotateMask', () => {
+  test('a quarter turn moves each side onto the next', () => {
+    for (let k = 0; k < 4; k++) {
+      expect(rotateMask(1 << k, 1)).toBe(1 << ((k + 1) % 4));
+    }
+  });
+
+  test('four quarter turns is the identity', () => {
+    for (let m = 0; m < 16; m++) expect(rotateMask(m, 4)).toBe(m);
+  });
+
+  test('turning back undoes turning forward', () => {
+    for (let m = 0; m < 16; m++) {
+      for (const q of [1, 2, 3]) {
+        expect(rotateMask(rotateMask(m, q), 4 - q)).toBe(m);
+      }
+    }
+  });
+
+  test('negative and oversized turns wrap rather than corrupt', () => {
+    expect(rotateMask(0b0001, -1)).toBe(0b1000);
+    expect(rotateMask(0b0001, 5)).toBe(0b0010);
+  });
+
+  test('it never sets a bit outside the four sides', () => {
+    for (let m = 0; m < 16; m++) {
+      for (let q = -4; q <= 8; q++) expect(rotateMask(m, q)).toBeLessThanOrEqual(0b1111);
+    }
+  });
+
+  test('the number of connections survives a turn, so junctions stay junctions', () => {
+    const bits = (n: number) => (n & 1) + ((n >> 1) & 1) + ((n >> 2) & 1) + ((n >> 3) & 1);
+    for (let m = 0; m < 16; m++) {
+      for (const q of [1, 2, 3]) expect(bits(rotateMask(m, q))).toBe(bits(m));
+    }
+  });
+
+  test('a straight road stays straight through every turn', () => {
+    for (const straight of [0b0101, 0b1010]) {
+      for (const q of [1, 2, 3]) {
+        const out = rotateMask(straight, q);
+        expect(out === 0b0101 || out === 0b1010).toBe(true);
+      }
+    }
   });
 });
 

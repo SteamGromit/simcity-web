@@ -24,6 +24,7 @@ import {
   isoToScreen,
   screenToIso,
   setViewAngle,
+  tileDepth,
   tileGeom,
 } from './iso';
 import { anchorOf, distanceToBlock, sizeOfSlot, tilesAroundBlock } from '../sim/footprint';
@@ -37,7 +38,14 @@ import { PIXEL_SCALE, getRenderStyle } from './renderstyle';
 import { VegTint, vegTint } from './seasonfx';
 import { seasonOf } from '../sim/weather';
 import { getSkin } from './skins';
-import { drawBridge, drawRoad, medianTone, roadMask } from './roadart';
+import {
+  drawBridge,
+  drawRoad,
+  drawStreetFurniture,
+  medianTone,
+  roadMask,
+  rotateMask,
+} from './roadart';
 import { getWeatherFx } from './fx';
 import { GroundKind, groundTone, paintCliff, paintGround, paintShore, paintWater } from './ground';
 import { paintBloom, paintGrade, paintHaze, paintSky, paintVignette } from './grade';
@@ -96,8 +104,12 @@ export class Renderer {
   private depthStamp = -1;
   private automata = new Automata();
   private disasterFx = new DisasterFx();
-  /** tile paint order, ascending depth — fixed, because the camera is */
+  /** tile paint order, ascending depth; rebuilt on each quarter turn */
   private order: Uint16Array;
+  /** Quarter turns of the camera, 0..3. Only multiples of 90° are offered:
+   * the tile-shaped sprites — ground texture, road markings — are baked for
+   * an axis-aligned diamond, and any other angle is a different quad. */
+  private quarter: 0 | 1 | 2 | 3 = 0;
   /** city from the latest draw; pick() needs elevations between frames */
   private lastCity: CityState | null = null;
   /** current 0..1 darkness, refreshed each draw */
@@ -126,14 +138,40 @@ export class Renderer {
     this.order = new Uint16Array(GRID * GRID);
     this.reseed(seed);
     this.resize();
-    // One fixed viewing angle. It is what lets every building, tree and road
-    // tile be baked once and blitted afterwards — and what lets the sun be a
-    // real direction rather than a screen-space fudge.
     setViewAngle(0);
     this.buildOrder();
     const mid = isoToScreen(GRID / 2, GRID / 2);
     this.camera.x = mid.sx - this.canvas.clientWidth / 2;
     this.camera.y = mid.sy - this.canvas.clientHeight / 2;
+  }
+
+  /** The camera's current quarter turn, 0..3. */
+  getQuarter(): 0 | 1 | 2 | 3 {
+    return this.quarter;
+  }
+
+  /**
+   * Turn the view a quarter, keeping the grid point at the middle of the
+   * screen where it was.
+   *
+   * Only quarter turns are on offer, and that is what keeps the whole baked
+   * pipeline intact: a tile still projects to the same diamond, so the ground
+   * and road sprites are reused as-is; the sun stays fixed to the screen, so
+   * every building sprite is still lit correctly and none of them need
+   * re-baking. Rotating is free — it costs one re-sort of the paint order.
+   */
+  rotateQuarter(delta: 1 | -1): void {
+    const w = this.canvas.clientWidth;
+    const h = this.canvas.clientHeight;
+    const wx = this.camera.x + w / 2 / this.camera.zoom;
+    const wy = this.camera.y + h / 2 / this.camera.zoom;
+    const g = screenToIso(wx, wy);
+    this.quarter = (((this.quarter + delta) % 4) + 4) % 4 as 0 | 1 | 2 | 3;
+    setViewAngle((this.quarter * Math.PI) / 2);
+    const p = isoToScreen(g.x, g.y);
+    this.camera.x = p.sx - w / 2 / this.camera.zoom;
+    this.camera.y = p.sy - h / 2 / this.camera.zoom;
+    this.buildOrder();
   }
 
   /** Re-derive per-tile visual variation; call when a different city loads. */
@@ -168,14 +206,13 @@ export class Renderer {
     return ground; // cursor on a cliff face — snap to the tile below
   }
 
-  /** Painter's order for the fixed view: rows of constant x+y, back to front. */
+  /** Painter's order for the current quarter turn: back to front by depth. */
   private buildOrder() {
-    let n = 0;
-    for (let d = 0; d <= 2 * (GRID - 1); d++) {
-      for (let y = Math.max(0, d - GRID + 1); y <= Math.min(GRID - 1, d); y++) {
-        this.order[n++] = (d - y) + y * GRID;
-      }
-    }
+    const depths = new Float64Array(GRID * GRID);
+    for (let i = 0; i < depths.length; i++) depths[i] = tileDepth(i % GRID, (i / GRID) | 0);
+    const indices = Array.from({ length: GRID * GRID }, (_, i) => i);
+    indices.sort((a, b) => depths[a] - depths[b]);
+    this.order.set(indices);
   }
 
   /** Tile bounds the viewport can possibly touch, with a generous margin for
@@ -267,7 +304,7 @@ export class Renderer {
     }
     const { ctx } = this;
     this.lastCity = city;
-    setViewAngle(0);
+    setViewAngle((this.quarter * Math.PI) / 2);
     const now = performance.now();
     this.night = getDayNight() ? nightFactor(now) : 0;
     this.lineClock +=
@@ -358,6 +395,17 @@ export class Renderer {
       const geom = tileGeom(x, y, t.elevation);
       if (t.rubble > 0) drawRubble(ctx, geom, this.variants[i]);
       this.drawScenery(geom, city, x, y);
+      if (t.zone === Zone.Road && !t.median && t.terrain !== Terrain.Water) {
+        drawStreetFurniture(
+          ctx,
+          geom,
+          rotateMask(roadMask(city, x, y), this.quarter),
+          i,
+          detail,
+          this.night,
+          now,
+        );
+      }
       if (t.zone !== Zone.None && t.zone !== Zone.Road) {
         const size = sizeOfSlot(t.zone);
         const drawGeom = size > 1 ? this.blockDrawGeom(city, i, size) : geom;
@@ -609,7 +657,10 @@ export class Renderer {
       const c1 = geom.corners[k];
       const c2 = geom.corners[(k + 1) % 4];
       if ((c1[1] + c2[1]) / 2 <= geom.cy) continue; // back edge, hidden
-      paintCliff(this.ctx, c1, c2, drop, k === 2, grass, idx(x, y));
+      // which face catches the sun is decided by where the edge sits on
+      // screen, not by which grid direction it is — so it survives a turn
+      const screenLeft = (c1[0] + c2[0]) / 2 < geom.cx;
+      paintCliff(this.ctx, c1, c2, drop, screenLeft, grass, idx(x, y));
     }
   }
 
@@ -645,7 +696,7 @@ export class Renderer {
     const { ctx } = this;
 
     if (t.zone === Zone.Road) {
-      const mask = roadMask(city, x, y);
+      const mask = rotateMask(roadMask(city, x, y), this.quarter);
       if (t.terrain === Terrain.Water) {
         paintWater(ctx, geom, x, y, Math.min(1, (this.depth[i] - 1) / 9), now, this.detail);
         drawBridge(ctx, geom, t.road, mask, i);

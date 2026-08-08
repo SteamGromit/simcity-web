@@ -8,7 +8,11 @@ import { getSkin } from './skins';
 import { hash2 } from './noise';
 import {
   Quad,
+  centre,
   castShadow,
+  chamfer,
+  tileOffset,
+  tileRect,
   contactShadow,
   css,
   diamond,
@@ -20,12 +24,14 @@ import {
   parapet,
   prism,
   raise,
+  roofTone,
+  shift,
   type Hsl,
   type MaterialKind,
   type WindowPattern,
 } from './massing';
 import { LAMP, hsl } from './palette';
-import { LIGHT, type Pt } from './sun';
+import { LIGHT, wallLight, type Pt } from './sun';
 import { Sprite, blit, sprite } from './spritecache';
 import { drawHedge, drawRock, drawTree } from './scenery';
 import { effectiveSeason } from './seasonfx';
@@ -33,6 +39,7 @@ import type { Season } from '../sim/weather';
 import {
   Archetype,
   channels,
+  boxExtent,
   footprintBudget,
   heightScaleFor,
   pickArchetype,
@@ -285,17 +292,19 @@ function drawSurveyedLot(ctx: CanvasRenderingContext2D, geom: TileGeom, zone: Zo
   fill(ctx, q, 'rgba(122, 104, 74, 0.34)');
   const peg = ZONE_STAKE[zone];
   if (!peg) return;
-  ctx.strokeStyle = css(peg, 0.75);
-  ctx.lineWidth = 1.2;
-  ctx.setLineDash([3, 3]);
+  // quiet on purpose: a freshly-zoned district is mostly empty lots, and at
+  // full strength the boundary strings drowned out the city they surround
+  ctx.strokeStyle = css(peg, 0.42);
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 4]);
   ctx.beginPath();
   ctx.moveTo(q[0][0], q[0][1]);
   for (let i = 1; i < 4; i++) ctx.lineTo(q[i][0], q[i][1]);
   ctx.closePath();
   ctx.stroke();
   ctx.setLineDash([]);
-  ctx.fillStyle = css(peg);
-  for (const [px, py] of q) ctx.fillRect(px - 1, py - 4, 2, 4);
+  ctx.fillStyle = css(peg, 0.8);
+  for (const [px, py] of q) ctx.fillRect(px - 0.8, py - 3, 1.6, 3);
 }
 
 // ---------------------------------------------------------------------------
@@ -312,50 +321,47 @@ function familyOf(zone: Zone, tier: Tier): FamilyKey {
 
 interface LotStyle {
   wall: MaterialKind;
-  windows: WindowPattern;
   /** Draw a parapet lip round flat roofs. */
   lip: boolean;
 }
 
-/** What a lot is *made of*: the difference between a brick terrace and a
- * curtain-wall tower is a material, not another colour ramp. */
+/** What a lot is *made of*. The archetype decides the *shape* and how it is
+ * fenestrated; this decides only the surface, so a shophouse and an office
+ * slab can both be concrete without becoming the same building. */
 function styleFor(fam: FamilyKey, stage: Stage, pick: number): LotStyle {
   const tall = stage >= 5;
   const mid = stage >= 3;
   switch (fam) {
     case 'R1':
-      return { wall: stage <= 2 ? 'timber' : 'render', windows: 'punched', lip: mid };
+      return { wall: stage <= 2 ? 'timber' : 'render', lip: mid };
     case 'R2':
       return {
         wall: stage <= 2 ? (pick > 0.5 ? 'brick' : 'render') : tall ? 'concrete' : 'brick',
-        windows: 'punched',
         lip: mid,
       };
     case 'R3':
       return {
         wall: tall ? 'glass' : stage <= 2 ? 'stone' : 'render',
-        windows: tall ? 'curtain' : 'punched',
         lip: true,
       };
     case 'C1':
-      return { wall: stage <= 2 ? 'render' : 'brick', windows: 'punched', lip: mid };
+      return { wall: stage <= 2 ? 'render' : 'brick', lip: mid };
     case 'C2':
       return {
         wall: mid ? 'glass' : pick > 0.45 ? 'render' : 'brick',
-        windows: mid ? 'ribbon' : 'punched',
         lip: true,
       };
     case 'C3':
-      return { wall: 'glass', windows: tall ? 'curtain' : 'ribbon', lip: true };
+      return { wall: 'glass', lip: true };
     case 'dirty':
-      return { wall: mid ? 'concrete' : 'metal', windows: stage >= 2 ? 'ribbon' : 'none', lip: false };
+      return { wall: mid ? 'concrete' : 'metal', lip: false };
     case 'manu':
-      return { wall: 'metal', windows: 'ribbon', lip: false };
+      return { wall: 'metal', lip: false };
     case 'tech':
-      return { wall: mid ? 'glass' : 'metal', windows: 'ribbon', lip: true };
+      return { wall: mid ? 'glass' : 'metal', lip: true };
     case 'ag':
     default:
-      return { wall: 'timber', windows: 'punched', lip: false };
+      return { wall: 'timber', lip: false };
   }
 }
 
@@ -382,7 +388,7 @@ export function growableHeight(zone: Zone, stage: Stage, tier: Tier, bucket: num
 /** Rooftop furniture, drawn on the lifted roof quad. */
 function roofKit(
   ctx: CanvasRenderingContext2D,
-  roof: Quad,
+  roof: Pt[],
   kinds: PropKind[],
   body: Hsl,
   seed: number,
@@ -507,14 +513,12 @@ function roofKit(
  */
 function towerCrown(
   ctx: CanvasRenderingContext2D,
-  roof: Quad,
+  roof: Pt[],
   mat: ReturnType<typeof material>,
   body: Hsl,
   seed: number,
-): Quad {
+): Pt[] {
   const style = Math.floor(hash2(seed, 3, 517) * 4);
-  const cx = (roof[0][0] + roof[2][0]) / 2;
-  const cy = (roof[1][1] + roof[3][1]) / 2;
   if (style === 0) {
     // a single setback: one smaller box standing on the roof
     const q = inset(roof, 0.66);
@@ -536,21 +540,25 @@ function towerCrown(
     parapet(ctx, top, material('concrete', mix(body, hsl(212, 6, 62), 0.5)), 1.4);
     return top;
   }
-  if (style === 2) {
-    // a sloped cap: the roof pulled to a ridge, glazed on the sunny side
-    const rise = 14;
-    const a: Pt = [(roof[0][0] + roof[3][0]) / 2, (roof[0][1] + roof[3][1]) / 2 - rise];
-    const b: Pt = [(roof[1][0] + roof[2][0]) / 2, (roof[1][1] + roof[2][1]) / 2 - rise];
-    fill(ctx, [roof[1], roof[2], b], css(lit(mat.body, LIGHT.right * 0.95)));
-    fill(ctx, [roof[3], roof[2], b, a], css(lit(mat.glass, LIGHT.left * 1.2)));
-    fill(ctx, [roof[0], roof[1], b, a], css(lit(mat.body, LIGHT.roof * 0.9)));
-    ctx.strokeStyle = css(lit(mat.trim, LIGHT.roof * 1.15));
-    ctx.lineWidth = 1.2;
+  if (style === 2 && roof.length === 4) {
+    // a shallow hipped cap in roofing, not wall colour — pulling the wall
+    // material up over a steep pyramid read as a gold tent on the skyline
+    const rise = 8;
+    const deck = mix(roofTone(mat), hsl(214, 10, 30), 0.5);
+    parapet(ctx, roof, material('concrete', mix(body, hsl(212, 6, 58), 0.5)), 1.6);
+    const lifted = raise(roof, 1.6);
+    const a: Pt = [(lifted[0][0] + lifted[3][0]) / 2, (lifted[0][1] + lifted[3][1]) / 2 - rise];
+    const b: Pt = [(lifted[1][0] + lifted[2][0]) / 2, (lifted[1][1] + lifted[2][1]) / 2 - rise];
+    fill(ctx, [lifted[1], lifted[2], b], css(lit(deck, LIGHT.right)));
+    fill(ctx, [lifted[3], lifted[2], b, a], css(lit(deck, LIGHT.left)));
+    fill(ctx, [lifted[0], lifted[1], b, a], css(lit(deck, LIGHT.roof)));
+    ctx.strokeStyle = css(lit(deck, LIGHT.roof * 1.3));
+    ctx.lineWidth = 1.1;
     ctx.beginPath();
     ctx.moveTo(a[0], a[1]);
     ctx.lineTo(b[0], b[1]);
     ctx.stroke();
-    return [[cx, cy - rise], [cx, cy - rise], [cx, cy - rise], [cx, cy - rise]] as Quad;
+    return [a, b, b, a];
   }
   // plain machine floor with a heavy cornice
   parapet(ctx, roof, material('concrete', mix(body, hsl(210, 8, 56), 0.55)), 3);
@@ -571,13 +579,24 @@ const ROOF_TILES: Hsl[] = [
 /** Pitched, sawtooth and parapet roof caps over the main mass. */
 function roofCap(
   ctx: CanvasRenderingContext2D,
-  roof: Quad,
-  style: RoofStyle,
+  roof: Pt[],
+  styleIn: RoofStyle,
   body: Hsl,
   seed: number,
 ): void {
-  const cx = (roof[0][0] + roof[2][0]) / 2;
-  const cy = (roof[1][1] + roof[3][1]) / 2;
+  const [cx, cy] = centre(roof);
+  let style = styleIn;
+  // The pitched forms are cut for a four-cornered plan that is roughly
+  // square. A chamfered mass has no ridge to speak of, and a long slab under
+  // a gable grows an absurd triangle at each end — both take a flat top.
+  if (roof.length !== 4) {
+    if (style !== 'parapet') style = 'flat';
+  } else {
+    const ex = Math.hypot(roof[1][0] - roof[0][0], roof[1][1] - roof[0][1]);
+    const ey = Math.hypot(roof[2][0] - roof[1][0], roof[2][1] - roof[1][1]);
+    const aspect = Math.max(ex, ey) / Math.max(1e-6, Math.min(ex, ey));
+    if (aspect > 1.9 && style !== 'sawtooth') style = style === 'parapet' ? 'parapet' : 'flat';
+  }
   if (style === 'gabled') {
     const rise = Math.min(13, 5 + (roof[1][0] - cx) * 0.32);
     // A street of identical terracotta roofs is the giveaway that a town was
@@ -605,6 +624,50 @@ function roofCap(
       ctx.lineTo(roof[1][0] + (b[0] - roof[1][0]) * t, roof[1][1] + (b[1] - roof[1][1]) * t);
       ctx.stroke();
     }
+    return;
+  }
+  if (style === 'hipped' && roof.length === 4) {
+    // four slopes meeting at a short ridge, the suburban standard
+    const rise = Math.min(12, 5 + (roof[1][0] - cx) * 0.28);
+    const a: Pt = [cx - (roof[1][0] - cx) * 0.2, cy - rise];
+    const b: Pt = [cx + (roof[1][0] - cx) * 0.2, cy - rise];
+    const tile = mix(body, ROOF_TILES[Math.floor(hash2(seed, 6, 331) * ROOF_TILES.length)], 0.78);
+    fill(ctx, [roof[0], roof[1], b, a], css(lit(tile, LIGHT.roof * 0.9)));
+    fill(ctx, [roof[1], roof[2], b], css(lit(tile, LIGHT.right * 1.02)));
+    fill(ctx, [roof[2], roof[3], a, b], css(lit(tile, LIGHT.left * 0.86)));
+    fill(ctx, [roof[3], roof[0], a], css(lit(tile, LIGHT.left * 1.1)));
+    ctx.strokeStyle = css(lit(tile, LIGHT.roof * 1.2));
+    ctx.lineWidth = 1.1;
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+    ctx.stroke();
+    return;
+  }
+  if (style === 'mansard' && roof.length === 4) {
+    // a steep lower slope with dormers, then a near-flat top — the extra
+    // storey a Paris or Brooklyn street gets out of its roofline
+    const steep = Math.min(7.5, 3.5 + (roof[1][0] - cx) * 0.15);
+    const slate = mix(body, hsl(222, 8, 28), 0.66);
+    const top = inset(raise(roof, steep), 0.74);
+    for (let i = 0; i < 4; i++) {
+      const a = roof[i];
+      const b = roof[(i + 1) % 4];
+      if (b[0] - a[0] >= -1e-9) continue;
+      fill(ctx, [a, b, top[(i + 1) % 4], top[i]], css(lit(slate, wallLight(a[0], a[1], b[0], b[1]) * 1.05)));
+    }
+    // dormer windows punched into the steep face
+    const [fa, fb] = [roof[2], roof[3]];
+    for (let k = 0; k < 3; k++) {
+      const t = (k + 0.5) / 3;
+      const px = fa[0] + (fb[0] - fa[0]) * t;
+      const py = fa[1] + (fb[1] - fa[1]) * t - steep * 0.45;
+      ctx.fillStyle = css(lit(slate, LIGHT.left * 1.3));
+      ctx.fillRect(px - 2.6, py - 3.4, 5.2, 3.8);
+      ctx.fillStyle = css(lit(hsl(206, 24, 30), LIGHT.left * 1.2));
+      ctx.fillRect(px - 1.7, py - 2.8, 3.4, 2.6);
+    }
+    fill(ctx, top, css(lit(mix(body, hsl(220, 6, 34), 0.62), LIGHT.roof)));
     return;
   }
   if (style === 'sawtooth') {
@@ -658,7 +721,7 @@ function roofCap(
  * lot legible as somewhere people go. */
 function streetLevel(
   ctx: CanvasRenderingContext2D,
-  foot: Quad,
+  walls: [Pt, Pt][],
   zone: Zone,
   stage: Stage,
   mat: ReturnType<typeof material>,
@@ -666,17 +729,13 @@ function streetLevel(
   entityHue: number | null,
   initials: string | null,
 ): void {
-  // the front wall is the screen-left face: corners S → W
-  const a = foot[2];
-  const b = foot[3];
+  if (walls.length === 0) return;
+  const [a, b] = walls.reduce((p, w) => (w[0][1] + w[1][1] > p[0][1] + p[1][1] ? w : p), walls[0]);
   const at = (t: number): Pt => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
   if (zone === Zone.Commercial && stage >= 2) {
-    // a glazed shopfront band the full width of both visible walls
-    for (const [p, q2] of [
-      [foot[1], foot[2]],
-      [foot[2], foot[3]],
-    ] as [Pt, Pt][]) {
-      const level = p === foot[1] ? LIGHT.right : LIGHT.left;
+    // a glazed shopfront band the full width of every visible wall
+    for (const [p, q2] of walls) {
+      const level = wallLight(p[0], p[1], q2[0], q2[1]);
       fill(
         ctx,
         [p, q2, [q2[0], q2[1] - 6], [p[0], p[1] - 6]],
@@ -851,10 +910,11 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
   const chan = channels(half);
   const hw = (TILE_W * size) / 2;
   const hh = (TILE_H * size) / 2;
-  const base = diamond(0, 0, hw, hh);
+  const base = { cx: 0, cy: 0 };
+  const tile = diamond(0, 0, hw, hh);
 
   if (fam === 'ag' && !abandoned) {
-    if (!glow) paintFarm(ctx, base, bucket);
+    if (!glow) paintFarm(ctx, tile, bucket);
     return;
   }
 
@@ -874,21 +934,33 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
   const mat = material(abandoned ? 'render' : style.wall, body);
 
   const budget = footprintBudget(stage);
+  // Back to front by the *centre* of each mass, and — critically — shortest
+  // first when two masses share a centre. Sorting by the south corner put a
+  // wide low podium after the slender tower standing on it, which painted the
+  // podium's roof cap straight across the tower's face.
   const masses = arch.boxes
-    .map((sb) => ({ sb, q: inset(offsetQuad(base, sb.ox * budget, sb.oy * budget), sb.f * budget) }))
-    .sort((a, b) => a.q[2][1] - b.q[2][1]);
+    .map((sb) => {
+      const e = boxExtent(sb);
+      const c = tileOffset(sb.ox * budget, sb.oy * budget);
+      const plan = tileRect(c[0] + base.cx, c[1] + base.cy, (e.w * budget) / 2, (e.d * budget) / 2);
+      return { sb, q: sb.chamfer ? chamfer(plan, sb.chamfer) : (plan as Pt[]) };
+    })
+    .sort((a, b) => centre(a.q)[1] - centre(b.q)[1] || a.sb.hf - b.sb.hf);
 
-  let primary: { roof: Quad; foot: Quad } | null = null;
+  let primary: { roof: Pt[]; walls: [Pt, Pt][] } | null = null;
   for (const { sb, q } of masses) {
     const mh = h * sb.hf;
     const r = prism(ctx, q, mh, mat, {
       seed: bucket * 13 + stage,
-      windows: abandoned ? 'punched' : style.windows,
+      windows: abandoned ? 'punched' : arch.windows,
       glow,
       occupied: !abandoned,
       noRoof: false,
+      // the dressing belongs to the mass that reaches full height — a podium
+      // under a tower gets the podium treatment from its own recipe instead
+      facade: sb.hf === 1 && !abandoned ? arch.facade : undefined,
     });
-    if (sb.hf === 1) primary = { roof: r.roof, foot: q };
+    if (sb.hf === 1) primary = { roof: r.roof, walls: r.walls };
   }
   if (!primary || glow) return;
 
@@ -906,7 +978,7 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
     const ent = entityFor(zone, kind, stage, half);
     streetLevel(
       ctx,
-      primary.foot,
+      primary.walls,
       zone,
       stage,
       mat,
@@ -914,15 +986,12 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
       ent ? ent.hue : null,
       ent ? ent.initials : null,
     );
-    tierAccents(ctx, { roof: top, foot: primary.foot }, zone, kind, stage, bucket * 3 + stage);
+    tierAccents(ctx, top, zone, kind, stage, bucket * 3 + stage);
   } else {
     // boarded up: planks over the openings and a broken roofline
     ctx.strokeStyle = 'rgba(48, 38, 28, 0.85)';
     ctx.lineWidth = 2;
-    for (const [p, q2] of [
-      [primary.foot[1], primary.foot[2]],
-      [primary.foot[2], primary.foot[3]],
-    ] as [Pt, Pt][]) {
+    for (const [p, q2] of primary.walls) {
       for (const t of [0.35, 0.62]) {
         ctx.beginPath();
         ctx.moveTo(p[0] + (q2[0] - p[0]) * 0.15, p[1] + (q2[1] - p[1]) * 0.15 - h * t);
@@ -934,20 +1003,19 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
 
   const skin = getSkin();
   if (skin.outline > 0) {
-    // cartoon ink around the silhouette only — inking every face turned the
+    // cartoon ink round the visible walls only — inking every face turned the
     // old skin into a wireframe once the masses gained detail
     ctx.strokeStyle = 'rgba(28, 20, 32, 0.9)';
     ctx.lineWidth = skin.outline;
-    const f = primary.foot;
-    ctx.beginPath();
-    ctx.moveTo(f[1][0], f[1][1]);
-    ctx.lineTo(f[2][0], f[2][1]);
-    ctx.lineTo(f[3][0], f[3][1]);
-    ctx.lineTo(f[3][0], f[3][1] - h);
-    ctx.lineTo(f[0][0], f[0][1] - h);
-    ctx.lineTo(f[1][0], f[1][1] - h);
-    ctx.closePath();
-    ctx.stroke();
+    for (const [a, b] of primary.walls) {
+      ctx.beginPath();
+      ctx.moveTo(a[0], a[1]);
+      ctx.lineTo(b[0], b[1]);
+      ctx.lineTo(b[0], b[1] - h);
+      ctx.lineTo(a[0], a[1] - h);
+      ctx.closePath();
+      ctx.stroke();
+    }
   }
 
   if (zone === Zone.Industrial && stage >= 2 && !abandoned && (kind === 'dirty' || kind === 'manu')) {
@@ -968,14 +1036,13 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
 /** The small marks that make wealth and industry type legible at a glance. */
 function tierAccents(
   ctx: CanvasRenderingContext2D,
-  primary: { roof: Quad; foot: Quad },
+  roof: Pt[],
   zone: Zone,
   tier: Tier,
   stage: Stage,
   seed = 0,
 ): void {
   const rc = zone === Zone.Residential || zone === Zone.Commercial;
-  const roof = primary.roof;
   const cx = (roof[0][0] + roof[2][0]) / 2;
   const cy = (roof[1][1] + roof[3][1]) / 2;
   if (rc && tier === 3 && stage >= 3) {
@@ -1591,7 +1658,7 @@ function drawReward(
       // a plinth the block sits on
       prism(ctx, inset(q, 0.92), 4, material('stone', tone(hsl(44, 10, 64))), { seed: 1 });
       const bodyQ = inset(q, 0.78);
-      const r = prism(ctx, raise(bodyQ, 4) as Quad, h, stone, { seed: 2, windows: 'punched' });
+      const r = prism(ctx, raise(bodyQ, 4), h, stone, { seed: 2, windows: 'punched' });
       roofCap(ctx, r.roof, 'gabled', stone.body, 3);
       if (detail >= 1) {
         // a colonnade across the front
@@ -1760,15 +1827,11 @@ export function drawAuthoredBuilding(
           groundAo: false,
         });
       } else {
-        roofKit(ctx, shiftQuad(r.roof, dx, 0), [p as PropKind], body, i * 3 + 1, h);
+        roofKit(ctx, shift(r.roof, dx, 0), [p as PropKind], body, i * 3 + 1, h);
       }
     });
   }
   if (!powered) drawNoPowerBolt(ctx, cx, cy - h - 14);
-}
-
-function shiftQuad(q: Quad, dx: number, dy: number): Quad {
-  return q.map(([x, y]) => [x + dx, y + dy] as Pt) as Quad;
 }
 
 /** A placed building whose pack isn't loaded: show a blank, not a guess. */
