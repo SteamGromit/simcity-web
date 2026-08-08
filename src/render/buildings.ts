@@ -17,6 +17,7 @@ import {
   css,
   diamond,
   fill,
+  halfExtent,
   inset,
   lit,
   material,
@@ -396,8 +397,9 @@ function roofKit(
 ): void {
   const cx = (roof[0][0] + roof[2][0]) / 2;
   const cy = (roof[1][1] + roof[3][1]) / 2;
-  const hw = roof[1][0] - cx;
-  const hh = roof[2][1] - cy;
+  // measured, not read off corner indices: a quarter turn moves which corner
+  // is which, and props scattered by a zeroed extent all pile on the centre
+  const [hw, hh] = halfExtent(roof);
   const spot = (k: number): [number, number] => {
     const u = hash2(k, 1, seed) * 1.1 - 0.55;
     const v = hash2(k, 2, seed) * 1.1 - 0.55;
@@ -585,6 +587,10 @@ function roofCap(
   seed: number,
 ): void {
   const [cx, cy] = centre(roof);
+  // How steep a pitch gets is a function of how wide the roof is, so it has
+  // to be measured rather than read off a corner index — turned half a circle
+  // the indexed version went negative and pitched every ridge downwards.
+  const [rhw] = halfExtent(roof);
   let style = styleIn;
   // The pitched forms are cut for a four-cornered plan that is roughly
   // square. A chamfered mass has no ridge to speak of, and a long slab under
@@ -598,7 +604,7 @@ function roofCap(
     if (aspect > 1.9 && style !== 'sawtooth') style = style === 'parapet' ? 'parapet' : 'flat';
   }
   if (style === 'gabled') {
-    const rise = Math.min(13, 5 + (roof[1][0] - cx) * 0.32);
+    const rise = Math.min(13, 5 + rhw * 0.32);
     // A street of identical terracotta roofs is the giveaway that a town was
     // generated; real ones mix slate, tile, shingle and tin.
     const tile = mix(body, ROOF_TILES[Math.floor(hash2(seed, 6, 331) * ROOF_TILES.length)], 0.78);
@@ -628,9 +634,9 @@ function roofCap(
   }
   if (style === 'hipped' && roof.length === 4) {
     // four slopes meeting at a short ridge, the suburban standard
-    const rise = Math.min(12, 5 + (roof[1][0] - cx) * 0.28);
-    const a: Pt = [cx - (roof[1][0] - cx) * 0.2, cy - rise];
-    const b: Pt = [cx + (roof[1][0] - cx) * 0.2, cy - rise];
+    const rise = Math.min(12, 5 + rhw * 0.28);
+    const a: Pt = [cx - rhw * 0.2, cy - rise];
+    const b: Pt = [cx + rhw * 0.2, cy - rise];
     const tile = mix(body, ROOF_TILES[Math.floor(hash2(seed, 6, 331) * ROOF_TILES.length)], 0.78);
     fill(ctx, [roof[0], roof[1], b, a], css(lit(tile, LIGHT.roof * 0.9)));
     fill(ctx, [roof[1], roof[2], b], css(lit(tile, LIGHT.right * 1.02)));
@@ -647,7 +653,7 @@ function roofCap(
   if (style === 'mansard' && roof.length === 4) {
     // a steep lower slope with dormers, then a near-flat top — the extra
     // storey a Paris or Brooklyn street gets out of its roofline
-    const steep = Math.min(7.5, 3.5 + (roof[1][0] - cx) * 0.15);
+    const steep = Math.min(7.5, 3.5 + rhw * 0.15);
     const slate = mix(body, hsl(222, 8, 28), 0.66);
     const top = inset(raise(roof, steep), 0.74);
     for (let i = 0; i < 4; i++) {
@@ -1578,8 +1584,7 @@ function drawReward(
 ): void {
   const { cx, cy } = geom;
   const q = quadOf(geom);
-  const hw = q[1][0] - cx;
-  const hh = q[2][1] - cy;
+  const [hw, hh] = halfExtent(q);
   const skin = getSkin();
   const scale = skin.heightScale;
   const tone = (c: Hsl): Hsl => {

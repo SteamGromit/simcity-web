@@ -4,6 +4,36 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.59.3] — 2026-08-08 · A turned camera no longer stops the game
+
+### Fixed
+- **Building a college froze the game.** The reward painter measured a
+  footprint by reading fixed corner indices — corner 1 for the right-hand
+  edge, corner 2 for the bottom — but corners are held in grid order, not
+  screen order, so a quarter turn moves which corner is where. Turned 180°
+  those half-extents came out *negative*, `ctx.ellipse` threw on the negative
+  radius, and the throw escaped the render loop: booking the next frame was
+  the last statement in the frame, so the chain ended and the city never drew
+  again. The window stayed open and answered the mouse, which is what made it
+  look like a hang rather than a crash; only a reload brought it back.
+
+  Footprints are now measured rather than indexed, which is turn-independent
+  and agrees with the old arithmetic exactly where the old arithmetic was
+  right — the unrotated view is unchanged, pixel for pixel.
+- **Campuses and stadium bowls drew as nothing a quarter turn away.** The same
+  indices gave a zero-sized footprint at 90° and 270°, so the lawn, the bowl
+  and the reactor ring collapsed to a point — and on floating-point noise the
+  measurement could come out slightly negative and take the game down there
+  too (16 of 289 sampled positions at 90°, 46 at 270°).
+- **Pitched roofs sat wrong once the view was turned.** The same corner
+  indices decided how steep a gabled, hipped or mansard roof rises, so half a
+  turn round every ridge pitched *downwards*, and a quarter turn either way
+  flattened it to a token bump. Rooftop props had it too: a zeroed extent
+  piled every one of them on the centre of the roof.
+- **One bad frame can no longer end the session.** The render loop books its
+  next frame from a `finally`, so a frame that fails costs a frame rather than
+  the game. The first failure is reported to the console and the event feed.
+
 ## [0.59.2] — 2026-08-08 · A full browser store no longer bricks the launch
 
 ### Fixed

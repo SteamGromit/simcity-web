@@ -57,7 +57,12 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    facade pass the growables just got. The ground pass is the dominant
    per-frame cost — baking ground *chunks* is the obvious next step. The
    camera turns in quarter steps only; the snap is instant, and a short
-   cross-fade would take the jolt out of it.
+   cross-fade would take the jolt out of it. **Drawing is barely tested at a
+   turned camera**: only the reward set is exercised at all four quarters
+   (tests/reward-art.test.ts), while the growables, the civic set, roads and
+   scenery are drawn unrotated and nowhere else — which is how a crash at 180°
+   shipped in v0.59.0 and stood until v0.59.3. Widening that stub-context
+   sweep to the rest of the painters is the cheap insurance.
 
 9. **City styles** — one distinct look per style, beyond the palette shifts
    the three skins do today: Simpsons Springfield, present-day Hong Kong,

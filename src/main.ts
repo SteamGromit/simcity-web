@@ -703,18 +703,39 @@ window.addEventListener('resize', () => renderer.resize());
 };
 
 // --- render loop ---
+/** Frames that ended in an exception; only the first is worth reporting. */
+let frameFaults = 0;
+
+/**
+ * The render loop.
+ *
+ * The next frame is booked from a `finally`, because the alternative is what
+ * shipped: the trailing requestAnimationFrame was the last statement, so a
+ * single throw above it — a negative ellipse radius, in the case that
+ * prompted this — ended the chain for good. The city stopped redrawing and
+ * the game looked hung, with no way back but a reload. A frame that fails
+ * should cost a frame, not the session.
+ */
 function frame(now: number) {
-  if (city.notices.length > 0) {
-    // every notice reaches the log now, rather than the last one plus a count
-    for (const n of city.notices) notify(n, 'alert');
-    sound.play(UI_SOUNDS.alarm);
-    city.notices.length = 0;
+  try {
+    if (city.notices.length > 0) {
+      // every notice reaches the log now, rather than the last one plus a count
+      for (const n of city.notices) notify(n, 'alert');
+      sound.play(UI_SOUNDS.alarm);
+      city.notices.length = 0;
+    }
+    renderer.draw(city, view);
+    hud.update(city);
+    cityHall.update(city, now);
+    charts.update(city);
+    minimap.update(city, renderer.camera, canvas);
+  } catch (err) {
+    if (frameFaults++ === 0) {
+      console.error('A frame failed to draw:', err);
+      notify('Something went wrong drawing the city — part of it may be missing.', 'alert');
+    }
+  } finally {
+    requestAnimationFrame(frame);
   }
-  renderer.draw(city, view);
-  hud.update(city);
-  cityHall.update(city, now);
-  charts.update(city);
-  minimap.update(city, renderer.camera, canvas);
-  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
