@@ -53,10 +53,11 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    building's wall; water carries no reflection of the waterfront; weather
    doesn't lie on the ground (a winter map has no snow cover, and rain
    leaves no wet asphalt); multi-tile rewards and civic buildings still draw
-   live rather than baked. The ground pass is now the dominant per-frame
-   cost — baking ground *chunks* is the obvious next step. And with the
-   camera fixed, nothing can ever show a building's back: if that's missed,
-   a mirror flip is one extra bake per sprite, unlike free rotation.
+   live rather than baked, and the civic set has not had the typology and
+   facade pass the growables just got. The ground pass is the dominant
+   per-frame cost — baking ground *chunks* is the obvious next step. The
+   camera turns in quarter steps only; the snap is instant, and a short
+   cross-fade would take the jolt out of it.
 
 9. **City styles** — one distinct look per style, beyond the palette shifts
    the three skins do today: Simpsons Springfield, present-day Hong Kong,
@@ -65,6 +66,23 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    just remap hue and saturation.
 
 ## Done
+
+- **Quarter turns, and buildings that differ** — shipped v0.59.0 (Q/E swing
+  the view 90° again, and the whole baked pipeline survives it: a tile still
+  projects to the same diamond so ground and road sprites are reused, the
+  road connectivity mask is *rotated* rather than re-baked, and the sun stays
+  fixed to the screen so no building needs re-baking — turning costs one
+  re-sort of the paint order. Buildings gained *plans*: extents along each
+  grid axis and cut corners, so the city has slabs, terraces, wings and
+  chamfered towers instead of one box resized; `prism()` takes any convex
+  footprint. Facades — cornices, string courses, retail podiums, balconies,
+  bay windows, pilasters, wall air conditioners, hung signage, fire escapes —
+  plus hipped and mansard roofs, and an archetype table rebuilt around real
+  typologies. Streets got lamp standards, traffic signals and parked cars;
+  vehicles got body styles from hatchback to articulated rig. Fixed: a low
+  podium painted its roof cap across the tower standing on it, because
+  sub-masses sorted by their south corner rather than their centre.)
+  Follow-ups in backlog #8 and #9.
 
 - **Graphics overhaul** — shipped v0.58.0 (the whole rendering pipeline
   rebuilt around one trade: the camera no longer rotates, which lets every

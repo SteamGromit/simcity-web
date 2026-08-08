@@ -32,12 +32,15 @@ decides what happens next:
   lots carry § / §§ / §§§ wealth from land value, and industry comes as
   agricultural, dirty, manufacturing, or high-tech depending on education
   and clean air. Zone industrial at low density for farmland.
-- **Per-lot building variety** — every developed lot receives seeded
-  archetypes that compose distinctly across tiles: silhouettes (L-shapes,
-  setbacks, twin masses), roof styles (flat/parapet/gabled/sawtooth),
-  rooftop and yard props, palette families per tier, and window styles.
-  Towers over about six storeys take a crown — a setback, a stepped
-  ziggurat, a sloped glazed cap or a machine floor. Farms vary in barn
+- **Per-lot building variety** — every developed lot receives a seeded
+  *typology*, not a resized box: shotgun houses and ranches, brick terraces
+  and walk-ups, panel blocks, mansard-roofed townhouses, mansion blocks,
+  shophouses with signage hung over the street, department stores, slab
+  offices, setback wedding-cake towers, slender chamfered shafts. Each has a
+  plan (long, square, L-shaped, corner-cut), a roof (flat, parapet, gabled,
+  hipped, mansard, sawtooth) and a facade — cornices, string courses, retail
+  podiums, balconies, bay windows, pilasters, wall air conditioners, fire
+  escapes. Towers over about six storeys take a crown. Farms vary in barn
   placement, furrow direction, and a silo or coop.
 - **A city that's lit, not just coloured** — one sun sits low in the west
   for the whole map, so every wall takes the brightness its orientation
@@ -45,7 +48,8 @@ decides what happens next:
   lengthens with its height. Walls are brick, render, concrete, glass,
   metal, timber or stone, each with its own courses, panel joints and
   sheen, and windows are real openings that light up floor by floor after
-  dark.
+  dark. Streets carry lamp standards that come on at dusk, signals cycling
+  at the junctions, and cars parked at the kerb.
 - **Context-aware traffic** — vehicles pick roles by location: trucks move
   goods on industrial roads, taxis and vans favor commercial routes, and
   buses cluster near transit stops. Each kind has distinct speeds and paint.
@@ -277,6 +281,7 @@ deliberately.
 | Query tool | inspect any tile |
 | × on a title bar | close that panel |
 | Middle-drag or Space+drag | pan (arrow keys work too) |
+| Q / E | turn the view a quarter |
 | Mouse wheel or + / − | zoom |
 | One finger (touch) | build — or pan the map when no tool is armed |
 | Two fingers (touch) | pan and pinch to zoom |

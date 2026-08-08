@@ -4,6 +4,61 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.59.0] — 2026-08-08 · Quarter turns, and buildings that differ
+
+Three things the graphics overhaul left on the table: the camera couldn't
+turn at all, a mass could paint over the one standing in front of it, and
+every building was still fundamentally the same box at a different height.
+
+### Added
+- **The camera turns again — in quarter turns.** Q and E swing the view 90°,
+  and the whole baked pipeline survives it: a tile still projects to the same
+  diamond, so ground and road sprites are reused unchanged; the road
+  connectivity mask is *rotated* rather than re-baked; and the sun stays fixed
+  to the screen, so every building sprite is still lit correctly. Turning
+  costs one re-sort of the paint order and nothing else. Only quarter turns
+  are offered — at any other angle a tile is a different quad and every
+  tile-shaped sprite in the game would be wrong.
+- **Buildings have plans, not just heights.** A sub-mass now declares its
+  extent along each grid axis and can have its corners cut, which gives the
+  city slabs, terraces, wings, cross plans and chamfered towers instead of
+  one square block resized. `prism()` takes any convex footprint — an edge is
+  camera-facing exactly when it runs right-to-left on screen — so a
+  chamfered tower shows three faces where a box shows two.
+- **Facades.** Cornices, string courses, retail podiums, projecting slab
+  balconies, bay windows, pilasters, wall-mounted air conditioners, hung
+  signage boards, and iron fire escapes down the street frontage. All of them
+  are rectangles in wall space, so they cost a few `fillRect`s each and bake
+  once. This is what makes a brick walk-up read differently from a
+  curtain-wall office at the same height and colour.
+- **Real typologies.** The archetype table is rebuilt around buildings that
+  exist: shotgun houses and ranches, brick terraces and walk-ups, panel
+  blocks, mansard-roofed townhouses, mansion blocks, shophouses with signage
+  over the street, department stores, slab offices, setback wedding-cake
+  towers and slender chamfered shafts. Four to six per family per stage band.
+- **Hipped and mansard roofs**, the latter with dormers punched into the
+  steep face.
+- **Street furniture.** Lamp standards on the footway that light after dark,
+  traffic signals cycling at every junction, and cars parked at the kerb.
+- **Vehicle bodies.** A 'car' now turns up as a hatchback, saloon, estate,
+  SUV or coupé; a 'van' as a panel van, minivan or pickup with an open bed;
+  a 'truck' as a box truck, flatbed or an articulated rig with a separate
+  trailer. Proportions follow real ones — roughly 4 m for a hatchback to
+  20 m for a semi.
+
+### Fixed
+- **Masses painting over the ones in front of them.** Sub-masses were sorted
+  back-to-front by the south corner of their footprint, which for two masses
+  sharing a centre always put the *wider* one last — so a low podium painted
+  its roof cap straight across the slender tower standing on it. They now
+  sort by centre, shortest first on a tie.
+- The tower crown that pulled the wall material up over a steep pyramid, and
+  read as a gold tent on the skyline. It is a shallow hipped cap in roofing
+  colour now.
+- Mansard roofs were too steep and too blue; survey markers on empty zoned
+  lots were loud enough to drown out the city around them; pedestrians had
+  heads as big as their bodies, so a crowd read as a scattering of pale dots.
+
 ## [0.58.0] — 2026-08-07 · Graphics overhaul
 
 The city was drawn the same way it had been since v0.1: every building, tree
