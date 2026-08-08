@@ -535,8 +535,10 @@ button.detach:hover {
 }
 
 #density-flyout {
-  position: absolute;
-  z-index: 40;
+  /* Fixed and parented to <body>: the compact toolbar is a drawer moved by a
+     transform, which would otherwise carry the flyout off-screen with it. */
+  position: fixed;
+  z-index: 60;
   display: flex;
   flex-direction: column;
   gap: 3px;

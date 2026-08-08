@@ -7,6 +7,7 @@ import { ROAD_CLASSES, roadClassOfTool } from '../sim/roads';
 import { OVERLAY_LABELS, OverlayId } from '../render/overlays';
 import { clampDensity, KEY_OF, OVERLAY_KEY_OF } from './shortcuts';
 import { makeDraggable } from './drag';
+import { flyoutPosition, shouldCloseDrawer } from './flyout';
 
 export type ActiveTool = BuildTool | 'query' | null;
 
@@ -181,17 +182,61 @@ export function buildToolbar(
   const costLabel = (id: BuildTool | 'query') =>
     id === 'query' ? '' : `§${toolCost(id, isZone(id) ? densityOf(id) : 1)}`;
 
-  // --- density flyout: one shared element, repositioned per zoning button ---
+  // --- flyouts: one shared element, repositioned per anchor button ---
+  //
+  // It lives on <body>, not inside the toolbar. On the compact layout the
+  // toolbar is a drawer slid off-screen with a transform, and a transform
+  // makes its containing block — so a flyout parented anywhere inside it
+  // rides the drawer out of view even when positioned `fixed`. That is what
+  // made density and power-plant type unpickable on a phone.
   const flyout = document.createElement('div');
   flyout.id = 'density-flyout';
   flyout.className = 'panel hidden';
-  el.appendChild(flyout);
+  document.body.appendChild(flyout);
   let flyoutFor: string | null = null;
 
   function closeFlyout() {
     flyout.classList.add('hidden');
     flyoutFor = null;
   }
+
+  /**
+   * Put the flyout beside its button in viewport coordinates, flipping to the
+   * other side and pulling back from the edges rather than hanging off them —
+   * the toolbar can be dragged anywhere, and on a narrow screen there may be
+   * no room to the right at all.
+   */
+  function placeFlyout(anchor: HTMLElement) {
+    const a = anchor.getBoundingClientRect();
+    // a button inside a folded section has no box to hang anything off
+    if (a.width === 0 && a.height === 0) {
+      closeFlyout();
+      return;
+    }
+    flyout.classList.remove('hidden');
+    const f = flyout.getBoundingClientRect();
+    const at = flyoutPosition(
+      { left: a.left, top: a.top, width: a.width, height: a.height },
+      { width: f.width, height: f.height },
+      { width: window.innerWidth, height: window.innerHeight },
+    );
+    flyout.style.left = `${at.left}px`;
+    flyout.style.top = `${at.top}px`;
+  }
+
+  /**
+   * The compact layout slides the tools away once one is armed, so the map is
+   * visible to build on. A click that opens a *flyout* has not finished
+   * choosing yet, though — closing then would take the choices with it.
+   */
+  function settleDrawer() {
+    if (shouldCloseDrawer(active, flyoutFor !== null)) {
+      document.body.classList.remove('tools-open');
+    }
+  }
+
+  // a flyout pinned to viewport coordinates is stale the moment the layout moves
+  window.addEventListener('resize', () => closeFlyout());
 
   function syncZoneCosts() {
     for (const id of ZONE_TOOLS) {
@@ -214,15 +259,11 @@ export function buildToolbar(
         syncZoneCosts();
         if (active === id) onDensity(d);
         closeFlyout();
+        settleDrawer();
       });
       flyout.appendChild(btn);
     });
-    // to the right of the button, inside whichever panel hosts the section
-    const host = (anchor.closest('.tool-panel') as HTMLElement) ?? el;
-    host.appendChild(flyout);
-    flyout.style.left = `${anchor.offsetLeft + anchor.offsetWidth + 6}px`;
-    flyout.style.top = `${anchor.offsetTop}px`;
-    flyout.classList.remove('hidden');
+    placeFlyout(anchor);
   }
 
   // clicking anywhere outside the flyout (or its zoning button) closes it
@@ -251,13 +292,24 @@ export function buildToolbar(
     onTool(active);
   }
 
-  function toolButton(id: BuildTool | 'query', label: string, parent: HTMLElement) {
+  function toolButton(
+    id: BuildTool | 'query',
+    label: string,
+    parent: HTMLElement,
+    /** Runs after the tool is armed and before the drawer decides to close,
+     * so a button that also opens a flyout gets to open it first. */
+    afterClick?: (btn: HTMLButtonElement) => void,
+  ) {
     const btn = document.createElement('button');
     const shortcut = KEY_OF[id as ToolId];
     const key = shortcut ? `<span class="key">${shortcut}</span>` : '';
     btn.dataset.tool = id; // drives the locate-code spine in the stylesheet
     btn.innerHTML = `<span>${label}</span><span class="meta">${key}<span class="cost">${costLabel(id)}</span></span>`;
-    btn.addEventListener('click', () => applyTool(active === id ? null : id));
+    btn.addEventListener('click', () => {
+      applyTool(active === id ? null : id);
+      afterClick?.(btn);
+      settleDrawer();
+    });
     toolButtons.set(id, btn);
     parent.appendChild(btn);
     return btn;
@@ -353,6 +405,7 @@ export function buildToolbar(
           e.stopPropagation();
           applyTool(active === m.id ? null : m.id);
           closeFlyout();
+          settleDrawer();
         });
         flyout.appendChild(mb);
       }
@@ -362,12 +415,7 @@ export function buildToolbar(
         hint.textContent = `${stillLocked.label} at ${memberUnlock(stillLocked.id).label ?? 'a larger city'}`;
         flyout.appendChild(hint);
       }
-      // .bundle-slot is unpositioned, so offsetParent is still the tool panel
-      const panelHost = (btn.closest('.tool-panel') as HTMLElement) ?? el;
-      panelHost.appendChild(flyout);
-      flyout.style.left = `${btn.offsetLeft + btn.offsetWidth + 6}px`;
-      flyout.style.top = `${btn.offsetTop}px`;
-      flyout.classList.remove('hidden');
+      placeFlyout(btn);
     });
     bundleButtons.push({ id: bundle.id, btn, members: new Set(bundle.members.map((m) => m.id)) });
     host.appendChild(btn);
@@ -383,14 +431,11 @@ export function buildToolbar(
 
   /** Zoning buttons open the density flyout beside them when activated. */
   function zoneButton(id: ToolId, label: string, parent: HTMLElement) {
-    const btn = toolButton(id, label, parent);
-    btn.classList.add('zoning-btn');
-    // toolButton's own click handler already toggled the tool; this one
-    // only manages the flyout, so registration order matters: it runs after.
-    btn.addEventListener('click', () => {
-      if (active === id) openFlyout(id, btn);
+    const btn = toolButton(id, label, parent, (b) => {
+      if (active === id) openFlyout(id, b);
       else closeFlyout();
     });
+    btn.classList.add('zoning-btn');
   }
 
   /** Collapsible section: the header toggles its body; state persists. */
@@ -603,6 +648,7 @@ export function buildToolbar(
     /** Toggle a tool as if its button were clicked (keyboard shortcuts). */
     selectTool(tool: BuildTool | 'query') {
       applyTool(active === tool ? null : tool);
+      settleDrawer();
     },
     /** Toggle a data view; keyboard and buttons share this path. */
     toggleOverlay,

@@ -947,6 +947,7 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
     })
     .sort((a, b) => centre(a.q)[1] - centre(b.q)[1] || a.sb.hf - b.sb.hf);
 
+  const ink = glow ? 0 : getSkin().outline;
   let primary: { roof: Pt[]; walls: [Pt, Pt][] } | null = null;
   for (const { sb, q } of masses) {
     const mh = h * sb.hf;
@@ -960,6 +961,23 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
       // under a tower gets the podium treatment from its own recipe instead
       facade: sb.hf === 1 && !abandoned ? arch.facade : undefined,
     });
+    if (ink > 0) {
+      // Cartoon ink goes on each mass *as it is drawn*, so a mass in front
+      // paints over the ink of the one behind. Inking the tallest mass once
+      // at the end drew its outline straight across everything standing in
+      // front of it.
+      ctx.strokeStyle = 'rgba(28, 20, 32, 0.9)';
+      ctx.lineWidth = ink;
+      for (const [a, b] of r.walls) {
+        ctx.beginPath();
+        ctx.moveTo(a[0], a[1]);
+        ctx.lineTo(b[0], b[1]);
+        ctx.lineTo(b[0], b[1] - mh);
+        ctx.lineTo(a[0], a[1] - mh);
+        ctx.closePath();
+        ctx.stroke();
+      }
+    }
     if (sb.hf === 1) primary = { roof: r.roof, walls: r.walls };
   }
   if (!primary || glow) return;
@@ -998,23 +1016,6 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
         ctx.lineTo(p[0] + (q2[0] - p[0]) * 0.85, p[1] + (q2[1] - p[1]) * 0.85 - h * t - 3);
         ctx.stroke();
       }
-    }
-  }
-
-  const skin = getSkin();
-  if (skin.outline > 0) {
-    // cartoon ink round the visible walls only — inking every face turned the
-    // old skin into a wireframe once the masses gained detail
-    ctx.strokeStyle = 'rgba(28, 20, 32, 0.9)';
-    ctx.lineWidth = skin.outline;
-    for (const [a, b] of primary.walls) {
-      ctx.beginPath();
-      ctx.moveTo(a[0], a[1]);
-      ctx.lineTo(b[0], b[1]);
-      ctx.lineTo(b[0], b[1] - h);
-      ctx.lineTo(a[0], a[1] - h);
-      ctx.closePath();
-      ctx.stroke();
     }
   }
 

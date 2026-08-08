@@ -4,6 +4,35 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.59.1] — 2026-08-08 · Flyouts you can actually reach
+
+### Fixed
+- **Density and power-plant type were unpickable on a phone.** Both live in a
+  flyout that was parented inside the toolbar — which on the compact layout is
+  a drawer slid off-screen by a `transform`. A transform makes the containing
+  block for its descendants, so the flyout rode the drawer out of view even
+  though it had only just opened. Worse, arming a zoning tool *closed* the
+  drawer by design, so tapping Residential slid the density choices away in
+  the same gesture that asked for them.
+
+  The flyout now lives on `<body>` and is positioned in viewport coordinates,
+  flipping to the other side of its button and pulling back from the edges
+  rather than hanging off them — which also fixes a toolbar dragged near the
+  right edge of a desktop window. And the drawer only slides away once
+  *nothing is still being chosen*: that decision moved into the toolbar, which
+  is the only thing that knows a flyout is open. `src/ui/flyout.ts` holds both
+  rules as pure functions, with tests.
+
+  The unlock gating itself was never wrong: at 120,000 people all five plants
+  were being offered correctly — they just couldn't be reached.
+- **Springfield's cartoon ink drew over buildings in front of it.** The
+  outline was stroked once at the end, around the tallest mass, at full
+  height — so it crossed anything standing in front, including the other
+  masses of its own building. Each mass is inked as it is drawn now, in
+  painter's order.
+- A flyout anchored to a button inside a folded toolbar section no longer
+  opens in the corner; it doesn't open at all.
+
 ## [0.59.0] — 2026-08-08 · Quarter turns, and buildings that differ
 
 Three things the graphics overhaul left on the table: the camera couldn't

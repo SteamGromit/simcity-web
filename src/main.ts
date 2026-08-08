@@ -183,9 +183,9 @@ const toolbar = buildToolbar(
     syncHalo();
     if (tool !== 'query') query.hide();
     if (tool) sound.play(UI_SOUNDS.select);
-    // On a narrow screen the tools are a drawer over the map: once one is
-    // armed, get out of the way so the player can see where to put it.
-    if (tool) document.body.classList.remove('tools-open');
+    // Sliding the compact drawer away once a tool is armed is the toolbar's
+    // own business now: it is the only thing that knows whether the click
+    // also opened a flyout still waiting to be chosen from.
   },
   (overlay: OverlayId | null) => {
     view.overlay = overlay;
