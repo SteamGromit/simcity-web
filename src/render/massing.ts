@@ -109,6 +109,33 @@ export function centre(q: Pt[]): Pt {
   return [(x0 + x1) / 2, (y0 + y1) / 2];
 }
 
+/**
+ * Half the screen width and height a footprint spans — the radii of the
+ * ellipse that fits inside it.
+ *
+ * Always measure this rather than reading "the right-hand corner" and "the
+ * bottom corner" off fixed indices. Corner order is grid order, not screen
+ * order, so a quarter turn moves which corner is where: the old
+ * `q[1][0] - cx` gave the true half-width at rest, zero a quarter turn
+ * later, and its *negative* at half a turn. A negative radius makes
+ * ctx.ellipse throw, and that throw escaping the render loop stopped the
+ * game redrawing at all. Bounding the quad is turn-independent, and agrees
+ * with the old arithmetic exactly where the old arithmetic was right.
+ */
+export function halfExtent(q: Pt[]): [number, number] {
+  let x0 = Infinity;
+  let x1 = -Infinity;
+  let y0 = Infinity;
+  let y1 = -Infinity;
+  for (const [x, y] of q) {
+    if (x < x0) x0 = x;
+    if (x > x1) x1 = x;
+    if (y < y0) y0 = y;
+    if (y > y1) y1 = y;
+  }
+  return [(x1 - x0) / 2, (y1 - y0) / 2];
+}
+
 /** Shrink a footprint toward its centre. */
 export function inset<T extends Pt[]>(q: T, f: number): T {
   const [cx, cy] = centre(q);
