@@ -16,6 +16,37 @@ describe('roadAccess', () => {
     zone(city, 8, 5, Zone.Road);
     expect(roadAccess(city, 5, 5)).toBeNull();
   });
+
+  test('a motorway has no front doors — you cannot address a highway', () => {
+    const city = makeCity();
+    zone(city, 7, 5, Zone.Road);
+    city.tiles[idx(7, 5)].road = 3;
+    expect(roadAccess(city, 5, 5)).toBeNull();
+  });
+
+  test('nor its second level', () => {
+    const city = makeCity();
+    zone(city, 7, 5, Zone.Road);
+    city.tiles[idx(7, 5)].road = 4;
+    expect(roadAccess(city, 5, 5)).toBeNull();
+  });
+
+  test('a frontage street beside the motorway is what gives the lot its address', () => {
+    const city = makeCity();
+    zone(city, 6, 5, Zone.Road); // a plain street
+    zone(city, 7, 5, Zone.Road);
+    city.tiles[idx(7, 5)].road = 3; // motorway behind it
+    expect(roadAccess(city, 5, 5)).toEqual({ rx: 6, ry: 5 });
+  });
+
+  test('every class below the motorway still takes a front door', () => {
+    for (const cls of [0, 1, 2] as const) {
+      const city = makeCity();
+      zone(city, 6, 5, Zone.Road);
+      city.tiles[idx(6, 5)].road = cls;
+      expect(roadAccess(city, 5, 5)).toEqual({ rx: 6, ry: 5 });
+    }
+  });
 });
 
 describe('updateTraffic', () => {

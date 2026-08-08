@@ -45,6 +45,7 @@ import {
   medianTone,
   roadMask,
   rotateMask,
+  screenCorridor,
 } from './roadart';
 import { getWeatherFx } from './fx';
 import { GroundKind, groundTone, paintCliff, paintGround, paintShore, paintWater } from './ground';
@@ -404,6 +405,7 @@ export class Renderer {
           detail,
           this.night,
           now,
+          screenCorridor(city, x, y, this.quarter),
         );
       }
       if (t.zone !== Zone.None && t.zone !== Zone.Road) {
@@ -697,9 +699,10 @@ export class Renderer {
 
     if (t.zone === Zone.Road) {
       const mask = rotateMask(roadMask(city, x, y), this.quarter);
+      const cor = screenCorridor(city, x, y, this.quarter);
       if (t.terrain === Terrain.Water) {
         paintWater(ctx, geom, x, y, Math.min(1, (this.depth[i] - 1) / 9), now, this.detail);
-        drawBridge(ctx, geom, t.road, mask, i);
+        drawBridge(ctx, geom, t.road, mask, i, cor);
       } else if (t.median) {
         const tone = medianTone(this.veg);
         fillTile(ctx, geom, css(lit(tone, LIGHT.roof)));
@@ -719,7 +722,7 @@ export class Renderer {
         if (t.wire) drawPole(ctx, geom.cx, geom.cy);
         return;
       } else {
-        drawRoad(ctx, geom, t.road, mask, i);
+        drawRoad(ctx, geom, t.road, mask, i, cor);
       }
       if (t.wire) drawPole(ctx, geom.cx, geom.cy);
       if (this.night > 0.3) {

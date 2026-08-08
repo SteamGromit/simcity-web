@@ -1,4 +1,5 @@
-import { idx, neighbors4 } from '../sim/grid';
+import { corridorAt, travelDir } from '../sim/corridor';
+import { idx, inBounds, neighbors4 } from '../sim/grid';
 import { drivable } from '../sim/roads';
 import { CityState, GRID, Zone } from '../sim/types';
 import { ELEV_PX, TILE_H, TILE_W, isoToScreen, tileDepth } from './iso';
@@ -7,7 +8,12 @@ const HW = TILE_W / 2;
 const HH = TILE_H / 2;
 const SCAN_INTERVAL = 15; // steps between full-grid rescans
 
-const MAX_CARS = 40;
+/**
+ * A wide road is several tiles of carriageway, so it needs several times the
+ * cars before it reads as busy — a six-lane corridor carrying the same forty
+ * vehicles as a village high street was most of why it looked like a car park.
+ */
+const MAX_CARS = 70;
 const MAX_PEDS = 60;
 const CAR_SPEED = 1.8; // tiles per second
 
@@ -67,6 +73,82 @@ interface Car {
   style: BodyStyle;
   color: string;
   laneSide: 1 | -1;
+  /** On a carriageway the tile *is* the lane, so the car sits down the middle
+   * of it rather than being nudged to one side of a two-way street. */
+  inLane: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Lane discipline
+// ---------------------------------------------------------------------------
+
+/**
+ * The tile ahead of a car standing on a carriageway, or −1 when it is not on
+ * one or the carriageway ends here.
+ *
+ * This is what stops a wide road behaving like a car park. Left to the old
+ * rule — pick any adjacent road at random — a car on a four-tile band spent as
+ * much time drifting sideways across the carriageway as travelling along it,
+ * which is exactly what a car park looks like. The lane a tile sits in fixes
+ * the direction of travel, so the band carries two streams instead of a milling
+ * crowd.
+ */
+export function laneStep(city: CityState, from: number): number {
+  const x = from % GRID;
+  const y = (from / GRID) | 0;
+  const cor = corridorAt(city, x, y);
+  if (!cor) return -1;
+  const dir = travelDir(cor);
+  const nx = x + (cor.axis === 0 ? dir : 0);
+  const ny = y + (cor.axis === 1 ? dir : 0);
+  if (!inBounds(nx, ny)) return -1;
+  const ni = idx(nx, ny);
+  return drivable(city.tiles[ni]) ? ni : -1;
+}
+
+/**
+ * May a car step from `from` onto `to`? Everything is allowed except driving
+ * head-on into a lane that runs the other way: you may merge onto a motorway
+ * from the side, and change lanes within it, but you may not come up it
+ * backwards.
+ */
+export function canEnter(city: CityState, from: number, to: number): boolean {
+  const cor = corridorAt(city, to % GRID, (to / GRID) | 0);
+  if (!cor) return true;
+  const dx = (to % GRID) - (from % GRID);
+  const dy = ((to / GRID) | 0) - ((from / GRID) | 0);
+  const along = cor.axis === 0 ? dx : dy;
+  if (along === 0) return true; // merging across, not driving up it
+  return Math.sign(along) === travelDir(cor);
+}
+
+/**
+ * Where a car at `from` goes next. On a carriageway the lane decides; on an
+ * ordinary street it is still a random turn, avoiding `prev` where there is a
+ * choice. `rand` is injected so the rule can be tested without the dice.
+ */
+export function nextRoad(
+  city: CityState,
+  from: number,
+  prev: number,
+  rand: () => number = Math.random,
+): number {
+  const lane = laneStep(city, from);
+  if (lane !== -1) return lane;
+
+  const x = from % GRID;
+  const y = (from / GRID) | 0;
+  const options: number[] = [];
+  for (const [nx, ny] of neighbors4(x, y)) {
+    const ni = idx(nx, ny);
+    if (!drivable(city.tiles[ni]) || ni === prev) continue;
+    if (!canEnter(city, from, ni)) continue;
+    options.push(ni);
+  }
+  if (options.length === 0) {
+    return prev !== -1 && drivable(city.tiles[prev]) ? prev : -1;
+  }
+  return options[Math.min(options.length - 1, (rand() * options.length) | 0)];
 }
 
 interface Ped {
@@ -157,7 +239,7 @@ export class Automata {
     while (this.cars.length < target && busy.length > 0) {
       const from = busy[(Math.random() * busy.length) | 0];
       if (!drivable(city.tiles[from])) break; // stale scan; wait for rescan
-      const next = this.nextRoad(city, from, -1);
+      const next = nextRoad(city, from, -1);
       if (next === -1) break;
       const nz: Zone[] = [];
       const x = from % GRID;
@@ -178,6 +260,7 @@ export class Automata {
         style: pickBody(kind, Math.random()),
         color,
         laneSide: Math.random() < 0.5 ? 1 : -1,
+        inLane: corridorAt(city, from % GRID, (from / GRID) | 0) !== null,
       });
     }
     if (this.cars.length > target) this.cars.length = target;
@@ -186,7 +269,7 @@ export class Automata {
       car.t += dt * CAR_SPEED * KIND_SPEED[car.kind];
       while (car.t >= 1) {
         car.t -= 1;
-        const next = this.nextRoad(city, car.to, car.from);
+        const next = nextRoad(city, car.to, car.from);
         if (next === -1) {
           // dead end: turn around
           const back = car.from;
@@ -196,23 +279,9 @@ export class Automata {
           car.from = car.to;
           car.to = next;
         }
+        car.inLane = corridorAt(city, car.from % GRID, (car.from / GRID) | 0) !== null;
       }
     }
-  }
-
-  /** Random adjacent road tile, avoiding `prev` unless it's the only option. */
-  private nextRoad(city: CityState, from: number, prev: number): number {
-    const x = from % GRID;
-    const y = (from / GRID) | 0;
-    const options: number[] = [];
-    for (const [nx, ny] of neighbors4(x, y)) {
-      const ni = idx(nx, ny);
-      if (drivable(city.tiles[ni]) && ni !== prev) options.push(ni);
-    }
-    if (options.length === 0) {
-      return prev !== -1 && drivable(city.tiles[prev]) ? prev : -1;
-    }
-    return options[(Math.random() * options.length) | 0];
   }
 
   private stepPeds(city: CityState, dt: number, lots: number[]): void {
@@ -299,7 +368,9 @@ export class Automata {
         const sx = a.sx + (b.sx - a.sx) * car.t;
         const sy = a.sy + (b.sy - a.sy) * car.t;
         const angle = Math.atan2(b.sy - a.sy, b.sx - a.sx);
-        drawVehicle(ctx, sx, sy + car.laneSide * 4, angle, car.style, car.color, night);
+        // on a carriageway the tile is the lane, so the car drives down it
+        const offset = car.inLane ? 0 : car.laneSide * 4;
+        drawVehicle(ctx, sx, sy + offset, angle, car.style, car.color, night);
       }
     }
     const peds = this.pedBuckets.get(i);

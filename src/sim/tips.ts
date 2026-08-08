@@ -61,7 +61,8 @@ const TIP_TEXT: Record<TipId, string> = {
     'The grid is over capacity and browning out — build another power plant to cover demand.',
   'unpowered-zones':
     'Some zones are unpowered — string Power Lines from the plant (roads carry wires too).',
-  'no-road-access': 'Some zones have no road within reach — buildings only develop next to roads.',
+  'no-road-access':
+    'Some zones have no road within reach — buildings only develop next to roads, and a highway is not an address: give them a frontage street.',
   'no-fire-coverage':
     'Buildings outside fire coverage can burn down — build a Fire Station nearby.',
   deficit: 'The budget is running a deficit — raise taxes a notch or trim service buildings.',

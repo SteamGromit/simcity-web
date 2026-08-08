@@ -106,6 +106,24 @@ const renderer = new Renderer(canvas, city.seed);
   camera: () => ({ ...renderer.camera }),
   /** Where the last frame went, plus what the sprite cache is holding. */
   profile: () => ({ ...renderer.timings, sprites: spriteStats() }),
+  /**
+   * Lay a tool along a line without going through the toolbar. The art for
+   * the upper road classes is otherwise only reachable in a city of 45,000
+   * people, which makes looking at a motorway an afternoon's work; this is
+   * how the graphics passes get checked. Costs and unlocks still apply —
+   * `grant` is there for those.
+   */
+  build(tool: string, x0: number, y0: number, x1: number, y1: number) {
+    const line = roadLine(x0, y0, x1, y1);
+    const res = applyToolLine(city, tool as never, line);
+    return { ...res, funds: city.funds };
+  },
+  /** Top up the treasury and the population, so unlock gates can be crossed. */
+  grant(funds = 500_000, population = 60_000) {
+    city.funds += funds;
+    city.population = Math.max(city.population, population);
+    return { funds: city.funds, population: city.population };
+  },
 };
 
 const view: ViewState = {
