@@ -24,6 +24,33 @@ function memoryStorage(): Storage {
   } as Storage;
 }
 
+/**
+ * A Storage that runs out, the way a real browser's does once it is near its
+ * few-megabyte ceiling.
+ */
+function cappedStorage(budget: number): Storage {
+  const map = new Map<string, string>();
+  const used = () => [...map].reduce((n, [k, v]) => n + k.length + v.length, 0);
+  return {
+    get length() {
+      return map.size;
+    },
+    clear: () => map.clear(),
+    getItem: (k) => map.get(k) ?? null,
+    key: (i) => [...map.keys()][i] ?? null,
+    removeItem: (k) => void map.delete(k),
+    setItem: (k, v) => {
+      const already = map.has(k) ? k.length + (map.get(k) as string).length : 0;
+      if (used() - already + k.length + v.length > budget) {
+        const err = new Error(`Setting the value of '${k}' exceeded the quota.`);
+        err.name = 'QuotaExceededError';
+        throw err;
+      }
+      map.set(k, v);
+    },
+  } as Storage;
+}
+
 let storage: Storage;
 beforeEach(() => {
   storage = memoryStorage();
@@ -211,11 +238,26 @@ describe('the single pre-v0.55 save', () => {
     expect(storage.getItem('simcity.save')).toBeNull();
   });
 
-  test('a corrupt legacy save is discarded rather than filed', () => {
+  test('a corrupt legacy save is not filed, and not destroyed either', () => {
     storage.setItem('simcity.save', 'garbage');
     const store = createSaveStore(storage);
     expect(store.list()).toEqual([]);
-    expect(storage.getItem('simcity.save')).toBeNull();
+    // left where it is: deleting the only copy of something we could not
+    // parse is worse than leaving a key behind that a later version may read
+    expect(storage.getItem('simcity.save')).toBe('garbage');
+    expect(store.warnings().join(' ')).toMatch(/could not be read/i);
+  });
+
+  test('it is re-serialized, not copied — the old format is far bulkier', () => {
+    const c = city();
+    // a pre-v0.55 save: the same data, written the roomy way
+    const bulky = JSON.stringify(JSON.parse(serialize(c)), null, 2);
+    storage.setItem('simcity.save', bulky);
+
+    const store = createSaveStore(storage);
+    const stored = storage.getItem('simcity.city.my-city')!;
+    expect(stored.length).toBeLessThan(bulky.length);
+    expect(store.load('my-city')!.funds).toBe(c.funds);
   });
 
   test('migration does not run twice over an existing city of that name', () => {
@@ -239,5 +281,76 @@ describe('the "saved when" label', () => {
 
   test('a write with no timestamp — a migrated city — says so vaguely', () => {
     expect(agoLabel(0, 1_700_000_000_000)).toBe('earlier');
+  });
+});
+
+describe('a browser storage that has run out', () => {
+  test('building the store never throws — it is on the path to booting the game', () => {
+    // the real failure: an exception here escaped module scope in main.ts and
+    // the player got a black screen with a console message
+    const full = cappedStorage(400);
+    full.setItem('simcity.save', serialize(city()).slice(0, 380));
+    expect(() => createSaveStore(full)).not.toThrow();
+  });
+
+  test('a migration that will not fit leaves the old save alone and says so', () => {
+    const c = city();
+    const legacy = serialize(c);
+    // room for the legacy save and almost nothing else
+    const full = cappedStorage(legacy.length + 40);
+    full.setItem('simcity.save', legacy);
+
+    const store = createSaveStore(full);
+    expect(full.getItem('simcity.save')).toBe(legacy); // not destroyed
+    expect(store.warnings().join(' ')).toMatch(/storage is full/i);
+  });
+
+  test('a failed migration strands nothing behind it', () => {
+    const c = city();
+    const legacy = serialize(c);
+    const full = cappedStorage(legacy.length + 40);
+    full.setItem('simcity.save', legacy);
+    createSaveStore(full);
+    expect(full.getItem('simcity.city.my-city')).toBeNull();
+  });
+
+  test('the store still works afterwards, so the game is playable', () => {
+    const c = city();
+    const legacy = serialize(c);
+    const full = cappedStorage(legacy.length + 40);
+    full.setItem('simcity.save', legacy);
+    const store = createSaveStore(full);
+    expect(store.list()).toEqual([]);
+    expect(() => store.load('anything')).not.toThrow();
+  });
+
+  test('saving reports the problem instead of throwing', () => {
+    const c = city();
+    const full = cappedStorage(serialize(c).length - 10);
+    const store = createSaveStore(full);
+    const res = store.save('Nowhere', c, 1);
+    expect(res.ok).toBe(false);
+    expect(res.ok === false && res.error).toMatch(/full/i);
+  });
+
+  test('a save that cannot be listed does not leave an unreachable blob', () => {
+    const c = city();
+    const body = serialize(c);
+    // enough for the city, not enough for the index entry beside it
+    const full = cappedStorage(body.length + 'simcity.city.nowhere'.length + 5);
+    const store = createSaveStore(full);
+    expect(store.save('Nowhere', c, 1).ok).toBe(false);
+    expect(full.getItem('simcity.city.nowhere')).toBeNull();
+    expect(store.list()).toEqual([]);
+  });
+
+  test('a rename that cannot be written reports rather than half-applying', () => {
+    const c = city();
+    const store = createSaveStore(storage);
+    store.save('Alpha', c, 1);
+    // now cap a fresh store around the existing contents
+    const tight = cappedStorage(0);
+    const tightStore = createSaveStore(tight);
+    expect(tightStore.rename('alpha', 'Beta').ok).toBe(false);
   });
 });

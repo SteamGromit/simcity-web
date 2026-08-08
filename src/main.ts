@@ -57,7 +57,9 @@ const canvas = document.getElementById('city') as HTMLCanvasElement;
 const uiRoot = document.getElementById('ui') as HTMLElement;
 
 // Constructing the store migrates the one pre-v0.55 save into a named slot,
-// so an upgrading player's city is waiting for them in the list.
+// so an upgrading player's city is waiting for them in the list. It reports
+// trouble through warnings() rather than throwing: this runs before anything
+// is drawn, so an exception here is a black screen and nothing else.
 const saveStore = createSaveStore(localStorage);
 
 /** Which saved city the player is currently in, so Save overwrites it. */
@@ -66,13 +68,17 @@ let currentSave: SaveMeta | null = null;
 /** Boot into the most recently saved city if there is one; the File menu
  * opens over it either way, so nothing is loaded behind the player's back. */
 let city: CityState = (() => {
-  const latest = saveStore.list()[0];
-  if (latest) {
-    const revived = saveStore.load(latest.slug);
-    if (revived) {
-      currentSave = latest;
-      return revived;
+  try {
+    const latest = saveStore.list()[0];
+    if (latest) {
+      const revived = saveStore.load(latest.slug);
+      if (revived) {
+        currentSave = latest;
+        return revived;
+      }
     }
+  } catch {
+    // an unreadable store must cost the player their listing, not the game
   }
   return newCity(Date.now() % 2 ** 31);
 })();
@@ -123,6 +129,8 @@ const eventLog = buildEventLog(uiRoot);
 function toast(msg: string, kind: 'error' | 'info' = 'error') {
   eventLog.push(msg, kind, monthLabel(city.month));
 }
+// whatever the save store could not do at boot, now that there is a feed
+for (const w of saveStore.warnings()) eventLog.push(w, 'alert', monthLabel(city.month));
 function notify(msg: string, kind: EventKind) {
   eventLog.push(msg, kind, monthLabel(city.month));
 }

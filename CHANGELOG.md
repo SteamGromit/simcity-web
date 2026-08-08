@@ -4,6 +4,31 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.59.2] — 2026-08-08 · A full browser store no longer bricks the launch
+
+### Fixed
+- **A black screen on launch when browser storage was full.** Migrating the
+  one pre-v0.55 save into a named slot copied the old blob across verbatim —
+  and the old format is roughly thirty times bulkier than the current one, so
+  the copy briefly needed *double* the room the save already took. On an
+  install near the quota that `setItem` threw, and because the save store is
+  built at module scope on the way to booting the game, the exception escaped
+  before anything was drawn: a black canvas and `QuotaExceededError` in the
+  console, with no way back in.
+
+  Migration now re-serializes into the compact format instead of copying, so
+  it needs about a thirtieth of the space and usually just works. If it still
+  cannot fit, it fails quietly: the old save is left exactly where it is, the
+  game boots, and the event feed explains what happened and how to make room.
+  Nothing in the store's construction can throw any more.
+- **A migration could delete a save it had failed to read.** The legacy key
+  was retired unconditionally at the end, including when the save had not
+  parsed. It is now removed only once the new copy is safely written; an
+  unreadable save is left alone for a future version to make sense of.
+- Saving, renaming and index writes report a full store instead of throwing,
+  and a city that lands without its index entry is cleaned up rather than
+  stranded where nothing can reach it.
+
 ## [0.59.1] — 2026-08-08 · Flyouts you can actually reach
 
 ### Fixed
