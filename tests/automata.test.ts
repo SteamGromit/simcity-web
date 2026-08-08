@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
 import { GRID, Zone } from '../src/sim/types';
-import { Automata, pickKind, vehicleWeights } from '../src/render/automata';
+import { Automata, pickBody, pickKind, vehicleWeights } from '../src/render/automata';
+import type { VehicleKind } from '../src/render/automata';
 import { makeCity, road, zone } from './helpers';
 
 describe('Automata', () => {
@@ -112,5 +113,37 @@ describe('vehicle mix', () => {
     expect(pickKind(w, 0.01)).toBe('truck');
     expect(pickKind(w, 0.99)).toBe('truck');
     expect(pickKind({ ...w, truck: 0, car: 1 }, 0.5)).toBe('car');
+  });
+});
+
+describe('vehicle bodies', () => {
+  test('every kind resolves to a body style for any roll', () => {
+    const kinds: VehicleKind[] = ['car', 'taxi', 'van', 'truck', 'bus'];
+    for (const kind of kinds) {
+      for (let k = 0; k < 20; k++) {
+        expect(typeof pickBody(kind, k / 20)).toBe('string');
+      }
+    }
+  });
+
+  test('a roll of exactly 1 stays in range rather than falling off the list', () => {
+    expect(pickBody('car', 1)).toBeTruthy();
+    expect(pickBody('truck', 0.9999)).toBeTruthy();
+  });
+
+  test('cars come in several shapes; a taxi is always a taxi', () => {
+    const cars = new Set(Array.from({ length: 20 }, (_, k) => pickBody('car', k / 20)));
+    expect(cars.size).toBeGreaterThan(2);
+    const taxis = new Set(Array.from({ length: 20 }, (_, k) => pickBody('taxi', k / 20)));
+    expect(taxis).toEqual(new Set(['taxi']));
+  });
+
+  test('trucks are only ever truck bodies, never a hatchback', () => {
+    const truckBodies = new Set(['boxTruck', 'semi', 'flatbed']);
+    for (let k = 0; k < 20; k++) expect(truckBodies.has(pickBody('truck', k / 20))).toBe(true);
+  });
+
+  test('the same roll always yields the same body', () => {
+    expect(pickBody('van', 0.42)).toBe(pickBody('van', 0.42));
   });
 });

@@ -3,6 +3,7 @@
 
 import { Stage, Tier, Wealth, Zone } from '../sim/types';
 import { normalizeTier } from '../sim/tiers';
+import type { Facade } from './massing';
 
 /**
  * Stable per-tile decision stream derived from the renderer's variant
@@ -16,20 +17,30 @@ export function channels(variant: number): () => number {
   };
 }
 
-export type RoofStyle = 'flat' | 'parapet' | 'gabled' | 'sawtooth';
-export type WindowStyle = 'stripes' | 'grid' | 'columns';
+export type RoofStyle = 'flat' | 'parapet' | 'gabled' | 'sawtooth' | 'hipped' | 'mansard';
+/** How a typology is fenestrated. Punched openings for masonry, a ribbon for
+ * a framed building, a curtain wall for a glass one, none for a blank shed. */
+export type WindowStyle = 'punched' | 'ribbon' | 'curtain' | 'none';
 export type PropKind =
   | 'waterTower' | 'acUnit' | 'antenna' | 'chimney' | 'vent'
   | 'tank' | 'awning' | 'yardTree' | 'hedge';
 
 /** Units are normalized to the stage's footprint budget: the drawing code
  * multiplies ox/oy/f by footprintBudget(stage), so one recipe serves every
- * stage in its band and the invariant is uniform: |ox| + f/2 ≤ 0.5. */
+ * stage in its band and the invariant is uniform: |ox| + w/2 ≤ 0.5.
+ *
+ * `w` and `d` give the mass a *plan*: equal makes the familiar square block,
+ * unequal makes the slabs, wings and rows that a city is actually built from.
+ * They default to `f`, which is what every one-number recipe used to mean. */
 export interface SubBox {
-  ox: number; // center offset from tile center
+  ox: number; // center offset from tile center, in tile units
   oy: number;
-  f: number;  // footprint fraction
+  f: number;  // footprint fraction, both ways unless w/d say otherwise
   hf: number; // height fraction of the lot's base height; exactly one box has 1
+  w?: number; // extent along grid x
+  d?: number; // extent along grid y
+  /** Cut corners off the plan, as a fraction of each edge. */
+  chamfer?: number;
 }
 
 export interface Archetype {
@@ -37,6 +48,14 @@ export interface Archetype {
   roof: RoofStyle;      // applied to the full-height mass
   props: PropKind[];    // candidate slots; channels decide which appear
   windows: WindowStyle;
+  /** Facade dressing on the primary mass — what makes a brick walk-up read
+   * differently from a curtain-wall office at the same height. */
+  facade?: Facade;
+}
+
+/** Plan extents of a sub-box, in tile fractions. */
+export function boxExtent(sb: SubBox): { w: number; d: number } {
+  return { w: sb.w ?? sb.f, d: sb.d ?? sb.f };
 }
 
 /** The stage's composite footprint cap — same curve the single box used. */
@@ -44,13 +63,42 @@ export function footprintBudget(stage: Stage): number {
   return Math.min(0.85, 0.55 + stage * 0.05);
 }
 
-const B = (ox: number, oy: number, f: number, hf: number): SubBox => ({ ox, oy, f, hf });
+const B = (ox: number, oy: number, f: number, hf: number, extra: Partial<SubBox> = {}): SubBox => ({
+  ox,
+  oy,
+  f,
+  hf,
+  ...extra,
+});
 const A = (
   boxes: SubBox[],
   roof: RoofStyle,
   windows: WindowStyle,
   props: PropKind[],
-): Archetype => ({ boxes, roof, windows, props });
+  facade?: Facade,
+): Archetype => ({ boxes, roof, windows, props, facade });
+
+// Facade recipes, named for what they actually are.
+const F = {
+  /** Old brick walk-up: iron on the front, a moulding at the top. */
+  walkup: { cornice: true, fireEscape: true, stringCourse: 2 } as Facade,
+  /** Post-war residential: slab balconies all the way up over a lobby. */
+  balconied: { balconies: true, podium: 1 } as Facade,
+  /** Panel block: banded, plain, a lot of it. */
+  panel: { stringCourse: 1, balconies: true } as Facade,
+  /** Bay-fronted house or terrace. */
+  bayed: { bays: true, cornice: true } as Facade,
+  /** Classical block: piers, banding and a heavy top. */
+  classical: { pilasters: true, cornice: true, stringCourse: 3 } as Facade,
+  /** Office: retail base, piers above. */
+  office: { podium: 2, pilasters: true, cornice: true } as Facade,
+  /** Curtain wall over a lobby — nothing else, on purpose. */
+  curtain: { podium: 2 } as Facade,
+  /** Dense hot-climate block: signage over the street, units on the wall. */
+  shophouse: { podium: 1, signBoards: true, acUnits: true, stringCourse: 1 } as Facade,
+  /** Big-box retail: one long signed frontage. */
+  bigbox: { podium: 1, signBoards: true, cornice: true } as Facade,
+} as const;
 
 type FamilyKey = 'R1' | 'R2' | 'R3' | 'C1' | 'C2' | 'C3' | 'dirty' | 'manu' | 'tech';
 /** Stage bands: low 1–2, mid 3–5, high 6–7. */
@@ -60,139 +108,205 @@ function bandOf(stage: Stage): Band {
   return stage <= 2 ? 0 : stage <= 5 ? 1 : 2;
 }
 
+/**
+ * The building types a city is made of. Each family gets four to six per
+ * stage band, chosen by the lot's seed, and each one is a real typology
+ * rather than a box with a different colour: a shotgun house is narrow and
+ * deep, a terrace is a long thin slab, a panel block is banded and
+ * balconied, a shophouse carries signage over the street, an office tower
+ * sits on a retail podium with its corners cut.
+ */
 const TABLE: Record<FamilyKey, [Archetype[], Archetype[], Archetype[]]> = {
   R1: [
     [
-      A([B(0, 0, 0.8, 1)], 'gabled', 'stripes', ['chimney', 'yardTree']),
-      A([B(-0.1, 0.1, 0.7, 1), B(0.22, -0.18, 0.35, 0.55)], 'gabled', 'stripes', ['chimney']),
-      A([B(0, 0, 0.9, 1)], 'flat', 'stripes', ['yardTree', 'hedge']),
+      // shotgun house: one room wide, several deep
+      A([B(0, 0, 0.8, 1, { w: 0.4, d: 0.9 })], 'gabled', 'punched', ['chimney', 'yardTree']),
+      // bungalow with a lean-to at the back
+      A([B(-0.06, 0.08, 0.72, 1), B(0.2, -0.2, 0.34, 0.6)], 'gabled', 'punched', ['chimney']),
+      // wide low ranch
+      A([B(0, 0, 0.9, 1, { w: 0.9, d: 0.5 })], 'gabled', 'punched', ['yardTree', 'chimney']),
+      // flat-roofed infill
+      A([B(0, 0, 0.85, 1)], 'flat', 'punched', ['yardTree', 'hedge']),
     ],
     [
-      A([B(0, 0, 0.95, 1)], 'flat', 'stripes', ['acUnit', 'chimney']),
-      A([B(-0.15, 0, 0.6, 1), B(0.2, 0, 0.55, 0.85)], 'flat', 'stripes', ['acUnit']),
-      A([B(0, -0.12, 0.72, 1), B(0, 0.25, 0.45, 0.6)], 'parapet', 'columns', ['waterTower']),
+      // brick walk-up with the fire escape on the street
+      A([B(0, 0, 0.9, 1, { w: 0.9, d: 0.62 })], 'flat', 'punched', ['acUnit', 'chimney'], F.walkup),
+      // two joined houses
+      A([B(-0.17, 0, 0.6, 1), B(0.19, 0, 0.56, 0.88)], 'gabled', 'punched', ['chimney']),
+      // court block round a yard
+      A([B(0, -0.14, 0.72, 1, { d: 0.4 }), B(0, 0.24, 0.5, 0.62)], 'flat', 'punched', ['waterTower'], F.walkup),
+      A([B(0, 0, 0.86, 1)], 'parapet', 'punched', ['acUnit'], { cornice: true }),
     ],
     [
-      A([B(0, 0, 0.95, 1)], 'flat', 'grid', ['waterTower', 'acUnit']),
-      A([B(-0.12, -0.12, 0.62, 1), B(0.18, 0.18, 0.55, 0.8)], 'flat', 'stripes', ['acUnit', 'waterTower']),
+      // panel block: a long banded slab
+      A([B(0, 0, 0.95, 1, { w: 0.95, d: 0.42 })], 'flat', 'punched', ['waterTower'], F.panel),
+      // point block over a lobby
+      A([B(0, 0, 0.62, 1)], 'flat', 'punched', ['waterTower', 'acUnit'], F.balconied),
+      A([B(-0.14, -0.12, 0.62, 1), B(0.18, 0.18, 0.52, 0.78)], 'flat', 'punched', ['acUnit'], F.panel),
+      A([B(0, 0, 0.9, 0.35), B(0, 0, 0.58, 1)], 'parapet', 'punched', ['antenna'], F.balconied),
     ],
   ],
   R2: [
     [
-      A([B(0, 0, 0.75, 1)], 'gabled', 'stripes', ['yardTree', 'chimney']),
-      A([B(-0.12, 0.05, 0.6, 1), B(0.25, -0.05, 0.4, 0.5)], 'gabled', 'stripes', ['yardTree']),
-      A([B(0, 0, 0.85, 1)], 'parapet', 'columns', ['hedge']),
+      // suburban house with a garage wing
+      A([B(-0.1, 0.04, 0.66, 1), B(0.22, -0.1, 0.36, 0.52)], 'gabled', 'punched', ['yardTree', 'chimney']),
+      // two storeys with bay windows
+      A([B(0, 0, 0.76, 1)], 'gabled', 'punched', ['chimney'], F.bayed),
+      // wide low ranch with a porch
+      A([B(0, 0, 0.88, 1, { w: 0.88, d: 0.48 })], 'hipped', 'punched', ['yardTree']),
+      A([B(0, 0, 0.8, 1)], 'parapet', 'punched', ['hedge'], { cornice: true }),
     ],
     [
-      A([B(0, 0, 0.9, 1)], 'parapet', 'stripes', ['acUnit']),
-      A([B(-0.15, -0.15, 0.65, 1), B(0.15, 0.2, 0.55, 0.7)], 'flat', 'grid', ['acUnit']),
-      A([B(0, 0, 0.9, 0.45), B(0, 0, 0.55, 1)], 'parapet', 'columns', ['waterTower']),
+      // brick terrace: a long shallow row
+      A([B(0, 0, 0.92, 1, { w: 0.92, d: 0.4 })], 'flat', 'punched', ['chimney'], F.walkup),
+      // mid-rise over a lobby, balconies above
+      A([B(0, 0, 0.8, 1)], 'parapet', 'punched', ['acUnit'], F.balconied),
+      // L-shaped block round a court
+      A([B(-0.16, -0.1, 0.62, 1, { d: 0.5 }), B(0.16, 0.2, 0.5, 0.8)], 'flat', 'punched', ['acUnit'], F.panel),
+      A([B(0, 0, 0.9, 0.42), B(0, 0, 0.56, 1)], 'parapet', 'punched', ['waterTower'], F.classical),
     ],
     [
-      A([B(0, 0, 0.9, 0.4), B(0, 0, 0.6, 1)], 'flat', 'grid', ['waterTower', 'antenna']),
-      A([B(-0.15, 0.1, 0.55, 1), B(0.2, -0.15, 0.5, 0.9)], 'flat', 'columns', ['acUnit']),
-      A([B(0, 0, 0.95, 1)], 'parapet', 'stripes', ['acUnit']),
+      // slab block
+      A([B(0, 0, 0.95, 1, { w: 0.95, d: 0.4 })], 'flat', 'punched', ['waterTower'], F.panel),
+      // chamfered residential tower over a podium
+      A([B(0, 0, 0.66, 1, { chamfer: 0.26 })], 'flat', 'punched', ['antenna'], F.balconied),
+      // twin masses on a shared base
+      A([B(0, 0, 0.92, 0.3, { d: 0.6 }), B(-0.19, 0, 0.44, 1), B(0.19, 0, 0.4, 0.82)], 'flat', 'punched', ['acUnit'], F.balconied),
+      A([B(0, 0, 0.88, 1)], 'parapet', 'punched', ['acUnit'], F.classical),
     ],
   ],
   R3: [
     [
-      A([B(0, 0, 0.7, 1)], 'parapet', 'columns', ['hedge', 'yardTree']),
-      A([B(0, -0.1, 0.6, 1), B(0, 0.22, 0.45, 0.5)], 'gabled', 'stripes', ['hedge']),
+      // villa with a hipped roof and a wing
+      A([B(-0.08, 0.06, 0.66, 1), B(0.22, -0.14, 0.34, 0.66)], 'hipped', 'punched', ['hedge', 'yardTree']),
+      // townhouse under a mansard
+      A([B(0, 0, 0.7, 1, { w: 0.5, d: 0.8 })], 'mansard', 'punched', ['chimney'], F.bayed),
+      A([B(0, -0.08, 0.62, 1), B(0, 0.24, 0.44, 0.5)], 'gabled', 'punched', ['hedge']),
     ],
     [
-      A([B(0, 0, 0.8, 0.55), B(0, 0, 0.55, 1)], 'parapet', 'columns', ['hedge']),
-      A([B(-0.13, 0.13, 0.6, 1), B(0.18, -0.14, 0.45, 0.75)], 'parapet', 'grid', []),
+      // mansion block: piers, banding, heavy cornice
+      A([B(0, 0, 0.82, 1, { d: 0.62 })], 'mansard', 'punched', ['chimney'], F.classical),
+      A([B(0, 0, 0.78, 0.5), B(0, 0, 0.56, 1)], 'parapet', 'punched', ['hedge'], F.classical),
+      A([B(-0.13, 0.13, 0.58, 1), B(0.18, -0.14, 0.44, 0.76)], 'parapet', 'punched', [], F.bayed),
     ],
     [
-      A([B(0, 0, 0.85, 0.35), B(0, 0, 0.5, 1)], 'parapet', 'grid', ['antenna']),
-      A([B(0, 0, 0.6, 1)], 'flat', 'columns', []),
+      // slender glass tower on a stone base
+      A([B(0, 0, 0.86, 0.22), B(0, 0, 0.5, 1, { chamfer: 0.3 })], 'flat', 'curtain', ['antenna'], F.curtain),
+      A([B(0, 0, 0.6, 1, { chamfer: 0.22 })], 'parapet', 'curtain', [], F.curtain),
+      A([B(0, 0, 0.84, 0.34), B(0, 0, 0.62, 0.7), B(0, 0, 0.42, 1)], 'flat', 'curtain', ['antenna'], F.curtain),
     ],
   ],
   C1: [
     [
-      A([B(0, 0, 0.9, 1)], 'flat', 'stripes', ['awning']),
-      A([B(-0.18, 0, 0.55, 1), B(0.2, 0, 0.5, 0.8)], 'flat', 'stripes', ['awning']),
-      A([B(0, 0, 0.85, 1)], 'parapet', 'stripes', ['awning', 'acUnit']),
+      // strip retail: wide, low, one long awning
+      A([B(0, 0, 0.92, 1, { w: 0.92, d: 0.44 })], 'flat', 'punched', ['awning'], F.bigbox),
+      // corner store with a store room behind
+      A([B(-0.16, 0.06, 0.58, 1), B(0.2, -0.14, 0.44, 0.76)], 'flat', 'punched', ['awning', 'acUnit']),
+      A([B(0, 0, 0.86, 1)], 'parapet', 'punched', ['awning'], { podium: 1, cornice: true }),
     ],
     [
-      A([B(0, 0, 0.95, 1)], 'flat', 'stripes', ['acUnit', 'vent']),
-      A([B(0, -0.1, 0.75, 1), B(0, 0.27, 0.4, 0.5)], 'parapet', 'columns', ['acUnit']),
+      // two-storey shopfront with boards over the pavement
+      A([B(0, 0, 0.9, 1, { d: 0.6 })], 'flat', 'punched', ['acUnit', 'vent'], F.shophouse),
+      A([B(0, -0.1, 0.74, 1), B(0, 0.28, 0.38, 0.46)], 'parapet', 'punched', ['acUnit'], F.bigbox),
+      A([B(0, 0, 0.94, 1, { w: 0.94, d: 0.5 })], 'flat', 'ribbon', ['vent'], F.bigbox),
     ],
     [
-      A([B(0, 0, 0.9, 1)], 'parapet', 'columns', ['waterTower', 'acUnit']),
-      A([B(0, 0, 0.85, 0.5), B(0, 0, 0.6, 1)], 'flat', 'stripes', ['antenna']),
+      // department store: one big signed box
+      A([B(0, 0, 0.94, 1)], 'parapet', 'ribbon', ['waterTower', 'acUnit'], F.bigbox),
+      A([B(0, 0, 0.9, 0.55), B(0, 0, 0.6, 1)], 'flat', 'punched', ['antenna'], F.office),
+      A([B(0, 0, 0.92, 1, { w: 0.92, d: 0.52 })], 'flat', 'ribbon', ['acUnit'], F.bigbox),
     ],
   ],
   C2: [
     [
-      A([B(0, 0, 0.8, 1)], 'flat', 'stripes', ['awning']),
-      A([B(-0.14, 0.08, 0.6, 1), B(0.22, -0.1, 0.42, 0.7)], 'parapet', 'stripes', ['awning']),
+      // shophouse: narrow, deep, signage and units on the wall
+      A([B(0, 0, 0.8, 1, { w: 0.42, d: 0.86 })], 'flat', 'punched', ['acUnit'], F.shophouse),
+      A([B(-0.14, 0.08, 0.6, 1), B(0.22, -0.1, 0.42, 0.7)], 'parapet', 'punched', ['awning'], F.shophouse),
+      A([B(0, 0, 0.86, 1, { d: 0.56 })], 'flat', 'punched', ['awning', 'acUnit'], F.bigbox),
     ],
     [
-      A([B(0, 0, 0.9, 1)], 'flat', 'grid', ['acUnit']),
-      A([B(0, 0, 0.85, 0.5), B(0, 0, 0.58, 1)], 'parapet', 'columns', ['vent']),
-      A([B(-0.16, -0.12, 0.6, 1), B(0.16, 0.16, 0.55, 0.85)], 'flat', 'grid', ['acUnit']),
+      // office over a retail podium
+      A([B(0, 0, 0.9, 1)], 'flat', 'ribbon', ['acUnit'], F.office),
+      // glass box
+      A([B(0, 0, 0.86, 1, { chamfer: 0.2 })], 'parapet', 'curtain', ['vent'], F.curtain),
+      // tower rising from a full-lot podium
+      A([B(0, 0, 0.94, 0.32), B(0, 0, 0.6, 1)], 'flat', 'ribbon', ['antenna'], F.office),
+      A([B(-0.16, -0.12, 0.6, 1), B(0.16, 0.16, 0.54, 0.84)], 'flat', 'ribbon', ['acUnit'], F.office),
     ],
     [
-      A([B(0, 0, 0.85, 0.45), B(0, 0, 0.6, 1)], 'flat', 'grid', ['antenna']),
-      A([B(-0.15, 0.12, 0.55, 1), B(0.18, -0.15, 0.5, 0.92)], 'flat', 'columns', ['antenna']),
-      A([B(0, 0, 0.95, 1)], 'parapet', 'grid', ['waterTower']),
+      // setback office tower on a podium — the wedding-cake profile
+      A([B(0, 0, 0.94, 0.3), B(0, 0, 0.7, 0.66), B(0, 0, 0.5, 1)], 'flat', 'curtain', ['antenna'], F.office),
+      // slab office
+      A([B(0, 0, 0.92, 1, { w: 0.92, d: 0.4, chamfer: 0.12 })], 'flat', 'curtain', ['vent'], F.curtain),
+      // chamfered point tower
+      A([B(0, 0, 0.62, 1, { chamfer: 0.3 })], 'parapet', 'curtain', ['antenna'], F.curtain),
+      A([B(0, 0, 0.9, 0.42), B(-0.12, 0.1, 0.5, 1), B(0.16, -0.12, 0.4, 0.8)], 'flat', 'curtain', [], F.office),
     ],
   ],
   C3: [
     [
-      A([B(0, 0, 0.75, 1)], 'parapet', 'columns', []),
-      A([B(0, 0, 0.85, 1)], 'flat', 'grid', []),
+      A([B(0, 0, 0.78, 1, { chamfer: 0.2 })], 'parapet', 'curtain', [], F.curtain),
+      A([B(0, 0, 0.86, 1, { d: 0.58 })], 'flat', 'curtain', [], F.office),
     ],
     [
-      A([B(0, 0, 0.85, 0.55), B(0, 0, 0.55, 1)], 'parapet', 'grid', []),
-      A([B(0, 0, 0.9, 1)], 'flat', 'columns', ['antenna']),
+      A([B(0, 0, 0.88, 0.4), B(0, 0, 0.58, 1, { chamfer: 0.24 })], 'flat', 'curtain', [], F.curtain),
+      A([B(0, 0, 0.9, 1, { w: 0.9, d: 0.44 })], 'parapet', 'curtain', ['antenna'], F.curtain),
+      A([B(0, 0, 0.82, 1, { chamfer: 0.34 })], 'flat', 'curtain', [], F.office),
     ],
     [
-      A([B(0, 0, 0.8, 0.35), B(0, 0, 0.55, 1)], 'flat', 'grid', ['antenna']),
-      A([B(-0.14, 0.1, 0.5, 1), B(0.18, -0.12, 0.45, 0.85)], 'flat', 'columns', []),
+      // the classic ziggurat
+      A([B(0, 0, 0.92, 0.26), B(0, 0, 0.72, 0.56), B(0, 0, 0.5, 1, { chamfer: 0.22 })], 'flat', 'curtain', ['antenna'], F.curtain),
+      // slender chamfered shaft
+      A([B(0, 0, 0.52, 1, { chamfer: 0.32 })], 'flat', 'curtain', ['antenna'], F.curtain),
+      // slab with a cut corner
+      A([B(0, 0, 0.9, 1, { w: 0.9, d: 0.38, chamfer: 0.16 })], 'parapet', 'curtain', [], F.curtain),
+      A([B(0, 0, 0.86, 0.36), B(-0.13, 0.1, 0.48, 1), B(0.17, -0.12, 0.4, 0.74)], 'flat', 'curtain', ['antenna'], F.office),
     ],
   ],
   dirty: [
     [
-      A([B(0, 0, 0.85, 1)], 'flat', 'stripes', ['tank', 'vent']),
-      A([B(-0.15, 0.05, 0.6, 1), B(0.22, -0.08, 0.45, 0.7)], 'flat', 'stripes', ['tank']),
+      A([B(0, 0, 0.9, 1, { w: 0.9, d: 0.55 })], 'flat', 'punched', ['tank', 'vent']),
+      A([B(-0.15, 0.05, 0.6, 1), B(0.22, -0.08, 0.44, 0.7)], 'flat', 'punched', ['tank']),
     ],
     [
-      A([B(0, 0, 0.95, 1)], 'flat', 'stripes', ['tank', 'vent']),
-      A([B(-0.12, -0.1, 0.68, 1), B(0.2, 0.18, 0.5, 0.6)], 'flat', 'stripes', ['vent', 'tank']),
+      A([B(0, 0, 0.95, 1, { w: 0.95, d: 0.6 })], 'flat', 'ribbon', ['tank', 'vent']),
+      A([B(-0.12, -0.1, 0.66, 1), B(0.2, 0.18, 0.5, 0.6)], 'flat', 'ribbon', ['vent', 'tank']),
+      A([B(0, 0, 0.92, 0.5), B(0, 0, 0.5, 1)], 'flat', 'ribbon', ['tank'], { stringCourse: 2 }),
     ],
     [
-      A([B(0, 0, 0.95, 1)], 'flat', 'stripes', ['tank', 'vent']),
-      A([B(-0.14, 0.1, 0.6, 1), B(0.18, -0.14, 0.55, 0.75)], 'flat', 'stripes', ['tank', 'vent']),
+      A([B(0, 0, 0.95, 1, { d: 0.7 })], 'flat', 'ribbon', ['tank', 'vent']),
+      A([B(-0.14, 0.1, 0.6, 1), B(0.18, -0.14, 0.55, 0.75)], 'flat', 'ribbon', ['tank', 'vent']),
     ],
   ],
   manu: [
     [
-      A([B(0, 0, 0.9, 1)], 'sawtooth', 'stripes', ['vent']),
-      A([B(0, 0, 0.8, 1)], 'flat', 'stripes', ['acUnit']),
+      A([B(0, 0, 0.92, 1, { w: 0.92, d: 0.6 })], 'sawtooth', 'ribbon', ['vent']),
+      A([B(0, 0, 0.82, 1)], 'flat', 'ribbon', ['acUnit']),
     ],
     [
-      A([B(0, 0, 0.95, 1)], 'sawtooth', 'stripes', ['vent', 'acUnit']),
-      A([B(-0.15, 0, 0.6, 1), B(0.2, 0.05, 0.5, 0.8)], 'sawtooth', 'stripes', ['vent']),
+      A([B(0, 0, 0.95, 1, { w: 0.95, d: 0.66 })], 'sawtooth', 'ribbon', ['vent', 'acUnit']),
+      // warehouse with a loading dock wing
+      A([B(-0.14, 0, 0.62, 1, { d: 0.7 }), B(0.2, 0.05, 0.5, 0.5)], 'sawtooth', 'ribbon', ['vent']),
+      A([B(0, 0, 0.9, 1, { w: 0.5, d: 0.9 })], 'flat', 'ribbon', ['vent', 'tank']),
     ],
     [
-      A([B(0, 0, 0.95, 1)], 'sawtooth', 'stripes', ['vent', 'tank']),
-      A([B(0, -0.1, 0.75, 1), B(0, 0.27, 0.42, 0.5)], 'flat', 'stripes', ['acUnit', 'vent']),
+      A([B(0, 0, 0.95, 1, { d: 0.72 })], 'sawtooth', 'ribbon', ['vent', 'tank']),
+      A([B(0, -0.1, 0.75, 1), B(0, 0.27, 0.42, 0.5)], 'flat', 'ribbon', ['acUnit', 'vent']),
     ],
   ],
   tech: [
     [
-      A([B(0, 0, 0.8, 1)], 'parapet', 'grid', ['antenna']),
-      A([B(0, 0, 0.7, 1)], 'flat', 'columns', ['hedge']),
+      A([B(0, 0, 0.82, 1, { d: 0.6 })], 'parapet', 'ribbon', ['antenna'], F.curtain),
+      A([B(0, 0, 0.7, 1)], 'flat', 'ribbon', ['hedge'], F.curtain),
     ],
     [
-      A([B(0, 0, 0.85, 1)], 'parapet', 'grid', ['antenna', 'acUnit']),
-      A([B(0, 0, 0.8, 0.5), B(0, 0, 0.55, 1)], 'parapet', 'columns', ['antenna']),
+      A([B(0, 0, 0.88, 1, { chamfer: 0.18 })], 'parapet', 'ribbon', ['antenna', 'acUnit'], F.curtain),
+      A([B(0, 0, 0.86, 0.42), B(0, 0, 0.56, 1)], 'parapet', 'curtain', ['antenna'], F.curtain),
+      A([B(0, 0, 0.92, 1, { w: 0.92, d: 0.45 })], 'flat', 'ribbon', ['vent'], F.curtain),
     ],
     [
-      A([B(0, 0, 0.9, 0.4), B(0, 0, 0.58, 1)], 'parapet', 'grid', ['antenna']),
-      A([B(-0.14, 0.12, 0.55, 1), B(0.18, -0.12, 0.5, 0.9)], 'flat', 'grid', ['antenna']),
+      A([B(0, 0, 0.9, 0.38), B(0, 0, 0.58, 1, { chamfer: 0.24 })], 'parapet', 'curtain', ['antenna'], F.curtain),
+      A([B(-0.14, 0.12, 0.55, 1), B(0.18, -0.12, 0.5, 0.9)], 'flat', 'curtain', ['antenna'], F.curtain),
     ],
   ],
 };
@@ -212,19 +326,31 @@ export function pickArchetype(zone: Zone, tier: Tier, stage: Stage, pick: number
   return options[Math.min(options.length - 1, Math.floor(pick * options.length))];
 }
 
-/** [dh, ds, dl] wall-family deltas per tier; entry 0 is the familiar base
- * ramp. Large hue deltas are deliberate — they move slate to brick, not
- * just warm it. Values are a starting point for the visual pass. */
+/**
+ * [dh, ds, dl] wall-family deltas per tier; entry 0 is the familiar base ramp.
+ *
+ * Large hue deltas are deliberate — they move slate to brick, not just warm
+ * it. Four families per tier, spread far enough apart that a downtown block
+ * reads as bronze-and-green-and-blue glass rather than one blue curtain wall
+ * repeated forty times; the ladder's *value* progression is what still says
+ * "this lot is richer than that one".
+ */
 const FAMILIES: Record<FamilyKey, [number, number, number][]> = {
-  R1: [[0, 0, 0], [15, 8, -3], [-18, -4, 4]],
-  R2: [[0, 0, 0], [160, 14, -4], [24, 6, 8]], // slate / brick / pale clapboard
-  R3: [[0, 0, 0], [-12, 4, -4], [8, -6, 3]],
-  C1: [[0, 0, 0], [12, 6, -4], [-20, -8, 5]],
-  C2: [[0, 0, 0], [-18, 8, -6], [14, -10, 6]],
-  C3: [[0, 0, 0], [10, 6, 4], [-8, -6, -4]],
-  dirty: [[0, 0, 0], [10, 8, -4], [-6, -5, 5]],
-  manu: [[0, 0, 0], [8, 4, -4], [-10, 3, 4]],
-  tech: [[0, 0, 0], [-12, 6, -4], [14, -6, 4]],
+  // timber brown → warmer stain → cool grey-wash → sage green
+  R1: [[0, 0, 0], [15, 8, -3], [-18, -4, 4], [72, -8, 6]],
+  // slate / brick / pale clapboard / mid-century green
+  R2: [[0, 0, 0], [160, 14, -4], [24, 6, 8], [-70, -6, 3]],
+  // pale stone / cool stone / warm limestone / bronze glass
+  R3: [[0, 0, 0], [-12, 4, -4], [8, -6, 3], [-162, -6, 5]],
+  // warm render / ochre / teal / oxblood brick
+  C1: [[0, 0, 0], [12, 6, -4], [-20, -8, 5], [170, -4, 1]],
+  // blue glass / bronze glass / green glass / graphite
+  C2: [[0, 0, 0], [-176, -8, 2], [-62, -12, 0], [26, -22, -7]],
+  // dark blue glass / near-black bronze / deep teal / charcoal
+  C3: [[0, 0, 0], [-190, -10, 5], [-88, -14, 3], [22, -20, -3]],
+  dirty: [[0, 0, 0], [10, 8, -4], [-6, -5, 5], [186, -6, 2]],
+  manu: [[0, 0, 0], [8, 4, -4], [-10, 3, 4], [-40, 6, -2]],
+  tech: [[0, 0, 0], [-12, 6, -4], [14, -6, 4], [-160, -4, 6]],
 };
 
 export function paletteFamily(zone: Zone, tier: Tier, pick: number): [number, number, number] {

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
   Archetype,
+  boxExtent,
   channels,
   FARM_LAYOUTS,
   footprintBudget,
@@ -87,12 +88,64 @@ describe('geometry invariant', () => {
   test('every sub-box of every archetype stays inside the footprint budget', () => {
     everyArchetype((a) => {
       for (const sb of a.boxes) {
-        expect(Math.abs(sb.ox) + sb.f / 2).toBeLessThanOrEqual(0.5 + 1e-9);
-        expect(Math.abs(sb.oy) + sb.f / 2).toBeLessThanOrEqual(0.5 + 1e-9);
+        // the invariant runs on the *plan*, so a slab is checked on the axis
+        // it is actually long on rather than on its nominal size
+        const { w, d } = boxExtent(sb);
+        expect(Math.abs(sb.ox) + w / 2).toBeLessThanOrEqual(0.5 + 1e-9);
+        expect(Math.abs(sb.oy) + d / 2).toBeLessThanOrEqual(0.5 + 1e-9);
         expect(sb.hf).toBeGreaterThan(0);
         expect(sb.hf).toBeLessThanOrEqual(1);
+        if (sb.chamfer !== undefined) {
+          expect(sb.chamfer).toBeGreaterThan(0);
+          expect(sb.chamfer).toBeLessThan(0.5);
+        }
       }
     });
+  });
+
+  test('boxExtent falls back to the single size when no plan is given', () => {
+    expect(boxExtent({ ox: 0, oy: 0, f: 0.7, hf: 1 })).toEqual({ w: 0.7, d: 0.7 });
+    expect(boxExtent({ ox: 0, oy: 0, f: 0.7, hf: 1, w: 0.9, d: 0.3 })).toEqual({ w: 0.9, d: 0.3 });
+  });
+});
+
+describe('typologies', () => {
+  test('a family band offers more than one plan shape, not just one box resized', () => {
+    // slabs and squares in the same band are what stop a district looking
+    // like one building repeated
+    const shapes = new Set<string>();
+    for (const p of PICKS) {
+      const a = pickArchetype(Zone.Commercial, 3, 7, p);
+      for (const sb of a.boxes) {
+        const { w, d } = boxExtent(sb);
+        shapes.add((w / d).toFixed(2));
+      }
+    }
+    expect(shapes.size).toBeGreaterThan(1);
+  });
+
+  test('tall commercial bands include a chamfered plan', () => {
+    const chamfered = PICKS.map((p) => pickArchetype(Zone.Commercial, 3, 7, p)).some((a) =>
+      a.boxes.some((b) => (b.chamfer ?? 0) > 0),
+    );
+    expect(chamfered).toBe(true);
+  });
+
+  test('facades are declared where the typology calls for one', () => {
+    const withFacade = PICKS.map((p) => pickArchetype(Zone.Commercial, 2, 6, p)).filter(
+      (a) => a.facade,
+    );
+    expect(withFacade.length).toBeGreaterThan(0);
+  });
+
+  test('every archetype names a window treatment the painter understands', () => {
+    const known = new Set(['punched', 'ribbon', 'curtain', 'none']);
+    everyArchetype((a) => expect(known.has(a.windows)).toBe(true));
+  });
+
+  test('every archetype names a roof form the painter understands', () => {
+    const known = new Set(['flat', 'parapet', 'gabled', 'sawtooth', 'hipped', 'mansard']);
+    everyArchetype((a) => expect(known.has(a.roof)).toBe(true));
   });
 });
 

@@ -38,6 +38,7 @@ import {
   TOOL_KEYS,
 } from './ui/shortcuts';
 import { setSkin } from './render/skins';
+import { spriteStats } from './render/spritecache';
 import { setWeatherFx } from './render/fx';
 import { setDayNight } from './render/daynight';
 import { buildHelp, createAdvisorFeed } from './ui/help';
@@ -97,6 +98,8 @@ const renderer = new Renderer(canvas, city.seed);
   /** Read-only camera snapshot. The touch and zoom paths have no other visible
    * output — they only move this — so tests and the console watch it here. */
   camera: () => ({ ...renderer.camera }),
+  /** Where the last frame went, plus what the sprite cache is holding. */
+  profile: () => ({ ...renderer.timings, sprites: spriteStats() }),
 };
 
 const view: ViewState = {
@@ -603,19 +606,17 @@ canvas.addEventListener('wheel', (e) => {
   );
 });
 
-const rotateKeys = new Set<string>();
-
 window.addEventListener('keydown', (e) => {
   if (isFormControl(e.target)) return; // a focused slider owns its arrow keys
   const pan = 60 / renderer.camera.zoom;
   switch (e.key) {
     case 'q':
     case 'Q':
-      rotateKeys.add('q');
+      renderer.rotateQuarter(-1);
       break;
     case 'e':
     case 'E':
-      rotateKeys.add('e');
+      renderer.rotateQuarter(1);
       break;
     case ' ':
       spaceHeld = true;
@@ -672,13 +673,9 @@ window.addEventListener('keydown', (e) => {
 
 window.addEventListener('keyup', (e) => {
   if (e.key === ' ') spaceHeld = false;
-  if (e.key === 'q' || e.key === 'Q') rotateKeys.delete('q');
-  if (e.key === 'e' || e.key === 'E') rotateKeys.delete('e');
 });
 window.addEventListener('blur', () => {
-  // keyups are lost on focus change; don't leave the camera spinning
-  rotateKeys.clear();
-  spaceHeld = false;
+  spaceHeld = false; // keyups are lost on focus change
 });
 
 window.addEventListener('resize', () => renderer.resize());
@@ -691,17 +688,14 @@ window.addEventListener('resize', () => renderer.resize());
   tick: (n: number) => {
     for (let i = 0; i < n; i++) simTick(city, rand);
   },
-  rotate: (rad: number) => renderer.rotateBy(rad),
+  /** Move the camera outright — the hook automated screenshots drive. */
+  camera: (patch: Partial<{ x: number; y: number; zoom: number }>) =>
+    Object.assign(renderer.camera, patch),
+  rotate: (delta: 1 | -1) => renderer.rotateQuarter(delta),
 };
 
 // --- render loop ---
-const ROTATE_SPEED = 1.4; // radians per second while Q/E held
-let lastFrameTime = 0;
 function frame(now: number) {
-  const dt = lastFrameTime === 0 ? 0.016 : Math.min(0.1, (now - lastFrameTime) / 1000);
-  lastFrameTime = now;
-  if (rotateKeys.has('q')) renderer.rotateBy(-ROTATE_SPEED * dt);
-  if (rotateKeys.has('e')) renderer.rotateBy(ROTATE_SPEED * dt);
   if (city.notices.length > 0) {
     // every notice reaches the log now, rather than the last one plus a count
     for (const n of city.notices) notify(n, 'alert');

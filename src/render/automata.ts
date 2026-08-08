@@ -64,6 +64,7 @@ interface Car {
   to: number;
   t: number; // 0..1 progress
   kind: VehicleKind;
+  style: BodyStyle;
   color: string;
   laneSide: 1 | -1;
 }
@@ -174,6 +175,7 @@ export class Automata {
         to: next,
         t: Math.random(),
         kind,
+        style: pickBody(kind, Math.random()),
         color,
         laneSide: Math.random() < 0.5 ? 1 : -1,
       });
@@ -288,7 +290,7 @@ export class Automata {
   }
 
   /** Draw the automata that belong to tile i. Called inside the painter's loop. */
-  drawTile(ctx: CanvasRenderingContext2D, i: number): void {
+  drawTile(ctx: CanvasRenderingContext2D, i: number, night = 0): void {
     const cars = this.carBuckets.get(i);
     if (cars) {
       for (const car of cars) {
@@ -297,57 +299,204 @@ export class Automata {
         const sx = a.sx + (b.sx - a.sx) * car.t;
         const sy = a.sy + (b.sy - a.sy) * car.t;
         const angle = Math.atan2(b.sy - a.sy, b.sx - a.sx);
-        ctx.save();
-        ctx.translate(sx, sy);
-        ctx.rotate(angle);
-        ctx.translate(0, car.laneSide * 4);
-        switch (car.kind) {
-          case 'truck':
-            ctx.fillStyle = '#3d434b';
-            ctx.fillRect(-6, -2, 4, 4); // cab
-            ctx.fillStyle = car.color;
-            ctx.fillRect(-1, -2.5, 7, 5); // trailer
-            break;
-          case 'bus':
-            ctx.fillStyle = car.color;
-            ctx.fillRect(-7, -2.5, 14, 5);
-            ctx.fillStyle = 'rgba(255,255,255,0.7)';
-            ctx.fillRect(-6, -1.5, 12, 1.5); // window band
-            break;
-          case 'van':
-            ctx.fillStyle = car.color;
-            ctx.fillRect(-4.5, -2.5, 9, 5);
-            ctx.fillStyle = 'rgba(20,25,35,0.55)';
-            ctx.fillRect(-3.5, -1.5, 3, 3);
-            break;
-          case 'taxi':
-            ctx.fillStyle = car.color;
-            ctx.fillRect(-4, -2, 8, 4);
-            ctx.fillStyle = 'rgba(20,25,35,0.55)';
-            ctx.fillRect(-1.5, -1.5, 3.5, 3);
-            ctx.fillStyle = '#2b2b2b';
-            ctx.fillRect(-0.5, -2.7, 2, 1); // roof sign
-            break;
-          default:
-            ctx.fillStyle = car.color;
-            ctx.fillRect(-4, -2, 8, 4);
-            ctx.fillStyle = 'rgba(20,25,35,0.55)';
-            ctx.fillRect(-1.5, -1.5, 3.5, 3);
-        }
-        ctx.restore();
+        drawVehicle(ctx, sx, sy + car.laneSide * 4, angle, car.style, car.color, night);
       }
     }
     const peds = this.pedBuckets.get(i);
     if (peds) {
       for (const p of peds) {
         const c = center(p.tile);
+        const x = c.sx + p.ox;
+        const y = c.sy + p.oy;
+        // a squashed shadow first, so a walker stands on the pavement
+        ctx.fillStyle = 'rgba(20, 24, 38, 0.22)';
+        ctx.fillRect(x - p.w / 2 + 0.8, y - 0.4, p.w + 0.8, 1.1);
         ctx.fillStyle = p.color;
-        ctx.fillRect(c.sx + p.ox - p.w / 2, c.sy + p.oy - p.h + 1, p.w, p.h);
+        ctx.fillRect(x - p.w / 2, y - p.h, p.w, p.h);
+        // a head about a fifth of the figure — any bigger and a crowd reads
+        // as a scattering of pale dots rather than as people
+        ctx.fillStyle = 'rgba(212, 178, 148, 0.95)';
+        ctx.fillRect(x - p.w / 2 + 0.2, y - p.h - 0.9, Math.max(0.8, p.w - 0.4), 0.9);
         if (this.pandemic) {
           ctx.fillStyle = '#f2f5f8'; // masked up
-          ctx.fillRect(c.sx + p.ox - p.w / 2, c.sy + p.oy - p.h + 1, p.w, 1);
+          ctx.fillRect(x - p.w / 2 + 0.2, y - p.h - 0.4, Math.max(0.8, p.w - 0.4), 0.5);
         }
       }
     }
   }
+}
+
+/** Mix a hex body colour toward black or white; |t| in 0..1. */
+function shade(hex: string, t: number): string {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const to = t < 0 ? 0 : 255;
+  const k = Math.min(1, Math.abs(t));
+  const mix = (c: number) => Math.round(c + (to - c) * k);
+  const r = mix((n >> 16) & 255);
+  const g = mix((n >> 8) & 255);
+  const b = mix(n & 255);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+
+/**
+ * Body styles within a kind. A street of identical sedans is as much a tell
+ * as a street of identical houses, so a 'car' is a hatchback, a saloon, an
+ * estate, an SUV or a coupé, and a 'truck' is a box van, a flatbed or an
+ * articulated rig. Proportions follow real ones: a full-size pickup is about
+ * 6m long to a hatchback's 4m, a semi with its trailer about 20m.
+ */
+export type BodyStyle =
+  | 'hatch' | 'saloon' | 'estate' | 'suv' | 'coupe'
+  | 'pickup' | 'panelVan' | 'minivan'
+  | 'boxTruck' | 'flatbed' | 'semi'
+  | 'bus' | 'taxi';
+
+interface Body {
+  len: number;
+  wid: number;
+  /** Where the cabin starts and ends along the body, 0..1 from the back. */
+  cabin: [number, number];
+  /** A separate, taller box behind the cabin (a van or truck body). */
+  boxFrom?: number;
+  boxHeight?: number;
+}
+
+const BODIES: Record<BodyStyle, Body> = {
+  hatch: { len: 7.6, wid: 4.2, cabin: [0.28, 0.72] },
+  saloon: { len: 9.2, wid: 4.3, cabin: [0.3, 0.66] },
+  estate: { len: 9.8, wid: 4.3, cabin: [0.28, 0.78] },
+  suv: { len: 9.6, wid: 4.8, cabin: [0.26, 0.78] },
+  coupe: { len: 8.8, wid: 4.1, cabin: [0.34, 0.66] },
+  taxi: { len: 9.2, wid: 4.3, cabin: [0.3, 0.66] },
+  pickup: { len: 11.4, wid: 4.9, cabin: [0.5, 0.82] },
+  panelVan: { len: 11, wid: 4.9, cabin: [0.62, 0.92], boxFrom: 0.05, boxHeight: 1 },
+  minivan: { len: 10.4, wid: 4.8, cabin: [0.24, 0.84] },
+  boxTruck: { len: 14, wid: 5.2, cabin: [0.7, 0.98], boxFrom: 0.02, boxHeight: 1.3 },
+  flatbed: { len: 14, wid: 5.2, cabin: [0.7, 0.98] },
+  semi: { len: 21, wid: 5.4, cabin: [0.78, 1], boxFrom: 0.02, boxHeight: 1.4 },
+  bus: { len: 17, wid: 5.4, cabin: [0.04, 0.96] },
+};
+
+/** Which bodies each simulated kind can turn up as. */
+const STYLES: Record<VehicleKind, BodyStyle[]> = {
+  car: ['hatch', 'saloon', 'estate', 'suv', 'coupe', 'hatch', 'saloon'],
+  taxi: ['taxi'],
+  van: ['panelVan', 'minivan', 'pickup'],
+  truck: ['boxTruck', 'semi', 'flatbed', 'boxTruck'],
+  bus: ['bus'],
+};
+
+export function pickBody(kind: VehicleKind, r: number): BodyStyle {
+  const list = STYLES[kind];
+  return list[Math.min(list.length - 1, Math.floor(r * list.length))];
+}
+
+/**
+ * One vehicle: a shadow on the tarmac, a body with a lit upper surface, a
+ * glazed cabin, and — after dark — headlights that actually throw a beam.
+ */
+function drawVehicle(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  angle: number,
+  style: BodyStyle,
+  color: string,
+  night: number,
+): void {
+  const b = BODIES[style];
+  const L = b.len;
+  const W = b.wid;
+  const at = (t: number) => -L / 2 + t * L; // 0 is the tail, 1 the nose
+  ctx.save();
+  ctx.translate(x, y);
+  // the shadow lies on the ground, so it is drawn before the body rotates in
+  ctx.fillStyle = 'rgba(18, 22, 36, 0.3)';
+  ctx.save();
+  ctx.rotate(angle);
+  ctx.fillRect(-L / 2 + 1.6, -W / 2 + 1.4, L, W);
+  ctx.restore();
+
+  ctx.rotate(angle);
+  const lower = shade(color, -0.28);
+  const upper = shade(color, 0.14);
+  const glass = night > 0.3 ? 'rgba(40, 52, 74, 0.9)' : 'rgba(150, 178, 202, 0.78)';
+
+  if (b.boxFrom !== undefined) {
+    // a separate body behind the cab: taller, usually a different colour
+    const bx = at(b.boxFrom);
+    const bw = at(b.cabin[0]) - bx;
+    const boxCol = style === 'semi' ? '#d8d4cc' : color;
+    ctx.fillStyle = shade(boxCol, -0.22);
+    ctx.fillRect(bx, -W / 2 - (b.boxHeight ?? 1), bw, W + (b.boxHeight ?? 1));
+    ctx.fillStyle = shade(boxCol, 0.12);
+    ctx.fillRect(bx, -W / 2 - (b.boxHeight ?? 1), bw, W * 0.45);
+    ctx.fillStyle = 'rgba(20, 22, 28, 0.35)';
+    ctx.fillRect(bx, -W / 2 - (b.boxHeight ?? 1), 0.8, W + (b.boxHeight ?? 1));
+  } else if (style === 'flatbed') {
+    ctx.fillStyle = shade('#6a6660', -0.2);
+    ctx.fillRect(at(0.02), -W / 2 + 0.4, at(b.cabin[0]) - at(0.02), W - 0.8);
+  }
+
+  // the body itself
+  const cabStart = style === 'semi' || style === 'boxTruck' || style === 'flatbed' || style === 'panelVan'
+    ? at(b.cabin[0])
+    : -L / 2;
+  ctx.fillStyle = lower;
+  ctx.fillRect(cabStart, -W / 2, L / 2 - cabStart, W);
+  ctx.fillStyle = upper;
+  ctx.fillRect(cabStart, -W / 2, L / 2 - cabStart, W * 0.44);
+
+  // the cabin: glass between the pillars, sitting proud of the bonnet
+  const c0 = at(b.cabin[0]);
+  const c1 = at(b.cabin[1]);
+  ctx.fillStyle = glass;
+  ctx.fillRect(c0, -W / 2 + 0.6, c1 - c0, W - 1.2);
+  if (style === 'bus') {
+    // a window band the length of it, plus a door
+    ctx.fillStyle = 'rgba(20, 24, 32, 0.35)';
+    for (let t = 0.12; t < 0.95; t += 0.14) ctx.fillRect(at(t), -W / 2 + 0.6, 0.6, W - 1.2);
+  } else if (style === 'estate' || style === 'suv' || style === 'minivan') {
+    ctx.fillStyle = 'rgba(20, 24, 32, 0.3)';
+    ctx.fillRect(at((b.cabin[0] + b.cabin[1]) / 2), -W / 2 + 0.6, 0.6, W - 1.2);
+  }
+  if (style === 'pickup') {
+    // the open bed behind the cab
+    ctx.fillStyle = shade(color, -0.4);
+    ctx.fillRect(at(0.06), -W / 2 + 0.7, at(b.cabin[0]) - at(0.06), W - 1.4);
+  }
+  if (style === 'taxi') {
+    ctx.fillStyle = '#25262a';
+    ctx.fillRect(at(0.46), -W / 2 - 1.1, 2.4, 1.1);
+  }
+  // wheels: a dark strip along the underside sells the contact
+  ctx.fillStyle = 'rgba(16, 18, 24, 0.75)';
+  ctx.fillRect(-L / 2 + 1, W / 2 - 0.9, L - 2, 0.9);
+
+  if (night > 0.25) {
+    const a = Math.min(1, (night - 0.25) * 2.2);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const beam = ctx.createLinearGradient(L / 2, 0, L / 2 + 22, 0);
+    beam.addColorStop(0, `rgba(255, 238, 190, ${0.4 * a})`);
+    beam.addColorStop(1, 'rgba(255, 238, 190, 0)');
+    ctx.fillStyle = beam;
+    ctx.beginPath();
+    ctx.moveTo(L / 2, -W / 2);
+    ctx.lineTo(L / 2 + 22, -W * 1.4);
+    ctx.lineTo(L / 2 + 22, W * 1.4);
+    ctx.lineTo(L / 2, W / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = `rgba(255, 246, 214, ${0.95 * a})`;
+    ctx.fillRect(L / 2 - 0.8, -W / 2 + 0.4, 1.4, 1.2);
+    ctx.fillRect(L / 2 - 0.8, W / 2 - 1.6, 1.4, 1.2);
+    ctx.fillStyle = `rgba(255, 70, 50, ${0.9 * a})`;
+    ctx.fillRect(-L / 2 - 0.4, -W / 2 + 0.4, 1.2, 1.1);
+    ctx.fillRect(-L / 2 - 0.4, W / 2 - 1.5, 1.2, 1.1);
+    ctx.restore();
+  }
+  ctx.restore();
 }

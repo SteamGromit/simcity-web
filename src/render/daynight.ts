@@ -18,9 +18,13 @@ export function nightFactor(timeMs: number): number {
 }
 
 /** Dim ambient wash over everything at night — lit areas keep only
- * this; the darkness layer stacks on top of the unlit wilds. */
+ * this; the darkness layer stacks on top of the unlit wilds.
+ *
+ * Deep enough that a downtown at midnight reads as *lit against the dark*
+ * rather than as daytime with the lights switched on: the window glow is
+ * additive, so if the wash under it is weak the whole city just goes pale. */
 export function nightTint(f: number): string {
-  return `rgba(13, 17, 46, ${(0.38 * f).toFixed(3)})`;
+  return `rgba(11, 15, 42, ${(0.56 * f).toFixed(3)})`;
 }
 
 /** The deep-night darkness that light sources punch through. */

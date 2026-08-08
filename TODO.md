@@ -42,7 +42,64 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    Worth a pass on hit-target sizes in the drawer too — the tool rows are
    sized for a cursor, not a thumb.
 
+6. **Events** - add other events like floods, meteor showers, blizzards.
+
+7. **Streets** - Some real cities make extensive use of bikes for commuting.
+   Devise a way to incorporate biking as a major means of transportation. 
+   Also, allow mayor to designate that some roads/areas be free of motor vehicles
+
+8. **Graphics follow-ups** — the pipeline is in but a few things it makes
+   possible are not: shadows fall on the ground only and never onto another
+   building's wall; water carries no reflection of the waterfront; weather
+   doesn't lie on the ground (a winter map has no snow cover, and rain
+   leaves no wet asphalt); multi-tile rewards and civic buildings still draw
+   live rather than baked, and the civic set has not had the typology and
+   facade pass the growables just got. The ground pass is the dominant
+   per-frame cost — baking ground *chunks* is the obvious next step. The
+   camera turns in quarter steps only; the snap is instant, and a short
+   cross-fade would take the jolt out of it.
+
+9. **City styles** — one distinct look per style, beyond the palette shifts
+   the three skins do today: Simpsons Springfield, present-day Hong Kong,
+   and so on. The material system is the hook — a style should be able to
+   choose wall materials, roof kits, road markings, vegetation and sky, not
+   just remap hue and saturation.
+
 ## Done
+
+- **Quarter turns, and buildings that differ** — shipped v0.59.0 (Q/E swing
+  the view 90° again, and the whole baked pipeline survives it: a tile still
+  projects to the same diamond so ground and road sprites are reused, the
+  road connectivity mask is *rotated* rather than re-baked, and the sun stays
+  fixed to the screen so no building needs re-baking — turning costs one
+  re-sort of the paint order. Buildings gained *plans*: extents along each
+  grid axis and cut corners, so the city has slabs, terraces, wings and
+  chamfered towers instead of one box resized; `prism()` takes any convex
+  footprint. Facades — cornices, string courses, retail podiums, balconies,
+  bay windows, pilasters, wall air conditioners, hung signage, fire escapes —
+  plus hipped and mansard roofs, and an archetype table rebuilt around real
+  typologies. Streets got lamp standards, traffic signals and parked cars;
+  vehicles got body styles from hatchback to articulated rig. Fixed: a low
+  podium painted its roof cap across the tower standing on it, because
+  sub-masses sorted by their south corner rather than their centre.)
+  Follow-ups in backlog #8 and #9.
+
+- **Graphics overhaul** — shipped v0.58.0 (the whole rendering pipeline
+  rebuilt around one trade: the camera no longer rotates, which lets every
+  building, tree and road tile be baked once into a sprite and blitted
+  afterwards, and lets the sun be a real direction instead of a screen-space
+  fudge. Buildings gained materials — brick, render, concrete, glass, metal,
+  timber, stone — with courses, panel joints, sheen and real windows drawn in
+  *wall space*, plus tower crowns, parapets and roof kit; every mass throws a
+  cast shadow that lies along the ground and lengthens with height. Roads are
+  painted from their connectivity mask with footways, kerbs, lane markings
+  and crosswalks; ground colour comes from noise rather than sine waves and
+  every tile takes a texture blit; water is depth-shaded with crests, glint
+  and a graded shoreline; cliffs get strata; trees are baked sprites with
+  layered canopies. A finishing pass adds sky, haze, bloom, grade and
+  vignette, and night is properly dark with lit windows carrying the light.
+  Measured **33 ms/frame against the old renderer's 48 ms** on a 180k city.)
+  Follow-ups in backlog #8 and #9.
 
 - **Touch and small screens** — shipped v0.57.0 (one finger builds, two
   fingers pan and pinch-zoom, and a second finger cancels a pending build;
