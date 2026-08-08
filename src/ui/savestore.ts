@@ -73,36 +73,76 @@ export function createSaveStore(storage: Storage) {
     }
   }
 
-  function writeIndex(list: SaveMeta[]): void {
-    storage.setItem(INDEX_KEY, JSON.stringify(list));
+  /** False when the write failed — a full quota, realistically. Never throws:
+   * storage is the one thing here that can fail at any moment. */
+  function writeIndex(list: SaveMeta[]): boolean {
+    try {
+      storage.setItem(INDEX_KEY, JSON.stringify(list));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
    * Adopt the pre-v0.55 single save as a normal named city, once. Runs on
    * every construction and is a no-op after the first, so a player who
    * upgrades mid-city finds it waiting under a name rather than gone.
+   *
+   * Nothing in here may throw. The store is built at module scope on the way
+   * to booting the game, so an exception escaping it takes the whole game
+   * down before anything is drawn — which is exactly what a quota error here
+   * used to do, leaving a black screen and a console message.
    */
   function migrateLegacy(): void {
-    const legacy = storage.getItem(LEGACY_KEY);
-    if (legacy === null) return;
-    const index = readIndex();
-    if (!index.some((m) => m.slug === 'my-city')) {
-      const city = deserialize(legacy);
-      if (city) {
-        storage.setItem(CITY_PREFIX + 'my-city', legacy);
-        index.push({
-          slug: 'my-city',
-          name: 'My City',
-          saved: 0, // unknown: it predates saves carrying a timestamp
-          population: city.population,
-          funds: city.funds,
-          month: city.month,
-        });
-        writeIndex(index);
-      }
+    let legacy: string | null = null;
+    try {
+      legacy = storage.getItem(LEGACY_KEY);
+    } catch {
+      return; // storage unreadable (private mode, disabled) — just play
     }
-    storage.removeItem(LEGACY_KEY);
+    if (legacy === null) return;
+
+    try {
+      const index = readIndex();
+      if (index.some((m) => m.slug === 'my-city')) {
+        storage.removeItem(LEGACY_KEY); // already migrated on an earlier run
+        return;
+      }
+      const city = deserialize(legacy);
+      if (!city) {
+        // unreadable: leave it where it is rather than destroying the only
+        // copy — a later version may know how to read it
+        warnings.push('An old save could not be read, so it was left untouched.');
+        return;
+      }
+      // Re-serialize rather than copying the blob across. The old format is
+      // roughly thirty times larger, so copying it verbatim both doubled the
+      // space it took and left the migrated city stuck in the old shape.
+      storage.setItem(CITY_PREFIX + 'my-city', serialize(city));
+      index.push({
+        slug: 'my-city',
+        name: 'My City',
+        saved: 0, // unknown: it predates saves carrying a timestamp
+        population: city.population,
+        funds: city.funds,
+        month: city.month,
+      });
+      if (!writeIndex(index)) {
+        storage.removeItem(CITY_PREFIX + 'my-city'); // don't strand a blob
+        throw new Error('index write failed');
+      }
+      storage.removeItem(LEGACY_KEY); // only once the new copy is safely down
+    } catch {
+      warnings.push(
+        'Your old save could not be moved into the city list — browser storage is full. ' +
+          'Delete a city from File → Load, then reload.',
+      );
+    }
   }
+
+  /** Anything the player should be told about once there is a feed to tell. */
+  const warnings: string[] = [];
 
   migrateLegacy();
 
@@ -119,6 +159,11 @@ export function createSaveStore(storage: Storage) {
   }
 
   return {
+    /** Trouble met while starting up, for the event log once it exists. */
+    warnings(): string[] {
+      return warnings.slice();
+    },
+
     /** Every save, newest write first. */
     list(): SaveMeta[] {
       return readIndex().sort((a, b) => b.saved - a.saved);
@@ -156,7 +201,12 @@ export function createSaveStore(storage: Storage) {
       const at = index.findIndex((m) => m.slug === target);
       if (at >= 0) index[at] = meta;
       else index.push(meta);
-      writeIndex(index);
+      if (!writeIndex(index)) {
+        // the city landed but the listing didn't; without the index entry it
+        // is unreachable, so give the space back rather than stranding it
+        if (at < 0) storage.removeItem(CITY_PREFIX + target);
+        return { ok: false, error: 'browser storage is full — delete a city first' };
+      }
       return { ok: true, meta };
     },
 
@@ -174,7 +224,7 @@ export function createSaveStore(storage: Storage) {
       const at = index.findIndex((m) => m.slug === slug);
       if (at < 0) return { ok: false, error: 'no such city' };
       index[at] = { ...index[at], name: clean };
-      writeIndex(index);
+      if (!writeIndex(index)) return { ok: false, error: 'browser storage is full' };
       return { ok: true, meta: index[at] };
     },
 
