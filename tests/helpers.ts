@@ -1,7 +1,17 @@
 import { blankTile, idx } from '../src/sim/grid';
 import { emptyHistory } from '../src/sim/history';
 import { defaultOrdinances, ensureCoreContent } from '../src/sim/content';
-import { CityState, defaultDisasters, defaultWaste, GRID, Stage, Terrain, Tier, Zone } from '../src/sim/types';
+import {
+  CityState,
+  defaultDisasters,
+  defaultNeighbors,
+  defaultWaste,
+  GRID,
+  Stage,
+  Terrain,
+  Tier,
+  Zone,
+} from '../src/sim/types';
 import { defaultWeather } from '../src/sim/weather';
 
 /** Flatten generated terrain to grass so tests can build anywhere. */
@@ -33,8 +43,9 @@ export function makeCity(): CityState {
     brownouts: 0,
     transitLines: [],
     eduLevel: 0,
-    lastBudget: { rIncome: 0, cIncome: 0, iIncome: 0, expenses: 0, net: 0 },
+    lastBudget: { rIncome: 0, cIncome: 0, iIncome: 0, expenses: 0, neighbors: 0, net: 0 },
     waste: defaultWaste(),
+    neighbors: defaultNeighbors(),
     ordinances: defaultOrdinances(),
     disasters: defaultDisasters(),
     weather: defaultWeather(),

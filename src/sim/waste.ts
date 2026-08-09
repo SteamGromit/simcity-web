@@ -77,11 +77,33 @@ export function cityHasDisposal(): boolean {
 }
 
 /**
+ * The city's own disposal capacity and what last month asked of it — the two
+ * numbers a neighbour deal is struck against.
+ *
+ * Measured *before* any contract, for the same reason `powerSupply` is: the
+ * region already tracks what has been promised, and counting it twice would
+ * sell the same tonne to two cities.
+ */
+export function wasteSupply(city: CityState): {
+  capacity: number;
+  wanted: number;
+  spare: number;
+} {
+  const { capacity } = disposal(city);
+  const wanted = Math.max(0, city.waste.produced - city.waste.diverted);
+  return { capacity, wanted, spare: Math.max(0, capacity - wanted) };
+}
+
+/**
  * One month of refuse: produce, recycle, collect what the radius reaches and
  * the capacity allows, and pile the rest on the kerb.
  */
 export function updateWasteMonthly(city: CityState): void {
-  const { capacity, divert } = disposal(city);
+  const own = disposal(city);
+  const divert = own.divert;
+  // Tonnage a neighbour has agreed to take joins the city's own capacity;
+  // tonnage sold to a neighbour leaves it, so an export is a real commitment.
+  const capacity = Math.max(0, own.capacity + city.neighbors.garbage);
 
   // 1. what everyone put out, and which of it a truck could even reach
   let produced = 0;

@@ -31,6 +31,7 @@ import {
   COSTS,
   DEFAULT_TAX,
   defaultDisasters,
+  defaultNeighbors,
   defaultWaste,
   Density,
   DENSITY_COST_MULT,
@@ -100,9 +101,12 @@ function raiseBlob(
   return [...raised];
 }
 
-function generateTerrain(tiles: CityState['tiles'], seed: number): Biome {
+function generateTerrain(tiles: CityState['tiles'], seed: number, forced?: Biome): Biome {
   const rand = mulberry32(seed ^ 0x7e44a1);
-  const biome: Biome = rand() < 0.25 ? 'desert' : 'temperate';
+  // The roll happens either way, so forcing a biome changes the climate
+  // without shifting the random stream that lays out the land under it.
+  const rolled: Biome = rand() < 0.25 ? 'desert' : 'temperate';
+  const biome: Biome = forced ?? rolled;
 
   const AREA_SCALE = (GRID * GRID) / 4096; // 1 at the original 64×64
 
@@ -147,14 +151,18 @@ function generateTerrain(tiles: CityState['tiles'], seed: number): Biome {
   return biome;
 }
 
-export function newCity(seed: number): CityState {
+/**
+ * A fresh city. `biome` forces the climate, which is how a region keeps its
+ * cities in one place rather than putting a desert next to a lake district.
+ */
+export function newCity(seed: number, biome?: Biome): CityState {
   ensureCoreContent();
   const tiles = Array.from({ length: GRID * GRID }, blankTile);
-  const biome = generateTerrain(tiles, seed);
+  const chosen = generateTerrain(tiles, seed, biome);
   return {
     version: 1,
     seed,
-    biome,
+    biome: chosen,
     tiles,
     funds: START_FUNDS,
     tick: 0,
@@ -165,8 +173,9 @@ export function newCity(seed: number): CityState {
     jobs: 0,
     eduLevel: 0,
     brownouts: 0,
-    lastBudget: { rIncome: 0, cIncome: 0, iIncome: 0, expenses: 0, net: 0 },
+    lastBudget: { rIncome: 0, cIncome: 0, iIncome: 0, expenses: 0, neighbors: 0, net: 0 },
     waste: defaultWaste(),
+    neighbors: defaultNeighbors(),
     ordinances: defaultOrdinances(),
     disasters: defaultDisasters(),
     weather: defaultWeather(),

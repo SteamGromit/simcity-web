@@ -29,9 +29,17 @@ export function updateDemand(city: CityState): void {
   const workforce = population * WORKFORCE_FRACTION;
   const extMarket = Math.min(400, 30 + city.month * 2);
 
-  const rRaw = (city.jobs * 1.15 + 16 - workforce) / Math.max(40, workforce);
-  const cRaw = (workforce * 0.35 - cJobs) / Math.max(30, cJobs * 1.5);
-  const iRaw = (extMarket + workforce * 0.5 - iJobs) / Math.max(60, iJobs);
+  // A neighbour joined to this city by road is part of its economy: its jobs
+  // draw residents here, and its workers shop and work here. The region hands
+  // over a share of each (see sim/region.ts) — this is what makes a bedroom
+  // suburb beside an industrial city grow at all.
+  const nearJobs = city.neighbors.jobs;
+  const nearWorkers = city.neighbors.workers;
+  const reach = workforce + nearWorkers;
+
+  const rRaw = ((city.jobs + nearJobs) * 1.15 + 16 - workforce) / Math.max(40, workforce);
+  const cRaw = (reach * 0.35 - cJobs) / Math.max(30, cJobs * 1.5);
+  const iRaw = (extMarket + reach * 0.5 - iJobs) / Math.max(60, iJobs);
 
   city.demand = {
     r: taxAdjust(rRaw, city.taxes.r),

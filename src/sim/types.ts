@@ -161,6 +161,8 @@ export interface BudgetReport {
   cIncome: number;
   iIncome: number;
   expenses: number;
+  /** Net monthly money from the region's contracts; negative when buying. */
+  neighbors: number;
   net: number;
 }
 
@@ -189,6 +191,28 @@ export const HURRICANE_TICKS = 64;
 export const PANDEMIC_MONTHS = 6;
 
 export type Biome = 'temperate' | 'desert';
+
+/**
+ * A city's side of its region's contracts and borders. Capacities are signed —
+ * positive when this city is importing — and `income` is the net monthly money,
+ * positive when this city is being paid.
+ */
+export interface NeighborState {
+  /** Plant capacity bought from (+) or sold to (−) neighbours. */
+  power: number;
+  /** Refuse capacity bought from (+) or sold to (−) neighbours. */
+  garbage: number;
+  /** Net monthly money from every contract. */
+  income: number;
+  /** Jobs reachable across a connected border. */
+  jobs: number;
+  /** Workers reachable across a connected border. */
+  workers: number;
+}
+
+export function defaultNeighbors(): NeighborState {
+  return { power: 0, garbage: 0, income: 0, jobs: 0, workers: 0 };
+}
 
 /** What the city threw out last month, and what happened to it. */
 export interface WasteReport {
@@ -228,6 +252,14 @@ export interface CityState {
   lastBudget: BudgetReport;
   /** Last month's refuse ledger; recomputed by the waste pass. */
   waste: WasteReport;
+  /**
+   * What the region does to this city: capacity traded with neighbours, the
+   * money that changes hands for it, and the economy reachable across a
+   * connected border. Derived from the region document every time the city is
+   * loaded or a contract changes, never authored here and never saved — a
+   * standalone city simply has none of it. See sim/region.ts.
+   */
+  neighbors: NeighborState;
   /** Enacted city policies; each charges monthly and tweaks the sim. */
   ordinances: Record<string, boolean>;
   /** Active disasters (spawned randomly or summoned from City Hall). */

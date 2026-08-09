@@ -50,9 +50,14 @@ export function collectBudget(city: CityState): BudgetReport {
     cIncome: Math.round(cIncome),
     iIncome: Math.round(iIncome),
     expenses: Math.round(expenses),
+    // Positive when the region's contracts pay this city more than they cost
+    // it. Kept out of the tax lines because it is not tax, and out of expenses
+    // because it can be either way round.
+    neighbors: Math.round(city.neighbors.income),
     net: 0,
   };
-  report.net = report.rIncome + report.cIncome + report.iIncome - report.expenses;
+  report.net =
+    report.rIncome + report.cIncome + report.iIncome + report.neighbors - report.expenses;
   city.funds += report.net;
   city.lastBudget = report;
   return report;
