@@ -11,7 +11,7 @@ const WEATHER_EMOJI: Record<WeatherKind, string> = {
 };
 
 /** The panels the control bar can summon; the bar outlines whichever are open. */
-export type PanelId = 'budget' | 'cityhall' | 'charts' | 'display' | 'file';
+export type PanelId = 'budget' | 'cityhall' | 'charts' | 'display' | 'file' | 'neighbors';
 
 export interface HudActions {
   setSpeed(speed: 0 | 1 | 2 | 3): void;
@@ -22,11 +22,23 @@ export interface HudActions {
 
 const SPEED_LABELS = ['⏸', '▶', '▶▶', '▶▶▶'];
 
-const PANEL_BUTTONS: { id: Exclude<PanelId, 'budget'>; label: string; title: string }[] = [
+const PANEL_BUTTONS: {
+  id: Exclude<PanelId, 'budget'>;
+  label: string;
+  title: string;
+  /** Hidden until the city is being played inside a region. */
+  regionOnly?: boolean;
+}[] = [
   { id: 'cityhall', label: 'City Hall', title: 'Ordinances, city make-up, and tempting fate' },
   { id: 'charts', label: 'Charts', title: 'The city’s history, series by series' },
   { id: 'display', label: 'Config', title: 'Look, sound, and render style' },
   { id: 'file', label: 'File', title: 'New, save, load, and mods' },
+  {
+    id: 'neighbors',
+    label: 'Neighbours',
+    title: 'What the cities next door will sell you',
+    regionOnly: true,
+  },
 ];
 
 export function buildHud(root: HTMLElement, city: () => CityState, actions: HudActions) {
@@ -45,11 +57,12 @@ export function buildHud(root: HTMLElement, city: () => CityState, actions: HudA
 
   // One button per panel, each outlined while its panel is open.
   const panelButtons = new Map<Exclude<PanelId, 'budget'>, HTMLButtonElement>();
-  for (const { id, label, title } of PANEL_BUTTONS) {
+  for (const { id, label, title, regionOnly } of PANEL_BUTTONS) {
     const btn = document.createElement('button');
     btn.id = `${id}-btn`;
     btn.textContent = label;
     btn.title = title;
+    if (regionOnly) btn.classList.add('hidden'); // shown by setRegion()
     btn.addEventListener('click', () => actions.toggle(id));
     panelButtons.set(id, btn);
     el.appendChild(btn);
@@ -154,8 +167,25 @@ export function buildHud(root: HTMLElement, city: () => CityState, actions: HudA
           <div><span>Commercial</span><span>+§${b.cIncome}</span></div>
           <div><span>Industrial</span><span>+§${b.iIncome}</span></div>
           <div><span>Expenses</span><span>−§${b.expenses}</span></div>
+          ${
+            b.neighbors === 0
+              ? ''
+              : `<div><span>Neighbours</span><span>${
+                  b.neighbors >= 0 ? '+' : '−'
+                }§${Math.abs(b.neighbors)}</span></div>`
+          }
           <div><b>Net</b><b>${b.net >= 0 ? '+' : '−'}§${Math.abs(b.net)}</b></div>
         `;
+      }
+    },
+    /**
+     * Show or hide the controls that only mean anything inside a region. A
+     * standalone city has no neighbours to trade with, so offering the panel
+     * would only be a dead end.
+     */
+    setRegion(inRegion: boolean) {
+      for (const { id, regionOnly } of PANEL_BUTTONS) {
+        if (regionOnly) panelButtons.get(id)?.classList.toggle('hidden', !inRegion);
       }
     },
     /** Reflect a programmatic speed change (e.g. error-pause) in the buttons. */

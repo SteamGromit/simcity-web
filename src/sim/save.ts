@@ -9,6 +9,7 @@ import { defaultWeather, WEATHER_KINDS, WeatherKind } from './weather';
 import {
   CityState,
   defaultDisasters,
+  defaultNeighbors,
   defaultWaste,
   FIRE_BURN_TICKS,
   GRID,
@@ -411,12 +412,16 @@ export function deserialize(json: string): CityState | null {
         cIncome: finite(budget.cIncome, 0),
         iIncome: finite(budget.iIncome, 0),
         expenses: finite(budget.expenses, 0),
+        neighbors: finite(budget.neighbors, 0),
         net: finite(budget.net, 0),
       },
       // Revived rather than zeroed so the Budget panel and advisor show last
       // month's refuse figures immediately on load, as they do for the budget.
       // A save from before garbage existed reads as an empty ledger.
       waste: reviveWaste(data.waste),
+      // Never persisted: the region owns the contracts, and a city opened
+      // outside one has no neighbours at all.
+      neighbors: defaultNeighbors(),
       ordinances: reviveOrdinances(data.ordinances),
       disasters: reviveDisasters(data.disasters),
       weather: reviveWeather(data.weather),

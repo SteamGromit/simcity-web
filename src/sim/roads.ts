@@ -140,3 +140,20 @@ export function roadCapacityMult(cls: RoadClass): number {
 export function drivable(t: { zone: Zone; median: boolean }): boolean {
   return t.zone === Zone.Road && !t.median;
 }
+
+/**
+ * The lowest class with no front doors on it. A motorway is a through route:
+ * traffic runs along it, but nothing is *addressed* off it — the lots behind
+ * one are reached from a frontage street.
+ */
+export const MOTORWAY_CLASS: RoadClass = 3;
+
+/**
+ * True when a building may take its road access from this tile. The Highway's
+ * blurb has promised "no front doors" since the ladder shipped; this is the
+ * rule that finally means it. Traffic still drives the motorway — it is only
+ * the address that has to come from something smaller.
+ */
+export function frontage(t: { zone: Zone; median: boolean; road: RoadClass }): boolean {
+  return drivable(t) && t.road < MOTORWAY_CLASS;
+}

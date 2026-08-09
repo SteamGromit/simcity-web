@@ -46,6 +46,33 @@ function consumes(t: Tile, i: number): boolean {
 }
 
 /**
+ * What the plants make and what the city draws — the two numbers a neighbour
+ * deal is struck against, counted exactly as `updatePower` counts them so the
+ * spare capacity offered for sale is the spare capacity that exists.
+ *
+ * `spare` is measured *before* any contract: the region tracks what is already
+ * promised separately, and subtracting it here as well would sell the same
+ * megawatt twice over.
+ */
+export function powerSupply(city: CityState): {
+  capacity: number;
+  demand: number;
+  spare: number;
+} {
+  let capacity = 0;
+  let demand = 0;
+  for (let i = 0; i < city.tiles.length; i++) {
+    const t = city.tiles[i];
+    if (isPlant(t.zone)) {
+      if (!isBody(t, i)) capacity += plantCapacity(t.zone);
+    } else if (consumes(t, i)) {
+      demand++;
+    }
+  }
+  return { capacity, demand, spare: Math.max(0, capacity - demand) };
+}
+
+/**
  * Pooled-capacity flood fill: a FIFO BFS from every plant at once hands
  * power to consumers in distance order until the city-wide pool (the sum
  * of all plant capacities — one global pool, separate grids share it)
@@ -67,6 +94,9 @@ export function updatePower(city: CityState): void {
       if (!isBody(city.tiles[i], i)) pool += plantCapacity(city.tiles[i].zone);
     }
   }
+  // Power bought from a neighbour joins the pool; power sold leaves it, which
+  // is what makes an export a real commitment rather than free money.
+  pool += city.neighbors.power;
 
   let brownouts = 0;
   let head = 0;

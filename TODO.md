@@ -6,7 +6,18 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Backlog (in order)
 
-1. **Region play** — multiple city tiles, neighbor deals (SC4 headline; deferred until single-city play is deep enough).
+1. **Region follow-ups** — the layer is in but three things it implies are
+   not. *Terrain does not line up across a border*: `generateTerrain` grows
+   blobs outward from random seed points rather than sampling a field, so a
+   river cannot simply continue into the next tile — matching them means
+   rewriting terrain generation onto a sampled field, which is its own piece
+   of work. *Commuters stop at the map edge*: a border crossing feeds demand,
+   not the road network, so nobody actually drives to the job next door.
+   *Water is not tradable*: `updateWater` is an unbounded flood fill from any
+   working pump, so one pump waters a whole city and there is nothing to sell
+   — water deals need a water capacity model first. Also: region size is fixed
+   at 3×3, the region map is a list of cards rather than a drawn map of the
+   land, and a city can only be entered from that screen.
 2. **Modding: the parts the editor doesn't cover yet** — freehand/pixel
    drawing of buildings (today's look is composed from a mass, roof and
    props, not drawn), authoring multi-tile buildings (the *engine* now
@@ -25,13 +36,15 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    razed and rebuilt at full price. Also: rewards are never destroyed by
    fire, collapse or disaster, which is generous.
 
-4. **Road ladder follow-ups** — the classes exist but nothing else knows
-   about them yet: buildings still front a highway as if it were a
-   street (no access restriction, no noise/blight along a motorway), the
-   automata draw one lane of cars on a six-wide corridor, and there are
-   no on/off ramps or grade separation. Also worth a look: a wide class
-   currently refuses tiles it cannot take rather than warning that the
-   corridor is partly blocked.
+4. **Road ladder follow-ups** — carriageways, lane discipline and the
+   frontage rule landed in v0.60.0; what is missing now is the *interchange*.
+   There are no on/off ramps and no grade separation, so a street meets a
+   motorway at grade and the painter simply leaves the mouth open. A motorway
+   also carries no noise or blight along it, which is the other half of "no
+   front doors". Also worth a look: a wide class refuses tiles it cannot take
+   rather than warning that the corridor is partly blocked, and a corridor
+   reads as a junction where it bends (`corridorAt` finds no longer axis
+   there), so a motorway curve is a plain sheet of asphalt.
 
 5. **Touch follow-ups** — the map is playable by finger now, but not
    everything is: rotating the view (Q/E) has no gesture, so a two-finger
@@ -57,12 +70,12 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    facade pass the growables just got. The ground pass is the dominant
    per-frame cost — baking ground *chunks* is the obvious next step. The
    camera turns in quarter steps only; the snap is instant, and a short
-   cross-fade would take the jolt out of it. **Drawing is barely tested at a
-   turned camera**: only the reward set is exercised at all four quarters
-   (tests/reward-art.test.ts), while the growables, the civic set, roads and
-   scenery are drawn unrotated and nowhere else — which is how a crash at 180°
-   shipped in v0.59.0 and stood until v0.59.3. Widening that stub-context
-   sweep to the rest of the painters is the cheap insurance.
+   cross-fade would take the jolt out of it. **Drawing is still under-tested
+   at a turned camera**: the reward set (tests/reward-art.test.ts) and now the
+   road painter (tests/corridor-art.test.ts) are swept at all four quarters
+   against the strict context in tests/stubctx.ts, but the growables, the
+   civic set and scenery are still drawn unrotated and nowhere else.
+   Extending the same sweep to them is the remaining cheap insurance.
 
 9. **City styles** — one distinct look per style, beyond the palette shifts
    the three skins do today: Simpsons Springfield, present-day Hong Kong,
@@ -71,6 +84,32 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    just remap hue and saturation.
 
 ## Done
+
+- **Regions, and a front door** — shipped v0.60.0 (a 3×3 grid of city tiles
+  sharing one seed and one biome; a launch screen offering a region, a single
+  city, or the ones you already have, so the game no longer generates a map
+  before you have chosen anything; neighbour contracts for power and refuse,
+  held by the region and read by whichever city is loaded, so the books
+  balance across the region whichever city you sit in and a seller that loses
+  its capacity has its contracts broken rather than paying out forever; border
+  crossings where two cities' roads meet at a shared edge, lending 35% of each
+  one's jobs and workers to the other's demand; a Neighbours panel, a
+  Neighbours line in the budget, and region export/import as one file. Reaches
+  the sim through one derived `CityState.neighbors` block and four one-line
+  hooks.) Follow-ups in backlog #1.
+
+- **Highways that are carriageways** — shipped v0.60.0 (a wide road class was
+  a band of independent, isotropic tiles, so the painter read every interior
+  tile as a junction — crosswalk ladders and a traffic signal on every square
+  — and the automata random-walked sideways across it: a car park with a road
+  ladder's price tag. `sim/corridor.ts` derives axis, width and lane from
+  local same-class adjacency, and from that come lane dividers, edge lines, a
+  double yellow or a planted central reservation, hard shoulders and barriers,
+  directional wheel-track wear, and cars that follow their lane in the
+  direction their side of the centreline dictates. Also makes the Highway's
+  own "no front doors" blurb true — a motorway is no longer an address, so
+  lots behind one need a frontage street. MAX_CARS 40 → 70.) Follow-ups in
+  backlog #4.
 
 - **Quarter turns, and buildings that differ** — shipped v0.59.0 (Q/E swing
   the view 90° again, and the whole baked pipeline survives it: a tile still

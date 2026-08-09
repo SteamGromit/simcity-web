@@ -1,6 +1,6 @@
 import { modifier } from './content';
 import { idx, inBounds, neighbors4 } from './grid';
-import { drivable, roadCapacityMult, type RoadClass } from './roads';
+import { drivable, frontage, roadCapacityMult, type RoadClass } from './roads';
 import {
   CityState,
   CONGESTION_MAX_EXTRA,
@@ -19,9 +19,11 @@ const ACCESS_RADIUS = 2;
 const MAX_WALK = GRID;
 
 /**
- * Nearest road tile within Chebyshev distance ACCESS_RADIUS, or null.
- * Within a ring, prefers the orthogonally-closest road (min Manhattan
- * distance) so buildings front the road they sit beside.
+ * Nearest road tile a building can be addressed off, within Chebyshev distance
+ * ACCESS_RADIUS, or null. Within a ring, prefers the orthogonally-closest road
+ * (min Manhattan distance) so buildings front the road they sit beside.
+ *
+ * A motorway is not an address, however close it runs — see `frontage`.
  */
 export function roadAccess(
   city: CityState,
@@ -36,8 +38,8 @@ export function roadAccess(
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // ring only
         const nx = x + dx;
         const ny = y + dy;
-        // a planted median is not a front door: buildings need real asphalt
-        if (!inBounds(nx, ny) || !drivable(city.tiles[idx(nx, ny)])) continue;
+        // a planted median is not a front door, and neither is a motorway
+        if (!inBounds(nx, ny) || !frontage(city.tiles[idx(nx, ny)])) continue;
         if (!climbable(city, idx(nx, ny), idx(x, y))) continue;
         const manhattan = Math.abs(dx) + Math.abs(dy);
         if (manhattan < bestManhattan) {
@@ -125,9 +127,13 @@ function roadDistanceTo(city: CityState, zones: Zone[]): Float64Array {
     if (!usable(city.tiles[i])) continue;
     const x = i % GRID;
     const y = (i / GRID) | 0;
-    const seeds = neighbors4(x, y).some(
-      ([nx, ny]) => developed(city, nx, ny, zones) && climbable(city, idx(nx, ny), i),
-    );
+    // A trip ends where it can turn off, which is never straight onto a
+    // motorway — the same rule roadAccess applies at the other end.
+    const seeds =
+      frontage(city.tiles[i]) &&
+      neighbors4(x, y).some(
+        ([nx, ny]) => developed(city, nx, ny, zones) && climbable(city, idx(nx, ny), i),
+      );
     if (seeds) {
       dist[i] = 0;
       heap.push(i);

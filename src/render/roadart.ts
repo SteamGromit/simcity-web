@@ -11,6 +11,7 @@
  * a few hundred tiny bitmaps for the entire street network.
  */
 
+import { corridorAt, corridorLowSide } from '../sim/corridor';
 import { idx, inBounds } from '../sim/grid';
 import { CityState, Zone } from '../sim/types';
 import type { RoadClass } from '../sim/roads';
@@ -119,11 +120,244 @@ function edgePts(k: number): [[number, number], [number, number]] {
   return [corners[k], corners[(k + 1) % 4]];
 }
 
+// ---------------------------------------------------------------------------
+// Carriageways
+// ---------------------------------------------------------------------------
+
+/**
+ * A tile's place in its carriageway, with the cross-section already turned
+ * into screen space. See `sim/corridor.ts` for what is being described and
+ * why: without it a wide road is drawn as a field of junctions, which is how
+ * a motorway came to look like a car park.
+ */
+export interface ScreenCorridor {
+  /** Screen side (a `SIDE_DIRS` index) that cross-position 0 faces. */
+  lowSide: number;
+  span: number;
+  pos: number;
+}
+
+/**
+ * The carriageway at (x, y) as the painter sees it. A quarter turn moves the
+ * corridor's low edge onto the next screen side, exactly as it moves a
+ * connectivity bit — so, like the road sprites, nothing needs re-deriving
+ * from the world when the camera swings.
+ */
+export function screenCorridor(
+  city: CityState,
+  x: number,
+  y: number,
+  quarter: number,
+): ScreenCorridor | null {
+  const c = corridorAt(city, x, y);
+  if (!c) return null;
+  const q = ((quarter % 4) + 4) % 4;
+  return { lowSide: (corridorLowSide(c.axis) + q) % 4, span: c.span, pos: c.pos };
+}
+
+/** What sits at boundary `b` of a carriageway `span` lanes across. */
+export type BoundaryKind = 'outer' | 'centre' | 'lane';
+
+export function boundaryKind(span: number, b: number): BoundaryKind {
+  if (b <= 0 || b >= span) return 'outer';
+  if (span % 2 === 0 && b === span / 2) return 'centre';
+  return 'lane';
+}
+
+/** The tile edge on side `k`, drawn `inset` of the way in toward the centre. */
+function edgeAt(k: number, inset: number): [[number, number], [number, number]] {
+  const [c1, c2] = edgePts(k);
+  const f = 1 - inset;
+  return [
+    [c1[0] * f, c1[1] * f],
+    [c2[0] * f, c2[1] * f],
+  ];
+}
+
+/** A line running the length of the tile, parallel to side `k`. */
+function strokeAlong(
+  ctx: CanvasRenderingContext2D,
+  k: number,
+  inset: number,
+  style: string,
+  width: number,
+  dash?: number[],
+): void {
+  const [a, b] = edgeAt(k, inset);
+  ctx.strokeStyle = style;
+  ctx.lineWidth = width;
+  if (dash) ctx.setLineDash(dash);
+  ctx.beginPath();
+  ctx.moveTo(a[0], a[1]);
+  ctx.lineTo(b[0], b[1]);
+  ctx.stroke();
+  if (dash) ctx.setLineDash([]);
+}
+
+/** The strip between two insets on side `k` — a shoulder, or half a reservation. */
+function fillBetween(
+  ctx: CanvasRenderingContext2D,
+  k: number,
+  i0: number,
+  i1: number,
+  style: string,
+): void {
+  const [a0, b0] = edgeAt(k, i0);
+  const [a1, b1] = edgeAt(k, i1);
+  ctx.fillStyle = style;
+  ctx.beginPath();
+  ctx.moveTo(a0[0], a0[1]);
+  ctx.lineTo(b0[0], b0[1]);
+  ctx.lineTo(b1[0], b1[1]);
+  ctx.lineTo(a1[0], a1[1]);
+  ctx.closePath();
+  ctx.fill();
+}
+
+/**
+ * A steel barrier along one verge: a shadow at its foot, posts, and the rail
+ * standing a couple of pixels proud. Kept low deliberately — the tile clips to
+ * its diamond, and anything taller would be sheared off at the corners.
+ */
+function paintBarrier(ctx: CanvasRenderingContext2D, k: number, inset: number): void {
+  const [a, b] = edgeAt(k, inset);
+  const RAIL = 2.2;
+  ctx.strokeStyle = 'rgba(12, 14, 20, 0.4)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(a[0], a[1]);
+  ctx.lineTo(b[0], b[1]);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(126, 132, 142, 0.8)';
+  ctx.lineWidth = 0.9;
+  for (let s = 0.14; s < 1; s += 0.24) {
+    const px = a[0] + (b[0] - a[0]) * s;
+    const py = a[1] + (b[1] - a[1]) * s;
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px, py - RAIL);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(198, 203, 210, 0.92)';
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(a[0], a[1] - RAIL);
+  ctx.lineTo(b[0], b[1] - RAIL);
+  ctx.stroke();
+}
+
+/** Kerbed footway along side `k` — the treatment a street has always had. */
+function paintFootway(ctx: CanvasRenderingContext2D, k: number, fw: number): void {
+  const kerb = css(lit(ENV.concreteKerb, LIGHT.roof * 0.95));
+  const pave = css(lit({ ...ENV.concreteKerb, l: ENV.concreteKerb.l * 0.86 }, LIGHT.roof * 0.9));
+  const [c1, c2] = edgePts(k);
+  const i1: [number, number] = [c1[0] * (1 - fw), c1[1] * (1 - fw)];
+  const i2: [number, number] = [c2[0] * (1 - fw), c2[1] * (1 - fw)];
+  ctx.beginPath();
+  ctx.moveTo(c1[0], c1[1]);
+  ctx.lineTo(c2[0], c2[1]);
+  ctx.lineTo(i2[0], i2[1]);
+  ctx.lineTo(i1[0], i1[1]);
+  ctx.closePath();
+  ctx.fillStyle = pave;
+  ctx.fill();
+  // the kerb face: a bright top nosing over a dark shadow line
+  ctx.strokeStyle = kerb;
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(i1[0], i1[1]);
+  ctx.lineTo(i2[0], i2[1]);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(10, 12, 18, 0.45)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(i1[0] * 0.94, i1[1] * 0.94);
+  ctx.lineTo(i2[0] * 0.94, i2[1] * 0.94);
+  ctx.stroke();
+}
+
+/**
+ * One boundary of the cross-section, drawn as the half that falls inside this
+ * tile. The two tiles flanking a centre each draw their own half, which is
+ * what makes a double yellow straddle the crown of the road rather than sit
+ * lopsided on one side of it.
+ */
+function paintBoundary(
+  ctx: CanvasRenderingContext2D,
+  cls: RoadClass,
+  side: number,
+  kind: BoundaryKind,
+  mask: number,
+): void {
+  const motorway = cls >= 3;
+
+  if (kind === 'lane') {
+    // lanes running the same way are divided by a broken white line
+    strokeAlong(ctx, side, 0.03, 'rgba(236, 240, 246, 0.72)', 1.3, [5, 5]);
+    return;
+  }
+
+  if (kind === 'centre') {
+    if (motorway) {
+      // a central reservation, half of it on this tile, with the barrier
+      // standing between it and the traffic
+      fillBetween(ctx, side, 0, 0.13, css(lit(hsl(98, 12, 30), LIGHT.roof * 0.92)));
+      paintBarrier(ctx, side, 0.13);
+    } else {
+      strokeAlong(ctx, side, 0.06, 'rgba(233, 214, 132, 0.9)', 1.4);
+    }
+    return;
+  }
+
+  // Outer: where something joins from this side, the mouth stays open —
+  // otherwise a slip road or a frontage street would be walled off.
+  if (mask & (1 << side)) return;
+  if (motorway) {
+    // hard shoulder, then the continuous edge line, then the verge barrier
+    fillBetween(ctx, side, 0.06, 0.2, 'rgba(210, 214, 220, 0.1)');
+    strokeAlong(ctx, side, 0.2, 'rgba(238, 242, 248, 0.86)', 1.5);
+    paintBarrier(ctx, side, 0.05);
+  } else {
+    strokeAlong(ctx, side, footwayWidth(cls) + 0.05, 'rgba(238, 242, 248, 0.7)', 1.1);
+    paintFootway(ctx, side, footwayWidth(cls));
+  }
+}
+
+/**
+ * A carriageway tile: markings that run *with* the traffic. Every boundary of
+ * the cross-section that touches this tile gets its line, the two ends of the
+ * corridor keep an ordinary kerb, and there is not a crosswalk in sight.
+ */
+function paintCorridor(
+  ctx: CanvasRenderingContext2D,
+  cls: RoadClass,
+  mask: number,
+  cor: ScreenCorridor,
+): void {
+  const low = cor.lowSide;
+  const high = (low + 2) % 4;
+  const lowKind = boundaryKind(cor.span, cor.pos);
+  const highKind = boundaryKind(cor.span, cor.pos + 1);
+
+  // A lane divider is shared by the two tiles either side of it, so only the
+  // upper one draws it; everything else is drawn as this tile's own half.
+  paintBoundary(ctx, cls, low, lowKind, mask);
+  if (highKind !== 'lane') paintBoundary(ctx, cls, high, highKind, mask);
+
+  // The ends of the corridor — the sides across the direction of travel —
+  // keep the plain kerb, so a motorway stops rather than fraying.
+  for (const s of [(low + 1) % 4, (low + 3) % 4]) {
+    if (mask & (1 << s)) continue;
+    paintFootway(ctx, s, footwayWidth(cls));
+  }
+}
+
 function paintRoadTile(
   ctx: CanvasRenderingContext2D,
   cls: RoadClass,
   mask: number,
   variant: number,
+  cor: ScreenCorridor | null,
 ): void {
   const tone = asphaltTone(cls);
   const seed = variant * 71 + cls * 13 + mask;
@@ -140,52 +374,53 @@ function paintRoadTile(
   // carriageway
   ctx.fillStyle = css(lit(tone, LIGHT.roof * 0.92));
   ctx.fillRect(-HW, -HH, TILE_W, TILE_H);
-  // wear: lighter tyre polish down the middle, darker patches at the edges
-  ctx.fillStyle = css(lit(tone, LIGHT.roof * 1.16), 0.35);
-  for (let k = 0; k < 5; k++) {
-    const u = hash2(k, 1, seed) * 2 - 1;
-    const v = hash2(k, 2, seed) * 2 - 1;
-    if (Math.abs(u) + Math.abs(v) > 1) continue;
-    ctx.fillRect(u * HW, v * HH, 3 + hash2(k, 3, seed) * 7, 2);
+  if (cor) {
+    // on a carriageway the wear runs with the traffic: two polished wheel
+    // tracks down the lane rather than scattered patches
+    const [ax, ay] = SIDE_MID[(cor.lowSide + 1) % 4];
+    const [cx, cy] = SIDE_MID[cor.lowSide];
+    ctx.strokeStyle = css(lit(tone, LIGHT.roof * 1.14), 0.3);
+    ctx.lineWidth = 1.8;
+    for (let k = 0; k < 4; k++) {
+      const u = hash2(k, 7, seed) * 0.9 - 0.45;
+      const v = hash2(k, 8, seed) * 1.3 - 0.65;
+      const len = 0.22 + hash2(k, 9, seed) * 0.4;
+      ctx.beginPath();
+      ctx.moveTo(cx * u + ax * (v - len), cy * u + ay * (v - len));
+      ctx.lineTo(cx * u + ax * (v + len), cy * u + ay * (v + len));
+      ctx.stroke();
+    }
+  } else {
+    // wear: lighter tyre polish down the middle, darker patches at the edges
+    ctx.fillStyle = css(lit(tone, LIGHT.roof * 1.16), 0.35);
+    for (let k = 0; k < 5; k++) {
+      const u = hash2(k, 1, seed) * 2 - 1;
+      const v = hash2(k, 2, seed) * 2 - 1;
+      if (Math.abs(u) + Math.abs(v) > 1) continue;
+      ctx.fillRect(u * HW, v * HH, 3 + hash2(k, 3, seed) * 7, 2);
+    }
+    ctx.fillStyle = 'rgba(12, 14, 20, 0.2)';
+    for (let k = 0; k < 4; k++) {
+      const u = hash2(k, 4, seed) * 2 - 1;
+      const v = hash2(k, 5, seed) * 2 - 1;
+      if (Math.abs(u) + Math.abs(v) > 1) continue;
+      ctx.fillRect(u * HW, v * HH, 2 + hash2(k, 6, seed) * 5, 1.6);
+    }
   }
-  ctx.fillStyle = 'rgba(12, 14, 20, 0.2)';
-  for (let k = 0; k < 4; k++) {
-    const u = hash2(k, 4, seed) * 2 - 1;
-    const v = hash2(k, 5, seed) * 2 - 1;
-    if (Math.abs(u) + Math.abs(v) > 1) continue;
-    ctx.fillRect(u * HW, v * HH, 2 + hash2(k, 6, seed) * 5, 1.6);
+
+  // A carriageway is not a junction, however much road surrounds it: its
+  // markings run along the traffic, and nothing here is a place to cross.
+  if (cor) {
+    paintCorridor(ctx, cls, mask, cor);
+    ctx.restore();
+    return;
   }
 
   // footway + kerb along every side that isn't carrying the road onward
   const fw = footwayWidth(cls);
-  const kerb = css(lit(ENV.concreteKerb, LIGHT.roof * 0.95));
-  const pave = css(lit({ ...ENV.concreteKerb, l: ENV.concreteKerb.l * 0.86 }, LIGHT.roof * 0.9));
   for (let k = 0; k < 4; k++) {
     if (mask & (1 << k)) continue;
-    const [c1, c2] = edgePts(k);
-    const i1: [number, number] = [c1[0] * (1 - fw), c1[1] * (1 - fw)];
-    const i2: [number, number] = [c2[0] * (1 - fw), c2[1] * (1 - fw)];
-    ctx.beginPath();
-    ctx.moveTo(c1[0], c1[1]);
-    ctx.lineTo(c2[0], c2[1]);
-    ctx.lineTo(i2[0], i2[1]);
-    ctx.lineTo(i1[0], i1[1]);
-    ctx.closePath();
-    ctx.fillStyle = pave;
-    ctx.fill();
-    // the kerb face: a bright top nosing over a dark shadow line
-    ctx.strokeStyle = kerb;
-    ctx.lineWidth = 1.4;
-    ctx.beginPath();
-    ctx.moveTo(i1[0], i1[1]);
-    ctx.lineTo(i2[0], i2[1]);
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(10, 12, 18, 0.45)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(i1[0] * 0.94, i1[1] * 0.94);
-    ctx.lineTo(i2[0] * 0.94, i2[1] * 0.94);
-    ctx.stroke();
+    paintFootway(ctx, k, fw);
   }
 
   // markings
@@ -262,11 +497,14 @@ export function drawRoad(
   cls: RoadClass,
   mask: number,
   variant: number,
+  cor: ScreenCorridor | null = null,
 ): void {
+  // the lane a tile is in changes its pixels, so it has to change its key
+  const ck = cor ? `c${cor.lowSide}_${cor.span}_${cor.pos}` : '';
   const s = sprite(
-    `rd${cls}m${mask}v${variant & 3}${getSkin().id}`,
+    `rd${cls}m${mask}v${variant & 3}${ck}${getSkin().id}`,
     { w: TILE_W + 2, h: TILE_H + 2, ax: HW + 1, ay: HH + 1 },
-    (c) => paintRoadTile(c, cls, mask, variant & 3),
+    (c) => paintRoadTile(c, cls, mask, variant & 3, cor),
   );
   blit(ctx, s, geom.cx, geom.cy);
 }
@@ -278,6 +516,7 @@ export function drawBridge(
   cls: RoadClass,
   mask: number,
   variant: number,
+  cor: ScreenCorridor | null = null,
 ): void {
   ctx.fillStyle = 'rgba(12, 20, 40, 0.35)';
   ctx.beginPath();
@@ -290,7 +529,7 @@ export function drawBridge(
       ctx.fillRect(px - 2, py - 3, 4, 9);
     }
   }
-  drawRoad(ctx, geom, cls, mask, variant);
+  drawRoad(ctx, geom, cls, mask, variant, cor);
   // parapet rails along the open sides
   ctx.strokeStyle = css(lit(ENV.concreteKerb, LIGHT.roof));
   ctx.lineWidth = 1.4;
@@ -395,8 +634,20 @@ export function drawStreetFurniture(
   detail: 0 | 1 | 2,
   night: number,
   timeMs: number,
+  cor: ScreenCorridor | null = null,
 ): void {
   if (detail === 0) return;
+  if (cor) {
+    // A carriageway has no junction to signal and nowhere to leave a car —
+    // the only thing that belongs on it is a lamp standard on the verge.
+    const outer = cor.pos === 0 || cor.pos === cor.span - 1;
+    if (outer && hash2(seed, 1, 404) > 0.62) {
+      const side = cor.pos === 0 ? cor.lowSide : (cor.lowSide + 2) % 4;
+      const [mx, my] = SIDE_MID[side];
+      blit(ctx, lampSprite(night > 0.28), geom.cx + mx * 0.84, geom.cy + my * 0.84);
+    }
+    return;
+  }
   const bits = (mask & 1 ? 1 : 0) + (mask & 2 ? 1 : 0) + (mask & 4 ? 1 : 0) + (mask & 8 ? 1 : 0);
   if (bits >= 3 && detail >= 1) {
     // a signal on the near corner of every real junction, all four in step

@@ -4,6 +4,72 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.60.0] — 2026-08-08 · Regions, and a front door
+
+Two headline pieces: highways that behave like highways, and a regional layer
+above the single city — with the launch screen the game never had.
+
+### Added
+- **Regions.** A region is a 3×3 grid of city tiles sharing one seed and one
+  biome, so nine maps read as one country rather than nine unrelated ones.
+  Each tile is unclaimed land or a founded city. The region keeps a mirror of
+  every city — population, treasury, date, and where its roads reach the map
+  edge — refreshed on each save, so the region map never parses a city to draw
+  itself. Regions export and import as one file, cities included.
+- **A launch screen.** The game no longer generates a city on load and opens
+  the File dialog over it. The front door is a choice: carry on with a region,
+  found a new one, or play a single city exactly as before. The simulation
+  stays paused until you have picked one.
+- **Neighbour deals.** Only one city simulates at a time, so a deal is not a
+  live negotiation — it is a standing contract held by the region and read by
+  whichever city is loaded. The seller gives up capacity and is paid monthly;
+  the buyer gains it and pays. Both sides read the same contract, so the books
+  balance across the region whichever city you are in. **Power** and
+  **refuse** are tradable. A seller whose plant burned down between visits has
+  its contracts broken with a notice rather than paying out forever.
+- **Border connections.** Where two neighbours both have road reaching the
+  same places along their shared edge, they are joined, and 35% of each one's
+  jobs and workers counts toward the other's demand. A bedroom suburb beside
+  an industrial city now grows because the work is next door.
+- **A Neighbours panel**, where the shortage is actually felt: what each city
+  next door has going spare, what it would cost, and every contract you hold
+  with its monthly total. Plus a **Neighbours line in the Budget report** and a
+  **◀ Region** button that saves on the way out.
+
+### Changed
+- **Highways look like highways.** A wide road class stamped four or six tiles
+  of asphalt side by side and left it there — nothing recorded that they form
+  a *corridor*, so the painter saw road on all four sides of every interior
+  tile and drew a junction: no lane markings at all, crosswalk ladders on
+  every approach, and a traffic signal on each square. A six-lane interstate
+  wearing a zebra crossing every tile. Carriageways are now derived from local
+  same-class adjacency — which axis the traffic runs on, how wide the road is,
+  and which lane a tile is — and the markings run *with* the traffic: dashed
+  lane dividers, solid edge lines, a double yellow or a planted central
+  reservation at the crown, hard shoulders and steel barriers on the motorway
+  verges, and tyre polish in wheel tracks instead of random patches. A mouth
+  stays open wherever something joins from the side. Nothing is stored in the
+  save, and editing re-reads the moment a tile changes.
+- **Highways behave like highways.** Cars picked a random adjacent road each
+  step, so on a four-wide band they spent as much time drifting sideways
+  across the carriageway as travelling along it — which is what a car park
+  looks like. A car now follows its lane, and the side of the centreline it is
+  on fixes its direction, so a band carries two streams. Nothing drives the
+  wrong way up a motorway; merging across from the side is still allowed. The
+  automata cap rose from 40 cars to 70, because a six-lane corridor needs more
+  than a village high street's worth of traffic to read as busy.
+- **A motorway has no front doors.** The Highway's own blurb has promised this
+  since the ladder shipped in v0.54, but `roadAccess` treated a motorway tile
+  as frontage like any street. It no longer does, and trips end under the same
+  rule. **On an existing save, lots that front only a highway lose their road
+  access until they are given a frontage street** — the advisor says so.
+- `newCity` takes a biome, so a region can fix its climate.
+
+### Fixed
+- The strict-context sweep that has guarded the reward painter since v0.59.3
+  now covers the road painter too — every class, width, lane and quarter turn
+  — which is the cheap insurance the backlog asked for after the 180° crash.
+
 ## [0.59.3] — 2026-08-08 · A turned camera no longer stops the game
 
 ### Fixed

@@ -54,7 +54,7 @@ describe('adviseTips', () => {
   test('a deficit budget triggers the deficit tip', () => {
     const city = makeCity();
     zone(city, 30, 30, Zone.PowerPlant);
-    city.lastBudget = { rIncome: 0, cIncome: 0, iIncome: 0, expenses: 100, net: -100 };
+    city.lastBudget = { rIncome: 0, cIncome: 0, iIncome: 0, expenses: 100, neighbors: 0, net: -100 };
     expect(ids(city)).toContain('deficit');
   });
 

@@ -13,7 +13,20 @@ import { roadLine } from './sim/grid';
 import { spawnDisaster } from './sim/disasters';
 import { idx } from './sim/grid';
 import { createSaveStore, type SaveMeta } from './ui/savestore';
-import { CityState, Density, Zone } from './sim/types';
+import { createRegionStore } from './ui/regionstore';
+import { buildLaunchScreen } from './ui/launch';
+import { buildRegionMap } from './ui/regionmap';
+import { buildNeighborsPanel } from './ui/neighbors';
+import {
+  neighborStateFor,
+  pruneDeals,
+  recordCity,
+  regionIndex,
+  type Region,
+} from './sim/region';
+import { powerSupply } from './sim/power';
+import { wasteSupply } from './sim/waste';
+import { CityState, defaultNeighbors, Density, Zone } from './sim/types';
 import { Renderer, ViewState } from './render/renderer';
 import { zoomAbout } from './render/camera';
 import { pinchFrame, pinchPan, pinchZoomFactor, type PinchFrame } from './ui/gestures';
@@ -61,27 +74,28 @@ const uiRoot = document.getElementById('ui') as HTMLElement;
 // trouble through warnings() rather than throwing: this runs before anything
 // is drawn, so an exception here is a black screen and nothing else.
 const saveStore = createSaveStore(localStorage);
+const regionStore = createRegionStore(localStorage);
 
 /** Which saved city the player is currently in, so Save overwrites it. */
 let currentSave: SaveMeta | null = null;
 
-/** Boot into the most recently saved city if there is one; the File menu
- * opens over it either way, so nothing is loaded behind the player's back. */
-let city: CityState = (() => {
-  try {
-    const latest = saveStore.list()[0];
-    if (latest) {
-      const revived = saveStore.load(latest.slug);
-      if (revived) {
-        currentSave = latest;
-        return revived;
-      }
-    }
-  } catch {
-    // an unreadable store must cost the player their listing, not the game
-  }
-  return newCity(Date.now() % 2 ** 31);
-})();
+/**
+ * The region being played and which of its tiles this city sits on, or null
+ * for a standalone city. This is the one piece of state that tells the rest of
+ * the app whether neighbours exist at all.
+ */
+let region: Region | null = null;
+let regionCol = 0;
+let regionRow = 0;
+
+/**
+ * A city has to exist for the renderer to be built against, but nothing is
+ * *played* until the launch screen hands over — so this is a throwaway map
+ * that the first real choice replaces. Generating it costs a few milliseconds
+ * and saves every downstream system from having to cope with there being no
+ * city at all.
+ */
+let city: CityState = newCity(Date.now() % 2 ** 31);
 
 setSkin(localStorage.getItem('simcity.skin') ?? 'classic');
 setWeatherFx(localStorage.getItem('simcity.weatherfx') !== '0');
@@ -106,6 +120,28 @@ const renderer = new Renderer(canvas, city.seed);
   camera: () => ({ ...renderer.camera }),
   /** Where the last frame went, plus what the sprite cache is holding. */
   profile: () => ({ ...renderer.timings, sprites: spriteStats() }),
+  /**
+   * Lay a tool along a line without going through the toolbar. The art for
+   * the upper road classes is otherwise only reachable in a city of 45,000
+   * people, which makes looking at a motorway an afternoon's work; this is
+   * how the graphics passes get checked. Costs and unlocks still apply —
+   * `grant` is there for those.
+   */
+  build(tool: string, x0: number, y0: number, x1: number, y1: number) {
+    const line = roadLine(x0, y0, x1, y1);
+    const res = applyToolLine(city, tool as never, line);
+    return { ...res, funds: city.funds };
+  },
+  /** The same, for a tool that occupies a single spot rather than a line. */
+  place(tool: string, x: number, y: number) {
+    return applyTool(city, tool as never, x, y);
+  },
+  /** Top up the treasury and the population, so unlock gates can be crossed. */
+  grant(funds = 500_000, population = 60_000) {
+    city.funds += funds;
+    city.population = Math.max(city.population, population);
+    return { funds: city.funds, population: city.population };
+  },
 };
 
 const view: ViewState = {
@@ -264,7 +300,11 @@ modStore.onChange(() => {
 
 const fileMenu = buildFileMenu(uiRoot, saveStore, {
   city: () => city,
+  // File is about the city as a *document*, and a named save is a standalone
+  // one — so loading or starting one here steps out of whatever region was
+  // being played rather than leaving the city half in it.
   adopt(next, meta) {
+    if (region) leaveRegionLayer();
     currentSave = meta;
     adoptCity(next);
     notify(`Loaded “${meta.name}”`, 'info');
@@ -272,6 +312,7 @@ const fileMenu = buildFileMenu(uiRoot, saveStore, {
     advisoryForUnprotectedCity();
   },
   newCity() {
+    if (region) leaveRegionLayer();
     currentSave = null;
     adoptCity(newCity(Date.now() % 2 ** 31));
     notify('A new city awaits', 'info');
@@ -283,11 +324,26 @@ const fileMenu = buildFileMenu(uiRoot, saveStore, {
   },
 });
 
+const neighborsPanel = buildNeighborsPanel(uiRoot, {
+  context: () => (region ? { region, col: regionCol, row: regionRow } : null),
+  changed() {
+    // a contract only means anything once the city is told about it and the
+    // region has it written down
+    syncNeighbors();
+    saveRegionCity();
+  },
+  notify(msg, kind) {
+    notify(msg, kind);
+    sound.play(kind === 'error' ? UI_SOUNDS.error : UI_SOUNDS.info);
+  },
+});
+
 const PANELS = {
   cityhall: cityHall,
   charts,
   display,
   file: fileMenu,
+  neighbors: neighborsPanel,
 } as const;
 
 const hud = buildHud(
@@ -299,7 +355,9 @@ const hud = buildHud(
     isOpen: (panel) => PANELS[panel].isOpen(),
   },
 );
-setSpeed(1);
+// Paused until the launch screen hands over a city: the map behind the front
+// door is a placeholder, and simulating it would be simulating nothing.
+setSpeed(0);
 
 /** Swap in a different city and re-point everything that caches from it. */
 function adoptCity(next: CityState) {
@@ -311,8 +369,179 @@ function adoptCity(next: CityState) {
   hud.syncTaxes(city);
   cityHall.syncBoxes();
   toolbar.refreshGating();
+  syncNeighbors();
   advisorFeed.update([]); // a different city's complaints are not this one's
 }
+
+// ---------------------------------------------------------------------------
+// Regions
+// ---------------------------------------------------------------------------
+
+/** Re-derive what the region does to this city. Cheap, so it runs on every
+ * change rather than being carefully invalidated. */
+function syncNeighbors() {
+  city.neighbors = region
+    ? neighborStateFor(region, regionIndex(region, regionCol, regionRow))
+    : defaultNeighbors();
+}
+
+/**
+ * Write the city and the region together. The tile's mirror is refreshed first
+ * so the region map and the deal rules see this city as it now stands, and any
+ * contract the region can no longer honour is broken here rather than paying
+ * out forever.
+ */
+function saveRegionCity() {
+  if (!region) return;
+  recordCity(
+    region,
+    regionCol,
+    regionRow,
+    city,
+    { power: powerSupply(city).spare, garbage: wasteSupply(city).spare },
+    Date.now(),
+  );
+  for (const d of pruneDeals(region)) {
+    const other = region.tiles[d.seller === regionIndex(region, regionCol, regionRow) ? d.buyer : d.seller];
+    notify(
+      `The ${d.kind === 'power' ? 'power' : 'refuse'} contract with ` +
+        `${other?.name ?? 'a neighbour'} has ended — the capacity is no longer there.`,
+      'alert',
+    );
+  }
+  syncNeighbors();
+  const cityWrite = regionStore.saveCity(region, regionCol, regionRow, city);
+  const regionWrite = regionStore.saveRegion(region, Date.now());
+  if (!cityWrite.ok) notify(cityWrite.error, 'error');
+  else if (!regionWrite.ok) notify(regionWrite.error, 'error');
+}
+
+/** Play the city on a region tile, founding it if the land is still empty. */
+function enterCity(col: number, row: number, name: string) {
+  if (!region) return;
+  const tile = region.tiles[regionIndex(region, col, row)];
+  if (!tile) return;
+  let next = regionStore.loadCity(region.slug, col, row);
+  if (!next) {
+    // A region's cities share its climate, so the map is generated against the
+    // region's biome rather than rolling its own.
+    next = newCity(tile.seed, region.biome);
+    tile.name = name;
+    tile.founded = true;
+  } else if (name) {
+    tile.name = name;
+  }
+  regionCol = col;
+  regionRow = row;
+  region.lastPlayed = regionIndex(region, col, row);
+  currentSave = null; // a region's cities are not in the named-save list
+  fileMenu.setCurrent(null);
+  adoptCity(next);
+  saveRegionCity();
+  regionMap.close();
+  launch.close();
+  hud.setRegion(true);
+  regionBtn.classList.remove('hidden');
+  setSpeed(1);
+  notify(`Now playing ${tile.name}`, 'info');
+}
+
+/** Back out to the region map, saving on the way. */
+function leaveToRegion() {
+  if (!region) return;
+  saveRegionCity();
+  setSpeed(0);
+  neighborsPanel.close();
+  regionBtn.classList.add('hidden');
+  regionMap.open(region);
+}
+
+function openRegion(slug: string) {
+  const loaded = regionStore.loadRegion(slug);
+  if (!loaded) {
+    notify('That region could not be read.', 'error');
+    return;
+  }
+  region = loaded;
+  setSpeed(0);
+  launch.close();
+  regionBtn.classList.add('hidden');
+  regionMap.open(region);
+}
+
+/** Put the region down: save what was being played and forget it. */
+function leaveRegionLayer() {
+  if (region) saveRegionCity();
+  region = null;
+  hud.setRegion(false);
+  neighborsPanel.close();
+  regionBtn.classList.add('hidden');
+}
+
+/** Leave the region layer and play one standalone city, as the game always did. */
+function playSingle(meta: SaveMeta | null) {
+  leaveRegionLayer();
+  if (meta) {
+    const loaded = saveStore.load(meta.slug);
+    if (!loaded) {
+      notify('That city could not be read.', 'error');
+      return;
+    }
+    currentSave = meta;
+    adoptCity(loaded);
+  } else {
+    currentSave = null;
+    adoptCity(newCity(Date.now() % 2 ** 31));
+  }
+  fileMenu.setCurrent(currentSave);
+  launch.close();
+  regionMap.close();
+  setSpeed(1);
+  notify(meta ? `Loaded “${meta.name}”` : 'A new city awaits', 'info');
+}
+
+const regionMap = buildRegionMap(uiRoot, {
+  enter: enterCity,
+  leave() {
+    if (region) regionStore.saveRegion(region, Date.now());
+    region = null;
+    regionMap.close();
+    launch.open();
+  },
+  raze(col, row) {
+    if (!region) return;
+    regionStore.removeCity(region, col, row);
+    regionStore.saveRegion(region, Date.now());
+    regionMap.refresh();
+    notify('The city has been razed back to open land.', 'alert');
+  },
+  notify(msg, kind) {
+    notify(msg, kind);
+  },
+});
+
+const launch = buildLaunchScreen(uiRoot, regionStore, saveStore, {
+  openRegion,
+  playSingle,
+  notify(msg, kind) {
+    notify(msg, kind);
+  },
+});
+
+/** The way back out of a city. Only shown while one is being played in a region. */
+const regionBtn = document.createElement('button');
+regionBtn.id = 'region-btn';
+regionBtn.className = 'hidden';
+regionBtn.textContent = '◀ Region';
+regionBtn.title = 'Save and return to the region map';
+regionBtn.addEventListener('click', leaveToRegion);
+uiRoot.appendChild(regionBtn);
+
+// Closing the tab mid-city should not cost the region its progress; there is
+// no other moment where a region city is written apart from leaving it.
+window.addEventListener('pagehide', () => {
+  if (region) saveRegionCity();
+});
 
 makeDraggable(toolbar.el, toolbar.grip, 'toolbar');
 for (const [sel, key] of [
@@ -323,6 +552,7 @@ for (const [sel, key] of [
   ['#display-panel', 'display'],
   ['#mods-panel', 'mods'],
   ['#file-panel', 'file'],
+  ['#neighbors-panel', 'neighbors'],
   ['#help-panel', 'help'],
 ] as const) {
   const panel = document.querySelector<HTMLElement>(sel);
@@ -343,10 +573,9 @@ window.setInterval(() => {
   music.update(city);
 }, 2000);
 
-// The front door: choose which city to carry on with, or start a fresh one,
-// rather than having the game quietly decide for you.
-fileMenu.setCurrent(currentSave);
-fileMenu.open();
+// The front door: a region, or a single city, but always an explicit choice —
+// the game no longer decides for you and drops you into a map you did not pick.
+launch.open();
 
 const muteBtn = document.createElement('button');
 muteBtn.id = 'mute-btn';
