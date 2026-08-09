@@ -4,6 +4,49 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.60.1] — 2026-08-09 · Three more things a turned camera got wrong
+
+Widening the strict-context rotation sweep past the reward set — the "cheap
+insurance" the backlog has been asking for since the 180° crash — found three
+live bugs of exactly the same family, plus one latent one. All are the same
+mistake: a fixed *grid* corner index standing in for a *screen* position.
+Corners are held in grid order, so which index is nearest the viewer changes
+with every quarter turn.
+
+### Fixed
+- **A house's garden path ran to the wrong corner of its plot** once the
+  camera was turned, and its parking bays hatched along a *far* edge rather
+  than the near one. `drawLotApron` took corner 2 to be the front of the lot,
+  which it only is at rest.
+- **A fire station's engine bay doors ended up round the back.** Same
+  assumption: the doors were drawn on the grid edge 2→3, so at some angles
+  they faced away from the viewer and disappeared behind the building.
+- **A farm's furrows were struck from the wrong centre.** The origin was
+  assembled from corner 0's x and corner 1's y — which is the middle of the
+  field only while the camera is at rest, and drifts off it at every other
+  angle.
+- **A civic lot carrying an industry tier crashed the painter.**
+  `normalizeTier` only coerces the tier for zones it recognises as
+  residential, commercial or industrial, so anything else — a landfill, say —
+  reached the R/C archetype ladder with a tier like `dirty` and built the key
+  `'Cdirty'`, which is not in the table, then indexed `undefined`. Not
+  reachable by building anything (a fresh tile carries wealth 2), but a save
+  that had been edited or mangled would have thrown once a frame.
+
+The near corner is now *measured* rather than indexed, and at rest it is
+corner 2 — so the unrotated view is unchanged, exactly as the v0.59.3 fix
+promised for the reward painter.
+
+### Added
+- `tests/rotation-sweep.test.ts`: the growables, the civic set, multi-tile
+  blocks, ground, water, shorelines, scenery and every transient marker,
+  swept at all four quarter turns. Painters that must be screen-invariant are
+  held to painting an identical picture; those that legitimately move — a
+  sub-mass placed at a grid offset is *meant* to stay on the north side of its
+  plot — are held to drawing finite, bounded geometry instead. The stub
+  context now records a trace, so "the same picture" is something a test can
+  actually check rather than merely "it didn't throw".
+
 ## [0.60.0] — 2026-08-08 · Regions, and a front door
 
 Two headline pieces: highways that behave like highways, and a regional layer
