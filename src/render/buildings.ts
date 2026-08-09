@@ -204,8 +204,29 @@ export function strokeTile(
 }
 
 /** The tile geometry as the massing module's Quad. */
-function quadOf(geom: TileGeom): Quad {
+export function quadOf(geom: TileGeom): Quad {
   return geom.corners.slice(0, 4) as Quad;
+}
+
+/**
+ * The corner of a footprint nearest the viewer — the one lowest on screen.
+ *
+ * Corners are held in *grid* order, so which index that is changes with every
+ * quarter turn. Anything that means "the front of the lot" has to measure it
+ * rather than assume corner 2, which is precisely the assumption that took the
+ * game down at 180° in v0.59.0. At rest this is corner 2, so everything built
+ * on it is unchanged in the unrotated view.
+ */
+export function nearCorner(q: Pt[]): number {
+  let at = 0;
+  for (let i = 1; i < q.length; i++) if (q[i][1] > q[at][1]) at = i;
+  return at;
+}
+
+/** The near edge, from the nearest corner along the quad's own winding. */
+export function nearEdge(q: Quad): [Pt, Pt] {
+  const n = nearCorner(q);
+  return [q[n], q[(n + 1) % 4]];
 }
 
 /** Shift a quad by a tile-space offset, in units of the tile's own diagonal. */
@@ -815,9 +836,10 @@ function paintFarm(ctx: CanvasRenderingContext2D, q: Quad, bucket: number): void
   for (let i = 1; i < 4; i++) ctx.lineTo(q[i][0], q[i][1]);
   ctx.closePath();
   ctx.clip();
-  // furrows running one way or the other across the field
-  const cx = (q[0][0] + q[2][0]) / 2;
-  const cy = (q[1][1] + q[3][1]) / 2;
+  // furrows running one way or the other across the field. The centre is
+  // measured, not assembled from corner 0's x and corner 1's y — that only
+  // lands on the middle while the camera is at rest.
+  const [cx, cy] = centre(q);
   ctx.lineWidth = 1.4;
   for (let k = -5; k <= 5; k++) {
     ctx.strokeStyle = k % 2 ? css(lit(soil, 0.86), 0.7) : css(lit(soil, 1.14), 0.55);
@@ -1218,9 +1240,9 @@ function drawCivic(
 
   switch (zone) {
     case Zone.FireStation: {
-      // engine bay doors and a hose tower
-      const a = q[2];
-      const b = q[3];
+      // engine bay doors and a hose tower. The doors go on whichever edge
+      // faces the viewer, or a turned camera puts them round the back.
+      const [a, b] = nearEdge(q);
       for (const t of [0.24, 0.58]) {
         const p1: Pt = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
         const p2: Pt = [a[0] + (b[0] - a[0]) * (t + 0.2), a[1] + (b[1] - a[1]) * (t + 0.2)];
@@ -1997,22 +2019,25 @@ export function drawLotApron(
         : hsl(96, 22, 34);
   fill(ctx, inset(q, 0.96), css(lit(paved, LIGHT.roof * 0.94), stage >= 4 ? 0.92 : 0.68));
   if (stage < 4 && zone !== Zone.Industrial) {
-    // a garden path from the front corner to the middle of the lot
+    // a garden path from the front corner to the middle of the lot — the
+    // corner nearest the viewer, whichever grid corner that is right now
+    const front = q[nearCorner(q)];
     ctx.strokeStyle = css(lit(hsl(40, 12, 62), LIGHT.roof), 0.75);
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.moveTo(geom.cx, geom.cy);
-    ctx.lineTo(q[2][0] * 0.5 + geom.cx * 0.5, q[2][1] * 0.5 + geom.cy * 0.5);
+    ctx.lineTo(front[0] * 0.5 + geom.cx * 0.5, front[1] * 0.5 + geom.cy * 0.5);
     ctx.stroke();
   }
   if (stage >= 4) {
     // parking bays hatched along the near edge
+    const [bayA, bayB] = nearEdge(q);
     ctx.strokeStyle = 'rgba(226, 230, 236, 0.28)';
     ctx.lineWidth = 1;
     for (let k = -2; k <= 2; k++) {
       const t = 0.5 + k * 0.13;
-      const px = q[2][0] + (q[3][0] - q[2][0]) * t;
-      const py = q[2][1] + (q[3][1] - q[2][1]) * t;
+      const px = bayA[0] + (bayB[0] - bayA[0]) * t;
+      const py = bayA[1] + (bayB[1] - bayA[1]) * t;
       ctx.beginPath();
       ctx.moveTo(px, py);
       ctx.lineTo(px + (geom.cx - px) * 0.22, py + (geom.cy - py) * 0.22);

@@ -70,12 +70,13 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    facade pass the growables just got. The ground pass is the dominant
    per-frame cost — baking ground *chunks* is the obvious next step. The
    camera turns in quarter steps only; the snap is instant, and a short
-   cross-fade would take the jolt out of it. **Drawing is still under-tested
-   at a turned camera**: the reward set (tests/reward-art.test.ts) and now the
-   road painter (tests/corridor-art.test.ts) are swept at all four quarters
-   against the strict context in tests/stubctx.ts, but the growables, the
-   civic set and scenery are still drawn unrotated and nowhere else.
-   Extending the same sweep to them is the remaining cheap insurance.
+   cross-fade would take the jolt out of it. The rotation sweep is now
+   *done* — rewards, roads, growables, civic, blocks, ground, scenery and the
+   transient markers are all held to painting the same picture (or at least
+   sane geometry) at all four quarters, and it found four real bugs on the way
+   in v0.60.1. What is still unswept is the *composed* scene rather than the
+   individual painters: overlays and data views, the transit line bands and
+   line vehicles, disaster effects, and the halo/cursor layer.
 
 9. **City styles** — one distinct look per style, beyond the palette shifts
    the three skins do today: Simpsons Springfield, present-day Hong Kong,
@@ -84,6 +85,18 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    just remap hue and saturation.
 
 ## Done
+
+- **The rest of the rotation sweep** — shipped v0.60.1 (widening the
+  strict-context sweep past the reward set found three live bugs and one
+  latent one, all the same mistake: a fixed grid corner index standing in for
+  a screen position. A house's garden path ran to the wrong corner and its
+  parking bays hatched along a far edge; a fire station's engine bay doors
+  ended up round the back; a farm's furrows were struck from a centre that is
+  only the centre at rest; and a civic lot carrying an industry tier indexed
+  off the archetype table entirely. The near corner is measured now, and at
+  rest it is still corner 2, so the unrotated view is unchanged. The stub
+  context records a trace, so "paints the same picture" is a thing a test can
+  check.) Remaining gaps in backlog #8.
 
 - **Regions, and a front door** — shipped v0.60.0 (a 3×3 grid of city tiles
   sharing one seed and one biome; a launch screen offering a region, a single

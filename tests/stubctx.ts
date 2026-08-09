@@ -8,8 +8,15 @@
  * v0.59.0 and stood until v0.59.3. Any painter worth trusting at a turned
  * camera gets swept against this.
  */
-export function strictCtx(): { ctx: CanvasRenderingContext2D; radii: number[] } {
+export function strictCtx(): {
+  ctx: CanvasRenderingContext2D;
+  radii: number[];
+  /** Every drawing call made, as `name(args…)` with coordinates rounded.
+   * Two runs that should paint the same picture produce the same trace. */
+  trace: string[];
+} {
   const radii: number[] = [];
+  const trace: string[] = [];
   const gradient = { addColorStop: () => {} };
   const bad = (r: number, axis: string) =>
     `IndexSizeError: the ${axis} radius provided (${r}) is negative`;
@@ -46,20 +53,35 @@ export function strictCtx(): { ctx: CanvasRenderingContext2D; radii: number[] } 
     measureText: () => ({ width: 10 }),
   };
 
-  const noop = () => undefined;
+  /** Round hard enough that floating-point noise never fails a comparison,
+   * but not so hard that a real half-pixel shift hides inside it. */
+  const round = (v: unknown) => (typeof v === 'number' ? Math.round(v * 16) / 16 : String(v));
+
   const ctx = new Proxy(state, {
     get(t, prop) {
-      if (prop in methods) return methods[prop as string];
+      const name = String(prop);
+      if (prop in methods) {
+        return (...args: number[]) => {
+          trace.push(`${name}(${args.map(round).join(',')})`);
+          return methods[name](...args);
+        };
+      }
       if (prop in t) return t[prop];
-      return noop; // every other context method is a no-op for our purposes
+      // every other context method is a no-op — but it still gets recorded,
+      // which is the whole point: the calls *are* the picture
+      return (...args: unknown[]) => {
+        trace.push(`${name}(${args.map(round).join(',')})`);
+        return undefined;
+      };
     },
     set(t, prop, v) {
       t[prop] = v;
+      trace.push(`${String(prop)}=${round(v)}`);
       return true;
     },
   }) as unknown as CanvasRenderingContext2D;
 
-  return { ctx, radii };
+  return { ctx, radii, trace };
 }
 
 /**

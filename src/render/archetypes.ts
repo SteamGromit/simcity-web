@@ -318,7 +318,14 @@ function familyKey(zone: Zone, tier: Tier): FamilyKey {
     // the abandoned-farm edge, which renders as a desaturated shed.
     return (t === 'ag' ? 'manu' : t) as FamilyKey;
   }
-  return `${zone === Zone.Residential ? 'R' : 'C'}${t as Wealth}` as FamilyKey;
+  // Everything else draws on the R/C ladder — but `normalizeTier` only
+  // coerces the tier for zones it recognises as residential or commercial, so
+  // a civic lot carrying an industry tier would build a key like 'Cdirty',
+  // which is not in TABLE, and index `undefined[…]`. Not reachable by
+  // building anything (a fresh tile carries wealth 2), but a save that has
+  // been edited or mangled should cost a frame at worst, not throw.
+  const wealth: Wealth = t === 1 || t === 2 || t === 3 ? t : 2;
+  return `${zone === Zone.Residential ? 'R' : 'C'}${wealth}` as FamilyKey;
 }
 
 export function pickArchetype(zone: Zone, tier: Tier, stage: Stage, pick: number): Archetype {
