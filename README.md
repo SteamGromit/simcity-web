@@ -112,6 +112,34 @@ static file server, or the hosted link above.
 
 ## How to play
 
+### Regions
+
+The game opens on a **launch screen** rather than dropping you into a map.
+From there you either found a **region** — a 3×3 grid of city tiles sharing
+one landscape and one climate — or start a **single city**, which is the game
+exactly as it was before regions and remains a complete way to play.
+
+Inside a region, each tile is unclaimed land or a founded city. Found one,
+play it, and press **◀ Region** to save and come back out. Two things pass
+between neighbouring cities:
+
+- **Contracts.** A city with spare **power** or **refuse** capacity can sell
+  it to the city next door. The seller loses the capacity and is paid monthly;
+  the buyer gains it and pays. Open them from the **Neighbours** panel inside
+  a city, where you can see who has what going spare. If the seller later
+  loses the capacity — a plant burns down, say — the contract breaks and you
+  are told.
+- **Border crossings.** Run a road to the map edge on **both** sides of a
+  shared border and the two cities are joined. A share of your neighbour's
+  jobs feeds your residential demand, and a share of its workers feeds your
+  commercial and industrial demand — so a bedroom suburb beside an industrial
+  city grows because the work is next door.
+
+Only one city simulates at a time; the others sit as you left them. Regions
+export and import as a single file, cities included.
+
+### A city
+
 New maps come with lakes, forests, **rolling hills**, and a guaranteed
 snowcapped **mountain**; about one map in four rolls a **desert** — one
 oasis, no lakes, tinder-dry air — where the water utility is a matter of
@@ -209,6 +237,19 @@ lays itself out either side, turning corners with you. Every tile of a
 wider class carries more traffic before it starts to jam, so a route
 through a choked district genuinely unclogs it. Lay a class straight over
 an existing road to widen it in place.
+
+Anything wider than a street is drawn as a **carriageway**, not as a
+field of asphalt: dashed lane dividers between lanes running the same
+way, a solid edge line down each verge, and either a double yellow or —
+on a motorway — a planted central reservation with steel barriers at the
+crown. Cars keep to their lane and to the side of the road their
+direction belongs on, so a four-lane highway carries two streams rather
+than a milling crowd. A mouth stays open wherever a road joins from the
+side.
+
+A **motorway has no front doors.** Highway and Highway II move traffic
+through; nothing is addressed off them. Build a **frontage street**
+alongside if you want the land behind one to develop.
 
 A **boulevard's median is landscaped, not paved**: three squares wide,
 two carriageways, and a treed strip down the middle that nothing drives
