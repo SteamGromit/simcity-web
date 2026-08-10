@@ -27,6 +27,7 @@ import {
   raise,
   roofTone,
   shift,
+  type Facade,
   type Hsl,
   type MaterialKind,
   type WindowPattern,
@@ -1231,25 +1232,57 @@ interface CivicSpec {
   wall: MaterialKind;
   windows: WindowPattern;
   roof: RoofStyle;
+  facade?: Facade;
+  props?: PropKind[];
 }
 
 const CIVIC: Partial<Record<Zone, CivicSpec>> = {
-  [Zone.FireStation]: { h: 19, f: 0.82, body: hsl(2, 56, 44), wall: 'brick', windows: 'punched', roof: 'parapet' },
-  [Zone.PoliceStation]: { h: 19, f: 0.82, body: hsl(216, 34, 44), wall: 'brick', windows: 'punched', roof: 'parapet' },
-  [Zone.Hospital]: { h: 26, f: 0.84, body: hsl(190, 10, 70), wall: 'concrete', windows: 'ribbon', roof: 'flat' },
-  [Zone.School]: { h: 14, f: 0.86, body: hsl(38, 34, 54), wall: 'brick', windows: 'punched', roof: 'gabled' },
-  [Zone.Prison]: { h: 12, f: 0.88, body: hsl(210, 5, 44), wall: 'concrete', windows: 'none', roof: 'flat' },
+  [Zone.FireStation]: {
+    h: 19, f: 0.82, body: hsl(2, 56, 44), wall: 'brick', windows: 'punched', roof: 'parapet',
+    facade: { podium: 1 }, props: ['vent'],
+  },
+  [Zone.PoliceStation]: {
+    h: 19, f: 0.82, body: hsl(216, 34, 44), wall: 'brick', windows: 'punched', roof: 'parapet',
+    facade: { cornice: true, stringCourse: 1 }, props: ['acUnit'],
+  },
+  [Zone.Hospital]: {
+    h: 26, f: 0.84, body: hsl(190, 10, 70), wall: 'concrete', windows: 'ribbon', roof: 'flat',
+    facade: { podium: 1, stringCourse: 2 }, props: ['acUnit', 'vent', 'helipad'],
+  },
+  [Zone.School]: {
+    h: 14, f: 0.86, body: hsl(38, 34, 54), wall: 'brick', windows: 'punched', roof: 'gabled',
+    facade: { cornice: true }, props: ['skylight'],
+  },
+  [Zone.Prison]: {
+    h: 12, f: 0.88, body: hsl(210, 5, 44), wall: 'concrete', windows: 'none', roof: 'flat',
+    facade: { stringCourse: 1 }, props: ['vent'],
+  },
   [Zone.BusStop]: { h: 7, f: 0.42, body: hsl(178, 34, 44), wall: 'metal', windows: 'ribbon', roof: 'flat' },
   [Zone.StreetcarStop]: { h: 8, f: 0.46, body: hsl(178, 36, 46), wall: 'metal', windows: 'ribbon', roof: 'flat' },
   [Zone.MonorailStation]: { h: 7, f: 0.48, body: hsl(196, 20, 52), wall: 'concrete', windows: 'ribbon', roof: 'flat' },
   [Zone.SubwayStation]: { h: 7, f: 0.46, body: hsl(220, 14, 40), wall: 'concrete', windows: 'none', roof: 'flat' },
-  [Zone.RailTerminal]: { h: 18, f: 0.82, body: hsl(12, 40, 38), wall: 'brick', windows: 'punched', roof: 'gabled' },
-  [Zone.RecyclingCentre]: { h: 16, f: 0.72, body: hsl(140, 20, 50), wall: 'metal', windows: 'ribbon', roof: 'sawtooth' },
-  [Zone.Incinerator]: { h: 21, f: 0.76, body: hsl(28, 10, 42), wall: 'concrete', windows: 'ribbon', roof: 'flat' },
+  [Zone.RailTerminal]: {
+    h: 18, f: 0.82, body: hsl(12, 40, 38), wall: 'brick', windows: 'punched', roof: 'gabled',
+    facade: { pilasters: true, cornice: true },
+  },
+  [Zone.RecyclingCentre]: {
+    h: 16, f: 0.72, body: hsl(140, 20, 50), wall: 'metal', windows: 'ribbon', roof: 'sawtooth',
+    props: ['skylight', 'vent'],
+  },
+  [Zone.Incinerator]: {
+    h: 21, f: 0.76, body: hsl(28, 10, 42), wall: 'concrete', windows: 'ribbon', roof: 'flat',
+    props: ['vent', 'tank'],
+  },
   [Zone.WaterPump]: { h: 13, f: 0.6, body: hsl(206, 38, 46), wall: 'concrete', windows: 'punched', roof: 'flat' },
-  [Zone.PowerPlant]: { h: 22, f: 0.86, body: hsl(20, 12, 38), wall: 'concrete', windows: 'ribbon', roof: 'flat' },
+  [Zone.PowerPlant]: {
+    h: 22, f: 0.86, body: hsl(20, 12, 38), wall: 'concrete', windows: 'ribbon', roof: 'flat',
+    props: ['tank', 'vent'],
+  },
   [Zone.SolarPlant]: { h: 4, f: 0.82, body: hsl(220, 10, 30), wall: 'concrete', windows: 'none', roof: 'flat' },
-  [Zone.HydroPlant]: { h: 15, f: 0.72, body: hsl(208, 34, 40), wall: 'concrete', windows: 'ribbon', roof: 'flat' },
+  [Zone.HydroPlant]: {
+    h: 15, f: 0.72, body: hsl(208, 34, 40), wall: 'concrete', windows: 'ribbon', roof: 'flat',
+    props: ['vent'],
+  },
   [Zone.NuclearPlant]: { h: 12, f: 0.8, body: hsl(46, 7, 58), wall: 'concrete', windows: 'ribbon', roof: 'flat' },
   [Zone.WindTurbine]: { h: 4, f: 0.3, body: hsl(0, 0, 58), wall: 'concrete', windows: 'none', roof: 'flat' },
 };
@@ -1306,8 +1339,9 @@ function drawCivic(
   const cx = geom.cx;
   const cy = geom.cy;
   contactShadow(ctx, q);
-  const r = prism(ctx, q, h, mat, { seed: zone * 7 + 1, windows: spec.windows });
+  const r = prism(ctx, q, h, mat, { seed: zone * 7 + 1, windows: spec.windows, facade: spec.facade });
   roofCap(ctx, r.roof, spec.roof, body, zone);
+  if (detail >= 1 && spec.props?.length) roofKit(ctx, r.roof, spec.props, body, zone * 3 + 5, h);
 
   switch (zone) {
     case Zone.FireStation: {
@@ -1341,12 +1375,6 @@ function drawCivic(
       ctx.fillStyle = '#d8443a';
       ctx.fillRect(cx - 2, cy - h - 12, 4, 12);
       ctx.fillRect(cx - 6, cy - h - 8, 12, 4);
-      // a helipad ring on the roof
-      ctx.strokeStyle = 'rgba(240, 244, 250, 0.5)';
-      ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      ctx.ellipse(cx + 12, cy - h + 4, 8, 4, 0, 0, Math.PI * 2);
-      ctx.stroke();
       break;
     }
     case Zone.School: {
@@ -1799,6 +1827,18 @@ function drawReward(
       const bodyQ = inset(q, 0.78);
       const r = prism(ctx, raise(bodyQ, 4), h, stone, { seed: 2, windows: 'punched' });
       roofCap(ctx, r.roof, 'gabled', stone.body, 3);
+      if (zone === Zone.Museum) {
+        // a shallow dome on the ridge — the reference image's dome, nodded to
+        const domeR = hw * 0.2;
+        ctx.fillStyle = css(lit(tone(hsl(174, 26, 46)), LIGHT.roof));
+        ctx.beginPath();
+        ctx.ellipse(cx, cy - h - 5, domeR, domeR * 0.62, 0, Math.PI, 0);
+        ctx.fill();
+        ctx.fillStyle = css(lit(tone(hsl(174, 30, 58)), LIGHT.roof * 1.2));
+        ctx.beginPath();
+        ctx.ellipse(cx - domeR * 0.25, cy - h - 5 - domeR * 0.12, domeR * 0.45, domeR * 0.3, 0, Math.PI, 0);
+        ctx.fill();
+      }
       if (detail >= 1) {
         // a colonnade across the front
         const cols = zone === Zone.Museum ? 7 : 5;
