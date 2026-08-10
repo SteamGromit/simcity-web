@@ -134,3 +134,23 @@ describe('hearthTip', () => {
     expect(t.y).toBeCloseTo(placed!.y - chimneyHeight(placed!.k + 1, seed), 9);
   });
 });
+
+describe('density pass', () => {
+  test('high-band commercial can carry a helipad; manu can carry skylights', () => {
+    const kinds = new Set<string>();
+    for (let p = 0; p < 1; p += 0.24) {
+      pickArchetype(Zone.Commercial, 2 as Tier, 7 as Stage, p).props.forEach((k) => kinds.add(k));
+      pickArchetype(Zone.Commercial, 3 as Tier, 7 as Stage, p).props.forEach((k) => kinds.add(k));
+      pickArchetype(Zone.Industrial, 'manu' as Tier, 5 as Stage, p).props.forEach((k) => kinds.add(k));
+    }
+    expect(kinds.has('helipad')).toBe(true);
+    expect(kinds.has('skylight')).toBe(true);
+  });
+  test('placeRoofProps gates helipads at 0.6', () => {
+    const roof: [number, number][] = [[0, -12], [24, 0], [0, 12], [-24, 0]];
+    let n = 0;
+    for (let seed = 0; seed < 40; seed++) n += placeRoofProps(['helipad'], roof, seed).length;
+    expect(n).toBeGreaterThan(10);
+    expect(n).toBeLessThan(35);
+  });
+});

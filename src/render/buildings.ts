@@ -426,7 +426,7 @@ export function placeRoofProps(
     // Most lots carry their props; a mast is the exception. Antennas on every
     // tower turned downtown into a pin cushion, so only about one in five gets
     // one and the rest take their silhouette from the crown instead.
-    const chance = kind === 'antenna' ? 0.2 : 0.82;
+    const chance = kind === 'antenna' ? 0.2 : kind === 'helipad' ? 0.6 : 0.82;
     if (hash2(k, 9, seed) > chance) {
       k++;
       continue;
@@ -540,6 +540,33 @@ function roofKit(
         ctx.beginPath();
         ctx.ellipse(x - 1.2, y - 5.6, 3.4, 3, 0, 0, Math.PI * 2);
         ctx.fill();
+        break;
+      }
+      case 'helipad': {
+        const pad = diamond(x, y, 7, 3.5);
+        fill(ctx, pad, css(lit(hsl(220, 6, 34), LIGHT.roof)));
+        ctx.strokeStyle = 'rgba(230, 214, 96, 0.9)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(x, y, 4.6, 2.3, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(230, 214, 96, 0.9)';
+        ctx.fillRect(x - 2.2, y - 1.7, 1.2, 3.4);
+        ctx.fillRect(x + 1, y - 1.7, 1.2, 3.4);
+        ctx.fillRect(x - 1, y - 0.5, 2, 1);
+        break;
+      }
+      case 'skylight': {
+        for (let f = -1; f <= 1; f++) {
+          const q = diamond(x + f * 5, y + f * 2.5, 3, 1.5);
+          fill(ctx, q, 'rgba(150, 190, 220, 0.75)');
+          ctx.strokeStyle = 'rgba(226, 238, 248, 0.6)';
+          ctx.lineWidth = 0.7;
+          ctx.beginPath();
+          ctx.moveTo(x + f * 5 - 3, y + f * 2.5);
+          ctx.lineTo(x + f * 5, y + f * 2.5 - 1.5);
+          ctx.stroke();
+        }
         break;
       }
       default:

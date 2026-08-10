@@ -23,7 +23,7 @@ export type RoofStyle = 'flat' | 'parapet' | 'gabled' | 'sawtooth' | 'hipped' | 
 export type WindowStyle = 'punched' | 'ribbon' | 'curtain' | 'none';
 export type PropKind =
   | 'waterTower' | 'acUnit' | 'antenna' | 'chimney' | 'vent'
-  | 'tank' | 'awning' | 'yardTree' | 'hedge';
+  | 'tank' | 'awning' | 'yardTree' | 'hedge' | 'helipad' | 'skylight';
 
 /** Units are normalized to the stage's footprint budget: the drawing code
  * multiplies ox/oy/f by footprintBudget(stage), so one recipe serves every
@@ -158,7 +158,7 @@ const TABLE: Record<FamilyKey, [Archetype[], Archetype[], Archetype[]]> = {
     ],
     [
       // brick terrace: a long shallow row
-      A([B(0, 0, 0.92, 1, { w: 0.92, d: 0.4 })], 'flat', 'punched', ['chimney'], F.walkup),
+      A([B(0, 0, 0.92, 1, { w: 0.92, d: 0.4 })], 'flat', 'punched', ['chimney', 'waterTower'], F.walkup),
       // mid-rise over a lobby, balconies above
       A([B(0, 0, 0.8, 1)], 'parapet', 'punched', ['acUnit'], F.balconied),
       // L-shaped block round a court
@@ -185,7 +185,7 @@ const TABLE: Record<FamilyKey, [Archetype[], Archetype[], Archetype[]]> = {
     ],
     [
       // mansion block: piers, banding, heavy cornice
-      A([B(0, 0, 0.82, 1, { d: 0.62 })], 'mansard', 'punched', ['chimney'], F.classical),
+      A([B(0, 0, 0.82, 1, { d: 0.62 })], 'mansard', 'punched', ['chimney', 'waterTower'], F.classical),
       A([B(0, 0, 0.78, 0.5), B(0, 0, 0.56, 1)], 'parapet', 'punched', ['hedge'], F.classical),
       A([B(-0.13, 0.13, 0.58, 1), B(0.18, -0.14, 0.44, 0.76)], 'parapet', 'punched', [], F.bayed),
     ],
@@ -199,7 +199,7 @@ const TABLE: Record<FamilyKey, [Archetype[], Archetype[], Archetype[]]> = {
   C1: [
     [
       // strip retail: wide, low, one long awning
-      A([B(0, 0, 0.92, 1, { w: 0.92, d: 0.44 })], 'flat', 'punched', ['awning'], F.bigbox),
+      A([B(0, 0, 0.92, 1, { w: 0.92, d: 0.44 })], 'flat', 'punched', ['awning', 'vent'], F.bigbox),
       // corner store with a store room behind
       A([B(-0.16, 0.06, 0.58, 1), B(0.2, -0.14, 0.44, 0.76)], 'flat', 'punched', ['awning', 'acUnit']),
       A([B(0, 0, 0.86, 1)], 'parapet', 'punched', ['awning'], { podium: 1, cornice: true }),
@@ -235,11 +235,11 @@ const TABLE: Record<FamilyKey, [Archetype[], Archetype[], Archetype[]]> = {
     ],
     [
       // setback office tower on a podium — the wedding-cake profile
-      A([B(0, 0, 0.94, 0.3), B(0, 0, 0.7, 0.66), B(0, 0, 0.5, 1)], 'flat', 'curtain', ['antenna'], F.office),
+      A([B(0, 0, 0.94, 0.3), B(0, 0, 0.7, 0.66), B(0, 0, 0.5, 1)], 'flat', 'curtain', ['antenna', 'helipad'], F.office),
       // slab office
       A([B(0, 0, 0.92, 1, { w: 0.92, d: 0.4, chamfer: 0.12 })], 'flat', 'curtain', ['vent'], F.curtain),
       // chamfered point tower
-      A([B(0, 0, 0.62, 1, { chamfer: 0.3 })], 'parapet', 'curtain', ['antenna'], F.curtain),
+      A([B(0, 0, 0.62, 1, { chamfer: 0.3 })], 'parapet', 'curtain', ['antenna', 'helipad'], F.curtain),
       A([B(0, 0, 0.9, 0.42), B(-0.12, 0.1, 0.5, 1), B(0.16, -0.12, 0.4, 0.8)], 'flat', 'curtain', [], F.office),
     ],
   ],
@@ -249,17 +249,17 @@ const TABLE: Record<FamilyKey, [Archetype[], Archetype[], Archetype[]]> = {
       A([B(0, 0, 0.86, 1, { d: 0.58 })], 'flat', 'curtain', [], F.office),
     ],
     [
-      A([B(0, 0, 0.88, 0.4), B(0, 0, 0.58, 1, { chamfer: 0.24 })], 'flat', 'curtain', [], F.curtain),
-      A([B(0, 0, 0.9, 1, { w: 0.9, d: 0.44 })], 'parapet', 'curtain', ['antenna'], F.curtain),
-      A([B(0, 0, 0.82, 1, { chamfer: 0.34 })], 'flat', 'curtain', [], F.office),
+      A([B(0, 0, 0.88, 0.4), B(0, 0, 0.58, 1, { chamfer: 0.24 })], 'flat', 'curtain', ['acUnit'], F.curtain),
+      A([B(0, 0, 0.9, 1, { w: 0.9, d: 0.44 })], 'parapet', 'curtain', ['antenna', 'helipad'], F.curtain),
+      A([B(0, 0, 0.82, 1, { chamfer: 0.34 })], 'flat', 'curtain', ['acUnit'], F.office),
     ],
     [
       // the classic ziggurat
-      A([B(0, 0, 0.92, 0.26), B(0, 0, 0.72, 0.56), B(0, 0, 0.5, 1, { chamfer: 0.22 })], 'flat', 'curtain', ['antenna'], F.curtain),
+      A([B(0, 0, 0.92, 0.26), B(0, 0, 0.72, 0.56), B(0, 0, 0.5, 1, { chamfer: 0.22 })], 'flat', 'curtain', ['antenna', 'helipad'], F.curtain),
       // slender chamfered shaft
       A([B(0, 0, 0.52, 1, { chamfer: 0.32 })], 'flat', 'curtain', ['antenna'], F.curtain),
       // slab with a cut corner
-      A([B(0, 0, 0.9, 1, { w: 0.9, d: 0.38, chamfer: 0.16 })], 'parapet', 'curtain', [], F.curtain),
+      A([B(0, 0, 0.9, 1, { w: 0.9, d: 0.38, chamfer: 0.16 })], 'parapet', 'curtain', ['acUnit'], F.curtain),
       A([B(0, 0, 0.86, 0.36), B(-0.13, 0.1, 0.48, 1), B(0.17, -0.12, 0.4, 0.74)], 'flat', 'curtain', ['antenna'], F.office),
     ],
   ],
@@ -280,17 +280,17 @@ const TABLE: Record<FamilyKey, [Archetype[], Archetype[], Archetype[]]> = {
   ],
   manu: [
     [
-      A([B(0, 0, 0.92, 1, { w: 0.92, d: 0.6 })], 'sawtooth', 'ribbon', ['vent']),
+      A([B(0, 0, 0.92, 1, { w: 0.92, d: 0.6 })], 'sawtooth', 'ribbon', ['vent', 'skylight']),
       A([B(0, 0, 0.82, 1)], 'flat', 'ribbon', ['acUnit']),
     ],
     [
-      A([B(0, 0, 0.95, 1, { w: 0.95, d: 0.66 })], 'sawtooth', 'ribbon', ['vent', 'acUnit']),
+      A([B(0, 0, 0.95, 1, { w: 0.95, d: 0.66 })], 'sawtooth', 'ribbon', ['vent', 'acUnit', 'skylight']),
       // warehouse with a loading dock wing
-      A([B(-0.14, 0, 0.62, 1, { d: 0.7 }), B(0.2, 0.05, 0.5, 0.5)], 'sawtooth', 'ribbon', ['vent']),
+      A([B(-0.14, 0, 0.62, 1, { d: 0.7 }), B(0.2, 0.05, 0.5, 0.5)], 'sawtooth', 'ribbon', ['vent', 'skylight']),
       A([B(0, 0, 0.9, 1, { w: 0.5, d: 0.9 })], 'flat', 'ribbon', ['vent', 'tank']),
     ],
     [
-      A([B(0, 0, 0.95, 1, { d: 0.72 })], 'sawtooth', 'ribbon', ['vent', 'tank']),
+      A([B(0, 0, 0.95, 1, { d: 0.72 })], 'sawtooth', 'ribbon', ['vent', 'tank', 'skylight']),
       A([B(0, -0.1, 0.75, 1), B(0, 0.27, 0.42, 0.5)], 'flat', 'ribbon', ['acUnit', 'vent']),
     ],
   ],
