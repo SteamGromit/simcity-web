@@ -439,6 +439,13 @@ export function placeRoofProps(
   return out;
 }
 
+/** The baked chimney prism's height for placement index k (post-increment,
+ * as the original inline code read it). Shared by roofKit's chimney case and
+ * hearthTip so the wisp can never drift off the baked stack. */
+export function chimneyHeight(kPost: number, seed: number): number {
+  return 9 + hash2(kPost, 5, seed) * 4;
+}
+
 /** Rooftop furniture, drawn on the lifted roof quad. */
 function roofKit(
   ctx: CanvasRenderingContext2D,
@@ -516,8 +523,8 @@ function roofKit(
       }
       case 'chimney': {
         const q = diamond(x, y, 2.4, 1.2);
-        // the original code read k post-increment; hearthTip mirrors this via hit.k + 1
-        prism(ctx, q, 9 + hash2(k + 1, 5, seed) * 4, material('brick', mix(body, hsl(14, 34, 34), 0.7)), {
+        // k post-increment, as the original inline code read it — see chimneyHeight
+        prism(ctx, q, chimneyHeight(k + 1, seed), material('brick', mix(body, hsl(14, 34, 34), 0.7)), {
           seed,
           groundAo: false,
         });
@@ -1672,8 +1679,8 @@ export function hearthTip(zone: Zone, stage: Stage, tier: Tier, bucket: number):
   const roof = raise(q, h);
   const hit = placeRoofProps(arch.props, roof, bucket * 7 + 1).find((p) => p.kind === 'chimney');
   if (!hit) return null;
-  // the baked chimney prism is 9–13 px tall; vent from its cap
-  return { x: hit.x, y: hit.y - (9 + hash2(hit.k + 1, 5, bucket * 7 + 1) * 4), kind: 'hearth', s: 0.55 };
+  // vent from the cap of the exact prism roofKit's chimney case bakes
+  return { x: hit.x, y: hit.y - chimneyHeight(hit.k + 1, bucket * 7 + 1), kind: 'hearth', s: 0.55 };
 }
 
 // ---------------------------------------------------------------------------

@@ -1,11 +1,10 @@
 import { describe, expect, test } from 'vitest';
 import {
   COAL_STACKS,
-  growableHeight, hearthTip, industryStacks, massHeight, placeRoofProps, stackTips,
+  chimneyHeight, growableHeight, hearthTip, industryStacks, massHeight, placeRoofProps, stackTips,
 } from '../src/render/buildings';
 import { boxExtent, channels, footprintBudget, pickArchetype } from '../src/render/archetypes';
 import { chamfer, raise, tileOffset, tileRect } from '../src/render/massing';
-import { hash2 } from '../src/render/noise';
 import { ensureCoreContent } from '../src/sim/content';
 import { Stage, Tier, Zone } from '../src/sim/types';
 
@@ -62,6 +61,18 @@ describe('placeRoofProps', () => {
   });
 });
 
+describe('chimneyHeight', () => {
+  // The bake (roofKit's chimney case) and hearthTip both call this one
+  // function for the prism height, so there is nowhere left for them to
+  // drift apart — but the function's own output can still silently change.
+  // These numbers are observed, not derived; pin them.
+  test('pins known (k, seed) pairs — a change here is a change to every baked chimney and hearth wisp', () => {
+    expect(chimneyHeight(0, 1)).toBeCloseTo(12.307956, 6);
+    expect(chimneyHeight(1, 1)).toBeCloseTo(9.571878, 6);
+    expect(chimneyHeight(3, 7)).toBeCloseTo(12.634661, 6);
+  });
+});
+
 describe('hearthTip', () => {
   test('only low-stage residential with a chimney-carrying archetype gets one', () => {
     expect(hearthTip(Zone.Commercial, 2 as Stage, 2 as Tier, 0)).toBeNull();
@@ -82,7 +93,7 @@ describe('hearthTip', () => {
     expect(found).toBeGreaterThan(0);
   });
 
-  test('the vent point matches the same post-increment height term the bake draws (regression: roofKit case bodies must read k + 1, not k)', () => {
+  test('the vent point sits on the shared chimneyHeight seam, not a private copy of it', () => {
     // find a bucket/stage with a chimney-carrying archetype, the same scan
     // the test above uses
     let hit: { stage: Stage; bucket: number } | null = null;
@@ -114,9 +125,12 @@ describe('hearthTip', () => {
     const placed = placeRoofProps(arch.props, roof, seed).find((p) => p.kind === 'chimney');
     expect(placed).toBeTruthy();
 
-    // the exact term roofKit's case 'chimney' now reads: hash2(k + 1, 5, seed)
-    const expectedY = placed!.y - (9 + hash2(placed!.k + 1, 5, seed) * 4);
+    // hearthTip must land on the exact seam roofKit's case 'chimney' bakes
+    // through: chimneyHeight(k + 1, seed) — the invariant is structural (one
+    // shared function, one call convention), and chimneyHeight's own values
+    // are pinned above, so this is an integration check of the seam, not a
+    // restatement of a formula private to this test.
     expect(t.x).toBeCloseTo(placed!.x, 9);
-    expect(t.y).toBeCloseTo(expectedY, 9);
+    expect(t.y).toBeCloseTo(placed!.y - chimneyHeight(placed!.k + 1, seed), 9);
   });
 });
