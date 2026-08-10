@@ -2,6 +2,7 @@ import { idx, inBounds, neighbors4 } from '../sim/grid';
 import { mulberry32 } from '../sim/city';
 import { BuildTool, CityState, GRID, MAX_ELEV, Terrain, Zone } from '../sim/types';
 import { Automata } from './automata';
+import { AmbientEnv, drawAmbient } from './ambientfx';
 import {
   drawBuilding,
   drawCastShadow,
@@ -121,6 +122,10 @@ export class Renderer {
   private frameNow = 0;
   /** Accumulated sim-speed-scaled time (ms) driving line vehicles. */
   private lineClock = 0;
+  /** Sim-speed-scaled ambient-motion clock (ms). Keeps a slow drift while
+   * paused: smoke is ambience, not simulation, and a paused city still
+   * breathes. */
+  private ambientClock = 0;
   /** Current frame's LOD, shared with the ground pass. */
   private detail: 0 | 1 | 2 = 1;
   /** Seasonal vegetation tint for the current frame. */
@@ -310,6 +315,9 @@ export class Renderer {
     this.night = getDayNight() ? nightFactor(now) : 0;
     this.lineClock +=
       Math.min(100, Math.max(0, now - this.frameNow)) * AUTOMATA_SCALE[this.simSpeed];
+    this.ambientClock +=
+      Math.min(100, Math.max(0, now - this.frameNow)) *
+      (0.35 + 0.65 * AUTOMATA_SCALE[this.simSpeed]);
     this.frameNow = now;
     this.storm = city.disasters.hurricaneTicks > 0;
     this.wind = this.storm ? -5 + Math.sin(now / 120) * 3.5 : 0;
@@ -340,6 +348,13 @@ export class Renderer {
     const detail = detailLevel(this.camera.zoom);
     this.detail = detail;
     const season = seasonOf(city.month);
+    const ambient: AmbientEnv = {
+      clock: this.ambientClock,
+      wind: this.wind,
+      night: this.night,
+      detail,
+      winter: season === 'winter',
+    };
     this.veg = vegTint(season);
     setRenderSeason(season);
 
@@ -424,6 +439,10 @@ export class Renderer {
             this.night,
             detail,
             size,
+          );
+          drawAmbient(
+            ctx, drawGeom, t.zone, t.stage, t.tier, this.variants[i], size,
+            t.powered, t.abandoned, t.pollution, ambient,
           );
         }
       }

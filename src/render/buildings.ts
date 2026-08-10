@@ -1323,14 +1323,6 @@ function drawCivic(
       break;
     }
     case Zone.School: {
-      ctx.strokeStyle = '#cfc8ba';
-      ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      ctx.moveTo(cx - 16, cy - h - 16);
-      ctx.lineTo(cx - 16, cy - h + 2);
-      ctx.stroke();
-      ctx.fillStyle = '#d24b3f';
-      ctx.fillRect(cx - 16, cy - h - 16, 8, 4.5);
       // a small yard with a court marking
       ctx.strokeStyle = 'rgba(240, 244, 250, 0.4)';
       ctx.lineWidth = 1;
@@ -1479,14 +1471,6 @@ function drawCivic(
         ],
         css(lit(hsl(40, 5, 72), LIGHT.roof * 0.9)),
       );
-      if (powered) {
-        ctx.fillStyle = 'rgba(248, 250, 252, 0.5)';
-        ctx.beginPath();
-        ctx.arc(tx, ty - 38, 6, 0, Math.PI * 2);
-        ctx.arc(tx + 6, ty - 44, 4.5, 0, Math.PI * 2);
-        ctx.arc(tx - 3, ty - 47, 3.5, 0, Math.PI * 2);
-        ctx.fill();
-      }
       break;
     }
     case Zone.Incinerator: {
@@ -1499,13 +1483,6 @@ function drawCivic(
       );
       ctx.fillStyle = 'rgba(30, 26, 24, 0.8)';
       ctx.fillRect(cx + 3.4, cy - h - 36, 9, 2.6);
-      if (detail >= 1) {
-        ctx.fillStyle = 'rgba(250, 250, 250, 0.3)';
-        ctx.beginPath();
-        ctx.arc(cx + 10, cy - h - 46, 5, 0, Math.PI * 2);
-        ctx.arc(cx + 15, cy - h - 53, 3.5, 0, Math.PI * 2);
-        ctx.fill();
-      }
       break;
     }
     case Zone.RecyclingCentre: {
