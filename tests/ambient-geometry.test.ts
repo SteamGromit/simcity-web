@@ -1,8 +1,11 @@
 import { describe, expect, test } from 'vitest';
 import {
   COAL_STACKS,
-  hearthTip, industryStacks, massHeight, placeRoofProps, stackTips,
+  growableHeight, hearthTip, industryStacks, massHeight, placeRoofProps, stackTips,
 } from '../src/render/buildings';
+import { boxExtent, channels, footprintBudget, pickArchetype } from '../src/render/archetypes';
+import { chamfer, raise, tileOffset, tileRect } from '../src/render/massing';
+import { hash2 } from '../src/render/noise';
 import { ensureCoreContent } from '../src/sim/content';
 import { Stage, Tier, Zone } from '../src/sim/types';
 
@@ -77,5 +80,43 @@ describe('hearthTip', () => {
       }
     }
     expect(found).toBeGreaterThan(0);
+  });
+
+  test('the vent point matches the same post-increment height term the bake draws (regression: roofKit case bodies must read k + 1, not k)', () => {
+    // find a bucket/stage with a chimney-carrying archetype, the same scan
+    // the test above uses
+    let hit: { stage: Stage; bucket: number } | null = null;
+    outer: for (let b = 0; b < 6; b++) {
+      for (const st of [1, 2, 3] as Stage[]) {
+        if (hearthTip(Zone.Residential, st, 2 as Tier, b)) {
+          hit = { stage: st, bucket: b };
+          break outer;
+        }
+      }
+    }
+    expect(hit).not.toBeNull();
+    const { stage, bucket } = hit!;
+    const t = hearthTip(Zone.Residential, stage, 2 as Tier, bucket)!;
+
+    // rebuild the same roof quad hearthTip built internally, independently of it
+    const half = (bucket + 0.5) / 6; // VARIANTS, not exported — matches its every use elsewhere in this file
+    const chan = channels(half);
+    const arch = pickArchetype(Zone.Residential, 2 as Tier, stage, chan());
+    const h = growableHeight(Zone.Residential, stage, 2 as Tier, bucket);
+    const budget = footprintBudget(stage);
+    const sb = arch.boxes.find((b2) => b2.hf === 1)!;
+    const e = boxExtent(sb);
+    const c = tileOffset(sb.ox * budget, sb.oy * budget);
+    const plan = tileRect(c[0], c[1], (e.w * budget) / 2, (e.d * budget) / 2);
+    const q = sb.chamfer ? chamfer(plan, sb.chamfer) : plan;
+    const roof = raise(q, h);
+    const seed = bucket * 7 + 1;
+    const placed = placeRoofProps(arch.props, roof, seed).find((p) => p.kind === 'chimney');
+    expect(placed).toBeTruthy();
+
+    // the exact term roofKit's case 'chimney' now reads: hash2(k + 1, 5, seed)
+    const expectedY = placed!.y - (9 + hash2(placed!.k + 1, 5, seed) * 4);
+    expect(t.x).toBeCloseTo(placed!.x, 9);
+    expect(t.y).toBeCloseTo(expectedY, 9);
   });
 });

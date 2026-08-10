@@ -494,7 +494,8 @@ function roofKit(
         break;
       }
       case 'antenna': {
-        const th = 11 + hash2(k, 4, seed) * 9 + h * 0.06;
+        // the original code read k post-increment; hearthTip mirrors this via hit.k + 1
+        const th = 11 + hash2(k + 1, 4, seed) * 9 + h * 0.06;
         ctx.strokeStyle = 'rgba(196, 204, 214, 0.95)';
         ctx.lineWidth = 1.1;
         ctx.beginPath();
@@ -515,7 +516,8 @@ function roofKit(
       }
       case 'chimney': {
         const q = diamond(x, y, 2.4, 1.2);
-        prism(ctx, q, 9 + hash2(k, 5, seed) * 4, material('brick', mix(body, hsl(14, 34, 34), 0.7)), {
+        // the original code read k post-increment; hearthTip mirrors this via hit.k + 1
+        prism(ctx, q, 9 + hash2(k + 1, 5, seed) * 4, material('brick', mix(body, hsl(14, 34, 34), 0.7)), {
           seed,
           groundAo: false,
         });
