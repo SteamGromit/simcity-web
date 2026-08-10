@@ -12,6 +12,7 @@ import {
   drawLotApron,
   drawRubble,
 } from '../src/render/buildings';
+import { drawAmbient } from '../src/render/ambientfx';
 import { drawHedge, drawRock, drawTree } from '../src/render/scenery';
 import { paintCliff, paintGround, paintShore, paintWater } from '../src/render/ground';
 import { hsl } from '../src/render/palette';
@@ -468,4 +469,25 @@ describe('an archetype exists for every lot', () => {
       }
     }
   });
+});
+
+describe('ambient painters at every quarter', () => {
+  const ENV = { clock: 3456, wind: -2, night: 0.4, detail: 1 as const, winter: true };
+  const cases: [string, Zone, Stage, Tier, number][] = [
+    ['dirty industry', Zone.Industrial, 3 as Stage, 'dirty' as Tier, 0.4],
+    ['coal plant', Zone.PowerPlant, 0 as Stage, 2 as Tier, 0.1],
+    ['nuclear steam', Zone.NuclearPlant, 0 as Stage, 2 as Tier, 0.1],
+    ['winter hearth', Zone.Residential, 2 as Stage, 2 as Tier, 0.1],
+    ['park fountain', Zone.Park, 0 as Stage, 2 as Tier, (2 + 0.5) / 6],
+    ['stadium flag', Zone.Stadium, 0 as Stage, 2 as Tier, 0.1],
+  ];
+  for (const [name, zone, stage, tier, variant] of cases) {
+    test(name, () => {
+      const traces = atEveryQuarter(
+        (ctx, geom) => drawAmbient(ctx, geom, zone, stage, tier, variant, 1, true, false, 0.6, ENV),
+        () => centredGeom(3, 4),
+      );
+      for (const t of traces.slice(1)) expect(canonical(t)).toEqual(canonical(traces[0]));
+    });
+  }
 });
