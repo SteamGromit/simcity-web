@@ -4,6 +4,44 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.61.0] — 2026-08-10 · Smoke over the works, and a city that moves at rest
+
+Everything ambient in the renderer used to be true for one frame and then held
+there forever — the coal plant's puffs and the nuclear towers' steam were
+painted once into the baked sprite and never moved again. This slice threads a
+single ambient clock through the standing render pass so a settled city keeps
+breathing even while the simulation underneath it is not.
+
+### Added
+- **Live ambient motion** (`render/ambientfx.ts`). Stage 2+ dirty and
+  manufacturing industry lots vent a grey-brown plume that thickens with the
+  tile's own pollution reading, and so do the coal plant and the incinerator.
+  The nuclear plant's cooling towers now breathe slow white steam, replacing
+  the two static puffs baked into the old sprite. Low-rise homes with a
+  chimney add a thin hearth wisp once the season turns to winter. Stage 6+
+  towers pick up red anti-collision beacons that blink out of sync across a
+  skyline and brighter after dark. The School's flag — a fixed red rectangle
+  painted on its pole since it was drawn — now actually ripples (the old
+  static flag is gone), and about a third of parks gained a small looping
+  fountain.
+- The ambient clock scales with sim speed but keeps a slow drift while
+  paused, so a paused city still moves; smoke leans downwind and lies flat in
+  a hurricane, and every plume dims after dark. Far zoom simplifies industry
+  and plant plumes to two puffs and skips flags, beacons and fountains
+  entirely. Unpowered and abandoned lots never smoke. Measured well under
+  1 ms a frame in browser testing.
+
+### Under the hood
+- Emitter positions — stack tips, the hearth vent, roof-prop placement, and
+  chimney height — are now pure functions (`stackTips`, `hearthTip`,
+  `placeRoofProps`, `chimneyHeight`) exported from the bake and shared with
+  the ambient pass, so a plume rises from exactly the stack the sprite
+  painted, at all four camera quarters, rather than a re-guessed
+  approximation.
+- `tests/rotation-sweep.test.ts` gained cases for the new painters, each
+  guarded against silently going vacuous — the same discipline the sweep has
+  held the reward, growable and civic painters to since v0.60.1.
+
 ## [0.60.1] — 2026-08-09 · Three more things a turned camera got wrong
 
 Widening the strict-context rotation sweep past the reward set — the "cheap

@@ -407,6 +407,45 @@ export function growableHeight(zone: Zone, stage: Stage, tier: Tier, bucket: num
   );
 }
 
+export type StackKind = 'smoke' | 'steam' | 'hearth';
+export interface StackTip { x: number; y: number; kind: StackKind; s: number }
+
+/** Where roof props land — the pure half of roofKit, shared with the ambient
+ * pass so a hearth wisp rises from exactly the chimney the bake drew. */
+export function placeRoofProps(
+  kinds: PropKind[],
+  roof: Pt[],
+  seed: number,
+): { kind: PropKind; x: number; y: number; k: number }[] {
+  const cx = (roof[0][0] + roof[2][0]) / 2;
+  const cy = (roof[1][1] + roof[3][1]) / 2;
+  const [hw, hh] = halfExtent(roof);
+  const out: { kind: PropKind; x: number; y: number; k: number }[] = [];
+  let k = 0;
+  for (const kind of kinds) {
+    // Most lots carry their props; a mast is the exception. Antennas on every
+    // tower turned downtown into a pin cushion, so only about one in five gets
+    // one and the rest take their silhouette from the crown instead.
+    const chance = kind === 'antenna' ? 0.2 : 0.82;
+    if (hash2(k, 9, seed) > chance) {
+      k++;
+      continue;
+    }
+    const u = hash2(k, 1, seed) * 1.1 - 0.55;
+    const v = hash2(k, 2, seed) * 1.1 - 0.55;
+    const s = Math.min(1, 0.72 / (Math.abs(u) + Math.abs(v) + 1e-6));
+    out.push({ kind, x: cx + u * s * hw, y: cy + v * s * hh, k: k++ });
+  }
+  return out;
+}
+
+/** The baked chimney prism's height for placement index k (post-increment,
+ * as the original inline code read it). Shared by roofKit's chimney case and
+ * hearthTip so the wisp can never drift off the baked stack. */
+export function chimneyHeight(kPost: number, seed: number): number {
+  return 9 + hash2(kPost, 5, seed) * 4;
+}
+
 /** Rooftop furniture, drawn on the lifted roof quad. */
 function roofKit(
   ctx: CanvasRenderingContext2D,
@@ -421,24 +460,8 @@ function roofKit(
   // measured, not read off corner indices: a quarter turn moves which corner
   // is which, and props scattered by a zeroed extent all pile on the centre
   const [hw, hh] = halfExtent(roof);
-  const spot = (k: number): [number, number] => {
-    const u = hash2(k, 1, seed) * 1.1 - 0.55;
-    const v = hash2(k, 2, seed) * 1.1 - 0.55;
-    const s = Math.min(1, 0.72 / (Math.abs(u) + Math.abs(v) + 1e-6));
-    return [cx + u * s * hw, cy + v * s * hh];
-  };
   const metal = material('metal', hsl(210, 5, 58));
-  let k = 0;
-  for (const kind of kinds) {
-    // Most lots carry their props; a mast is the exception. Antennas on every
-    // tower turned downtown into a pin cushion, so only about one in five gets
-    // one and the rest take their silhouette from the crown instead.
-    const chance = kind === 'antenna' ? 0.2 : 0.82;
-    if (hash2(k, 9, seed) > chance) {
-      k++;
-      continue;
-    }
-    const [x, y] = spot(k++);
+  for (const { kind, x, y, k } of placeRoofProps(kinds, roof, seed)) {
     switch (kind) {
       case 'acUnit': {
         const q = diamond(x, y, 5, 2.5);
@@ -478,7 +501,8 @@ function roofKit(
         break;
       }
       case 'antenna': {
-        const th = 11 + hash2(k, 4, seed) * 9 + h * 0.06;
+        // the original code read k post-increment; hearthTip mirrors this via hit.k + 1
+        const th = 11 + hash2(k + 1, 4, seed) * 9 + h * 0.06;
         ctx.strokeStyle = 'rgba(196, 204, 214, 0.95)';
         ctx.lineWidth = 1.1;
         ctx.beginPath();
@@ -499,7 +523,8 @@ function roofKit(
       }
       case 'chimney': {
         const q = diamond(x, y, 2.4, 1.2);
-        prism(ctx, q, 9 + hash2(k, 5, seed) * 4, material('brick', mix(body, hsl(14, 34, 34), 0.7)), {
+        // k post-increment, as the original inline code read it — see chimneyHeight
+        prism(ctx, q, chimneyHeight(k + 1, seed), material('brick', mix(body, hsl(14, 34, 34), 0.7)), {
           seed,
           groundAo: false,
         });
@@ -925,6 +950,22 @@ interface LotKey {
   glow: boolean;
 }
 
+/** Industrial growable stack placement — shared by the bake and stackTips. */
+export function industryStacks(
+  stage: Stage,
+  kind: 'dirty' | 'manu',
+  hw: number,
+  hh: number,
+  h: number,
+): { x: number; y: number; w: number; stackH: number }[] {
+  const stackH = 18 + stage * 3;
+  const out = [{ x: hw * 0.34, y: hh * 0.2 - h, w: 3.2, stackH }];
+  if (kind === 'dirty' && stage >= 3) {
+    out.push({ x: -hw * 0.34 * 0.4, y: hh * 0.2 * 1.6 - h, w: 2.6, stackH: stackH * 0.7 });
+  }
+  return out;
+}
+
 /**
  * Bake one growable lot. Everything static about it — masses, materials,
  * windows, roof, signage — lands in a bitmap that is afterwards copied in a
@@ -1048,16 +1089,14 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
   }
 
   if (zone === Zone.Industrial && stage >= 2 && !abandoned && (kind === 'dirty' || kind === 'manu')) {
-    const stackH = 18 + stage * 3;
-    const sx = hw * 0.34;
-    const sy = hh * 0.2;
-    const q = diamond(sx, sy - h, 3.2, 1.6);
-    prism(ctx, q, stackH, material('brick', hsl(16, 22, 34)), { seed: bucket, groundAo: false });
-    ctx.fillStyle = 'rgba(30, 26, 24, 0.8)';
-    ctx.fillRect(sx - 3.4, sy - h - stackH - 2, 6.8, 2.4);
-    if (kind === 'dirty' && stage >= 3) {
-      const q2 = diamond(-sx * 0.4, sy * 1.6 - h, 2.6, 1.3);
-      prism(ctx, q2, stackH * 0.7, material('brick', hsl(16, 20, 30)), { seed: bucket + 1, groundAo: false });
+    for (const [i2, st] of industryStacks(stage, kind, hw, hh, h).entries()) {
+      const q2 = diamond(st.x, st.y, st.w, st.w / 2);
+      prism(ctx, q2, st.stackH, material('brick', hsl(16, 22 - i2 * 2, 34 - i2 * 4)), {
+        seed: bucket + i2,
+        groundAo: false,
+      });
+      ctx.fillStyle = 'rgba(30, 26, 24, 0.8)';
+      ctx.fillRect(st.x - st.w - 0.2, st.y - st.stackH - 2, st.w * 2 + 0.4, 2.4);
     }
   }
 }
@@ -1217,6 +1256,11 @@ export function massFootprint(zone: Zone, stage: Stage): number {
   return 0;
 }
 
+/** Civic stack geometry — one source for the painter and the ambient pass. */
+export const COAL_STACKS = [[-16, 26], [-3, 32]] as const;
+export const INCINERATOR_STACK = { dx: 8, h: 38 } as const;
+export const NUCLEAR_TOWER = { dx: 15, dy: -2, h: 32 } as const;
+
 function drawCivic(
   ctx: CanvasRenderingContext2D,
   geom: TileGeom,
@@ -1279,14 +1323,6 @@ function drawCivic(
       break;
     }
     case Zone.School: {
-      ctx.strokeStyle = '#cfc8ba';
-      ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      ctx.moveTo(cx - 16, cy - h - 16);
-      ctx.lineTo(cx - 16, cy - h + 2);
-      ctx.stroke();
-      ctx.fillStyle = '#d24b3f';
-      ctx.fillRect(cx - 16, cy - h - 16, 8, 4.5);
       // a small yard with a court marking
       ctx.strokeStyle = 'rgba(240, 244, 250, 0.4)';
       ctx.lineWidth = 1;
@@ -1311,10 +1347,7 @@ function drawCivic(
       break;
     }
     case Zone.PowerPlant: {
-      for (const [dx, sh] of [
-        [-16, 26],
-        [-3, 32],
-      ] as const) {
+      for (const [dx, sh] of COAL_STACKS) {
         prism(ctx, diamond(cx + dx, cy - h + 4, 4, 2), sh, material('brick', hsl(18, 16, 36)), {
           seed: 9,
           groundAo: false,
@@ -1406,15 +1439,15 @@ function drawCivic(
     }
     case Zone.NuclearPlant: {
       // the waisted cooling tower, with steam if it is running
-      const tx = cx + 15;
-      const ty = cy - 2;
+      const tx = cx + NUCLEAR_TOWER.dx;
+      const ty = cy + NUCLEAR_TOWER.dy;
       fill(
         ctx,
         [
           [tx - 9, ty],
           [tx + 9, ty],
-          [tx + 6, ty - 22],
-          [tx - 6, ty - 22],
+          [tx + 6, ty - (NUCLEAR_TOWER.h - 10)],
+          [tx - 6, ty - (NUCLEAR_TOWER.h - 10)],
         ],
         css(lit(hsl(40, 5, 66), LIGHT.right)),
       );
@@ -1423,45 +1456,33 @@ function drawCivic(
         [
           [tx - 9, ty],
           [tx - 3, ty],
-          [tx - 2, ty - 22],
-          [tx - 6, ty - 22],
+          [tx - 2, ty - (NUCLEAR_TOWER.h - 10)],
+          [tx - 6, ty - (NUCLEAR_TOWER.h - 10)],
         ],
         css(lit(hsl(40, 5, 66), LIGHT.left * 1.1)),
       );
       fill(
         ctx,
         [
-          [tx - 6, ty - 22],
-          [tx + 6, ty - 22],
-          [tx + 8, ty - 32],
-          [tx - 8, ty - 32],
+          [tx - 6, ty - (NUCLEAR_TOWER.h - 10)],
+          [tx + 6, ty - (NUCLEAR_TOWER.h - 10)],
+          [tx + 8, ty - NUCLEAR_TOWER.h],
+          [tx - 8, ty - NUCLEAR_TOWER.h],
         ],
         css(lit(hsl(40, 5, 72), LIGHT.roof * 0.9)),
       );
-      if (powered) {
-        ctx.fillStyle = 'rgba(248, 250, 252, 0.5)';
-        ctx.beginPath();
-        ctx.arc(tx, ty - 38, 6, 0, Math.PI * 2);
-        ctx.arc(tx + 6, ty - 44, 4.5, 0, Math.PI * 2);
-        ctx.arc(tx - 3, ty - 47, 3.5, 0, Math.PI * 2);
-        ctx.fill();
-      }
       break;
     }
     case Zone.Incinerator: {
-      prism(ctx, diamond(cx + 8, cy - h + 3, 4, 2), 38, material('concrete', hsl(24, 8, 50)), {
-        seed: 4,
-        groundAo: false,
-      });
+      prism(
+        ctx,
+        diamond(cx + INCINERATOR_STACK.dx, cy - h + 3, 4, 2),
+        INCINERATOR_STACK.h,
+        material('concrete', hsl(24, 8, 50)),
+        { seed: 4, groundAo: false },
+      );
       ctx.fillStyle = 'rgba(30, 26, 24, 0.8)';
       ctx.fillRect(cx + 3.4, cy - h - 36, 9, 2.6);
-      if (detail >= 1) {
-        ctx.fillStyle = 'rgba(250, 250, 250, 0.3)';
-        ctx.beginPath();
-        ctx.arc(cx + 10, cy - h - 46, 5, 0, Math.PI * 2);
-        ctx.arc(cx + 15, cy - h - 53, 3.5, 0, Math.PI * 2);
-        ctx.fill();
-      }
       break;
     }
     case Zone.RecyclingCentre: {
@@ -1574,6 +1595,69 @@ function drawCivic(
   }
   if (!powered) drawNoPowerBolt(ctx, cx, cy - h - 14);
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Ambient emitters — shared by the bake and the live smoke/steam pass
+// ---------------------------------------------------------------------------
+
+/** Every stack a building smokes or steams from, lot-local to its draw centre. */
+export function stackTips(zone: Zone, stage: Stage, tier: Tier, bucket: number, size: number): StackTip[] {
+  const authored = buildingBySlot(zone);
+  if (authored?.visual) {
+    const v = authored.visual;
+    const h = v.height * getSkin().heightScale;
+    const props = v.props.slice(0, MAX_BUILDING_PROPS);
+    return props.flatMap((p, i) =>
+      p === 'smokestack'
+        ? [{ x: (i - (props.length - 1) / 2) * 10, y: -h + 2 - 20, kind: 'smoke' as const, s: 0.8 }]
+        : [],
+    );
+  }
+  if (zone === Zone.Industrial && stage >= 2) {
+    const kind = normalizeTier(zone, tier);
+    if (kind !== 'dirty' && kind !== 'manu') return [];
+    const hw = (TILE_W * size) / 2;
+    const hh = (TILE_H * size) / 2;
+    const h = growableHeight(zone, stage, tier, bucket);
+    return industryStacks(stage, kind, hw, hh, h).map((st, i) => ({
+      x: st.x, y: st.y - st.stackH - 2, kind: 'smoke', s: i === 0 ? 1 : 0.7,
+    }));
+  }
+  const h = massHeight(zone, stage, tier, bucket);
+  if (zone === Zone.PowerPlant) {
+    return COAL_STACKS.map(([dx, sh]) => ({ x: dx, y: -h + 2 - sh, kind: 'smoke' as const, s: 1 }));
+  }
+  if (zone === Zone.Incinerator) {
+    return [{ x: INCINERATOR_STACK.dx, y: -h + 3 - INCINERATOR_STACK.h, kind: 'smoke', s: 0.8 }];
+  }
+  if (zone === Zone.NuclearPlant) {
+    return [{ x: NUCLEAR_TOWER.dx, y: NUCLEAR_TOWER.dy - NUCLEAR_TOWER.h - 2, kind: 'steam', s: 1.3 }];
+  }
+  return [];
+}
+
+/** The chimney a low-rise home would vent in winter — null when its archetype
+ * has none. Replays the exact placement the bake used via placeRoofProps. */
+export function hearthTip(zone: Zone, stage: Stage, tier: Tier, bucket: number): StackTip | null {
+  if (zone !== Zone.Residential || stage < 1 || stage > 3) return null;
+  const half = (bucket + 0.5) / VARIANTS;
+  const chan = channels(half);
+  const arch = pickArchetype(zone, tier, stage, chan());
+  if (!arch.props.includes('chimney')) return null;
+  const h = growableHeight(zone, stage, tier, bucket);
+  const budget = footprintBudget(stage);
+  const sb = arch.boxes.find((b) => b.hf === 1);
+  if (!sb) return null;
+  const e = boxExtent(sb);
+  const c = tileOffset(sb.ox * budget, sb.oy * budget);
+  const plan = tileRect(c[0], c[1], (e.w * budget) / 2, (e.d * budget) / 2);
+  const q = sb.chamfer ? chamfer(plan, sb.chamfer) : (plan as Pt[]);
+  const roof = raise(q, h);
+  const hit = placeRoofProps(arch.props, roof, bucket * 7 + 1).find((p) => p.kind === 'chimney');
+  if (!hit) return null;
+  // vent from the cap of the exact prism roofKit's chimney case bakes
+  return { x: hit.x, y: hit.y - chimneyHeight(hit.k + 1, bucket * 7 + 1), kind: 'hearth', s: 0.55 };
 }
 
 // ---------------------------------------------------------------------------

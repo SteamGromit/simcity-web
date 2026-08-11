@@ -26,7 +26,10 @@ decides what happens next:
 - **A living city** — zone at low, medium, or high density and watch shacks
   become towers as land value, services, and schools allow; cars roam the
   busy roads, citizens stroll outside their buildings, and day fades into
-  night with glowing windows and streetlights.
+  night with glowing windows and streetlights. Even a paused city keeps
+  moving: smoke drifts from industry stacks and the power plants, the
+  nuclear towers vent steam, chimneys breathe on frosty homes, tower
+  beacons blink after dark, flags ripple, and a few park fountains loop.
 - **Wealth & industry tiers** — buildings pick a character from their
   surroundings rather than from a zoning menu: residential and commercial
   lots carry § / §§ / §§§ wealth from land value, and industry comes as

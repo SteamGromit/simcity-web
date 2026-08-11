@@ -84,7 +84,30 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    choose wall materials, roof kits, road markings, vegetation and sky, not
    just remap hue and saturation.
 
+10. **Vehicles: realistic movement and 3D orientation** — cars that steer
+    through turns with real headings (sprite orientation per direction of
+    travel, not axis-aligned), lane-change easing, plausible acceleration.
+    (User-requested 2026-08-10.)
+
 ## Done
+
+- **Smoke over the works, and a city that moves at rest** — shipped v0.61.0
+  (an ambient clock threaded through the standing render pass so a settled
+  city keeps breathing: grey-brown plumes on stage 2+ dirty/manufacturing
+  industry, the coal plant and the incinerator, scaled with the tile's own
+  pollution; the nuclear plant's cooling towers vent slow white steam in
+  place of the two static puffs baked into the old sprite; low-rise homes
+  with a chimney breathe a thin hearth wisp in winter; stage 6+ towers carry
+  unsynchronized red anti-collision beacons, brighter at night; the School's
+  flag actually ripples now instead of sitting painted on its pole; about a
+  third of parks gained a looping fountain. Smoke leans downwind and lies
+  flat in a hurricane, dims at night, and simplifies to two puffs at far
+  zoom for industry/plants only; unpowered and abandoned lots never smoke;
+  the clock keeps a slow drift while paused. Emitter positions —
+  `stackTips`/`hearthTip`/`placeRoofProps`/`chimneyHeight` — are pure
+  functions shared with the sprite bake, so a plume rises from exactly
+  where the stack was painted at all four camera quarters; the rotation
+  sweep now covers the new painters too.)
 
 - **The rest of the rotation sweep** — shipped v0.60.1 (widening the
   strict-context sweep past the reward set found three live bugs and one

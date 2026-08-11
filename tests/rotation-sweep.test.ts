@@ -11,7 +11,9 @@ import {
   drawFire,
   drawLotApron,
   drawRubble,
+  hearthTip,
 } from '../src/render/buildings';
+import { drawAmbient } from '../src/render/ambientfx';
 import { drawHedge, drawRock, drawTree } from '../src/render/scenery';
 import { paintCliff, paintGround, paintShore, paintWater } from '../src/render/ground';
 import { hsl } from '../src/render/palette';
@@ -468,4 +470,45 @@ describe('an archetype exists for every lot', () => {
       }
     }
   });
+});
+
+describe('ambient painters at every quarter', () => {
+  const ENV = { clock: 3456, wind: -2, night: 0.4, detail: 1 as const, winter: true };
+
+  // A hardcoded (stage, bucket) for the winter-hearth case risks landing on
+  // an archetype with no chimney, which draws nothing at every quarter and
+  // passes the comparison below vacuously. Scan for one that actually vents,
+  // the same bucket-outer/stage-inner order ambient-geometry.test.ts uses.
+  let hearthStage: Stage = 2 as Stage;
+  let hearthBucket = 0;
+  outer: for (let b = 0; b < 6; b++) {
+    for (const st of [1, 2, 3] as Stage[]) {
+      if (hearthTip(Zone.Residential, st, 2 as Tier, b)) {
+        hearthStage = st;
+        hearthBucket = b;
+        break outer;
+      }
+    }
+  }
+
+  const cases: [string, Zone, Stage, Tier, number][] = [
+    ['dirty industry', Zone.Industrial, 3 as Stage, 'dirty' as Tier, 0.4],
+    ['coal plant', Zone.PowerPlant, 0 as Stage, 2 as Tier, 0.1],
+    ['nuclear steam', Zone.NuclearPlant, 0 as Stage, 2 as Tier, 0.1],
+    ['winter hearth', Zone.Residential, hearthStage, 2 as Tier, (hearthBucket + 0.5) / 6],
+    ['park fountain', Zone.Park, 0 as Stage, 2 as Tier, (2 + 0.5) / 6],
+    ['stadium flag', Zone.Stadium, 0 as Stage, 2 as Tier, 0.1],
+  ];
+  for (const [name, zone, stage, tier, variant] of cases) {
+    test(name, () => {
+      const traces = atEveryQuarter(
+        (ctx, geom) => drawAmbient(ctx, geom, zone, stage, tier, variant, 1, true, false, 0.6, ENV),
+        () => centredGeom(3, 4),
+      );
+      // a case that draws nothing would pass the comparison below trivially
+      // and guard nothing — fail loudly instead
+      expect(traces[0].length).toBeGreaterThan(0);
+      for (const t of traces.slice(1)) expect(canonical(t)).toEqual(canonical(traces[0]));
+    });
+  }
 });
