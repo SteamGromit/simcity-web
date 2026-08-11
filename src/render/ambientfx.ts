@@ -180,7 +180,9 @@ export function drawAmbient(
     stage >= 6 &&
     hash2(bucket, 7, 131) > 0.5
   ) {
-    drawBeacon(ctx, cx, cy, massHeight(zone, stage, tier, bucket), hash2(bucket, 3, 77), env);
+    // Phase rides the raw per-tile variant (not the 6-value bucket) so no
+    // two towers in a downtown need share a blink.
+    drawBeacon(ctx, cx, cy, massHeight(zone, stage, tier, bucket), variant, env);
   }
   const flag = FLAGS[zone];
   if (flag) {

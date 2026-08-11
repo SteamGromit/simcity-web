@@ -38,10 +38,10 @@ treatment.
 
 ### Added
 - **Two new rooftop props.** Helipads — a grey pad ringed in gold with a
-  painted H — land on high-band commercial towers (C2/C3, stage 6+) at a 0.6
-  chance, alongside the existing antenna and AC-unit props rather than in
-  place of them. Skylight rows land on manufacturing's sawtooth-roofed sheds
-  and warehouses, a strip of glazing along the ridge.
+  painted H — land on upper-band commercial towers (C2 stage 6+, C3 stage 3+)
+  at a 0.6 chance, alongside the existing antenna and AC-unit props rather
+  than in place of them. Skylight rows land on manufacturing's sawtooth-roofed
+  sheds and warehouses, a strip of glazing along the ridge.
 - **Denser prop tables everywhere else.** Water towers now turn up on
   mid-band residential walk-ups and mansion blocks (R2/R3), AC units on the
   C3 towers whose roofs used to sit bare, and a vent on strip retail (C1).
