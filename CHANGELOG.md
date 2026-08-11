@@ -4,6 +4,31 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.63.0] — 2026-08-10 · The city as a model on a table
+
+Closes Slice C, "Tilt-shift" — the last finishing pass in the ambient-detail
+plan. The composed frame is copied at half resolution, blurred and lightly
+saturated, then laid back over itself through a vertical mask that spares a
+central focus band, the classic tilt-shift trick that makes a real scene read
+as a miniature.
+
+### Added
+- **Tilt-shift finish** (`render/tiltshift.ts`). The top and bottom of the
+  screen soften and saturate a touch while a band through the middle stays
+  sharp — the same one-buffer, one-filtered-draw shape as bloom, with the
+  same silent no-op guard where canvas filters don't exist. It works under
+  every render style, not just Realistic — switch to Pixel with it on and
+  the blur sits on top of the chunky sprite crunch for the same miniature
+  read. Cursors, halos and placement previews are painted after the finish
+  pass, so they stay crisp inside the blur band even when the ground under
+  them is soft.
+- **A Config toggle.** "Tilt-shift" sits next to Seasonal colors in the
+  Render style group. Its default follows the render style — on in
+  Realistic, off in Pixel and Smooth — until the box is touched, at which
+  point the choice sticks and survives switching styles; flipping styles
+  after that re-syncs the checkbox only while the pref is still untouched.
+  Measured well under the 2 ms/frame budget for the finish pass either way.
+
 ## [0.62.0] — 2026-08-10 · Rooftops get busier, and the civic set catches up
 
 Two threads finished in the same slice: the growable roof-kit gained the props
@@ -13,10 +38,10 @@ treatment.
 
 ### Added
 - **Two new rooftop props.** Helipads — a grey pad ringed in gold with a
-  painted H — land on high-band commercial towers (C2/C3, stage 6+) at a 0.6
-  chance, alongside the existing antenna and AC-unit props rather than in
-  place of them. Skylight rows land on manufacturing's sawtooth-roofed sheds
-  and warehouses, a strip of glazing along the ridge.
+  painted H — land on upper-band commercial towers (C2 stage 6+, C3 stage 3+)
+  at a 0.6 chance, alongside the existing antenna and AC-unit props rather
+  than in place of them. Skylight rows land on manufacturing's sawtooth-roofed
+  sheds and warehouses, a strip of glazing along the ridge.
 - **Denser prop tables everywhere else.** Water towers now turn up on
   mid-band residential walk-ups and mansion blocks (R2/R3), AC units on the
   C3 towers whose roofs used to sit bare, and a vent on strip retail (C1).

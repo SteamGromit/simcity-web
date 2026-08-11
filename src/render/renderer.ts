@@ -51,6 +51,7 @@ import {
 import { getWeatherFx } from './fx';
 import { GroundKind, groundTone, paintCliff, paintGround, paintShore, paintWater } from './ground';
 import { paintBloom, paintGrade, paintHaze, paintSky, paintVignette } from './grade';
+import { getTiltShift, paintTiltShift } from './tiltshift';
 import { css, hsl, lit, mix } from './palette';
 import { LIGHT } from './sun';
 import { drawTree } from './scenery';
@@ -503,6 +504,12 @@ export class Renderer {
       paintBloom(ctx, W, H, 0.05 + this.night * 0.17);
       paintGrade(ctx, W, H, this.night);
       paintVignette(ctx, W, H);
+      camera();
+    }
+
+    if (getTiltShift()) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      paintTiltShift(ctx, W, H);
       camera();
     }
 

@@ -104,7 +104,11 @@ differ in how the frame is finished. **Realistic** (the default) adds
 aerial haze, a bloom that lets lit windows spill, a warm/cool grade and a
 vignette; **Smooth** is the same scene without them; **Pixel** renders the
 whole thing small and blits it back with nearest-neighbour for a retro
-sprite-art crunch.
+sprite-art crunch. A **Tilt-shift** toggle sits alongside them — softening
+the top and bottom of the screen like a miniature-photo model shot while a
+central band stays sharp — on by default in Realistic, off in the others,
+until you choose; it works under any style and never blurs cursors or
+placement previews.
 
 On older machines: if the frame rate dips, switch to **Smooth** and turn
 off weather effects in the Config panel (day/night lighting is already off

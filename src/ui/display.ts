@@ -3,6 +3,7 @@ import { getWeatherFx, setWeatherFx } from '../render/fx';
 import { getDayNight, setDayNight } from '../render/daynight';
 import { RenderStyle, getRenderStyle, setRenderStyle } from '../render/renderstyle';
 import { getSeasonFx, setSeasonFx } from '../render/seasonfx';
+import { getTiltShift, setTiltShift } from '../render/tiltshift';
 import { panelHandle } from './panel';
 
 /** Config panel: presentation and audio preferences — city style,
@@ -38,6 +39,9 @@ export function buildDisplay(
     <div id="style-list"></div>
     <label class="ordinance" id="seasons-row" title="Vegetation follows the calendar: spring greens, autumn oranges, winter frost. Off keeps summer looks year-round (weather and the sim are unaffected).">
       <input type="checkbox" id="seasons-box"><span>Seasonal colors</span>
+    </label>
+    <label class="ordinance" id="tiltshift-row" title="Miniature-photo finish: the top and bottom of the screen soften like a model shot. Defaults on in Realistic until you choose.">
+      <input type="checkbox" id="tiltshift-box"><span>Tilt-shift</span>
     </label>
     <h4>Volume</h4>
     <label class="volume-row" title="Tool clicks, event cues, and the ambient city hum.">
@@ -98,6 +102,10 @@ export function buildDisplay(
     onToggle();
   });
 
+  // Referenced inside the style radio loop below, wired below that — the
+  // tilt-shift pref follows the style until the user touches the box.
+  const tiltBox = panel.querySelector('#tiltshift-box') as HTMLInputElement;
+
   const styleList = panel.querySelector('#style-list') as HTMLElement;
   const STYLES: { id: RenderStyle; label: string; blurb: string }[] = [
     {
@@ -120,6 +128,7 @@ export function buildDisplay(
     radio.addEventListener('change', () => {
       if (radio.checked) {
         setRenderStyle(st.id);
+        tiltBox.checked = getTiltShift();
         onToggle();
       }
     });
@@ -133,6 +142,12 @@ export function buildDisplay(
   seasonsBox.checked = getSeasonFx();
   seasonsBox.addEventListener('change', () => {
     setSeasonFx(seasonsBox.checked);
+    onToggle();
+  });
+
+  tiltBox.checked = getTiltShift();
+  tiltBox.addEventListener('change', () => {
+    setTiltShift(tiltBox.checked);
     onToggle();
   });
 

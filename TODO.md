@@ -90,19 +90,30 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Done
 
+- **The city as a model on a table** — shipped v0.63.0 (a tilt-shift finish:
+  the composed frame is copied at half resolution, blurred and lightly
+  saturated, then laid back through a vertical mask that spares a central
+  focus band — the classic miniature-photo trick. Works under every render
+  style, not just Realistic; cursors, halos and placement previews are
+  painted after the finish pass so they stay sharp inside the blur band. A
+  Config toggle next to Seasonal colors defaults to following the render
+  style — on in Realistic, off otherwise — until touched, at which point it
+  sticks across style switches. Comfortably under the 2 ms/frame budget for
+  the finish pass.)
+
 - **Rooftops get busier, and the civic set catches up** — shipped v0.62.0
-  (two new rooftop props — a gold-ringed helipad on high-band C2/C3 towers at
-  a 0.6 chance, skylight rows on manufacturing's sawtooth roofs — plus denser
-  existing tables: water towers on mid-band residential walk-ups and mansion
-  blocks, AC units on C3 towers, a vent on strip retail, every one still a
-  per-building roll so a skyline reads varied rather than pin-cushioned. Fire,
-  police, school, hospital, prison, rail terminal, recycling centre,
-  incinerator, coal and hydro plants now carry the same facade and roof-kit
-  pass the growables got in v0.59 — podiums, cornices, string courses,
-  pilasters, rooftop props at detail 1+ — and the Hospital's painted-on
-  helipad ring became the real anchored prop. The Museum gained a shallow
-  verdigris dome on its ridge. Closes the civic-typology clause of backlog
-  #8; civic baking remains open.)
+  (two new rooftop props — a gold-ringed helipad on upper-band commercial
+  towers (C2 stage 6+, C3 stage 3+) at a 0.6 chance, skylight rows on
+  manufacturing's sawtooth roofs — plus denser existing tables: water towers
+  on mid-band residential walk-ups and mansion blocks, AC units on C3 towers,
+  a vent on strip retail, every one still a per-building roll so a skyline
+  reads varied rather than pin-cushioned. Fire, police, school, hospital,
+  prison, rail terminal, recycling centre, incinerator, coal and hydro plants
+  now carry the same facade and roof-kit pass the growables got in v0.59 —
+  podiums, cornices, string courses, pilasters, rooftop props at detail 1+ —
+  and the Hospital's painted-on helipad ring became the real anchored prop.
+  The Museum gained a shallow verdigris dome on its ridge. Closes the
+  civic-typology clause of backlog #8; civic baking remains open.)
 
 - **Smoke over the works, and a city that moves at rest** — shipped v0.61.0
   (an ambient clock threaded through the standing render pass so a settled
