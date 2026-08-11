@@ -66,8 +66,7 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    building's wall; water carries no reflection of the waterfront; weather
    doesn't lie on the ground (a winter map has no snow cover, and rain
    leaves no wet asphalt); multi-tile rewards and civic buildings still draw
-   live rather than baked, and the civic set has not had the typology and
-   facade pass the growables just got. The ground pass is the dominant
+   live rather than baked. The ground pass is the dominant
    per-frame cost — baking ground *chunks* is the obvious next step. The
    camera turns in quarter steps only; the snap is instant, and a short
    cross-fade would take the jolt out of it. The rotation sweep is now
@@ -90,6 +89,20 @@ bump package.json version, and touch README/spec per CLAUDE.md.
     (User-requested 2026-08-10.)
 
 ## Done
+
+- **Rooftops get busier, and the civic set catches up** — shipped v0.62.0
+  (two new rooftop props — a gold-ringed helipad on high-band C2/C3 towers at
+  a 0.6 chance, skylight rows on manufacturing's sawtooth roofs — plus denser
+  existing tables: water towers on mid-band residential walk-ups and mansion
+  blocks, AC units on C3 towers, a vent on strip retail, every one still a
+  per-building roll so a skyline reads varied rather than pin-cushioned. Fire,
+  police, school, hospital, prison, rail terminal, recycling centre,
+  incinerator, coal and hydro plants now carry the same facade and roof-kit
+  pass the growables got in v0.59 — podiums, cornices, string courses,
+  pilasters, rooftop props at detail 1+ — and the Hospital's painted-on
+  helipad ring became the real anchored prop. The Museum gained a shallow
+  verdigris dome on its ridge. Closes the civic-typology clause of backlog
+  #8; civic baking remains open.)
 
 - **Smoke over the works, and a city that moves at rest** — shipped v0.61.0
   (an ambient clock threaded through the standing render pass so a settled

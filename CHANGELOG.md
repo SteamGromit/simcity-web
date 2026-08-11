@@ -4,6 +4,40 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.62.0] — 2026-08-10 · Rooftops get busier, and the civic set catches up
+
+Two threads finished in the same slice: the growable roof-kit gained the props
+a real skyline is missing, and the civic set — passed over when the growables
+got their typology and facade rebuild in v0.59 — finally gets the same
+treatment.
+
+### Added
+- **Two new rooftop props.** Helipads — a grey pad ringed in gold with a
+  painted H — land on high-band commercial towers (C2/C3, stage 6+) at a 0.6
+  chance, alongside the existing antenna and AC-unit props rather than in
+  place of them. Skylight rows land on manufacturing's sawtooth-roofed sheds
+  and warehouses, a strip of glazing along the ridge.
+- **Denser prop tables everywhere else.** Water towers now turn up on
+  mid-band residential walk-ups and mansion blocks (R2/R3), AC units on the
+  C3 towers whose roofs used to sit bare, and a vent on strip retail (C1).
+  Nothing is guaranteed — every prop is still a per-building roll, so a
+  skyline reads as varied rather than pin-cushioned.
+- **The civic set gets the growables' facade and roof-kit pass.** Fire and
+  police stations, the school, hospital, prison, rail terminal, recycling
+  centre, incinerator, coal plant and hydro plant now carry the same podiums,
+  cornices, string courses and pilasters the growable archetypes picked up in
+  v0.59, plus rooftop props at detail 1+. The Hospital's helipad was, until
+  now, a ring stroked straight onto the roof at a fixed offset; it is now the
+  real `helipad` prop, anchored off the roof quad like everything else, so it
+  survives a turned camera and reads as a landing pad rather than a
+  decoration.
+- **The Museum** gained a shallow verdigris dome on its ridge, sat behind the
+  existing colonnade.
+
+Closes the "civic set has not had the typology and facade pass" clause of
+backlog #8; multi-tile civic buildings drawing live rather than baked is
+still open.
+
 ## [0.61.0] — 2026-08-10 · Smoke over the works, and a city that moves at rest
 
 Everything ambient in the renderer used to be true for one frame and then held
