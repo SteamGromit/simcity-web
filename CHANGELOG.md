@@ -4,6 +4,31 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.63.0] — 2026-08-10 · The city as a model on a table
+
+Closes Slice C, "Tilt-shift" — the last finishing pass in the ambient-detail
+plan. The composed frame is copied at half resolution, blurred and lightly
+saturated, then laid back over itself through a vertical mask that spares a
+central focus band, the classic tilt-shift trick that makes a real scene read
+as a miniature.
+
+### Added
+- **Tilt-shift finish** (`render/tiltshift.ts`). The top and bottom of the
+  screen soften and saturate a touch while a band through the middle stays
+  sharp — the same one-buffer, one-filtered-draw shape as bloom, with the
+  same silent no-op guard where canvas filters don't exist. It works under
+  every render style, not just Realistic — switch to Pixel with it on and
+  the blur sits on top of the chunky sprite crunch for the same miniature
+  read. Cursors, halos and placement previews are painted after the finish
+  pass, so they stay crisp inside the blur band even when the ground under
+  them is soft.
+- **A Config toggle.** "Tilt-shift" sits next to Seasonal colors in the
+  Render style group. Its default follows the render style — on in
+  Realistic, off in Pixel and Smooth — until the box is touched, at which
+  point the choice sticks and survives switching styles; flipping styles
+  after that re-syncs the checkbox only while the pref is still untouched.
+  Measured well under the 2 ms/frame budget for the finish pass either way.
+
 ## [0.62.0] — 2026-08-10 · Rooftops get busier, and the civic set catches up
 
 Two threads finished in the same slice: the growable roof-kit gained the props

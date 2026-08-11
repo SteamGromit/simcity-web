@@ -90,6 +90,17 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Done
 
+- **The city as a model on a table** — shipped v0.63.0 (a tilt-shift finish:
+  the composed frame is copied at half resolution, blurred and lightly
+  saturated, then laid back through a vertical mask that spares a central
+  focus band — the classic miniature-photo trick. Works under every render
+  style, not just Realistic; cursors, halos and placement previews are
+  painted after the finish pass so they stay sharp inside the blur band. A
+  Config toggle next to Seasonal colors defaults to following the render
+  style — on in Realistic, off otherwise — until touched, at which point it
+  sticks across style switches. Comfortably under the 2 ms/frame budget for
+  the finish pass.)
+
 - **Rooftops get busier, and the civic set catches up** — shipped v0.62.0
   (two new rooftop props — a gold-ringed helipad on high-band C2/C3 towers at
   a 0.6 chance, skylight rows on manufacturing's sawtooth roofs — plus denser
