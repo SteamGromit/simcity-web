@@ -43,8 +43,12 @@ decides what happens next:
   plan (long, square, L-shaped, corner-cut), a roof (flat, parapet, gabled,
   hipped, mansard, sawtooth) and a facade — cornices, string courses, retail
   podiums, balconies, bay windows, pilasters, wall air conditioners, fire
-  escapes. Towers over about six storeys take a crown. Farms vary in barn
-  placement, furrow direction, and a silo or coop.
+  escapes. Towers over about six storeys take a crown. Rooftops carry their
+  own seeded props — antennas, AC units, water towers, vents, a helipad on
+  the tallest commercial towers, skylights on manufacturing sheds — and the
+  civic set (fire, police, school, hospital and the rest) shares the same
+  facade and roof-kit treatment. Farms vary in barn placement, furrow
+  direction, and a silo or coop.
 - **A city that's lit, not just coloured** — one sun sits low in the west
   for the whole map, so every wall takes the brightness its orientation
   earns and every building throws a shadow that lies along the ground and
