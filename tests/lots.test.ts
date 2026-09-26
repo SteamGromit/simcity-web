@@ -107,3 +107,65 @@ describe('roadSideOf', () => {
     expect(roadSideOf(city, 40, 40, 0)).toBe(-1);
   });
 });
+
+import { afterEach, beforeEach } from 'vitest';
+import { drawLotGround, treePositions } from '../src/render/lots';
+import { setViewAngle, tileGeom } from '../src/render/iso';
+import { clearSprites, setCanvasFactory, spriteStats } from '../src/render/spritecache';
+import { strictCtx, stubCanvasFactory } from './stubctx';
+
+describe('drawLotGround', () => {
+  beforeEach(() => {
+    setCanvasFactory(stubCanvasFactory().factory);
+    clearSprites();
+  });
+  afterEach(() => {
+    setCanvasFactory(null);
+    setViewAngle(0);
+  });
+  test('bakes once per key and blits every call', () => {
+    const { ctx, trace } = strictCtx();
+    const g = tileGeom(5, 5, 0);
+    const before = spriteStats().bakes; // the counter is cumulative
+    drawLotGround(ctx, g, Zone.Residential, 2, 1, 0, 1, 2, false, 'summer');
+    drawLotGround(ctx, g, Zone.Residential, 2, 1, 0, 1, 2, false, 'summer');
+    expect(spriteStats().bakes - before).toBe(1);
+    expect(trace.filter((t) => t.startsWith('drawImage')).length).toBe(2);
+  });
+  test('lawns key on the season, paving does not', () => {
+    const { ctx } = strictCtx();
+    const g = tileGeom(5, 5, 0);
+    let before = spriteStats().bakes;
+    drawLotGround(ctx, g, Zone.Residential, 2, 1, 0, 1, 2, false, 'summer');
+    drawLotGround(ctx, g, Zone.Residential, 2, 1, 0, 1, 2, false, 'winter');
+    expect(spriteStats().bakes - before).toBe(2);
+    clearSprites();
+    before = spriteStats().bakes;
+    drawLotGround(ctx, g, Zone.Commercial, 2, 5, 0, 1, 2, false, 'summer');
+    drawLotGround(ctx, g, Zone.Commercial, 2, 5, 0, 1, 2, false, 'winter');
+    expect(spriteStats().bakes - before).toBe(1);
+  });
+  test('every family, stage, side and season bakes without a negative radius at every quarter', () => {
+    for (const q of [0, 1, 2, 3]) {
+      setViewAngle((q * Math.PI) / 2);
+      for (const [z, t] of FAMILIES) {
+        for (const stage of [1, 4, 7] as Stage[]) {
+          for (const side of [-1, 0, 1, 2, 3]) {
+            clearSprites();
+            const { ctx } = strictCtx();
+            expect(() =>
+              drawLotGround(ctx, tileGeom(3, 3, 0), z, t, stage, 2, 1, side, q === 3, 'autumn'),
+            ).not.toThrow();
+          }
+        }
+      }
+    }
+  });
+  test('tree positions are screen offsets inside the tile diamond', () => {
+    const lay = layoutLot(Zone.Residential, 3, 1, 0, 1, 2, false);
+    expect(treePositions(lay, 1).length).toBeGreaterThan(0);
+    for (const [dx, dy] of treePositions(lay, 1)) {
+      expect(Math.abs(dx) / 32 + Math.abs(dy) / 16).toBeLessThanOrEqual(1.01);
+    }
+  });
+});
