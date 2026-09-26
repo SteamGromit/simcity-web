@@ -68,6 +68,20 @@ describe('civic bake', () => {
     expect(spriteStats().bakes - before).toBeGreaterThan(summer);
     expect(summer).toBeGreaterThanOrEqual(1);
   });
+  test('a farm bakes per season, a factory does not', () => {
+    const { ctx } = strictCtx();
+    let before = spriteStats().bakes;
+    drawBuilding(ctx, tileGeom(4, 4, 0), Zone.Industrial, 1, 'ag', false, true, 0.3, 0, 1, 1, 'summer');
+    drawBuilding(ctx, tileGeom(4, 4, 0), Zone.Industrial, 1, 'ag', false, true, 0.3, 0, 1, 1, 'summer');
+    const summer = spriteStats().bakes - before;
+    drawBuilding(ctx, tileGeom(4, 4, 0), Zone.Industrial, 1, 'ag', false, true, 0.3, 0, 1, 1, 'winter');
+    expect(spriteStats().bakes - before).toBeGreaterThan(summer);
+    clearSprites();
+    before = spriteStats().bakes;
+    drawBuilding(ctx, tileGeom(4, 4, 0), Zone.Industrial, 3, 'manu', false, true, 0.3, 0, 1, 1, 'summer');
+    drawBuilding(ctx, tileGeom(4, 4, 0), Zone.Industrial, 3, 'manu', false, true, 0.3, 0, 1, 1, 'winter');
+    expect(spriteStats().bakes - before).toBe(1);
+  });
   test('every civic zone bakes at every quarter without a negative radius', () => {
     for (const q of [0, 1, 2, 3]) {
       setViewAngle((q * Math.PI) / 2);

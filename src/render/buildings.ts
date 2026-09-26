@@ -41,6 +41,7 @@ import {
   placeRoofProps,
   roofCap,
   roofKit,
+  pipeRun,
   towerCrown,
   wantsHatch,
 } from './roofs';
@@ -396,11 +397,23 @@ function streetLevel(
   }
 }
 
-/** Farmland: tilled ground, a barn, and whatever the layout adds. */
-function paintFarm(ctx: CanvasRenderingContext2D, q: Quad, bucket: number): void {
+/** What a field wears in each season: tilled brown in spring, green rows in
+ * summer, gold at harvest, pale stubble in winter. */
+const CROP: Record<Season, { soil: Hsl; crop: Hsl }> = {
+  spring: { soil: hsl(28, 26, 32), crop: hsl(88, 30, 36) },
+  summer: { soil: hsl(40, 24, 34), crop: hsl(96, 36, 34) },
+  autumn: { soil: hsl(34, 22, 36), crop: hsl(44, 46, 46) },
+  winter: { soil: hsl(36, 12, 46), crop: hsl(42, 16, 56) },
+};
+
+/** Farmland: tilled ground under crop rows, a barn, a fence along the
+ * street, and whatever the layout adds — a silo, a coop with a pond, a
+ * tractor. Baked per season. */
+function paintFarm(ctx: CanvasRenderingContext2D, q: Quad, bucket: number, season: Season): void {
   const chan = channels((bucket + 0.5) / VARIANTS);
   const layout = pickFarmLayout(chan());
-  const soil = hsl(74 + chan() * 10, 30, 34 + chan() * 6);
+  const wear = CROP[season];
+  const soil = { ...wear.soil, h: wear.soil.h + chan() * 10, l: wear.soil.l + chan() * 6 };
   fill(ctx, q, css(soil));
   ctx.save();
   ctx.beginPath();
@@ -408,13 +421,14 @@ function paintFarm(ctx: CanvasRenderingContext2D, q: Quad, bucket: number): void
   for (let i = 1; i < 4; i++) ctx.lineTo(q[i][0], q[i][1]);
   ctx.closePath();
   ctx.clip();
-  // furrows running one way or the other across the field. The centre is
-  // measured, not assembled from corner 0's x and corner 1's y — that only
-  // lands on the middle while the camera is at rest.
+  // crop rows one way or the other across the field, a darker furrow
+  // between each pair. The centre is measured, not assembled from corner
+  // 0's x and corner 1's y — that only lands on the middle at rest.
   const [cx, cy] = centre(q);
-  ctx.lineWidth = 1.4;
   for (let k = -5; k <= 5; k++) {
-    ctx.strokeStyle = k % 2 ? css(lit(soil, 0.86), 0.7) : css(lit(soil, 1.14), 0.55);
+    const crop = k % 2 !== 0;
+    ctx.strokeStyle = crop ? css(lit(wear.crop, 1)) : css(lit(soil, 0.82), 0.8);
+    ctx.lineWidth = crop ? 2 : 1.2;
     ctx.beginPath();
     if (layout.furrowAngle === 0) {
       ctx.moveTo(cx - 34, cy + k * 3.4 - 17);
@@ -426,6 +440,38 @@ function paintFarm(ctx: CanvasRenderingContext2D, q: Quad, bucket: number): void
     ctx.stroke();
   }
   ctx.restore();
+  // a post-and-rail fence along the street edge
+  {
+    const [fa, fb] = nearEdge(q);
+    ctx.strokeStyle = 'rgba(225, 216, 196, 0.9)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(fa[0], fa[1] - 2.6);
+    ctx.lineTo(fb[0], fb[1] - 2.6);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(215, 206, 186, 0.95)';
+    for (let t = 0.05; t < 1; t += 0.12) {
+      ctx.fillRect(fa[0] + (fb[0] - fa[0]) * t - 0.5, fa[1] + (fb[1] - fa[1]) * t - 3.6, 1, 3.6);
+    }
+  }
+  if (chan() > 0.6) {
+    // a tractor parked in the field: a lit box with a darker cab and big wheels
+    const tx = cx + (layout.barnOx > 0 ? -18 : 18);
+    const ty = cy + 6;
+    ctx.fillStyle = 'rgba(20, 24, 40, 0.3)';
+    ctx.fillRect(tx - 3, ty + 0.5, 8, 2.4);
+    ctx.fillStyle = css(lit(hsl(8, 60, 42), LIGHT.right));
+    ctx.fillRect(tx - 3, ty - 3, 7, 3.4);
+    ctx.fillStyle = css(lit(hsl(8, 60, 42), LIGHT.roof));
+    ctx.fillRect(tx - 3, ty - 3.8, 7, 0.9);
+    ctx.fillStyle = 'rgba(30, 34, 44, 0.9)';
+    ctx.fillRect(tx + 1, ty - 6, 2.6, 3);
+    ctx.fillStyle = '#1e2026';
+    ctx.beginPath();
+    ctx.ellipse(tx - 2, ty + 0.4, 1.6, 1.6, 0, 0, Math.PI * 2);
+    ctx.ellipse(tx + 3, ty + 0.4, 1.1, 1.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
   const barnQ = inset(offsetQuad(q, layout.barnOx, layout.barnOy), 0.42);
   const barn = material('timber', hsl(9, 44, 34));
   const r = prism(ctx, barnQ, 10 + chan() * 4, barn, { seed: bucket + 3, windows: 'none' });
@@ -468,6 +514,16 @@ function paintFarm(ctx: CanvasRenderingContext2D, q: Quad, bucket: number): void
       css(lit(hsl(206, 8, 46), LIGHT.roof)),
     );
   } else if (layout.extra === 'coop') {
+    // a farm pond beside the coop, with a lighter rim of trodden bank
+    const pc = centre(offsetQuad(q, -layout.barnOx * 1.4, -layout.barnOy * 1.4));
+    ctx.fillStyle = css(hsl(44, 20, 58));
+    ctx.beginPath();
+    ctx.ellipse(pc[0], pc[1], 8, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = css(hsl(200, 34, 40));
+    ctx.beginPath();
+    ctx.ellipse(pc[0], pc[1], 6.5, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
     const c = inset(offsetQuad(q, -layout.barnOx * 0.8, -layout.barnOy * 0.8), 0.2);
     const r2 = prism(ctx, c, 5, material('timber', hsl(34, 26, 52)), { seed: bucket });
     roofCap(ctx, r2.roof, 'gabled', hsl(34, 26, 52), bucket + 1);
@@ -495,6 +551,8 @@ interface LotKey {
   size: number;
   abandoned: boolean;
   glow: boolean;
+  /** Set for farms only: a field is the one growable that wears the season. */
+  season?: Season;
 }
 
 /** Industrial growable stack placement — shared by the bake and stackTips. */
@@ -530,7 +588,7 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
   const tile = diamond(0, 0, hw, hh);
 
   if (fam === 'ag' && !abandoned) {
-    if (!glow) paintFarm(ctx, tile, bucket);
+    if (!glow) paintFarm(ctx, tile, bucket, k.season ?? 'summer');
     return;
   }
 
@@ -645,7 +703,16 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
   }
 
   if (zone === Zone.Industrial && stage >= 2 && !abandoned && (kind === 'dirty' || kind === 'manu')) {
-    for (const [i2, st] of industryStacks(stage, kind, hw, hh, h).entries()) {
+    const stacks = industryStacks(stage, kind, hw, hh, h);
+    // pipe runs along the roof: between the two stacks of a dirty works, or
+    // from the single stack back across the roof of a manufacturing shed
+    const pipe = hsl(205, 6, 58);
+    if (stacks.length >= 2) {
+      pipeRun(ctx, [stacks[0].x, stacks[0].y - 4], [stacks[1].x, stacks[1].y - 4], 1.4, pipe);
+    } else if (stacks.length === 1) {
+      pipeRun(ctx, [stacks[0].x, stacks[0].y - 3], [stacks[0].x - hw * 0.4, stacks[0].y - 3 + hh * 0.2], 1.2, pipe);
+    }
+    for (const [i2, st] of stacks.entries()) {
       const q2 = diamond(st.x, st.y, st.w, st.w / 2);
       prism(ctx, q2, st.stackH, material('brick', hsl(16, 22 - i2 * 2, 34 - i2 * 4)), {
         seed: bucket + i2,
@@ -693,7 +760,7 @@ function lotSprite(k: LotKey): Sprite {
   const ay = h + hh + marginTop(h);
   const key = `L${k.zone}.${k.stage}.${k.tier}.${k.bucket}.${k.size}${k.abandoned ? 'a' : ''}${
     k.glow ? 'g' : ''
-  }${getSkin().id}`;
+  }${k.season ? '.' + k.season.slice(0, 2) : ''}${getSkin().id}`;
   return sprite(
     key,
     {
@@ -1778,7 +1845,11 @@ export function drawBuilding(
     return;
   }
 
-  const key: LotKey = { zone, stage, tier, bucket, size, abandoned, glow: false };
+  const farm = zone === Zone.Industrial && normalizeTier(zone, tier) === 'ag' && !abandoned;
+  const key: LotKey = {
+    zone, stage, tier, bucket, size, abandoned, glow: false,
+    season: farm ? season : undefined,
+  };
   blit(ctx, lotSprite(key), cx, cy);
   if (night > 0.06 && !abandoned && powered) {
     ctx.save();
