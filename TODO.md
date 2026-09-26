@@ -68,10 +68,10 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    on ribbon windows (deferred from v0.64.0); the tilt-shift blur snaps off
    at night = 0.5 rather than fading; civic and reward gables keep a
    world-fixed ridge that turns with the camera (growables bake a
-   screen-fixed one); water carries no reflection of the waterfront; weather
+   screen-fixed one); the waterfront reflection covers single-tile lots and
+   civic buildings only (rewards, parks and trees do not reflect); weather
    doesn't lie on the ground (a winter map has no snow cover, and rain
-   leaves no wet asphalt); multi-tile rewards and civic buildings still draw
-   live rather than baked. The ground pass is the dominant
+   leaves no wet asphalt). The ground pass is the dominant
    per-frame cost — baking ground *chunks* is the obvious next step. The
    camera turns in quarter steps only; the snap is instant, and a short
    cross-fade would take the jolt out of it. The rotation sweep is now
@@ -94,6 +94,19 @@ bump package.json version, and touch README/spec per CLAUDE.md.
     (User-requested 2026-08-10.)
 
 ## Done
+
+- **Realism, part three** — shipped v0.66.0 (civic and rewards, farms, water,
+  night: the whole civic set, every reward and every park now bakes once
+  into a sprite keyed on zone, power, size, skin and — for parks — season,
+  with grain, and civic windows light up after dark; the Library and Museum
+  colonnade faces the street at every quarter; farms wear the season (tilled
+  brown, green rows, harvest gold, winter stubble) with a fence, a tractor
+  and a pond; the works are strung with pipe runs; water carries caustics, a
+  sky reflection and glitter, and shoreline lots and civic buildings are
+  mirrored into it; the night pass is finished — a deeper wash, warm lamp
+  pools under every lamp standard, shopfront glow, and a glow that no longer
+  whites out a glass tower. Closes the three-part realism spec of
+  2026-09-25.)
 
 - **Realism, part two** — shipped v0.65.0 (lots, ground, roads, trees: every
   developed lot stands on a plot laid out in tile space and turned to face

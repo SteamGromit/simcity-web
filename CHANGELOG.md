@@ -4,6 +4,49 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.66.0] — 2026-09-25 · Realism, part three: civic and rewards, farms, water, night
+
+The last of three drops toward a SimCity 4 standard of detail. Nothing in
+the sim moved.
+
+### Added
+- **The civic set, rewards and parks bake once.** Fire, police, school,
+  hospital, prison, every transit stop, the waste and power plants, the
+  ballpark through the colosseum, library, museum, monument, the campuses,
+  the fusion plant and every park were drawn live, `prism` windows and all,
+  every frame. Each now bakes into a sprite keyed on zone, power state,
+  size, detail and skin (parks on season too), takes the same photographic
+  grain the growables do, and civic windows light up after dark through a
+  glow bake of their own. The Library and Museum colonnade now stands on the
+  edge nearest the viewer at every quarter turn rather than a fixed corner.
+- **Farms wear the season** — tilled brown in spring, green crop rows in
+  summer, harvest gold in autumn, pale stubble in winter — with a
+  post-and-rail fence along the street, a tractor in the field on some, and
+  a pond beside the coop. Farm sprites key on the season; factories do not.
+- **Pipe runs on the works.** A dirty works' two stacks are joined by a pipe
+  along the roof; a manufacturing shed's stack runs one back across it.
+- **Water with caustics and a sky in it** (`render/ground.ts`). Eight frames
+  of thin, wandering light lines from a per-pixel noise field cycle across
+  every water tile out of phase with its neighbours, over a fill that is a
+  touch lighter toward the top of the tile — the sky's reflection — and the
+  old glitter.
+- **The waterfront reflected** (`render/reflections.ts`). A lot or civic
+  building whose screen-near side stands on water is mirrored into it: the
+  same baked sprite flipped about its base line, clipped to the water it
+  fronts, faded and washed blue. Recomputed only when the coast, the
+  built-up set or the camera quarter moves.
+- **The night pass, finished.** A deeper wash (alpha 0.58 at midnight, from
+  0.5), a darker darkness layer, half the night bloom, a growable glow
+  capped at 0.5 and curtain-wall panes at 0.6 so a glass tower no longer
+  whites out, warm sodium pools on the road under every lamp standard, and
+  shopfronts that spill light onto the pavement. Every night addition is
+  gated on `nightActive()`, so a day frame is untouched.
+
+Measured on the 76,000-population demo city at zoom 1: ground 8.3 ms
+(reflections included), shadows 2.5, scene 5.3, finish 2.7 — 19 ms against
+the 36 ms budget; the scene pass halved once the civic set and rewards
+stopped drawing live.
+
 ## [0.65.0] — 2026-09-25 · Realism, part two: lots, ground, roads, trees
 
 The second of three drops toward a SimCity 4 standard of detail: the half of
