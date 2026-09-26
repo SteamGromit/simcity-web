@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'vitest';
-import { SIDE_DIRS, SIDE_MID, roadMask, rotateMask } from '../src/render/roadart';
+import { SIDE_DIRS, SIDE_MID, drawRoad, roadMask, rotateMask } from '../src/render/roadart';
+import { clearSprites, setCanvasFactory } from '../src/render/spritecache';
+import { strictCtx, stubCanvasFactory } from './stubctx';
 import { newCity } from '../src/sim/city';
 import { GRID, Zone } from '../src/sim/types';
 import { idx } from '../src/sim/grid';
-import { TILE_H, TILE_W, isoToScreen, setViewAngle } from '../src/render/iso';
+import { TILE_H, TILE_W, isoToScreen, setViewAngle, tileGeom } from '../src/render/iso';
 
 function bareCity() {
   const city = newCity(7);
@@ -163,5 +165,33 @@ describe('side geometry', () => {
     const city = bareCity();
     road(city, GRID - 1, GRID - 1);
     expect(() => roadMask(city, GRID - 1, GRID - 1)).not.toThrow();
+  });
+});
+
+describe('street surface', () => {
+  test('a straight street paints paving joints, a kerb face, and a seam', () => {
+    const bake = stubCanvasFactory();
+    setCanvasFactory(bake.factory);
+    clearSprites();
+    drawRoad(strictCtx().ctx, tileGeom(4, 4, 0), 0, 0b0101, 1);
+    expect(bake.traces.length).toBe(1);
+    const strokes = bake.traces[0].filter((t) => t.startsWith('stroke(')).length;
+    // v0.64: two kerb nosings, two kerb shadow lines, one centre line — five
+    expect(strokes).toBeGreaterThanOrEqual(12);
+    setCanvasFactory(null);
+  });
+  test('some straight tiles carry a manhole, and it is the variant that decides', () => {
+    const bake = stubCanvasFactory();
+    setCanvasFactory(bake.factory);
+    let withManhole = 0;
+    for (let v = 0; v < 4; v++) {
+      clearSprites();
+      bake.traces.length = 0;
+      drawRoad(strictCtx().ctx, tileGeom(4, 4, 0), 0, 0b0101, v);
+      if (bake.traces[0].some((t) => t.startsWith('ellipse(6,2,'))) withManhole++;
+    }
+    expect(withManhole).toBeGreaterThanOrEqual(1);
+    expect(withManhole).toBeLessThan(4);
+    setCanvasFactory(null);
   });
 });

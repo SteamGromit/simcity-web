@@ -44,6 +44,7 @@ import {
   wantsHatch,
 } from './roofs';
 import { grain } from './surface';
+import { layoutLot, treePositions } from './lots';
 import { Sprite, blit, sprite } from './spritecache';
 import { drawHedge, drawRock, drawTree } from './scenery';
 import { effectiveSeason } from './seasonfx';
@@ -714,8 +715,12 @@ function lotSprite(k: LotKey): Sprite {
   );
 }
 
-/** Yard dressing drawn live rather than baked, so it can follow the season. */
-function yardProps(
+/**
+ * The trees on a plot, drawn live over the baked ground so the season's own
+ * sprite stands there. Positions come from the same layout the ground was
+ * baked from, so a tree never lands on the driveway.
+ */
+export function drawYardTrees(
   ctx: CanvasRenderingContext2D,
   geom: TileGeom,
   zone: Zone,
@@ -723,20 +728,23 @@ function yardProps(
   stage: Stage,
   bucket: number,
   size: number,
+  side: number,
+  desert: boolean,
+  season: Season,
 ): void {
-  if (stage >= 4 || zone === Zone.Industrial) return;
-  const kind = normalizeTier(zone, tier);
-  const hw = (TILE_W * size) / 2;
-  const hh = (TILE_H * size) / 2;
-  const n = kind === 3 ? 3 : kind === 2 ? 2 : 1;
-  for (let k = 0; k < n; k++) {
-    const u = hash2(k, bucket, 71) * 1.6 - 0.8;
-    const v = hash2(k, bucket, 91) * 1.6 - 0.8;
-    if (Math.abs(u) + Math.abs(v) < 0.78) continue;
-    const x = geom.cx + u * hw * 0.92;
-    const y = geom.cy + v * hh * 0.92;
-    if (kind === 3 && k === 0) drawHedge(ctx, x, y, 11, season);
-    else drawTree(ctx, x, y, 'broadleaf', 12 + hash2(k, bucket, 5) * 6, (bucket + k) % 6, season);
+  const lay = layoutLot(zone, tier, stage, bucket, size, side, desert);
+  let k = 0;
+  for (const [dx, dy] of treePositions(lay, size)) {
+    drawTree(
+      ctx,
+      geom.cx + dx,
+      geom.cy + dy,
+      desert ? 'palm' : k % 3 === 2 ? 'conifer' : 'broadleaf',
+      12 + hash2(k, bucket, 5) * 7,
+      (bucket + k) % 6,
+      season,
+    );
+    k++;
   }
 }
 
@@ -1658,7 +1666,6 @@ export function drawBuilding(
     blit(ctx, lotSprite({ ...key, glow: true }), cx, cy, Math.min(0.62, night * 0.85));
     ctx.restore();
   }
-  if (detail >= 1) yardProps(ctx, geom, zone, tier, stage, bucket, size);
   if (!powered && !abandoned) {
     drawNoPowerBolt(ctx, cx, cy - growableHeight(zone, stage, tier, bucket) - 14);
   }
@@ -1681,60 +1688,6 @@ export function drawCastShadow(
   const f = massFootprint(zone, stage);
   if (f <= 0) return;
   castShadow(ctx, inset(quadOf(geom), f), h, alpha ?? (size > 1 ? 0.3 : 0.34));
-}
-
-/**
- * The ground a lot actually occupies: paving under a shop or works, clipped
- * lawn round a house, and a path out to the kerb. Drawn with the terrain,
- * before shadows, so a building stands on a plot instead of on a meadow.
- */
-export function drawLotApron(
-  ctx: CanvasRenderingContext2D,
-  geom: TileGeom,
-  zone: Zone,
-  stage: Stage,
-  tier: Tier,
-  variant: number,
-): void {
-  if (stage === 0) return;
-  const kind = normalizeTier(zone, tier);
-  if (zone === Zone.Industrial && kind === 'ag') return; // a field is its own ground
-  const bucket = variantBucket(variant);
-  const q = quadOf(geom);
-  const paved =
-    zone === Zone.Industrial
-      ? hsl(36, 5, 40)
-      : zone === Zone.Commercial || stage >= 4
-        ? hsl(216, 4, 46)
-        : hsl(96, 22, 34);
-  fill(ctx, inset(q, 0.96), css(lit(paved, LIGHT.roof * 0.94), stage >= 4 ? 0.92 : 0.68));
-  if (stage < 4 && zone !== Zone.Industrial) {
-    // a garden path from the front corner to the middle of the lot — the
-    // corner nearest the viewer, whichever grid corner that is right now
-    const front = q[nearCorner(q)];
-    ctx.strokeStyle = css(lit(hsl(40, 12, 62), LIGHT.roof), 0.75);
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(geom.cx, geom.cy);
-    ctx.lineTo(front[0] * 0.5 + geom.cx * 0.5, front[1] * 0.5 + geom.cy * 0.5);
-    ctx.stroke();
-  }
-  if (stage >= 4) {
-    // parking bays hatched along the near edge
-    const [bayA, bayB] = nearEdge(q);
-    ctx.strokeStyle = 'rgba(226, 230, 236, 0.28)';
-    ctx.lineWidth = 1;
-    for (let k = -2; k <= 2; k++) {
-      const t = 0.5 + k * 0.13;
-      const px = bayA[0] + (bayB[0] - bayA[0]) * t;
-      const py = bayA[1] + (bayB[1] - bayA[1]) * t;
-      ctx.beginPath();
-      ctx.moveTo(px, py);
-      ctx.lineTo(px + (geom.cx - px) * 0.22, py + (geom.cy - py) * 0.22);
-      ctx.stroke();
-    }
-  }
-  void bucket;
 }
 
 // ---------------------------------------------------------------------------

@@ -61,8 +61,13 @@ decides what happens next:
   walls reflect a horizon and the towers opposite. Pitched roofs overhang on
   an eave and carry shingle courses, ridge caps, dormers and chimneys; flat
   ones are gravel decks with real plant on them. Shops have shopfronts and
-  awnings. Streets carry lamp standards that come on at dusk, signals cycling
-  at the junctions, and cars parked at the kerb.
+  awnings. Every lot stands on a plot that faces its street — a lawn with a
+  driveway, a car and a fence; a striped parking lot; a fenced yard with a
+  truck at the dock; a plaza — and the plot turns with the camera. The ground
+  has tone, trees are oaks, maples, birches, pines, spruces and cypresses
+  built from leaf clusters, and streets carry asphalt grain, kerb faces,
+  paving joints, worn crosswalks, lamp standards that come on at dusk,
+  signals cycling at the junctions, and cars parked at the kerb.
 - **Context-aware traffic** — vehicles pick roles by location: trucks move
   goods on industrial roads, taxis and vans favor commercial routes, and
   buses cluster near transit stops. Each kind has distinct speeds and paint.

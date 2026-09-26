@@ -9,11 +9,11 @@ import {
   drawCollapse,
   drawCrimeFlash,
   drawFire,
-  drawLotApron,
   drawRubble,
   hearthTip,
 } from '../src/render/buildings';
 import { drawAmbient } from '../src/render/ambientfx';
+import { drawLotGround } from '../src/render/lots';
 import { drawHedge, drawRock, drawTree } from '../src/render/scenery';
 import { paintCliff, paintGround, paintShore, paintWater } from '../src/render/ground';
 import { hsl } from '../src/render/palette';
@@ -239,16 +239,18 @@ describe('the growables survive a turned camera', () => {
     }
   });
 
-  test('and so does the ground each one stands on', () => {
+  test('and so does the plot each one stands on, whichever side its street is', () => {
     for (const zone of GROWABLE) {
       for (const tier of TIERS) {
-        expectSameEveryQuarter(
-          `${Zone[zone]} apron, tier ${tier}`,
-          atEveryQuarter(
-            (ctx, geom) => drawLotApron(ctx, geom, zone, 4, tier, 0.23),
-            () => centredGeom(40, 40),
-          ),
-        );
+        for (const side of [0, 2, 3]) {
+          expectSameEveryQuarter(
+            `${Zone[zone]} plot, tier ${tier}, street side ${side}`,
+            atEveryQuarter(
+              (ctx, geom) => drawLotGround(ctx, geom, zone, tier, 4, 0, 1, side, false, 'summer'),
+              () => centredGeom(40, 40),
+            ),
+          );
+        }
       }
     }
   });
@@ -395,7 +397,9 @@ describe('nothing throws at any angle', () => {
             expect(() =>
               drawCastShadow(ctx, geom, zone as Zone, stage, tier, 0.5),
             ).not.toThrow();
-            expect(() => drawLotApron(ctx, geom, zone as Zone, stage, tier, 0.5)).not.toThrow();
+            expect(() =>
+              drawLotGround(ctx, geom, zone as Zone, tier, stage, 2, 1, 1, false, 'summer'),
+            ).not.toThrow();
           }
         }
       }

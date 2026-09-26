@@ -91,14 +91,18 @@ export function strictCtx(): {
  */
 export function stubCanvasFactory() {
   const contexts: CanvasRenderingContext2D[] = [];
+  /** The draw trace of each baked sprite, in bake order — so a test can ask
+   * what a bake painted, not only that it painted. */
+  const traces: string[][] = [];
   const factory = (w: number, h: number) => {
-    const { ctx } = strictCtx();
+    const { ctx, trace } = strictCtx();
     contexts.push(ctx);
+    traces.push(trace);
     return {
       width: w,
       height: h,
       getContext: () => ctx,
     } as unknown as HTMLCanvasElement;
   };
-  return { factory, contexts };
+  return { factory, contexts, traces };
 }

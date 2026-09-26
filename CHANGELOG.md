@@ -4,6 +4,59 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.65.0] — 2026-09-25 · Realism, part two: lots, ground, roads, trees
+
+The second of three drops toward a SimCity 4 standard of detail: the half of
+the picture v0.64 left as a green diamond. Nothing in the sim moved.
+
+### Added
+- **Plots** (`render/lots.ts`). Every developed lot stands on a laid-out plot
+  that faces its street: a sidewalk along the road edge, then by family — a
+  lawn with mow lines, a concrete driveway to the garage with a car on it
+  more often than not, a path to the door, a flower bed, a mailbox, a picket
+  fence or a hedge down one side, shrubs and yard trees (suburban houses);
+  paving with kerb, planters and a bin store, a van at the kerb (urban
+  low-rise); a paved plaza with planters, benches and a lamp (towers); a
+  striped parking lot with cars, a pylon sign and a dumpster enclosure
+  (strip retail); a fenced yard with a truck at the dock, pallets, a
+  container and a tank on asphalt or gravel (industry); crop rows and a
+  fence (farms). Desert cities get gravel xeriscape in place of lawn. The
+  layout is a pure function of the lot and which screen side its road is on,
+  and it turns with the camera — rotate the view and the driveway still
+  meets the street. Each plot bakes once as its own tile-sized sprite, laid
+  down in the ground pass so cast shadows fall on it; yard trees stay live so
+  they wear the season.
+- **Ground with tone** (`render/ground.ts`). A per-pixel noise field painted
+  into every ground sprite darkens hollows and patches at a scale a tile fill
+  cannot carry, on meadow, dune, rock and snow alike; meadows got half as
+  many tufts again, a third of them sunlit.
+- **Trees from leaf dabs** (`render/scenery.ts`). Broadleaf crowns are dozens
+  of leaf clusters over a dark core, lit on the upper left and shaded on the
+  lower right with a little dapple; species now: oak (wide), maple (round,
+  red in autumn), birch (narrow, pale flecked trunk), pine (tall, sparse,
+  trunk showing), spruce (dense to the ground), cypress (a narrow flame), and
+  the palm and dead tree as before. A forest tile carries four or five trees
+  of mixed size over a bed of undergrowth.
+- **Streets with a surface** (`render/roadart.ts`). Asphalt grain, tarmac
+  patches, a seam down every straight run and the occasional manhole; kerbs
+  with a face in shade under the nosing; paving joints across every footway;
+  crosswalk rungs worn unevenly.
+
+### Fixed
+- Two sprite-key collisions that had been there since the sprite cache
+  arrived: spring and summer trees and hedges shared a sprite (both seasons
+  start with an s), as did desert and dirt ground.
+
+### Changed
+- The old tinted "apron" under a lot and its live yard props are gone; the
+  plot replaces both.
+
+Measured on the 76,000-population demo city at zoom 1: ground 8.9 ms,
+shadows 2.5, scene 10.7, finish 2.8 — 25 ms against the 36 ms budget. A
+first cut put the ground at 20 ms and the scene at 18 (a composite-mode
+switch per tile and a fresh layout per lot per frame); both were fixed
+before shipping.
+
 ## [0.64.0] — 2026-09-25 · Realism, part one: materials, light, windows, roofs, shadows, grade
 
 The first of three drops toward a SimCity 4 standard of detail. The bake-once

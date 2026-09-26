@@ -21,6 +21,7 @@ import { ENV, css, hsl, lit, mix } from './palette';
 import { LIGHT } from './sun';
 import { getSkin } from './skins';
 import { blit, sprite } from './spritecache';
+import { grain } from './surface';
 
 const HW = TILE_W / 2;
 const HH = TILE_H / 2;
@@ -261,7 +262,26 @@ function paintFootway(ctx: CanvasRenderingContext2D, k: number, fw: number): voi
   ctx.closePath();
   ctx.fillStyle = pave;
   ctx.fill();
-  // the kerb face: a bright top nosing over a dark shadow line
+  // paving joints across the footway
+  ctx.strokeStyle = 'rgba(20, 24, 30, 0.2)';
+  ctx.lineWidth = 0.5;
+  const joints = 5;
+  for (let k = 1; k < joints; k++) {
+    const t = k / joints;
+    ctx.beginPath();
+    ctx.moveTo(c1[0] + (c2[0] - c1[0]) * t, c1[1] + (c2[1] - c1[1]) * t);
+    ctx.lineTo(i1[0] + (i2[0] - i1[0]) * t, i1[1] + (i2[1] - i1[1]) * t);
+    ctx.stroke();
+  }
+  // the kerb: a face in shade below a bright top nosing, then a shadow line
+  ctx.fillStyle = css(lit(ENV.concreteKerb, LIGHT.right));
+  ctx.beginPath();
+  ctx.moveTo(i1[0], i1[1]);
+  ctx.lineTo(i2[0], i2[1]);
+  ctx.lineTo(i2[0] * 0.94, i2[1] * 0.94 + 1.6);
+  ctx.lineTo(i1[0] * 0.94, i1[1] * 0.94 + 1.6);
+  ctx.closePath();
+  ctx.fill();
   ctx.strokeStyle = kerb;
   ctx.lineWidth = 1.4;
   ctx.beginPath();
@@ -408,6 +428,35 @@ function paintRoadTile(
     }
   }
 
+  // tarmac patches, and a seam down a straight run with the odd manhole
+  for (let k = 0; k < 3; k++) {
+    if (hash2(k, 21, seed) < 0.5) continue;
+    const u = hash2(k, 22, seed) * 1.4 - 0.7;
+    const v = hash2(k, 23, seed) * 1.4 - 0.7;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+    ctx.beginPath();
+    ctx.ellipse(u * HW, v * HH, 5 + hash2(k, 24, seed) * 6, 2.5 + hash2(k, 25, seed) * 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (!cor && (mask === 0b0101 || mask === 0b1010)) {
+    const k = mask === 0b0101 ? 0 : 1;
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.14)';
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(SIDE_MID[k][0] * 0.5, SIDE_MID[k][1] * 0.5 + 3);
+    ctx.lineTo(SIDE_MID[(k + 2) % 4][0] * 0.5, SIDE_MID[(k + 2) % 4][1] * 0.5 + 3);
+    ctx.stroke();
+    if (hash2(variant, 44, 909) > 0.6) {
+      ctx.fillStyle = 'rgba(14, 16, 22, 0.8)';
+      ctx.beginPath();
+      ctx.ellipse(6, 2, 2.6, 1.3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(180, 186, 196, 0.5)';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    }
+  }
+
   // A carriageway is not a junction, however much road surrounds it: its
   // markings run along the traffic, and nothing here is a place to cross.
   if (cor) {
@@ -443,6 +492,8 @@ function paintRoadTile(
       for (let s = -2; s <= 2; s++) {
         const px = mx * 0.72 + (ex * s) / 3.2;
         const py = my * 0.72 + (ey * s) / 3.2;
+        // worn unevenly, the way paint on a road is
+        ctx.strokeStyle = `rgba(236, 240, 246, ${(0.35 + hash2(k, s, seed) * 0.35).toFixed(2)})`;
         ctx.beginPath();
         ctx.moveTo(px - mx * 0.13, py - my * 0.13);
         ctx.lineTo(px + mx * 0.13, py + my * 0.13);
@@ -504,7 +555,13 @@ export function drawRoad(
   const s = sprite(
     `rd${cls}m${mask}v${variant & 3}${ck}${getSkin().id}`,
     { w: TILE_W + 2, h: TILE_H + 2, ax: HW + 1, ay: HH + 1 },
-    (c) => paintRoadTile(c, cls, mask, variant & 3, cor),
+    (c) => {
+      paintRoadTile(c, cls, mask, variant & 3, cor);
+      c.save();
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      grain(c, c.canvas.width, c.canvas.height, 0.04, variant + cls * 7);
+      c.restore();
+    },
   );
   blit(ctx, s, geom.cx, geom.cy);
 }
