@@ -1,6 +1,6 @@
 import { buildingBySlot } from '../content/registry';
 import { MAX_BUILDING_PROPS, MOD_SLOT_BASE, type VisualDef } from '../content/types';
-import { IndustryKind, Stage, Tier, Wealth, Zone } from '../sim/types';
+import { Stage, Tier, Wealth, Zone } from '../sim/types';
 import { normalizeTier } from '../sim/tiers';
 import { entityFor } from '../sim/entities';
 import { TILE_H, TILE_W, TileGeom } from './iso';
@@ -32,7 +32,7 @@ import {
   type MaterialKind,
   type WindowPattern,
 } from './massing';
-import { LAMP, hsl } from './palette';
+import { LAMP, hsl, materialOf, swatch } from './palette';
 import { LIGHT, wallLight, type Pt } from './sun';
 import { chimneyHeight, placeRoofProps, roofCap, roofKit, towerCrown } from './roofs';
 import { Sprite, blit, sprite } from './spritecache';
@@ -47,7 +47,7 @@ import {
   heightScaleFor,
   pickArchetype,
   pickFarmLayout,
-  paletteFamily,
+  pickSwatch,
   PropKind,
   RoofStyle,
 } from './archetypes';
@@ -59,123 +59,6 @@ const HEIGHTS: Partial<Record<Zone, number[]>> = {
   [Zone.Industrial]: [0, 13, 23, 37, 50, 64, 80, 98],
 };
 
-/** Base wall colors [h, s, l] by tier and stage. Index 0 is unused (stage 0). */
-const R_PALETTES: Record<Wealth, [number, number, number][]> = {
-  1: [
-    [0, 0, 0],
-    [26, 26, 50], // cottage, weathered timber
-    [28, 24, 46],
-    [30, 22, 42],
-    [32, 20, 40],
-    [33, 18, 38],
-    [34, 17, 36],
-    [35, 16, 34],
-  ],
-  2: [
-    [0, 0, 0],
-    [92, 26, 60], // small house, pale green
-    [16, 42, 42], // rowhouse brick
-    [206, 18, 52], // apartment slate
-    [212, 20, 50], // mid-rise
-    [218, 22, 47], // block tower
-    [222, 24, 45], // high-rise
-    [228, 26, 43], // residential tower
-  ],
-  3: [
-    [0, 0, 0],
-    [42, 20, 76], // villa, pale stone
-    [40, 18, 74],
-    [38, 16, 72],
-    [200, 20, 66], // glass-and-stone mid-rise
-    [202, 22, 62],
-    [204, 24, 58],
-    [206, 26, 54],
-  ],
-};
-
-const C_PALETTES: Record<Wealth, [number, number, number][]> = {
-  1: [
-    [0, 0, 0],
-    [20, 38, 56], // strip retail, warm render
-    [24, 34, 52],
-    [26, 30, 48],
-    [28, 28, 46],
-    [30, 26, 44],
-    [32, 24, 42],
-    [34, 22, 40],
-  ],
-  2: [
-    [0, 0, 0],
-    [188, 28, 58], // shop
-    [196, 32, 50], // office, glassy cyan
-    [208, 32, 44], // tower
-    [204, 36, 42], // glass mid-rise
-    [209, 38, 40], // office slab
-    [214, 40, 38], // corporate tower
-    [219, 42, 36], // skyscraper
-  ],
-  3: [
-    [0, 0, 0],
-    [220, 22, 46],
-    [222, 24, 43],
-    [224, 26, 40], // dark glass tower — dark by *saturation*, not by going
-    [226, 28, 38], // black: a wall at l≈24 lit at 0.6 is unreadable mud, and
-    [228, 30, 36], // a downtown of them reads as a hole in the map
-    [230, 32, 34],
-    [232, 34, 32],
-  ],
-};
-
-const I_PALETTES: Record<IndustryKind, [number, number, number][]> = {
-  ag: [
-    [0, 0, 0],
-    [12, 44, 40], // barn red
-    [12, 42, 38],
-    [12, 40, 36],
-    [12, 40, 36],
-    [12, 40, 36],
-    [12, 40, 36],
-    [12, 40, 36],
-  ],
-  dirty: [
-    [0, 0, 0],
-    [34, 30, 52], // shed, ochre
-    [24, 26, 46], // works, rust
-    [20, 22, 40], // factory
-    [18, 20, 38], // heavy works
-    [15, 18, 36], // refinery block
-    [12, 17, 34], // industrial complex
-    [10, 15, 32], // mega-plant
-  ],
-  manu: [
-    [0, 0, 0],
-    [206, 7, 56], // mid-grey shed
-    [206, 7, 52],
-    [208, 8, 48],
-    [208, 8, 46],
-    [210, 9, 44],
-    [210, 9, 42],
-    [212, 10, 40],
-  ],
-  tech: [
-    [0, 0, 0],
-    [176, 18, 70], // clean white-teal
-    [176, 20, 68],
-    [178, 22, 65],
-    [178, 24, 62],
-    [180, 26, 59],
-    [180, 28, 56],
-    [182, 30, 53],
-  ],
-};
-
-function paletteFor(zone: Zone, tier: Tier, stage: Stage): [number, number, number] {
-  const t = normalizeTier(zone, tier);
-  if (zone === Zone.Residential) return R_PALETTES[t as Wealth][stage];
-  if (zone === Zone.Commercial) return C_PALETTES[t as Wealth][stage];
-  if (zone === Zone.Industrial) return I_PALETTES[t as IndustryKind][stage];
-  return [0, 0, 50];
-}
 
 // ---------------------------------------------------------------------------
 // Small shared helpers, kept at their old names for the rest of the renderer
@@ -344,48 +227,32 @@ function familyOf(zone: Zone, tier: Tier): FamilyKey {
 }
 
 interface LotStyle {
-  wall: MaterialKind;
   /** Draw a parapet lip round flat roofs. */
   lip: boolean;
 }
 
-/** What a lot is *made of*. The archetype decides the *shape* and how it is
- * fenestrated; this decides only the surface, so a shophouse and an office
- * slab can both be concrete without becoming the same building. */
+/** Whether a lot's flat roof gets a parapet lip. What a lot is *made of* is
+ * the archetype's business now (see `swatches` in archetypes.ts); this only
+ * decides the roofline. Still consumes a channel, so the bake's decision
+ * stream — which `hearthTip` replays — keeps its order. */
 function styleFor(fam: FamilyKey, stage: Stage, pick: number): LotStyle {
-  const tall = stage >= 5;
+  void pick;
   const mid = stage >= 3;
   switch (fam) {
     case 'R1':
-      return { wall: stage <= 2 ? 'timber' : 'render', lip: mid };
     case 'R2':
-      return {
-        wall: stage <= 2 ? (pick > 0.5 ? 'brick' : 'render') : tall ? 'concrete' : 'brick',
-        lip: mid,
-      };
-    case 'R3':
-      return {
-        wall: tall ? 'glass' : stage <= 2 ? 'stone' : 'render',
-        lip: true,
-      };
     case 'C1':
-      return { wall: stage <= 2 ? 'render' : 'brick', lip: mid };
+      return { lip: mid };
+    case 'R3':
     case 'C2':
-      return {
-        wall: mid ? 'glass' : pick > 0.45 ? 'render' : 'brick',
-        lip: true,
-      };
     case 'C3':
-      return { wall: 'glass', lip: true };
-    case 'dirty':
-      return { wall: mid ? 'concrete' : 'metal', lip: false };
-    case 'manu':
-      return { wall: 'metal', lip: false };
     case 'tech':
-      return { wall: mid ? 'glass' : 'metal', lip: true };
+      return { lip: true };
+    case 'dirty':
+    case 'manu':
     case 'ag':
     default:
-      return { wall: 'timber', lip: false };
+      return { lip: false };
   }
 }
 
@@ -635,19 +502,21 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
   }
 
   const h = growableHeight(zone, stage, tier, bucket);
+  // channel order is load-bearing: archetype, style, swatch, jitter —
+  // hearthTip replays the first draw to find the chimney the bake placed
   const arch: Archetype = pickArchetype(zone, tier, stage, chan());
   const style = styleFor(fam, stage, chan());
-  const [ph, ps, pl] = paletteFor(zone, tier, stage);
-  const [fh, fs, fl] = paletteFamily(zone, tier, chan());
+  const sw = swatch(pickSwatch(arch, chan()));
+  const jitter = chan();
   let body: Hsl = {
-    h: (ph + fh + Math.floor(chan() * 12) - 6 + 360) % 360,
-    s: Math.max(0, Math.min(100, ps + fs)),
-    l: Math.max(0, Math.min(100, pl + fl)),
+    h: (sw.body.h + Math.floor(jitter * 9) - 4 + 360) % 360,
+    s: sw.body.s,
+    l: Math.max(0, Math.min(100, sw.body.l + (hash2(bucket, stage, 5) - 0.5) * 6)),
   };
   if (abandoned) body = { h: body.h, s: 5, l: 30 };
   const skinned = getSkin().building(body.h, body.s, body.l);
   body = { h: skinned[0], s: skinned[1], l: skinned[2] };
-  const mat = material(abandoned ? 'render' : style.wall, body);
+  const mat = abandoned ? material('render', body) : materialOf(sw, body);
 
   const budget = footprintBudget(stage);
   // Back to front by the *centre* of each mass, and — critically — shortest
@@ -765,36 +634,20 @@ function tierAccents(
   const rc = zone === Zone.Residential || zone === Zone.Commercial;
   const cx = (roof[0][0] + roof[2][0]) / 2;
   const cy = (roof[1][1] + roof[3][1]) / 2;
-  if (rc && tier === 3 && stage >= 3) {
-    ctx.strokeStyle = 'rgba(255, 238, 196, 0.7)';
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(roof[0][0], roof[0][1]);
-    for (let i = 1; i < 4; i++) ctx.lineTo(roof[i][0], roof[i][1]);
-    ctx.closePath();
-    ctx.stroke();
+  if (rc && tier === 3 && stage >= 6 && hash2(seed, 12, 883) > 0.72) {
     // A gilded mast marks a prestige tower — but only some of them. Giving one
     // to every §§§ lot turned a wealthy downtown into a pin cushion.
-    if (stage >= 6 && hash2(seed, 12, 883) > 0.72) {
-      ctx.strokeStyle = '#e8e2d2';
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(cx, cy - 18);
-      ctx.stroke();
-      ctx.fillStyle = '#ffd76a';
-      ctx.fillRect(cx - 1.2, cy - 20, 2.4, 2.4);
-    }
-  } else if (rc && tier === 1) {
-    fill(ctx, roof, 'rgba(38, 34, 28, 0.24)');
-  } else if (zone === Zone.Industrial && tier === 'tech' && stage >= 5) {
-    ctx.strokeStyle = 'rgba(150, 232, 255, 0.8)';
-    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = '#e8e2d2';
+    ctx.lineWidth = 1.6;
     ctx.beginPath();
-    ctx.moveTo(roof[0][0], roof[0][1]);
-    for (let i = 1; i < 4; i++) ctx.lineTo(roof[i][0], roof[i][1]);
-    ctx.closePath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx, cy - 18);
     ctx.stroke();
+    ctx.fillStyle = '#ffd76a';
+    ctx.fillRect(cx - 1.2, cy - 20, 2.4, 2.4);
+  } else if (rc && tier === 1) {
+    // a poorer lot's roof is a little dirtier, and that is all it takes
+    fill(ctx, roof, 'rgba(38, 34, 28, 0.14)');
   }
 }
 

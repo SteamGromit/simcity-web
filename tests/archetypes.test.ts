@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { SWATCHES } from '../src/render/palette';
 import {
   Archetype,
   boxExtent,
@@ -7,6 +8,7 @@ import {
   footprintBudget,
   paletteFamily,
   pickArchetype,
+  pickSwatch,
   pickFarmLayout,
 } from '../src/render/archetypes';
 import { Stage, Tier, Zone } from '../src/sim/types';
@@ -180,5 +182,36 @@ describe('farm layouts', () => {
       expect(Math.abs(l.barnOx)).toBeLessThanOrEqual(0.25);
       expect(Math.abs(l.barnOy)).toBeLessThanOrEqual(0.25);
     }
+  });
+});
+
+describe('swatches', () => {
+  const COMBOS: [Zone, Tier][] = [
+    [Zone.Residential, 1], [Zone.Residential, 2], [Zone.Residential, 3],
+    [Zone.Commercial, 1], [Zone.Commercial, 2], [Zone.Commercial, 3],
+    [Zone.Industrial, 'dirty'], [Zone.Industrial, 'manu'], [Zone.Industrial, 'tech'],
+  ];
+  test('every archetype names at least two known swatches', () => {
+    for (const [zone, tier] of COMBOS) {
+      for (const stage of [1, 3, 6] as const) {
+        for (const pick of [0.1, 0.5, 0.9]) {
+          const a = pickArchetype(zone, tier, stage, pick);
+          expect(a.swatches.length).toBeGreaterThanOrEqual(2);
+          for (const id of a.swatches) expect(SWATCHES[id]).toBeDefined();
+        }
+      }
+    }
+  });
+  test('pickSwatch is stable and spans the list', () => {
+    const a = pickArchetype(Zone.Commercial, 2, 6, 0.2);
+    expect(pickSwatch(a, 0.3)).toBe(pickSwatch(a, 0.3));
+    const seen = new Set([0.01, 0.3, 0.6, 0.99].map((p) => pickSwatch(a, p)));
+    expect(seen.size).toBeGreaterThanOrEqual(2);
+  });
+  test('glass towers only name glass swatches; houses never do', () => {
+    const tower = pickArchetype(Zone.Commercial, 3, 7, 0.5);
+    for (const id of tower.swatches) expect(SWATCHES[id].family).toBe('glass');
+    const house = pickArchetype(Zone.Residential, 1, 1, 0.5);
+    for (const id of house.swatches) expect(SWATCHES[id].family).not.toBe('glass');
   });
 });
