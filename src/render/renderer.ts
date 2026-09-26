@@ -61,7 +61,7 @@ import { hash2 } from './noise';
 import { blit, sprite } from './spritecache';
 import { ShadowLayer } from './shadows';
 import { drawLotGround, roadSidesFor, roadStampOf } from './lots';
-import { ShorelineLot, drawReflection, shorelineLots } from './reflections';
+import { ShorelineLot, drawReflection, shoreStampOf, shorelineLots } from './reflections';
 
 export interface ViewState {
   hover: { x: number; y: number } | null;
@@ -1046,10 +1046,7 @@ export class Renderer {
   private shoreStamp = -1;
   private shoreQuarter = -1;
   private ensureShoreline(city: CityState) {
-    let stamp = this.depthStamp;
-    for (let i = 0; i < city.tiles.length; i += 7) {
-      if (city.tiles[i].stage > 0) stamp = (stamp * 31 + i) | 0;
-    }
+    const stamp = shoreStampOf(city);
     if (stamp === this.shoreStamp && this.quarter === this.shoreQuarter) return;
     this.shoreStamp = stamp;
     this.shoreQuarter = this.quarter;

@@ -66,10 +66,11 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    building's wall; the realism spec's roof list still lacks satellite
    dishes, solar arrays, gutters, industrial pipe runs and spandrel panels
    on ribbon windows (deferred from v0.64.0); the tilt-shift blur snaps off
-   at night = 0.5 rather than fading; civic and reward gables keep a
-   world-fixed ridge that turns with the camera (growables bake a
-   screen-fixed one); the waterfront reflection covers single-tile lots and
-   civic buildings only (rewards, parks and trees do not reflect); weather
+   at night = 0.5 rather than fading; the waterfront reflection covers
+   single-tile lots and civic buildings only (rewards, parks and trees do
+   not reflect), is clipped to the one or two water tiles a lot fronts (a
+   tower's reflection stops at the diamond edge), and the shore's foam is
+   still the v0.58 single break line; weather
    doesn't lie on the ground (a winter map has no snow cover, and rain
    leaves no wet asphalt). The ground pass is the dominant
    per-frame cost — baking ground *chunks* is the obvious next step. The

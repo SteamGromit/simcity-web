@@ -131,10 +131,11 @@ describe('rewards bake', () => {
     const before = spriteStats().bakes;
     const geom = blockGeom(46, 46, 3, 0);
     drawBuilding(ctx, geom, Zone.Museum, 3 as Stage, 2 as Tier, false, true, 0.5, 0, 2, 3);
+    const afterFirst = spriteStats().bakes;
     drawBuilding(ctx, geom, Zone.Museum, 3 as Stage, 2 as Tier, false, true, 0.5, 0, 2, 3);
+    // the second identical draw bakes nothing at all
+    expect(spriteStats().bakes).toBe(afterFirst);
     drawBuilding(ctx, geom, Zone.Museum, 3 as Stage, 2 as Tier, false, false, 0.5, 0, 2, 3);
-    // the bake and its nested tree/hedge sprites count too; the reward itself
-    // must not bake twice for the same key
     expect(trace.filter((t) => t.startsWith('drawImage')).length).toBe(3);
     expect(spriteStats().bakes - before).toBeGreaterThanOrEqual(2);
   });

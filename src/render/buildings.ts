@@ -893,6 +893,9 @@ function pitched(style: RoofStyle): boolean {
   return style === 'gabled' || style === 'hipped' || style === 'mansard';
 }
 
+/** The civic table, read-only, for tests that hold the bakes to it. */
+export const CIVIC_SPECS: Readonly<Partial<Record<Zone, CivicSpec>>> = CIVIC;
+
 /** The swatch a civic building is built of, or null for anything else. */
 export function civicSwatch(zone: Zone): string | null {
   return CIVIC[zone]?.swatch ?? null;
@@ -1290,8 +1293,10 @@ function civicSprite(zone: Zone, spec: CivicSpec, powered: boolean, detail: 0 | 
   const h = spec.h * getSkin().heightScale;
   const w = TILE_W + CIVIC_MARGIN_X * 2;
   const ht = h + TILE_H + CIVIC_MARGIN_TOP + 8;
+  // detail only tells 0 from 1+ in the painter, so the key says no more —
+  // or zooming in would re-bake the same picture
   return sprite(
-    `V${zone}.${powered ? 1 : 0}.${detail}.${getSkin().id}`,
+    `V${zone}.${powered ? 1 : 0}.${detail ? 1 : 0}.${getSkin().id}`,
     { w, h: ht, ax: w / 2, ay: ht - TILE_H / 2 - 8 },
     (c) => {
       paintCivic(c, spec, zone, powered, detail);
@@ -1315,7 +1320,14 @@ function civicGlowSprite(zone: Zone, spec: CivicSpec): Sprite {
     (c) => {
       const { mat } = civicMaterial(spec);
       const q = inset(diamond(0, 0, TILE_W / 2, TILE_H / 2), spec.f);
-      prism(c, q, h, mat, { seed: zone * 7 + 1, windows: spec.windows, glow: true });
+      // the same facade as the daylight bake: a podium lifts the first row
+      // of windows, and the lit rows have to lift with it
+      prism(c, q, h, mat, {
+        seed: zone * 7 + 1,
+        windows: spec.windows,
+        facade: spec.facade,
+        glow: true,
+      });
     },
     1,
   );
@@ -1671,10 +1683,10 @@ const REWARD_MARGIN_TOP = 80;
 function rewardSprite(zone: Zone, powered: boolean, detail: 0 | 1 | 2, size: number): Sprite {
   const scale = getSkin().heightScale;
   const w = TILE_W * size + 40;
-  const h = TILE_H * size + (REWARD_HEIGHT[zone] ?? 20) * scale + REWARD_MARGIN_TOP;
+  const h = TILE_H * size + (REWARD_HEIGHT[zone] ?? 20) * scale + REWARD_MARGIN_TOP + 2;
   return sprite(
-    `W${zone}.${powered ? 1 : 0}.${size}.${detail}.${getSkin().id}`,
-    { w, h, ax: w / 2, ay: h - (TILE_H * size) / 2 - 6 },
+    `W${zone}.${powered ? 1 : 0}.${size}.${detail ? 1 : 0}.${getSkin().id}`,
+    { w, h, ax: w / 2, ay: h - (TILE_H * size) / 2 - 8 },
     (c) => {
       paintReward(c, zone, powered, detail, size);
       c.save();
@@ -1857,7 +1869,8 @@ export function drawBuilding(
     season: farm ? season : undefined,
   };
   blit(ctx, lotSprite(key), cx, cy);
-  if (night > 0.06 && !abandoned && powered) {
+  if (night > 0.06 && !abandoned && powered && !farm) {
+    // (a farm's glow bake is empty — nothing to blit)
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     blit(ctx, lotSprite({ ...key, glow: true }), cx, cy, Math.min(0.5, night * 0.7));
