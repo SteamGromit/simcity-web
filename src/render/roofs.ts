@@ -132,14 +132,14 @@ export function ridgeOf(roof: Pt[], rise: number, shrink = 0.28): [Pt, Pt] {
  * the giveaway that a town was generated; real ones mix shingle, slate, tile
  * and standing-seam metal. */
 export const ROOFING: Hsl[] = [
-  hsl(220, 6, 30), // asphalt shingle, grey
-  hsl(24, 14, 28), // asphalt shingle, brown
-  hsl(212, 10, 26), // slate
-  hsl(14, 40, 40), // terracotta
-  hsl(30, 10, 46), // concrete tile
-  hsl(150, 14, 30), // standing-seam green
-  hsl(6, 36, 34), // standing-seam red
-  hsl(210, 6, 52), // standing-seam grey
+  hsl(220, 6, 38), // asphalt shingle, grey
+  hsl(24, 14, 36), // asphalt shingle, brown
+  hsl(212, 10, 34), // slate
+  hsl(14, 40, 44), // terracotta
+  hsl(30, 10, 52), // concrete tile
+  hsl(150, 14, 36), // standing-seam green
+  hsl(6, 36, 38), // standing-seam red
+  hsl(210, 6, 56), // standing-seam grey
 ];
 
 /** Membrane/gravel speckle and a drain stain over a flat deck, clipped to it. */

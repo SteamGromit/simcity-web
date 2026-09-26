@@ -233,7 +233,7 @@ const TAR = hsl(220, 4, 26);
 export const SWATCHES: Record<string, Swatch> = Object.fromEntries(
   [
     SW('brick-red', 'brick', 'brick', hsl(10, 38, 40), TAR, 38),
-    SW('brick-brown', 'brick', 'brick', hsl(18, 26, 34), TAR),
+    SW('brick-brown', 'brick', 'brick', hsl(18, 26, 40), TAR),
     SW('brick-buff', 'brick', 'brick', hsl(36, 24, 58), GRAVEL),
     SW('brick-white', 'brick', 'brick', hsl(40, 8, 84), GRAVEL),
     SW('brick-grey', 'brick', 'brick', hsl(210, 4, 62), MEMBRANE),

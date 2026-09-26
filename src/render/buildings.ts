@@ -29,7 +29,7 @@ import {
   shift,
   type Facade,
   type Hsl,
-  type MaterialKind,
+
   type WindowPattern,
 } from './massing';
 import { LAMP, hsl, materialOf, swatch } from './palette';
@@ -59,7 +59,6 @@ const HEIGHTS: Partial<Record<Zone, number[]>> = {
   [Zone.Commercial]: [0, 17, 35, 60, 80, 102, 126, 152],
   [Zone.Industrial]: [0, 13, 23, 37, 50, 64, 80, 98],
 };
-
 
 // ---------------------------------------------------------------------------
 // Small shared helpers, kept at their old names for the rest of the renderer
@@ -299,21 +298,44 @@ function streetLevel(
   if (walls.length === 0) return;
   const [a, b] = walls.reduce((p, w) => (w[0][1] + w[1][1] > p[0][1] + p[1][1] ? w : p), walls[0]);
   const at = (t: number): Pt => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
-  if (zone === Zone.Commercial && stage >= 2) {
-    // a glazed shopfront band the full width of every visible wall
+  if (zone === Zone.Commercial && stage >= 1) {
+    // a shopfront on every visible wall: glazing over a dark interior, a
+    // stall riser, a fascia in the business colour, a reflection strip
+    const fascia = entityHue !== null ? hsl(entityHue, 48, 40) : mat.trim;
     for (const [p, q2] of walls) {
       const level = wallLight(p[0], p[1], q2[0], q2[1]);
       fill(
         ctx,
-        [p, q2, [q2[0], q2[1] - 6], [p[0], p[1] - 6]],
-        css(lit(mat.glass, level * 1.25)),
+        [p, q2, [q2[0], q2[1] - 6.5], [p[0], p[1] - 6.5]],
+        css(lit({ ...mat.glass, l: mat.glass.l * 0.7 }, level)),
       );
-      ctx.strokeStyle = css(lit(mat.trim, level));
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(p[0], p[1] - 6.4);
-      ctx.lineTo(q2[0], q2[1] - 6.4);
-      ctx.stroke();
+      fill(ctx, [p, q2, [q2[0], q2[1] - 1.2], [p[0], p[1] - 1.2]], css(lit(mat.trim, level * 0.9)));
+      fill(
+        ctx,
+        [[p[0], p[1] - 6.5], [q2[0], q2[1] - 6.5], [q2[0], q2[1] - 9.2], [p[0], p[1] - 9.2]],
+        css(lit(fascia, level)),
+      );
+      fill(
+        ctx,
+        [[p[0], p[1] - 6.5], [q2[0], q2[1] - 6.5], [q2[0], q2[1] - 5.6], [p[0], p[1] - 5.6]],
+        'rgba(255, 252, 244, 0.25)',
+      );
+    }
+    if (stage <= 3 && hash2(5, 6, seed) > 0.5) {
+      // an awning off the front wall, with the shade it throws under it
+      const a1 = at(0.1);
+      const a2 = at(0.9);
+      const awn = entityHue !== null ? hsl(entityHue, 52, 46) : hsl(18, 40, 46);
+      fill(
+        ctx,
+        [[a1[0], a1[1] - 9.2], [a2[0], a2[1] - 9.2], [a2[0], a2[1] - 5.2], [a1[0], a1[1] - 5.2]],
+        css(lit(awn, LIGHT.roof)),
+      );
+      fill(
+        ctx,
+        [[a1[0], a1[1] - 5.2], [a2[0], a2[1] - 5.2], [a2[0], a2[1] - 4.4], [a1[0], a1[1] - 4.4]],
+        'rgba(10, 14, 26, 0.35)',
+      );
     }
   }
   if (stage >= 5) {
@@ -715,8 +737,8 @@ function yardProps(
 interface CivicSpec {
   h: number;
   f: number;
-  body: Hsl;
-  wall: MaterialKind;
+  /** What it is built of — a swatch id from the palette's library. */
+  swatch: string;
   windows: WindowPattern;
   roof: RoofStyle;
   facade?: Facade;
@@ -725,54 +747,59 @@ interface CivicSpec {
 
 const CIVIC: Partial<Record<Zone, CivicSpec>> = {
   [Zone.FireStation]: {
-    h: 19, f: 0.82, body: hsl(2, 56, 44), wall: 'brick', windows: 'punched', roof: 'parapet',
+    h: 19, f: 0.82, swatch: 'brick-red', windows: 'punched', roof: 'parapet',
     facade: { podium: 1 }, props: ['vent'],
   },
   [Zone.PoliceStation]: {
-    h: 19, f: 0.82, body: hsl(216, 34, 44), wall: 'brick', windows: 'punched', roof: 'parapet',
+    h: 19, f: 0.82, swatch: 'stone-granite', windows: 'punched', roof: 'parapet',
     facade: { cornice: true, stringCourse: 1 }, props: ['acUnit'],
   },
   [Zone.Hospital]: {
-    h: 26, f: 0.84, body: hsl(190, 10, 70), wall: 'concrete', windows: 'ribbon', roof: 'flat',
+    h: 26, f: 0.84, swatch: 'render-white', windows: 'ribbon', roof: 'flat',
     facade: { podium: 1, stringCourse: 2 }, props: ['acUnit', 'vent', 'helipad'],
   },
   [Zone.School]: {
-    h: 14, f: 0.86, body: hsl(38, 34, 54), wall: 'brick', windows: 'punched', roof: 'gabled',
+    h: 14, f: 0.86, swatch: 'brick-buff', windows: 'punched', roof: 'gabled',
     facade: { cornice: true }, props: ['skylight'],
   },
   [Zone.Prison]: {
-    h: 12, f: 0.88, body: hsl(210, 5, 44), wall: 'concrete', windows: 'none', roof: 'flat',
+    h: 12, f: 0.88, swatch: 'concrete-board', windows: 'none', roof: 'flat',
     facade: { stringCourse: 1 }, props: ['vent'],
   },
-  [Zone.BusStop]: { h: 7, f: 0.42, body: hsl(178, 34, 44), wall: 'metal', windows: 'ribbon', roof: 'flat' },
-  [Zone.StreetcarStop]: { h: 8, f: 0.46, body: hsl(178, 36, 46), wall: 'metal', windows: 'ribbon', roof: 'flat' },
-  [Zone.MonorailStation]: { h: 7, f: 0.48, body: hsl(196, 20, 52), wall: 'concrete', windows: 'ribbon', roof: 'flat' },
-  [Zone.SubwayStation]: { h: 7, f: 0.46, body: hsl(220, 14, 40), wall: 'concrete', windows: 'none', roof: 'flat' },
+  [Zone.BusStop]: { h: 7, f: 0.42, swatch: 'metal-aluminium', windows: 'ribbon', roof: 'flat' },
+  [Zone.StreetcarStop]: { h: 8, f: 0.46, swatch: 'metal-aluminium', windows: 'ribbon', roof: 'flat' },
+  [Zone.MonorailStation]: { h: 7, f: 0.48, swatch: 'concrete-precast', windows: 'ribbon', roof: 'flat' },
+  [Zone.SubwayStation]: { h: 7, f: 0.46, swatch: 'concrete-painted', windows: 'none', roof: 'flat' },
   [Zone.RailTerminal]: {
-    h: 18, f: 0.82, body: hsl(12, 40, 38), wall: 'brick', windows: 'punched', roof: 'gabled',
+    h: 18, f: 0.82, swatch: 'brick-brown', windows: 'punched', roof: 'gabled',
     facade: { pilasters: true, cornice: true },
   },
   [Zone.RecyclingCentre]: {
-    h: 16, f: 0.72, body: hsl(140, 20, 50), wall: 'metal', windows: 'ribbon', roof: 'sawtooth',
+    h: 16, f: 0.72, swatch: 'metal-corrugated', windows: 'ribbon', roof: 'sawtooth',
     props: ['skylight', 'vent'],
   },
   [Zone.Incinerator]: {
-    h: 21, f: 0.76, body: hsl(28, 10, 42), wall: 'concrete', windows: 'ribbon', roof: 'flat',
+    h: 21, f: 0.76, swatch: 'concrete-board', windows: 'ribbon', roof: 'flat',
     props: ['vent', 'tank'],
   },
-  [Zone.WaterPump]: { h: 13, f: 0.6, body: hsl(206, 38, 46), wall: 'concrete', windows: 'punched', roof: 'flat' },
+  [Zone.WaterPump]: { h: 13, f: 0.6, swatch: 'render-grey', windows: 'punched', roof: 'flat' },
   [Zone.PowerPlant]: {
-    h: 22, f: 0.86, body: hsl(20, 12, 38), wall: 'concrete', windows: 'ribbon', roof: 'flat',
+    h: 22, f: 0.86, swatch: 'concrete-board', windows: 'ribbon', roof: 'flat',
     props: ['tank', 'vent'],
   },
-  [Zone.SolarPlant]: { h: 4, f: 0.82, body: hsl(220, 10, 30), wall: 'concrete', windows: 'none', roof: 'flat' },
+  [Zone.SolarPlant]: { h: 4, f: 0.82, swatch: 'concrete-painted', windows: 'none', roof: 'flat' },
   [Zone.HydroPlant]: {
-    h: 15, f: 0.72, body: hsl(208, 34, 40), wall: 'concrete', windows: 'ribbon', roof: 'flat',
+    h: 15, f: 0.72, swatch: 'concrete-precast', windows: 'ribbon', roof: 'flat',
     props: ['vent'],
   },
-  [Zone.NuclearPlant]: { h: 12, f: 0.8, body: hsl(46, 7, 58), wall: 'concrete', windows: 'ribbon', roof: 'flat' },
-  [Zone.WindTurbine]: { h: 4, f: 0.3, body: hsl(0, 0, 58), wall: 'concrete', windows: 'none', roof: 'flat' },
+  [Zone.NuclearPlant]: { h: 12, f: 0.8, swatch: 'concrete-precast', windows: 'ribbon', roof: 'flat' },
+  [Zone.WindTurbine]: { h: 4, f: 0.3, swatch: 'metal-white', windows: 'none', roof: 'flat' },
 };
+
+/** The swatch a civic building is built of, or null for anything else. */
+export function civicSwatch(zone: Zone): string | null {
+  return CIVIC[zone]?.swatch ?? null;
+}
 
 /** How tall a zone's mass stands, for the shadow pass. */
 export function massHeight(zone: Zone, stage: Stage, tier: Tier, bucket: number): number {
@@ -818,16 +845,23 @@ function drawCivic(
   const spec = CIVIC[zone];
   if (!spec) return false;
   const s = getSkin();
-  const skinned = s.building(spec.body.h, spec.body.s, spec.body.l);
+  const sw = swatch(spec.swatch);
+  const skinned = s.building(sw.body.h, sw.body.s, sw.body.l);
   const body: Hsl = { h: skinned[0], s: skinned[1], l: skinned[2] };
-  const mat = material(spec.wall, body);
+  const mat = materialOf(sw, body);
   const h = spec.h * s.heightScale;
   const q = inset(quadOf(geom), spec.f);
   const cx = geom.cx;
   const cy = geom.cy;
   contactShadow(ctx, q);
-  const r = prism(ctx, q, h, mat, { seed: zone * 7 + 1, windows: spec.windows, facade: spec.facade });
-  roofCap(ctx, r.roof, spec.roof, body, zone);
+  const pitched = spec.roof === 'gabled' || spec.roof === 'hipped' || spec.roof === 'mansard';
+  const r = prism(ctx, q, h, mat, {
+    seed: zone * 7 + 1,
+    windows: spec.windows,
+    facade: spec.facade,
+    eaveShadow: pitched ? 3.5 : undefined,
+  });
+  roofCap(ctx, r.roof, spec.roof, body, zone, mat);
   if (detail >= 1 && spec.props?.length) roofKit(ctx, r.roof, spec.props, body, zone * 3 + 5, h);
 
   switch (zone) {
@@ -1604,7 +1638,7 @@ export function drawBuilding(
   if (night > 0.06 && !abandoned && powered) {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    blit(ctx, lotSprite({ ...key, glow: true }), cx, cy, Math.min(0.8, night * 1.1));
+    blit(ctx, lotSprite({ ...key, glow: true }), cx, cy, Math.min(0.62, night * 0.85));
     ctx.restore();
   }
   if (detail >= 1) yardProps(ctx, geom, zone, tier, stage, bucket, size);
