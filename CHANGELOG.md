@@ -69,6 +69,9 @@ in the sim moved.
 - Civic buildings are built of swatches too (fire station in red brick, police
   in granite, hospital in white render, school in buff brick, and so on) and
   their pitched roofs take the eave treatment.
+- Roof decks and roofing come from the swatch and roofing tables rather than
+  the wall colour, so a skin's hue remap (NYC) or saturation boost
+  (Springfield) now stops at the roofline — walls restyle, roofs stay real.
 - A `window.__simcity.look(x, y, zoom)` debug hook centres the camera on a
   tile — how the graphics passes take their screenshots.
 

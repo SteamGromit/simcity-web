@@ -34,7 +34,15 @@ import {
 } from './massing';
 import { LAMP, hsl, materialOf, swatch } from './palette';
 import { LIGHT, wallLight, type Pt } from './sun';
-import { chimneyHeight, placeRoofProps, roofCap, roofKit, towerCrown } from './roofs';
+import {
+  chimneyHeight,
+  effectiveRoofStyle,
+  placeRoofProps,
+  roofCap,
+  roofKit,
+  towerCrown,
+  wantsHatch,
+} from './roofs';
 import { grain } from './surface';
 import { Sprite, blit, sprite } from './spritecache';
 import { drawHedge, drawRock, drawTree } from './scenery';
@@ -569,10 +577,8 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
       // under a tower gets the podium treatment from its own recipe instead
       facade: sb.hf === 1 && !abandoned ? arch.facade : undefined,
       // a pitched roof overhangs the wall and throws a band of shade down it
-      eaveShadow:
-        sb.hf === 1 && (arch.roof === 'gabled' || arch.roof === 'hipped' || arch.roof === 'mansard')
-          ? 3.5
-          : undefined,
+      // — the roof the plan can actually carry, not the one the archetype asks for
+      eaveShadow: sb.hf === 1 && pitched(effectiveRoofStyle(raise(q, mh), arch.roof)) ? 3.5 : undefined,
     });
     if (ink > 0) {
       // Cartoon ink goes on each mass *as it is drawn*, so a mass in front
@@ -605,7 +611,11 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
     }
   }
   if (!abandoned) {
-    roofKit(ctx, top, arch.props, body, bucket * 7 + 1, h);
+    const crowned = top !== primary.roof;
+    roofKit(
+      ctx, top, arch.props, body, bucket * 7 + 1, h,
+      !crowned && wantsHatch(effectiveRoofStyle(primary.roof, arch.roof)),
+    );
     const ent = entityFor(zone, kind, stage, half);
     streetLevel(
       ctx,
@@ -796,6 +806,11 @@ const CIVIC: Partial<Record<Zone, CivicSpec>> = {
   [Zone.WindTurbine]: { h: 4, f: 0.3, swatch: 'metal-white', windows: 'none', roof: 'flat' },
 };
 
+/** Whether a roof form overhangs the wall on an eave. */
+function pitched(style: RoofStyle): boolean {
+  return style === 'gabled' || style === 'hipped' || style === 'mansard';
+}
+
 /** The swatch a civic building is built of, or null for anything else. */
 export function civicSwatch(zone: Zone): string | null {
   return CIVIC[zone]?.swatch ?? null;
@@ -854,15 +869,17 @@ function drawCivic(
   const cx = geom.cx;
   const cy = geom.cy;
   contactShadow(ctx, q);
-  const pitched = spec.roof === 'gabled' || spec.roof === 'hipped' || spec.roof === 'mansard';
+  const eff = effectiveRoofStyle(raise(q, h), spec.roof);
   const r = prism(ctx, q, h, mat, {
     seed: zone * 7 + 1,
     windows: spec.windows,
     facade: spec.facade,
-    eaveShadow: pitched ? 3.5 : undefined,
+    eaveShadow: pitched(eff) ? 3.5 : undefined,
   });
   roofCap(ctx, r.roof, spec.roof, body, zone, mat);
-  if (detail >= 1 && spec.props?.length) roofKit(ctx, r.roof, spec.props, body, zone * 3 + 5, h);
+  if (detail >= 1 && spec.props?.length) {
+    roofKit(ctx, r.roof, spec.props, body, zone * 3 + 5, h, wantsHatch(eff));
+  }
 
   switch (zone) {
     case Zone.FireStation: {

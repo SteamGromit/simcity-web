@@ -63,7 +63,12 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 8. **Graphics follow-ups** — the pipeline is in but a few things it makes
    possible are not: shadows fall on the ground only and never onto another
-   building's wall; water carries no reflection of the waterfront; weather
+   building's wall; the realism spec's roof list still lacks satellite
+   dishes, solar arrays, gutters, industrial pipe runs and spandrel panels
+   on ribbon windows (deferred from v0.64.0); the tilt-shift blur snaps off
+   at night = 0.5 rather than fading; civic and reward gables keep a
+   world-fixed ridge that turns with the camera (growables bake a
+   screen-fixed one); water carries no reflection of the waterfront; weather
    doesn't lie on the ground (a winter map has no snow cover, and rain
    leaves no wet asphalt); multi-tile rewards and civic buildings still draw
    live rather than baked. The ground pass is the dominant

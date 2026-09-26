@@ -7,6 +7,13 @@ describe('windowGrid', () => {
   test('no panes on a wall under one floor', () => {
     expect(windowGrid(20, 8, windowPlan('punched', 8))).toEqual([]);
   });
+  test('a starter house wall of 10 to 13 px still gets one row', () => {
+    for (const h of [10, 11, 11.5, 12, 12.8, 13]) {
+      const g = windowGrid(30, h, windowPlan('punched', h));
+      expect(g.length, `h=${h}`).toBeGreaterThan(0);
+      for (const p of g) expect(p.v + p.h).toBeLessThanOrEqual(h - 1.5 + 1e-9);
+    }
+  });
   test('every pane lies inside the face', () => {
     for (const pattern of ['punched', 'ribbon', 'curtain'] as const) {
       for (const [len, h] of [

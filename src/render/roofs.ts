@@ -169,6 +169,28 @@ export function gravelSpeckle(ctx: CanvasRenderingContext2D, deck: Pt[], tone: H
   ctx.restore();
 }
 
+/**
+ * The roof form a plan can actually carry. The pitched forms are cut for a
+ * four-cornered plan that is roughly square: a chamfered mass has no ridge to
+ * speak of, and a long slab under a gable grows an absurd triangle at each
+ * end — both take a flat top. Callers that dress the wall for a roof (the
+ * eave shadow, the hatch) ask this rather than the archetype, so a demoted
+ * roof never leaves the shadow of an eave it does not have.
+ */
+export function effectiveRoofStyle(roof: Pt[], style: RoofStyle): RoofStyle {
+  if (roof.length !== 4) return style === 'parapet' ? 'parapet' : 'flat';
+  const ex = Math.hypot(roof[1][0] - roof[0][0], roof[1][1] - roof[0][1]);
+  const ey = Math.hypot(roof[2][0] - roof[1][0], roof[2][1] - roof[1][1]);
+  const aspect = Math.max(ex, ey) / Math.max(1e-6, Math.min(ex, ey));
+  if (aspect > 1.9 && style !== 'sawtooth') return style === 'parapet' ? 'parapet' : 'flat';
+  return style;
+}
+
+/** Whether a roof form has a deck a hatch can open onto. */
+export function wantsHatch(style: RoofStyle): boolean {
+  return style === 'flat' || style === 'parapet';
+}
+
 /** A roof polygon as a path, for clipping. */
 function pathOf(ctx: CanvasRenderingContext2D, pts: Pt[]): void {
   ctx.beginPath();
@@ -195,18 +217,7 @@ export function roofCap(
   // to be measured rather than read off a corner index — turned half a circle
   // the indexed version went negative and pitched every ridge downwards.
   const [rhw] = halfExtent(roof);
-  let style = styleIn;
-  // The pitched forms are cut for a four-cornered plan that is roughly
-  // square. A chamfered mass has no ridge to speak of, and a long slab under
-  // a gable grows an absurd triangle at each end — both take a flat top.
-  if (roof.length !== 4) {
-    if (style !== 'parapet') style = 'flat';
-  } else {
-    const ex = Math.hypot(roof[1][0] - roof[0][0], roof[1][1] - roof[0][1]);
-    const ey = Math.hypot(roof[2][0] - roof[1][0], roof[2][1] - roof[1][1]);
-    const aspect = Math.max(ex, ey) / Math.max(1e-6, Math.min(ex, ey));
-    if (aspect > 1.9 && style !== 'sawtooth') style = style === 'parapet' ? 'parapet' : 'flat';
-  }
+  const style = effectiveRoofStyle(roof, styleIn);
   const tile = ROOFING[Math.floor(hash2(seed, 6, 331) * ROOFING.length)];
   const trim = mat?.trim ?? hsl(40, 8, 80);
   const wall = mat?.body ?? body;
@@ -471,6 +482,7 @@ export function roofKit(
   body: Hsl,
   seed: number,
   h: number,
+  hatch = true,
 ): void {
   const cx = (roof[0][0] + roof[2][0]) / 2;
   const cy = (roof[1][1] + roof[3][1]) / 2;
@@ -630,8 +642,8 @@ export function roofKit(
         break;
     }
   }
-  if (h > 26 && hash2(seed, 31, 5) > 0.45) {
-    // a roof hatch
+  if (hatch && h > 26 && hash2(seed, 31, 5) > 0.45) {
+    // a roof hatch — only where there is a deck to open onto
     prism(ctx, diamond(cx - hw * 0.3, cy - hh * 0.2, 3, 1.5), 3, metal, { seed, groundAo: false });
   }
   // a stair penthouse on anything with a real roof to reach

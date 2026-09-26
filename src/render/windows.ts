@@ -47,15 +47,19 @@ export interface Pane {
 export function windowGrid(len: number, h: number, plan: WindowPlan, base = 0): Pane[] {
   if (plan.pattern === 'none' || h < 9) return [];
   const cols = Math.max(1, Math.round(len / plan.bay));
-  const rows = Math.floor((h - 4.5 - base) / plan.floor);
-  if (rows < 1) return [];
+  // at least one row on anything a storey tall: a starter house is 10–13 px
+  // and must not go blind because a floor is nominally 8.5
+  const rows = Math.max(1, Math.floor((h - 4.5 - base) / plan.floor));
   const wU = (plan.pattern === 'curtain' ? 0.86 : plan.pattern === 'ribbon' ? 0.8 : 0.5) / cols;
-  const wH =
+  const wH = Math.min(
     plan.pattern === 'ribbon'
       ? plan.floor * 0.42
       : plan.pattern === 'curtain'
         ? plan.floor * 0.78
-        : plan.floor * 0.54;
+        : plan.floor * 0.54,
+    h - base - 5.5, // the first row has to fit under the roof line
+  );
+  if (wH < 2) return [];
   const out: Pane[] = [];
   for (let r = 0; r < rows; r++) {
     const v = base + 4 + r * plan.floor;

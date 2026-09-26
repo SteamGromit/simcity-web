@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-import { chimneyHeight, eaveOutline, placeRoofProps, ridgeOf, roofCap } from '../src/render/roofs';
+import {
+  chimneyHeight,
+  eaveOutline,
+  effectiveRoofStyle,
+  placeRoofProps,
+  ridgeOf,
+  roofCap,
+  wantsHatch,
+} from '../src/render/roofs';
 import {
   chimneyHeight as chViaBuildings,
   placeRoofProps as viaBuildings,
@@ -91,5 +99,20 @@ describe('moved geometry keeps its values', () => {
     const h = chimneyHeight(1, 8);
     expect(h).toBeGreaterThanOrEqual(9);
     expect(h).toBeLessThanOrEqual(13);
+  });
+});
+
+describe('effectiveRoofStyle', () => {
+  test('a slab or a chamfered plan demotes a pitch to flat, a parapet stays', () => {
+    expect(effectiveRoofStyle(tileRect(0, 0, 0.45, 0.12), 'gabled')).toBe('flat');
+    expect(effectiveRoofStyle(chamfer(tileRect(0, 0, 0.3, 0.3), 0.25), 'hipped')).toBe('flat');
+    expect(effectiveRoofStyle(tileRect(0, 0, 0.45, 0.12), 'parapet')).toBe('parapet');
+    expect(effectiveRoofStyle(tileRect(0, 0, 0.3, 0.3), 'gabled')).toBe('gabled');
+    expect(effectiveRoofStyle(tileRect(0, 0, 0.45, 0.12), 'sawtooth')).toBe('sawtooth');
+  });
+  test('only flat and parapet decks carry a hatch', () => {
+    expect(wantsHatch('flat')).toBe(true);
+    expect(wantsHatch('parapet')).toBe(true);
+    for (const s of ['gabled', 'hipped', 'mansard', 'sawtooth'] as const) expect(wantsHatch(s)).toBe(false);
   });
 });
