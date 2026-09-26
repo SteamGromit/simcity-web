@@ -252,10 +252,24 @@ export function layoutLot(
   desert: boolean,
 ): LotLayout {
   void size;
-  const base = canonical(famOf(zone, tier), stage, bucket, desert);
+  const fam = famOf(zone, tier);
   const turns = ((((side < 0 ? 2 : side) - 2) % 4) + 4) % 4;
-  return { ground: base.ground, features: base.features.map((f) => rotateFeature(f, turns)) };
+  // Pure and few (families × stages × buckets × sides × biome), and asked for
+  // by every lot on screen every frame — so it is built once and kept.
+  const key = `${fam}.${stage}.${bucket}.${turns}.${desert ? 1 : 0}`;
+  const hit = LAYOUTS.get(key);
+  if (hit) return hit;
+  const base = canonical(fam, stage, bucket, desert);
+  const lay: LotLayout = {
+    ground: base.ground,
+    features: base.features.map((f) => rotateFeature(f, turns)),
+  };
+  LAYOUTS.set(key, lay);
+  return lay;
 }
+
+const LAYOUTS = new Map<string, LotLayout>();
+const TREES = new WeakMap<LotLayout, Pt[]>();
 
 // ---------------------------------------------------------------------------
 // The painter
@@ -285,7 +299,13 @@ function box(f: Feature, size: number): Pt[] {
 /** Screen offsets of the layout's trees — drawn live by the renderer, so the
  * season's own sprite stands on the plot. */
 export function treePositions(layout: LotLayout, size: number): Pt[] {
-  return layout.features.filter((f) => f.kind === 'tree').map((f) => project(f.u, f.v, size));
+  if (size === 1) {
+    const hit = TREES.get(layout);
+    if (hit) return hit;
+  }
+  const out = layout.features.filter((f) => f.kind === 'tree').map((f) => project(f.u, f.v, size));
+  if (size === 1) TREES.set(layout, out);
+  return out;
 }
 
 const GROUND_TONE: Record<LotGround, (season: Season) => Hsl> = {

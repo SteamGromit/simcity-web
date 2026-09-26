@@ -13,7 +13,7 @@
 import { fbm, hash2 } from './noise';
 import { ENV, Hsl, css, hsl, lit, mix } from './palette';
 import { LIGHT, Pt } from './sun';
-import { Sprite, blit, sprite } from './spritecache';
+import { blit, sprite } from './spritecache';
 import type { VegTint } from './seasonfx';
 import { TILE_H, TILE_W, TileGeom } from './iso';
 
@@ -99,6 +99,11 @@ function detailSprite(kind: GroundKind, variant: number) {
     `gd${kind}${variant}`,
     { w: TILE_W + 2, h: TILE_H + 2, ax: HW + 1, ay: HH + 1 },
     (ctx) => {
+      // the tone field goes down first, in device pixels; then the transform
+      // the cache set up is put back for the tufts
+      ctx.save();
+      paintTone(ctx, kind, variant);
+      ctx.restore();
       clipDiamond(ctx, HW + 1, HH + 1);
       const seed = variant * 31 + 7;
       if (kind === 'rock' || kind === 'snow') {
@@ -177,54 +182,48 @@ function detailSprite(kind: GroundKind, variant: number) {
 }
 
 /**
- * A per-pixel tone texture for a ground kind: mid-frequency fbm rendered as a
- * translucent dark field that is *multiplied* over the flat fill, so a meadow
- * has hollows and patches at a scale the tile fill cannot carry. Four
- * variants, so neighbours never repeat. Baked in device pixels; a no-op on a
+ * The per-pixel tone field for a ground kind: mid-frequency fbm rendered as
+ * black at a low alpha wherever the field dips, so a meadow has hollows and
+ * patches at a scale the tile fill cannot carry. Painted into the detail
+ * sprite's own pixels *under* the tufts — one blit per tile, no composite
+ * switch — and equivalent to multiplying by grey. Device pixels; a no-op on a
  * context with no pixels to read.
  */
-export function textureSprite(kind: GroundKind, variant: number): Sprite {
-  return sprite(
-    `gt${kind}${variant}`,
-    { w: TILE_W + 2, h: TILE_H + 2, ax: HW + 1, ay: HH + 1 },
-    (ctx) => {
-      const get = (ctx as { getImageData?: unknown }).getImageData;
-      if (typeof get !== 'function') return;
-      const W = ctx.canvas.width;
-      const H = ctx.canvas.height;
-      let img: ImageData | undefined;
-      try {
-        img = ctx.getImageData(0, 0, W, H);
-      } catch {
-        return;
-      }
-      if (!img) return;
-      const d = img.data;
-      const scale = W / (TILE_W + 2); // device px per logical px
-      const cx = (HW + 1) * scale;
-      const cy = (HH + 1) * scale;
-      const freq = (kind === 'meadow' ? 0.11 : kind === 'desert' ? 0.07 : 0.16) / scale;
-      const amp = kind === 'snow' ? 0.12 : kind === 'rock' ? 0.3 : 0.24;
-      const seed = 900 + variant * 7 + kind.length;
-      for (let y = 0; y < H; y++) {
-        for (let x = 0; x < W; x++) {
-          const dx = (x - cx) / cx;
-          const dy = (y - cy) / cy;
-          if (Math.abs(dx) + Math.abs(dy) > 1.02) continue;
-          const n = fbm(x * freq + variant * 13, y * freq * 2, seed, 3) - 0.5;
-          if (n >= 0) continue; // multiply leaves the fill alone here
-          const v = Math.round(255 * (1 + n * amp * 2)); // darker where the field dips
-          const i = (y * W + x) * 4;
-          d[i] = v;
-          d[i + 1] = v;
-          d[i + 2] = v;
-          d[i + 3] = 255;
-        }
-      }
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.putImageData(img, 0, 0);
-    },
-  );
+export function paintTone(ctx: CanvasRenderingContext2D, kind: GroundKind, variant: number): void {
+  const get = (ctx as { getImageData?: unknown }).getImageData;
+  if (typeof get !== 'function') return;
+  const W = ctx.canvas.width;
+  const H = ctx.canvas.height;
+  let img: ImageData | undefined;
+  try {
+    img = ctx.getImageData(0, 0, W, H);
+  } catch {
+    return;
+  }
+  if (!img) return;
+  const d = img.data;
+  const scale = W / (TILE_W + 2); // device px per logical px
+  const cx = (HW + 1) * scale;
+  const cy = (HH + 1) * scale;
+  const freq = (kind === 'meadow' ? 0.11 : kind === 'desert' ? 0.07 : 0.16) / scale;
+  const amp = kind === 'snow' ? 0.12 : kind === 'rock' ? 0.3 : 0.24;
+  const seed = 900 + variant * 7 + kind.length;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const dx = (x - cx) / cx;
+      const dy = (y - cy) / cy;
+      if (Math.abs(dx) + Math.abs(dy) > 1.02) continue;
+      const n = fbm(x * freq + variant * 13, y * freq * 2, seed, 3) - 0.5;
+      if (n >= 0) continue; // the fill shows through untouched here
+      const i = (y * W + x) * 4;
+      d[i] = 0;
+      d[i + 1] = 0;
+      d[i + 2] = 0;
+      d[i + 3] = Math.round(255 * Math.min(1, -n * amp * 2)); // darker where the field dips
+    }
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.putImageData(img, 0, 0);
 }
 
 /** Fill a tile and dress it with its texture. `style` is a ready CSS colour —
@@ -244,12 +243,7 @@ export function paintGround(
   ctx.closePath();
   ctx.fillStyle = style;
   ctx.fill();
-  if (detail >= 1) {
-    ctx.globalCompositeOperation = 'multiply';
-    blit(ctx, textureSprite(kind, variant & 3), geom.cx, geom.cy);
-    ctx.globalCompositeOperation = 'source-over';
-    blit(ctx, detailSprite(kind, variant & 7), geom.cx, geom.cy);
-  }
+  if (detail >= 1) blit(ctx, detailSprite(kind, variant & 7), geom.cx, geom.cy);
 }
 
 // ---------------------------------------------------------------------------

@@ -80,6 +80,12 @@ describe('layoutLot', () => {
     expect(lay.features.some((f) => f.kind === 'bays')).toBe(true);
     expect(lay.features.filter((f) => f.kind === 'car').length).toBeGreaterThanOrEqual(1);
   });
+  test('the same lot hands back the same layout object — it is cached, not rebuilt per frame', () => {
+    const a = layoutLot(Zone.Residential, 1, 2, 3, 1, 1, false);
+    const b = layoutLot(Zone.Residential, 1, 2, 3, 1, 1, false);
+    expect(a).toBe(b);
+    expect(treePositions(a, 1)).toBe(treePositions(a, 1));
+  });
   test('layouts are stable per bucket and differ across buckets', () => {
     const a = layoutLot(Zone.Residential, 1, 1, 0, 1, 2, false);
     expect(layoutLot(Zone.Residential, 1, 1, 0, 1, 2, false)).toEqual(a);
