@@ -1623,12 +1623,13 @@ export function drawCastShadow(
   tier: Tier,
   variant: number,
   size = 1,
+  alpha?: number,
 ): void {
   const h = massHeight(zone, stage, tier, variantBucket(variant));
   if (h < 4) return;
   const f = massFootprint(zone, stage);
   if (f <= 0) return;
-  castShadow(ctx, inset(quadOf(geom), f), h, size > 1 ? 0.3 : 0.34);
+  castShadow(ctx, inset(quadOf(geom), f), h, alpha ?? (size > 1 ? 0.3 : 0.34));
 }
 
 /**

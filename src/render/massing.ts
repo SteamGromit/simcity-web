@@ -16,6 +16,7 @@
 import { fbm, hash2 } from './noise';
 import { Hsl, Material, MaterialKind, css, lit, material, mix } from './palette';
 import { LIGHT, Pt, shadowQuad, wallLight } from './sun';
+import { SHADOW_INK } from './shadows';
 import { WindowPattern, WindowPlan, paintWindows, windowPlan } from './windows';
 
 /** Footprint corners, north/east/south/west, clockwise on a y-down canvas. */
@@ -718,7 +719,8 @@ export function castShadow(
 ): void {
   if (h <= 1) return;
   const quad = shadowQuad(foot, h);
-  fill(ctx, quad, `rgba(28, 32, 58, ${alpha})`);
+  // at full alpha the caller is a shadow layer that multiplies the ink later
+  fill(ctx, quad, alpha >= 1 ? SHADOW_INK : `rgba(28, 32, 58, ${alpha})`);
 }
 
 /** Re-export so callers don't have to reach into two modules for one shape. */

@@ -57,6 +57,7 @@ import { LIGHT } from './sun';
 import { drawTree } from './scenery';
 import { hash2 } from './noise';
 import { blit, sprite } from './spritecache';
+import { ShadowLayer } from './shadows';
 
 export interface ViewState {
   hover: { x: number; y: number } | null;
@@ -107,6 +108,7 @@ export class Renderer {
   private depthStamp = -1;
   private automata = new Automata();
   private disasterFx = new DisasterFx();
+  private shadows = new ShadowLayer();
   /** tile paint order, ascending depth; rebuilt on each quarter turn */
   private order: Uint16Array;
   /** Quarter turns of the camera, 0..3. Only multiples of 90° are offered:
@@ -385,6 +387,9 @@ export class Renderer {
     // tiles that are painted *after* it. Drawn onto the finished ground, so
     // it lands on the street rather than being overdrawn by it.
     if (detail >= 1) {
+      // all of them into one half-res layer, laid back over the ground once,
+      // blurred into a penumbra and multiplied so they darken the texture
+      const sctx = this.shadows.begin(ctx, W, H, this.camera, dpr);
       for (let n = 0; n < this.order.length; n++) {
         const i = this.order[n];
         const x = i % GRID;
@@ -395,8 +400,10 @@ export class Renderer {
         const size = sizeOfSlot(t.zone);
         const g = size > 1 ? this.blockDrawGeom(city, i, size) : tileGeom(x, y, t.elevation);
         if (!g) continue;
-        drawCastShadow(ctx, g, t.zone, t.stage, t.tier, this.variants[i], size);
+        drawCastShadow(sctx, g, t.zone, t.stage, t.tier, this.variants[i], size, 1);
       }
+      this.shadows.end(ctx, this.camera.zoom);
+      camera();
     }
 
     mark('shadows', t0);
