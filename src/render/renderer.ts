@@ -7,6 +7,7 @@ import {
   drawBuilding,
   drawCastShadow,
   drawYardTrees,
+  standingSpriteFor,
   variantBucket,
   drawFire,
   drawCrimeFlash,
@@ -60,6 +61,7 @@ import { hash2 } from './noise';
 import { blit, sprite } from './spritecache';
 import { ShadowLayer } from './shadows';
 import { drawLotGround, roadSidesFor, roadStampOf } from './lots';
+import { ShorelineLot, drawReflection, shorelineLots } from './reflections';
 
 export interface ViewState {
   hover: { x: number; y: number } | null;
@@ -388,6 +390,29 @@ export class Renderer {
       const geom = tileGeom(x, y, t.elevation);
       this.drawCliffs(geom, city, x, y);
       this.drawGround(geom, city, x, y, now);
+    }
+
+    // --- the waterfront, mirrored ---------------------------------------
+    // After the water is painted and before the shadows, so a shadow can
+    // still lie across the reflection the way it lies across the ground.
+    if (detail >= 1) {
+      this.ensureShoreline(city);
+      for (const { i, water } of this.shoreLots) {
+        const x = i % GRID;
+        const y = (i / GRID) | 0;
+        if (!this.visible(x, y)) continue;
+        const t = city.tiles[i];
+        const s = standingSpriteFor(
+          t.zone, t.stage, t.tier, this.variants[i], t.powered, t.abandoned, this.season,
+        );
+        if (!s) continue;
+        drawReflection(
+          ctx,
+          tileGeom(x, y, t.elevation),
+          s,
+          water.map((w) => tileGeom(w % GRID, (w / GRID) | 0, city.tiles[w].elevation)),
+        );
+      }
     }
 
     mark('ground', t0);
@@ -1013,6 +1038,22 @@ export class Renderer {
     this.roadStamp = stamp;
     this.roadQuarter = this.quarter;
     roadSidesFor(city, this.quarter, this.roadSide);
+  }
+
+  /** The lots whose near side stands on water, kept while the coast, the
+   * built-up set and the quarter stand still. */
+  private shoreLots: ShorelineLot[] = [];
+  private shoreStamp = -1;
+  private shoreQuarter = -1;
+  private ensureShoreline(city: CityState) {
+    let stamp = this.depthStamp;
+    for (let i = 0; i < city.tiles.length; i += 7) {
+      if (city.tiles[i].stage > 0) stamp = (stamp * 31 + i) | 0;
+    }
+    if (stamp === this.shoreStamp && this.quarter === this.shoreQuarter) return;
+    this.shoreStamp = stamp;
+    this.shoreQuarter = this.quarter;
+    this.shoreLots = shorelineLots(city, this.quarter);
   }
 
   /** True when this tile sits on a land/water boundary. */

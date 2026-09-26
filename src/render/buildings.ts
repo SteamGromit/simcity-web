@@ -1862,6 +1862,32 @@ export function drawBuilding(
   }
 }
 
+/**
+ * The daylight sprite the map would blit for a lot or a civic building —
+ * for the waterfront pass, which mirrors it into the water. Null for
+ * anything else (rewards, parks, stage-0 lots, mods).
+ */
+export function standingSpriteFor(
+  zone: Zone,
+  stage: Stage,
+  tier: Tier,
+  variant: number,
+  powered: boolean,
+  abandoned: boolean,
+  season: Season,
+): Sprite | null {
+  const civic = CIVIC[zone];
+  if (civic) return civicSprite(zone, civic, powered, 1);
+  if (zone !== Zone.Residential && zone !== Zone.Commercial && zone !== Zone.Industrial) return null;
+  if (stage === 0) return null;
+  const bucket = variantBucket(variant);
+  const farm = normalizeTier(zone, tier) === 'ag' && !abandoned;
+  return lotSprite({
+    zone, stage, tier, bucket, size: 1, abandoned, glow: false,
+    season: farm ? season : undefined,
+  });
+}
+
 /** The ground shadow for whatever stands on this tile. Called from the shadow
  * pass, before any building is drawn, so the shadow lands on the street. */
 export function drawCastShadow(
