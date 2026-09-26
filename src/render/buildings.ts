@@ -29,6 +29,7 @@ import {
   shift,
   type Facade,
   type Hsl,
+  type Material,
 
   type WindowPattern,
 } from './massing';
@@ -858,24 +859,38 @@ export const COAL_STACKS = [[-16, 26], [-3, 32]] as const;
 export const INCINERATOR_STACK = { dx: 8, h: 38 } as const;
 export const NUCLEAR_TOWER = { dx: 15, dy: -2, h: 32 } as const;
 
-function drawCivic(
+/** Headroom a civic bake keeps over its roof: stacks, masts and the nuclear
+ * cooling tower stand well over the mass. */
+const CIVIC_MARGIN_TOP = 70;
+const CIVIC_MARGIN_X = 20;
+
+/** The skinned material a civic spec is built of. */
+function civicMaterial(spec: CivicSpec): { body: Hsl; mat: Material } {
+  const sw = swatch(spec.swatch);
+  const skinned = getSkin().building(sw.body.h, sw.body.s, sw.body.l);
+  const body: Hsl = { h: skinned[0], s: skinned[1], l: skinned[2] };
+  return { body, mat: materialOf(sw, body) };
+}
+
+/**
+ * Paint a civic building with its tile centre at the origin — the bake's
+ * frame. Everything the old live painter did, less the no-power bolt, which
+ * stays live because it is a state marker rather than architecture.
+ */
+function paintCivic(
   ctx: CanvasRenderingContext2D,
-  geom: TileGeom,
+  spec: CivicSpec,
   zone: Zone,
   powered: boolean,
   detail: 0 | 1 | 2,
-): boolean {
-  const spec = CIVIC[zone];
-  if (!spec) return false;
+): void {
   const s = getSkin();
-  const sw = swatch(spec.swatch);
-  const skinned = s.building(sw.body.h, sw.body.s, sw.body.l);
-  const body: Hsl = { h: skinned[0], s: skinned[1], l: skinned[2] };
-  const mat = materialOf(sw, body);
+  const { body, mat } = civicMaterial(spec);
   const h = spec.h * s.heightScale;
-  const q = inset(quadOf(geom), spec.f);
-  const cx = geom.cx;
-  const cy = geom.cy;
+  const tileQ = diamond(0, 0, TILE_W / 2, TILE_H / 2);
+  const q = inset(tileQ, spec.f);
+  const cx = 0;
+  const cy = 0;
   contactShadow(ctx, q);
   const eff = effectiveRoofStyle(raise(q, h), spec.roof);
   const r = prism(ctx, q, h, mat, {
@@ -936,7 +951,7 @@ function drawCivic(
       // perimeter wall with a watchtower on the near corner
       ctx.strokeStyle = css(lit(body, LIGHT.roof * 1.1));
       ctx.lineWidth = 2;
-      const w = inset(quadOf(geom), 0.98);
+      const w = inset(tileQ, 0.98);
       ctx.beginPath();
       ctx.moveTo(w[0][0], w[0][1]);
       for (let i = 1; i < 4; i++) ctx.lineTo(w[i][0], w[i][1]);
@@ -1194,7 +1209,64 @@ function drawCivic(
     default:
       break;
   }
-  if (!powered) drawNoPowerBolt(ctx, cx, cy - h - 14);
+}
+
+/** The civic building's daylight sprite, baked once per zone, power state,
+ * detail level and skin. */
+function civicSprite(zone: Zone, spec: CivicSpec, powered: boolean, detail: 0 | 1 | 2): Sprite {
+  const h = spec.h * getSkin().heightScale;
+  const w = TILE_W + CIVIC_MARGIN_X * 2;
+  const ht = h + TILE_H + CIVIC_MARGIN_TOP + 8;
+  return sprite(
+    `V${zone}.${powered ? 1 : 0}.${detail}.${getSkin().id}`,
+    { w, h: ht, ax: w / 2, ay: ht - TILE_H / 2 - 8 },
+    (c) => {
+      paintCivic(c, spec, zone, powered, detail);
+      c.save();
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      grain(c, c.canvas.width, c.canvas.height, 0.03, zone * 3 + 1);
+      c.restore();
+    },
+  );
+}
+
+/** Only the lit panes of the main mass, on transparent black, for the night
+ * overlay — the growables' glow bake, for the civic set. */
+function civicGlowSprite(zone: Zone, spec: CivicSpec): Sprite {
+  const h = spec.h * getSkin().heightScale;
+  const w = TILE_W + CIVIC_MARGIN_X * 2;
+  const ht = h + TILE_H + CIVIC_MARGIN_TOP + 8;
+  return sprite(
+    `Vg${zone}.${getSkin().id}`,
+    { w, h: ht, ax: w / 2, ay: ht - TILE_H / 2 - 8 },
+    (c) => {
+      const { mat } = civicMaterial(spec);
+      const q = inset(diamond(0, 0, TILE_W / 2, TILE_H / 2), spec.f);
+      prism(c, q, h, mat, { seed: zone * 7 + 1, windows: spec.windows, glow: true });
+    },
+    1,
+  );
+}
+
+function drawCivic(
+  ctx: CanvasRenderingContext2D,
+  geom: TileGeom,
+  zone: Zone,
+  powered: boolean,
+  detail: 0 | 1 | 2,
+  night: number,
+): boolean {
+  const spec = CIVIC[zone];
+  if (!spec) return false;
+  const { cx, cy } = geom;
+  blit(ctx, civicSprite(zone, spec, powered, detail), cx, cy);
+  if (night > 0.06 && powered && spec.windows !== 'none') {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    blit(ctx, civicGlowSprite(zone, spec), cx, cy, Math.min(0.55, night * 0.8));
+    ctx.restore();
+  }
+  if (!powered) drawNoPowerBolt(ctx, cx, cy - spec.h * getSkin().heightScale - 14);
   return true;
 }
 
@@ -1650,7 +1722,7 @@ export function drawBuilding(
     ctx.stroke();
     return;
   }
-  if (drawCivic(ctx, geom, zone, powered, detail)) return;
+  if (drawCivic(ctx, geom, zone, powered, detail, night)) return;
 
   if (stage === 0) {
     drawSurveyedLot(ctx, geom, zone);
