@@ -51,7 +51,7 @@ import {
 import { getWeatherFx } from './fx';
 import { GroundKind, groundTone, paintCliff, paintGround, paintShore, paintWater } from './ground';
 import { paintBloom, paintGrade, paintHaze, paintSky, paintVignette } from './grade';
-import { getTiltShift, paintTiltShift } from './tiltshift';
+import { paintTiltShift, tiltShiftActive } from './tiltshift';
 import { css, hsl, lit, mix } from './palette';
 import { LIGHT } from './sun';
 import { drawTree } from './scenery';
@@ -508,13 +508,13 @@ export class Renderer {
     // --- pass 5: finishing ----------------------------------------------
     if (style === 'realistic') {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      paintBloom(ctx, W, H, 0.05 + this.night * 0.17);
+      paintBloom(ctx, W, H, 0.03 + this.night * 0.15);
       paintGrade(ctx, W, H, this.night);
       paintVignette(ctx, W, H);
       camera();
     }
 
-    if (getTiltShift()) {
+    if (tiltShiftActive(this.night)) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       paintTiltShift(ctx, W, H);
       camera();
@@ -760,7 +760,7 @@ export class Renderer {
       if (t.wire) drawPole(ctx, geom.cx, geom.cy);
       if (this.night > 0.3) {
         const r = 12;
-        ctx.fillStyle = `rgba(255, 214, 130, ${(0.16 * this.night).toFixed(3)})`;
+        ctx.fillStyle = `rgba(255, 196, 110, ${(0.14 * this.night).toFixed(3)})`;
         ctx.beginPath();
         ctx.ellipse(geom.cx, geom.cy, r, r * 0.5, 0, 0, TAU);
         ctx.fill();
@@ -847,8 +847,11 @@ export class Renderer {
     c.height = 64;
     const g = c.getContext('2d')!;
     const grad = g.createRadialGradient(32, 32, 2, 32, 32, 32);
+    // a softer edge than the old two-stop cone, so a lit street fades into
+    // the dark instead of stopping at a rim
     grad.addColorStop(0, 'rgba(255,255,255,1)');
-    grad.addColorStop(0.55, 'rgba(255,255,255,0.55)');
+    grad.addColorStop(0.4, 'rgba(255,255,255,0.7)');
+    grad.addColorStop(0.75, 'rgba(255,255,255,0.25)');
     grad.addColorStop(1, 'rgba(255,255,255,0)');
     g.fillStyle = grad;
     g.fillRect(0, 0, 64, 64);

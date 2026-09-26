@@ -21,6 +21,12 @@ export function getTiltShift(): boolean {
   return pref ?? getRenderStyle() === 'realistic';
 }
 
+/** Whether the finish runs this frame: on by preference, and only while it
+ * is light — after dark the blur turned the lit windows into mush. */
+export function tiltShiftActive(night: number): boolean {
+  return getTiltShift() && night < 0.5;
+}
+
 export function setTiltShift(on: boolean): void {
   pref = on;
   store?.setItem(KEY, on ? '1' : '0');

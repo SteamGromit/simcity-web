@@ -43,7 +43,7 @@ export function paintHaze(
   // Deliberately restrained: enough to push the far edge of a big city back,
   // not enough to wash the colour out of a skyline. It fades to nothing by
   // zoom 1, where the viewport is all much the same distance away anyway.
-  const strength = Math.max(0, 0.13 - zoom * 0.11) * (1 - night * 0.6);
+  const strength = Math.max(0, 0.1 - zoom * 0.085) * (1 - night * 0.6);
   if (strength <= 0.004) return;
   const g = ctx.createLinearGradient(0, 0, 0, h * 0.5);
   g.addColorStop(0, css(ENV.haze, strength));
@@ -53,7 +53,12 @@ export function paintHaze(
 }
 
 /** A soft darkening toward the corners; keeps the eye in the middle. */
-export function paintVignette(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+export function paintVignette(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  strength = 0.18,
+): void {
   const g = ctx.createRadialGradient(
     w / 2,
     h * 0.52,
@@ -63,7 +68,7 @@ export function paintVignette(ctx: CanvasRenderingContext2D, w: number, h: numbe
     Math.max(w, h) * 0.78,
   );
   g.addColorStop(0, 'rgba(10, 12, 22, 0)');
-  g.addColorStop(1, 'rgba(10, 12, 22, 0.34)');
+  g.addColorStop(1, `rgba(10, 12, 22, ${strength})`);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
 }
@@ -115,8 +120,8 @@ export function paintGrade(ctx: CanvasRenderingContext2D, w: number, h: number, 
   ctx.save();
   ctx.globalCompositeOperation = 'soft-light';
   const g = ctx.createLinearGradient(0, 0, 0, h);
-  g.addColorStop(0, `rgba(140, 184, 230, ${0.11 - night * 0.05})`);
-  g.addColorStop(1, `rgba(255, 208, 156, ${0.1 - night * 0.04})`);
+  g.addColorStop(0, `rgba(150, 178, 216, ${0.06 - night * 0.03})`);
+  g.addColorStop(1, `rgba(255, 214, 160, ${0.08 - night * 0.03})`);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
   ctx.restore();
