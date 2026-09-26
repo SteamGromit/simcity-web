@@ -1,5 +1,14 @@
 import { describe, expect, test } from 'vitest';
-import { layoutLot, roadSideOf, rotateFeature, type Feature } from '../src/render/lots';
+import {
+  layoutLot,
+  roadSideOf,
+  roadSidesFor,
+  roadStampOf,
+  rotateFeature,
+  type Feature,
+} from '../src/render/lots';
+import { footprintBudget } from '../src/render/archetypes';
+import { GRID } from '../src/sim/types';
 import { Stage, Tier, Zone } from '../src/sim/types';
 import { makeCity, road, zone } from './helpers';
 
@@ -96,6 +105,42 @@ describe('layoutLot', () => {
   });
 });
 
+describe('road-side cache', () => {
+  test('a lot zoned after its street exists already knows its side', () => {
+    const city = makeCity();
+    road(city, 10, 12, 14, 12);
+    const sides = new Int8Array(GRID * GRID);
+    roadSidesFor(city, 0, sides); // computed while (12, 11) is still unzoned
+    zone(city, 12, 11, Zone.Residential, 1);
+    expect(sides[12 + 11 * GRID]).toBe(2);
+  });
+  test('the stamp notices a single road tile anywhere, and a class change', () => {
+    const city = makeCity();
+    const a = roadStampOf(city);
+    zone(city, 37, 41, Zone.Road); // an index the old every-third sampling skipped
+    const b = roadStampOf(city);
+    expect(b).not.toBe(a);
+    city.tiles[37 + 41 * GRID].road = 3;
+    expect(roadStampOf(city)).not.toBe(b);
+  });
+});
+
+describe('yard trees', () => {
+  test('stand clear of the biggest footprint a low-rise house can have', () => {
+    const limit = footprintBudget(3) / 2;
+    for (const t of [1, 2, 3] as const) {
+      for (const stage of [1, 2, 3] as Stage[]) {
+        for (let bucket = 0; bucket < 6; bucket++) {
+          for (const f of layoutLot(Zone.Residential, t, stage, bucket, 1, 2, false).features) {
+            if (f.kind !== 'tree') continue;
+            expect(Math.max(Math.abs(f.u), Math.abs(f.v))).toBeGreaterThanOrEqual(limit);
+          }
+        }
+      }
+    }
+  });
+});
+
 describe('roadSideOf', () => {
   test('finds the adjacent road and rotates it with the camera', () => {
     const city = makeCity();
@@ -150,6 +195,29 @@ describe('drawLotGround', () => {
     drawLotGround(ctx, g, Zone.Commercial, 2, 5, 0, 1, 2, false, 'summer');
     drawLotGround(ctx, g, Zone.Commercial, 2, 5, 0, 1, 2, false, 'winter');
     expect(spriteStats().bakes - before).toBe(1);
+  });
+  test('a strip mall and the shop that replaces it do not share a plot', () => {
+    const { ctx } = strictCtx();
+    const g = tileGeom(5, 5, 0);
+    const before = spriteStats().bakes;
+    drawLotGround(ctx, g, Zone.Commercial, 1, 3, 0, 1, 2, false, 'summer');
+    drawLotGround(ctx, g, Zone.Commercial, 1, 4, 0, 1, 2, false, 'summer');
+    expect(spriteStats().bakes - before).toBe(2);
+  });
+  test('standing props are painted after the ground clip is dropped', () => {
+    const bake = stubCanvasFactory();
+    setCanvasFactory(bake.factory);
+    clearSprites();
+    drawLotGround(strictCtx().ctx, tileGeom(5, 5, 0), Zone.Commercial, 1, 2, 1, 1, 0, false, 'summer');
+    const trace = bake.traces[0];
+    const clipAt = trace.indexOf('clip()');
+    const restoreAt = trace.indexOf('restore()');
+    expect(clipAt).toBeGreaterThan(-1);
+    expect(restoreAt).toBeGreaterThan(clipAt);
+    // the pylon sign's board is the highest-standing thing on the plot; it
+    // must come after the clip is lifted, or it is cut off on three sides
+    const after = trace.slice(restoreAt);
+    expect(after.filter((t) => t.startsWith('fillRect')).length).toBeGreaterThan(4);
   });
   test('every family, stage, side and season bakes without a negative radius at every quarter', () => {
     for (const q of [0, 1, 2, 3]) {

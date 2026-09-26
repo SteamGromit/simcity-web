@@ -59,7 +59,7 @@ import { drawTree, drawUndergrowth } from './scenery';
 import { hash2 } from './noise';
 import { blit, sprite } from './spritecache';
 import { ShadowLayer } from './shadows';
-import { drawLotGround, roadSideOf } from './lots';
+import { drawLotGround, roadSidesFor, roadStampOf } from './lots';
 
 export interface ViewState {
   hover: { x: number; y: number } | null;
@@ -1005,18 +1005,13 @@ export class Renderer {
   /** Which screen side every lot's street is on. Cheap enough to redo whenever
    * a road tile appears or vanishes, or the camera turns a quarter. */
   private ensureRoadSides(city: CityState) {
-    let stamp = 0;
-    for (let i = 0; i < city.tiles.length; i += 3) {
-      if (city.tiles[i].zone === Zone.Road) stamp = (stamp * 31 + i) | 0;
-    }
+    // every tile, every time the roads move: a lot zoned after its street was
+    // laid must already know which way to face
+    const stamp = roadStampOf(city);
     if (stamp === this.roadStamp && this.quarter === this.roadQuarter) return;
     this.roadStamp = stamp;
     this.roadQuarter = this.quarter;
-    for (let i = 0; i < city.tiles.length; i++) {
-      this.roadSide[i] = this.isGrowable(city.tiles[i].zone)
-        ? roadSideOf(city, i % GRID, (i / GRID) | 0, this.quarter)
-        : -1;
-    }
+    roadSidesFor(city, this.quarter, this.roadSide);
   }
 
   /** True when this tile sits on a land/water boundary. */

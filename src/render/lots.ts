@@ -18,7 +18,7 @@
 import { idx, inBounds } from '../sim/grid';
 import { frontage } from '../sim/roads';
 import { normalizeTier } from '../sim/tiers';
-import { CityState, Stage, Tier, Zone } from '../sim/types';
+import { CityState, GRID, Stage, Tier, Zone } from '../sim/types';
 import type { Season } from '../sim/weather';
 import { TILE_H, TILE_W, TileGeom } from './iso';
 import { fill } from './massing';
@@ -101,6 +101,32 @@ export function roadSideOf(city: CityState, x: number, y: number, quarter: numbe
   return -1;
 }
 
+/**
+ * A fingerprint of the road network: every road tile and its class. The
+ * renderer recomputes road sides only when this moves — and it has to move
+ * for a single stub laid anywhere, or a street upgraded to a motorway, which
+ * stops being a frontage.
+ */
+export function roadStampOf(city: CityState): number {
+  let stamp = 0;
+  for (let i = 0; i < city.tiles.length; i++) {
+    const t = city.tiles[i];
+    if (t.zone === Zone.Road) stamp = (stamp * 31 + i * 5 + t.road + 1) | 0;
+  }
+  return stamp;
+}
+
+/**
+ * Road sides for *every* tile, not only the zoned ones: a lot's road side
+ * depends on the roads alone, so zoning a tile later must not need a
+ * recompute nobody triggers.
+ */
+export function roadSidesFor(city: CityState, quarter: number, out: Int8Array): void {
+  for (let i = 0; i < city.tiles.length; i++) {
+    out[i] = roadSideOf(city, i % GRID, (i / GRID) | 0, quarter);
+  }
+}
+
 /** One quarter turn in tile space: (u, v) → (−v, u); extents swap; the side steps on. */
 export function rotateFeature(f: Feature, turns: number): Feature {
   let out: Feature = { ...f };
@@ -127,7 +153,7 @@ function famOf(zone: Zone, tier: Tier): Fam {
 
 /** Canonical layouts: road on side 2, i.e. the v = +0.5 edge. */
 function canonical(fam: Fam, stage: Stage, bucket: number, desert: boolean): LotLayout {
-  const r = (k: number) => hash2(bucket, k, 1234 + stage);
+  const r = (k: number) => hash2(bucket * 7919 + k, k * 131, 1234 + stage);
   const F: Feature[] = [];
   const sidewalk = (): void => {
     F.push({ kind: 'sidewalk', u: 0, v: 0.46, w: 1, d: 0.08, along: 2 });
@@ -151,9 +177,12 @@ function canonical(fam: Fam, stage: Stage, bucket: number, desert: boolean): Lot
       });
       F.push({ kind: 'bed', u: -gx * 0.35, v: 0.42, w: 0.2, d: 0.06 });
       F.push({ kind: 'mailbox', u: -gx * 0.35 + 0.08, v: 0.47, w: 0.02, d: 0.02 });
+      // trees stand in the back strip or the side margins, clear of the
+      // biggest footprint a house can have — inside it they paint over the roof
       const trees = fam === 'R3' ? 2 : fam === 'R2' ? 1 + (r(4) > 0.6 ? 1 : 0) : r(4) > 0.5 ? 1 : 0;
       for (let k = 0; k < trees; k++) {
-        F.push({ kind: 'tree', u: (r(5 + k) - 0.5) * 0.7, v: -0.38 + r(8 + k) * 0.2 });
+        if (k === 0) F.push({ kind: 'tree', u: (r(5) - 0.5) * 0.7, v: -0.42 - r(8) * 0.04 });
+        else F.push({ kind: 'tree', u: gx > 0 ? -0.44 : 0.44, v: -0.1 + r(9) * 0.2 });
       }
       F.push({ kind: 'shrub', u: -gx * 0.35 - 0.1, v: 0.38 });
       return { ground: desert ? 'xeriscape' : 'lawn', features: F };
@@ -344,7 +373,7 @@ function strokeEdge(ctx: CanvasRenderingContext2D, q: Pt[], style: string): void
 
 /** Lines across a strip feature at even intervals — expansion joints. */
 function jointLines(ctx: CanvasRenderingContext2D, f: Feature, size: number, n: number): void {
-  const [a, b, horizontal] = ends(f, size);
+  const [, , horizontal] = ends(f, size);
   const w = horizontal ? (f.d ?? 0.1) : (f.w ?? 0.1);
   ctx.strokeStyle = 'rgba(20, 24, 30, 0.2)';
   ctx.lineWidth = 0.5;
@@ -359,8 +388,6 @@ function jointLines(ctx: CanvasRenderingContext2D, f: Feature, size: number, n: 
     ctx.lineTo(q[0], q[1]);
     ctx.stroke();
   }
-  void a;
-  void b;
 }
 
 /** A small box standing on the ground: a shadow, its lit faces, a top.
@@ -652,13 +679,20 @@ function paintLotGround(
       ctx.fillRect(p[0], p[1], 1.2, 0.8);
     }
   }
-  // features, back to front by screen y
+  // features, back to front by screen y. The flat ones are clipped to the
+  // diamond with the ground; the ones that stand up are painted after the
+  // clip is lifted, into the headroom, or a sign at the plot's top corner
+  // would be cut off on three of four sides.
   const feats = lay.features
     .slice()
     .sort((a, b) => project(a.u, a.v, size)[1] - project(b.u, b.v, size)[1]);
-  for (const f of feats) paintFeature(ctx, f, size, seed);
+  for (const f of feats) if (FLAT.has(f.kind)) paintFeature(ctx, f, size, seed);
   ctx.restore();
+  for (const f of feats) if (!FLAT.has(f.kind)) paintFeature(ctx, f, size, seed);
 }
+
+/** Features that lie on the ground plane, and so can be clipped with it. */
+const FLAT = new Set<FeatureKind>(['sidewalk', 'kerb', 'driveway', 'path', 'bed', 'rows', 'bays', 'planter']);
 
 /** Headroom above the diamond for the things on a plot that stand up. */
 const LOT_HEADROOM = 20;
@@ -683,9 +717,11 @@ export function drawLotGround(
   if (stage === 0) return;
   const lay = layoutLot(zone, tier, stage, bucket, size, side, desert);
   const fam = famOf(zone, tier);
-  const band = stage <= 2 ? 0 : stage <= 5 ? 1 : 2;
+  // keyed on the stage, not its band: the layout branches on the raw stage
+  // (a stage-3 strip mall has bays, the stage-4 shop that replaces it has
+  // paving), so a band key handed one of them the other's plot
   const seasonal = lay.ground === 'lawn' || lay.ground === 'field';
-  const key = `G${fam}${band}.${bucket}.${size}.${side < 0 ? 2 : side}${
+  const key = `G${fam}${stage}.${bucket}.${size}.${side < 0 ? 2 : side}${
     seasonal ? season.slice(0, 2) : ''
   }${desert ? 'd' : ''}`;
   const hw = (TILE_W * size) / 2;
@@ -694,7 +730,7 @@ export function drawLotGround(
     key,
     { w: hw * 2 + 2, h: hh * 2 + 2 + LOT_HEADROOM, ax: hw + 1, ay: hh + 1 + LOT_HEADROOM },
     (c) => {
-      paintLotGround(c, lay, size, bucket * 17 + stage * 3 + band, season);
+      paintLotGround(c, lay, size, bucket * 17 + stage * 3, season);
       c.save();
       c.setTransform(1, 0, 0, 1, 0, 0);
       grain(c, c.canvas.width, c.canvas.height, 0.025, bucket + 11);
