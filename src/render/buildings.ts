@@ -25,7 +25,7 @@ import {
   parapet,
   prism,
   raise,
-  roofTone,
+
   shift,
   type Facade,
   type Hsl,
@@ -34,6 +34,7 @@ import {
 } from './massing';
 import { LAMP, hsl } from './palette';
 import { LIGHT, wallLight, type Pt } from './sun';
+import { chimneyHeight, placeRoofProps, roofCap, roofKit, towerCrown } from './roofs';
 import { Sprite, blit, sprite } from './spritecache';
 import { drawHedge, drawRock, drawTree } from './scenery';
 import { effectiveSeason } from './seasonfx';
@@ -411,391 +412,9 @@ export function growableHeight(zone: Zone, stage: Stage, tier: Tier, bucket: num
 export type StackKind = 'smoke' | 'steam' | 'hearth';
 export interface StackTip { x: number; y: number; kind: StackKind; s: number }
 
-/** Where roof props land — the pure half of roofKit, shared with the ambient
- * pass so a hearth wisp rises from exactly the chimney the bake drew. */
-export function placeRoofProps(
-  kinds: PropKind[],
-  roof: Pt[],
-  seed: number,
-): { kind: PropKind; x: number; y: number; k: number }[] {
-  const cx = (roof[0][0] + roof[2][0]) / 2;
-  const cy = (roof[1][1] + roof[3][1]) / 2;
-  const [hw, hh] = halfExtent(roof);
-  const out: { kind: PropKind; x: number; y: number; k: number }[] = [];
-  let k = 0;
-  for (const kind of kinds) {
-    // Most lots carry their props; a mast is the exception. Antennas on every
-    // tower turned downtown into a pin cushion, so only about one in five gets
-    // one and the rest take their silhouette from the crown instead.
-    const chance = kind === 'antenna' ? 0.2 : kind === 'helipad' ? 0.6 : 0.82;
-    if (hash2(k, 9, seed) > chance) {
-      k++;
-      continue;
-    }
-    const u = hash2(k, 1, seed) * 1.1 - 0.55;
-    const v = hash2(k, 2, seed) * 1.1 - 0.55;
-    const s = Math.min(1, 0.72 / (Math.abs(u) + Math.abs(v) + 1e-6));
-    out.push({ kind, x: cx + u * s * hw, y: cy + v * s * hh, k: k++ });
-  }
-  return out;
-}
-
-/** The baked chimney prism's height for placement index k (post-increment,
- * as the original inline code read it). Shared by roofKit's chimney case and
- * hearthTip so the wisp can never drift off the baked stack. */
-export function chimneyHeight(kPost: number, seed: number): number {
-  return 9 + hash2(kPost, 5, seed) * 4;
-}
-
-/** Rooftop furniture, drawn on the lifted roof quad. */
-function roofKit(
-  ctx: CanvasRenderingContext2D,
-  roof: Pt[],
-  kinds: PropKind[],
-  body: Hsl,
-  seed: number,
-  h: number,
-): void {
-  const cx = (roof[0][0] + roof[2][0]) / 2;
-  const cy = (roof[1][1] + roof[3][1]) / 2;
-  // measured, not read off corner indices: a quarter turn moves which corner
-  // is which, and props scattered by a zeroed extent all pile on the centre
-  const [hw, hh] = halfExtent(roof);
-  const metal = material('metal', hsl(210, 5, 58));
-  for (const { kind, x, y, k } of placeRoofProps(kinds, roof, seed)) {
-    switch (kind) {
-      case 'acUnit': {
-        const q = diamond(x, y, 5, 2.5);
-        prism(ctx, q, 4, metal, { seed, groundAo: false });
-        ctx.fillStyle = 'rgba(30, 36, 44, 0.6)';
-        for (let f = -1; f <= 1; f++) ctx.fillRect(x - 3 + f * 2.4, y - 5.6, 1.2, 2.6);
-        break;
-      }
-      case 'vent': {
-        const q = diamond(x, y, 3.4, 1.7);
-        prism(ctx, q, 3, metal, { seed, groundAo: false });
-        break;
-      }
-      case 'waterTower': {
-        ctx.strokeStyle = css(lit(hsl(26, 20, 34), LIGHT.right));
-        ctx.lineWidth = 1.2;
-        for (const dx of [-3.4, 3.4]) {
-          ctx.beginPath();
-          ctx.moveTo(x + dx, y);
-          ctx.lineTo(x + dx * 0.6, y - 8);
-          ctx.stroke();
-        }
-        const tank = hsl(30, 22, 44);
-        ctx.fillStyle = css(lit(tank, LIGHT.right));
-        ctx.fillRect(x - 4.6, y - 16, 9.2, 8);
-        ctx.fillStyle = css(lit(tank, LIGHT.left * 1.12));
-        ctx.fillRect(x - 4.6, y - 16, 3.4, 8);
-        fill(
-          ctx,
-          [
-            [x - 5, y - 16],
-            [x + 5, y - 16],
-            [x, y - 21],
-          ],
-          css(lit(tank, LIGHT.roof * 0.9)),
-        );
-        break;
-      }
-      case 'antenna': {
-        // the original code read k post-increment; hearthTip mirrors this via hit.k + 1
-        const th = 11 + hash2(k + 1, 4, seed) * 9 + h * 0.06;
-        ctx.strokeStyle = 'rgba(196, 204, 214, 0.95)';
-        ctx.lineWidth = 1.1;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x, y - th);
-        ctx.stroke();
-        ctx.strokeStyle = 'rgba(196, 204, 214, 0.55)';
-        ctx.lineWidth = 0.7;
-        for (const dx of [-4, 4]) {
-          ctx.beginPath();
-          ctx.moveTo(x, y - th * 0.72);
-          ctx.lineTo(x + dx, y);
-          ctx.stroke();
-        }
-        ctx.fillStyle = '#ff5a4a';
-        ctx.fillRect(x - 1, y - th - 2, 2, 2);
-        break;
-      }
-      case 'chimney': {
-        const q = diamond(x, y, 2.4, 1.2);
-        // k post-increment, as the original inline code read it — see chimneyHeight
-        prism(ctx, q, chimneyHeight(k + 1, seed), material('brick', mix(body, hsl(14, 34, 34), 0.7)), {
-          seed,
-          groundAo: false,
-        });
-        break;
-      }
-      case 'tank': {
-        const c = hsl(200, 8, 62);
-        ctx.fillStyle = css(lit(c, LIGHT.right));
-        ctx.beginPath();
-        ctx.ellipse(x, y - 4, 5, 4.6, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = css(lit(c, LIGHT.roof));
-        ctx.beginPath();
-        ctx.ellipse(x - 1.2, y - 5.6, 3.4, 3, 0, 0, Math.PI * 2);
-        ctx.fill();
-        break;
-      }
-      case 'helipad': {
-        const pad = diamond(x, y, 7, 3.5);
-        fill(ctx, pad, css(lit(hsl(220, 6, 34), LIGHT.roof)));
-        ctx.strokeStyle = 'rgba(230, 214, 96, 0.9)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.ellipse(x, y, 4.6, 2.3, 0, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.fillStyle = 'rgba(230, 214, 96, 0.9)';
-        ctx.fillRect(x - 2.2, y - 1.7, 1.2, 3.4);
-        ctx.fillRect(x + 1, y - 1.7, 1.2, 3.4);
-        ctx.fillRect(x - 1, y - 0.5, 2, 1);
-        break;
-      }
-      case 'skylight': {
-        for (let f = -1; f <= 1; f++) {
-          const q = diamond(x + f * 5, y + f * 2.5, 3, 1.5);
-          fill(ctx, q, 'rgba(150, 190, 220, 0.75)');
-          ctx.strokeStyle = 'rgba(226, 238, 248, 0.6)';
-          ctx.lineWidth = 0.7;
-          ctx.beginPath();
-          ctx.moveTo(x + f * 5 - 3, y + f * 2.5);
-          ctx.lineTo(x + f * 5, y + f * 2.5 - 1.5);
-          ctx.stroke();
-        }
-        break;
-      }
-      default:
-        break;
-    }
-  }
-  // a stair penthouse on anything with a real roof to reach
-  if (h > 40) {
-    const q = diamond(cx + hw * 0.24, cy + hh * 0.18, Math.max(5, hw * 0.24), Math.max(2.6, hh * 0.24));
-    prism(ctx, q, 7, material('concrete', mix(body, hsl(216, 5, 44), 0.6)), { seed, groundAo: false });
-  }
-}
-
-/**
- * What a tall building does at the top. A skyline of identical flat caps is
- * the thing that most makes a procedural city look procedural, so anything
- * over about six storeys takes one of four crowns from its seed: a setback
- * box, a stepped ziggurat, a sloped cap, or a plain machine floor.
- */
-function towerCrown(
-  ctx: CanvasRenderingContext2D,
-  roof: Pt[],
-  mat: ReturnType<typeof material>,
-  body: Hsl,
-  seed: number,
-): Pt[] {
-  const style = Math.floor(hash2(seed, 3, 517) * 4);
-  if (style === 0) {
-    // a single setback: one smaller box standing on the roof
-    const q = inset(roof, 0.66);
-    const r = prism(ctx, q, 12, mat, { seed, windows: 'ribbon', groundAo: false });
-    parapet(ctx, r.roof, material('concrete', mix(body, hsl(212, 6, 60), 0.5)), 1.6);
-    return r.roof;
-  }
-  if (style === 1) {
-    // stepped: three shrinking boxes, the classic setback skyscraper
-    let top = roof;
-    for (let k = 0; k < 3; k++) {
-      const r = prism(ctx, inset(top, 0.76), 8 - k * 1.6, mat, {
-        seed: seed + k,
-        windows: 'ribbon',
-        groundAo: false,
-      });
-      top = r.roof;
-    }
-    parapet(ctx, top, material('concrete', mix(body, hsl(212, 6, 62), 0.5)), 1.4);
-    return top;
-  }
-  if (style === 2 && roof.length === 4) {
-    // a shallow hipped cap in roofing, not wall colour — pulling the wall
-    // material up over a steep pyramid read as a gold tent on the skyline
-    const rise = 8;
-    const deck = mix(roofTone(mat), hsl(214, 10, 30), 0.5);
-    parapet(ctx, roof, material('concrete', mix(body, hsl(212, 6, 58), 0.5)), 1.6);
-    const lifted = raise(roof, 1.6);
-    const a: Pt = [(lifted[0][0] + lifted[3][0]) / 2, (lifted[0][1] + lifted[3][1]) / 2 - rise];
-    const b: Pt = [(lifted[1][0] + lifted[2][0]) / 2, (lifted[1][1] + lifted[2][1]) / 2 - rise];
-    fill(ctx, [lifted[1], lifted[2], b], css(lit(deck, LIGHT.right)));
-    fill(ctx, [lifted[3], lifted[2], b, a], css(lit(deck, LIGHT.left)));
-    fill(ctx, [lifted[0], lifted[1], b, a], css(lit(deck, LIGHT.roof)));
-    ctx.strokeStyle = css(lit(deck, LIGHT.roof * 1.3));
-    ctx.lineWidth = 1.1;
-    ctx.beginPath();
-    ctx.moveTo(a[0], a[1]);
-    ctx.lineTo(b[0], b[1]);
-    ctx.stroke();
-    return [a, b, b, a];
-  }
-  // plain machine floor with a heavy cornice
-  parapet(ctx, roof, material('concrete', mix(body, hsl(210, 8, 56), 0.55)), 3);
-  return roof;
-}
-
-/** Roofing a pitched building can be wearing: terracotta, slate, weathered
- * shingle, blue-grey tile, tin, and moss-stained green. */
-const ROOF_TILES: Hsl[] = [
-  hsl(14, 34, 32), // terracotta
-  hsl(210, 8, 30), // slate
-  hsl(28, 16, 26), // dark shingle
-  hsl(198, 14, 40), // blue-grey tile
-  hsl(36, 10, 46), // weathered tin
-  hsl(96, 12, 30), // moss-stained
-];
-
-/** Pitched, sawtooth and parapet roof caps over the main mass. */
-function roofCap(
-  ctx: CanvasRenderingContext2D,
-  roof: Pt[],
-  styleIn: RoofStyle,
-  body: Hsl,
-  seed: number,
-): void {
-  const [cx, cy] = centre(roof);
-  // How steep a pitch gets is a function of how wide the roof is, so it has
-  // to be measured rather than read off a corner index — turned half a circle
-  // the indexed version went negative and pitched every ridge downwards.
-  const [rhw] = halfExtent(roof);
-  let style = styleIn;
-  // The pitched forms are cut for a four-cornered plan that is roughly
-  // square. A chamfered mass has no ridge to speak of, and a long slab under
-  // a gable grows an absurd triangle at each end — both take a flat top.
-  if (roof.length !== 4) {
-    if (style !== 'parapet') style = 'flat';
-  } else {
-    const ex = Math.hypot(roof[1][0] - roof[0][0], roof[1][1] - roof[0][1]);
-    const ey = Math.hypot(roof[2][0] - roof[1][0], roof[2][1] - roof[1][1]);
-    const aspect = Math.max(ex, ey) / Math.max(1e-6, Math.min(ex, ey));
-    if (aspect > 1.9 && style !== 'sawtooth') style = style === 'parapet' ? 'parapet' : 'flat';
-  }
-  if (style === 'gabled') {
-    const rise = Math.min(13, 5 + rhw * 0.32);
-    // A street of identical terracotta roofs is the giveaway that a town was
-    // generated; real ones mix slate, tile, shingle and tin.
-    const tile = mix(body, ROOF_TILES[Math.floor(hash2(seed, 6, 331) * ROOF_TILES.length)], 0.78);
-    const a: Pt = [(roof[0][0] + roof[3][0]) / 2, (roof[0][1] + roof[3][1]) / 2 - rise];
-    const b: Pt = [(roof[1][0] + roof[2][0]) / 2, (roof[1][1] + roof[2][1]) / 2 - rise];
-    // the two slopes, then the gable ends peeking out at the sides
-    fill(ctx, [roof[0], roof[3], a], css(lit(mix(body, tile, 0.3), LIGHT.left * 0.96)));
-    fill(ctx, [roof[1], roof[2], b], css(lit(mix(body, tile, 0.3), LIGHT.right * 0.96)));
-    fill(ctx, [roof[0], roof[1], b, a], css(lit(tile, LIGHT.roof * 0.92)));
-    fill(ctx, [roof[3], roof[2], b, a], css(lit(tile, LIGHT.left * 0.82)));
-    // ridge and a courses hint
-    ctx.strokeStyle = css(lit(tile, LIGHT.roof * 1.2));
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(a[0], a[1]);
-    ctx.lineTo(b[0], b[1]);
-    ctx.stroke();
-    ctx.strokeStyle = css(lit(tile, LIGHT.roof * 0.7), 0.5);
-    ctx.lineWidth = 0.8;
-    for (let t = 0.25; t < 1; t += 0.25) {
-      ctx.beginPath();
-      ctx.moveTo(roof[0][0] + (a[0] - roof[0][0]) * t, roof[0][1] + (a[1] - roof[0][1]) * t);
-      ctx.lineTo(roof[1][0] + (b[0] - roof[1][0]) * t, roof[1][1] + (b[1] - roof[1][1]) * t);
-      ctx.stroke();
-    }
-    return;
-  }
-  if (style === 'hipped' && roof.length === 4) {
-    // four slopes meeting at a short ridge, the suburban standard
-    const rise = Math.min(12, 5 + rhw * 0.28);
-    const a: Pt = [cx - rhw * 0.2, cy - rise];
-    const b: Pt = [cx + rhw * 0.2, cy - rise];
-    const tile = mix(body, ROOF_TILES[Math.floor(hash2(seed, 6, 331) * ROOF_TILES.length)], 0.78);
-    fill(ctx, [roof[0], roof[1], b, a], css(lit(tile, LIGHT.roof * 0.9)));
-    fill(ctx, [roof[1], roof[2], b], css(lit(tile, LIGHT.right * 1.02)));
-    fill(ctx, [roof[2], roof[3], a, b], css(lit(tile, LIGHT.left * 0.86)));
-    fill(ctx, [roof[3], roof[0], a], css(lit(tile, LIGHT.left * 1.1)));
-    ctx.strokeStyle = css(lit(tile, LIGHT.roof * 1.2));
-    ctx.lineWidth = 1.1;
-    ctx.beginPath();
-    ctx.moveTo(a[0], a[1]);
-    ctx.lineTo(b[0], b[1]);
-    ctx.stroke();
-    return;
-  }
-  if (style === 'mansard' && roof.length === 4) {
-    // a steep lower slope with dormers, then a near-flat top — the extra
-    // storey a Paris or Brooklyn street gets out of its roofline
-    const steep = Math.min(7.5, 3.5 + rhw * 0.15);
-    const slate = mix(body, hsl(222, 8, 28), 0.66);
-    const top = inset(raise(roof, steep), 0.74);
-    for (let i = 0; i < 4; i++) {
-      const a = roof[i];
-      const b = roof[(i + 1) % 4];
-      if (b[0] - a[0] >= -1e-9) continue;
-      fill(ctx, [a, b, top[(i + 1) % 4], top[i]], css(lit(slate, wallLight(a[0], a[1], b[0], b[1]) * 1.05)));
-    }
-    // dormer windows punched into the steep face
-    const [fa, fb] = [roof[2], roof[3]];
-    for (let k = 0; k < 3; k++) {
-      const t = (k + 0.5) / 3;
-      const px = fa[0] + (fb[0] - fa[0]) * t;
-      const py = fa[1] + (fb[1] - fa[1]) * t - steep * 0.45;
-      ctx.fillStyle = css(lit(slate, LIGHT.left * 1.3));
-      ctx.fillRect(px - 2.6, py - 3.4, 5.2, 3.8);
-      ctx.fillStyle = css(lit(hsl(206, 24, 30), LIGHT.left * 1.2));
-      ctx.fillRect(px - 1.7, py - 2.8, 3.4, 2.6);
-    }
-    fill(ctx, top, css(lit(mix(body, hsl(220, 6, 34), 0.62), LIGHT.roof)));
-    return;
-  }
-  if (style === 'sawtooth') {
-    const teeth = 3;
-    const q = (t: number, s: number): Pt => {
-      const top: Pt = [
-        roof[0][0] + (roof[1][0] - roof[0][0]) * t,
-        roof[0][1] + (roof[1][1] - roof[0][1]) * t,
-      ];
-      const bot: Pt = [
-        roof[3][0] + (roof[2][0] - roof[3][0]) * t,
-        roof[3][1] + (roof[2][1] - roof[3][1]) * t,
-      ];
-      return [top[0] + (bot[0] - top[0]) * s, top[1] + (bot[1] - top[1]) * s];
-    };
-    const shell = mix(body, hsl(206, 6, 46), 0.55);
-    for (let k = 0; k < teeth; k++) {
-      const t0 = k / teeth;
-      const t1 = (k + 1) / teeth;
-      const a = q(t0, 0);
-      const b = q(t0, 1);
-      const c = q(t1, 1);
-      const d = q(t1, 0);
-      // the glazed north light, then the sloped deck over it
-      fill(
-        ctx,
-        [a, b, [b[0], b[1] - 4], [a[0], a[1] - 4]],
-        css(lit(hsl(198, 30, 52), LIGHT.left * 1.1)),
-      );
-      fill(ctx, [[a[0], a[1] - 4], [b[0], b[1] - 4], c, d], css(lit(shell, LIGHT.roof * 0.94)));
-    }
-    return;
-  }
-  if (style === 'parapet') {
-    parapet(ctx, roof, material('concrete', mix(body, hsl(210, 6, 62), 0.5)), 2.4);
-    return;
-  }
-  // 'flat' — prism() already capped it; add a drip edge so it isn't a bare plate
-  ctx.strokeStyle = css(lit(body, LIGHT.roof * 1.25), 0.6);
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(roof[0][0], roof[0][1]);
-  for (let i = 1; i < 4; i++) ctx.lineTo(roof[i][0], roof[i][1]);
-  ctx.closePath();
-  ctx.stroke();
-  void seed;
-  void cy;
-}
+// Roof geometry and painters live in roofs.ts; the pure placement halves are
+// re-exported here because the ambient pass and its tests reach for them here.
+export { placeRoofProps, chimneyHeight };
 
 /** Doors, shopfronts and signage along the front wall — the marks that make a
  * lot legible as somewhere people go. */
@@ -1057,6 +676,11 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
       // the dressing belongs to the mass that reaches full height — a podium
       // under a tower gets the podium treatment from its own recipe instead
       facade: sb.hf === 1 && !abandoned ? arch.facade : undefined,
+      // a pitched roof overhangs the wall and throws a band of shade down it
+      eaveShadow:
+        sb.hf === 1 && (arch.roof === 'gabled' || arch.roof === 'hipped' || arch.roof === 'mansard')
+          ? 3.5
+          : undefined,
     });
     if (ink > 0) {
       // Cartoon ink goes on each mass *as it is drawn*, so a mass in front
@@ -1083,7 +707,7 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
   if (h > 62 && arch.roof !== 'gabled' && arch.roof !== 'sawtooth') {
     top = towerCrown(ctx, primary.roof, mat, body, bucket * 11 + stage);
   } else {
-    roofCap(ctx, primary.roof, arch.roof, body, bucket);
+    roofCap(ctx, primary.roof, arch.roof, body, bucket, mat);
     if (style.lip && arch.roof === 'flat') {
       parapet(ctx, primary.roof, material('concrete', mix(body, hsl(212, 6, 60), 0.55)), 1.8);
     }
