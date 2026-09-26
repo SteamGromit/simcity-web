@@ -211,28 +211,37 @@ function texture(
   const pale = css(lit({ ...base, l: Math.min(96, base.l * 1.18) }, level), 0.4 * grain);
   switch (kind) {
     case 'brick': {
-      // courses every ~3.2px with a half-brick offset each row
+      // courses every ~3.2px with a light mortar joint, a header course every
+      // sixth, and per-brick tone so no two feet of wall are the same
       const course = 3.2;
-      ctx.fillStyle = dark;
+      const mortar = css(lit({ ...base, l: Math.min(96, base.l * 1.15 + 18), s: base.s * 0.3 }, level), 0.22 * grain);
+      ctx.fillStyle = mortar;
       for (let v = course; v < h; v += course) ctx.fillRect(0, v, 1, 0.5);
       const perRow = Math.max(3, Math.round(len / 5));
       for (let v = 0, row = 0; v < h; v += course, row++) {
-        for (let k = 0; k < perRow; k++) {
+        const header = row % 6 === 5;
+        const n = header ? perRow * 2 : perRow;
+        for (let k = 0; k < n; k++) {
           const r = hash2(k, row, seed);
-          if (r > 0.86) {
-            ctx.fillStyle = r > 0.94 ? pale : dark;
-            ctx.fillRect((k + (row % 2) * 0.5) / perRow, v + 0.5, 0.9 / perRow, course - 1);
+          if (r > 0.7) {
+            ctx.fillStyle = r > 0.88 ? pale : dark;
+            ctx.fillRect((k + (row % 2) * 0.5) / n, v + 0.5, 0.9 / n, course - 1);
           }
         }
       }
       break;
     }
     case 'concrete': {
-      // precast panel joints, plus vertical weather streaks below them
+      // precast panel joints, weather streaks under them, a rust line or two
       const panels = Math.max(2, Math.round(len / 11));
       ctx.fillStyle = dark;
       for (let k = 1; k < panels; k++) ctx.fillRect(k / panels - 0.0015, 0, 0.003, h);
-      for (let v = 8; v < h; v += 9) ctx.fillRect(0, v, 1, 0.4);
+      for (let v = 8; v < h; v += 9) {
+        ctx.fillStyle = dark;
+        ctx.fillRect(0, v, 1, 0.4);
+        ctx.fillStyle = 'rgba(20, 24, 30, 0.08)';
+        ctx.fillRect(0, v - 2.2, 1, 2.2);
+      }
       ctx.fillStyle = css(lit({ ...base, l: base.l * 0.9 }, level), 0.16 * grain);
       for (let k = 0; k < panels; k++) {
         if (hash2(k, 7, seed) < 0.6) continue;
@@ -241,25 +250,43 @@ function texture(
       break;
     }
     case 'timber': {
-      ctx.fillStyle = dark;
-      for (let v = 2.4; v < h; v += 2.4) ctx.fillRect(0, v, 1, 0.35);
+      // clapboard: a shadow line under every board, a highlight on its lip
+      for (let v = 2.4; v < h; v += 2.4) {
+        ctx.fillStyle = 'rgba(10, 14, 20, 0.32)';
+        ctx.fillRect(0, v, 1, 0.5);
+        ctx.fillStyle = 'rgba(255, 250, 240, 0.12)';
+        ctx.fillRect(0, v + 0.5, 1, 0.3);
+      }
       break;
     }
     case 'stone': {
+      // ashlar: light joints, blocks jittered a little in width
       const blocks = Math.max(2, Math.round(len / 7));
-      ctx.fillStyle = dark;
+      const joint = css(lit({ ...base, l: Math.min(96, base.l * 1.1 + 12) }, level), 0.2 * grain);
       for (let v = 0, row = 0; v < h; v += 4.5, row++) {
+        ctx.fillStyle = joint;
         ctx.fillRect(0, v, 1, 0.5);
         for (let k = 1; k < blocks; k++) {
-          ctx.fillRect((k + (row % 2) * 0.5) / blocks, v, 0.004, 4.5);
+          const jit = (hash2(k, row, seed) - 0.5) * 0.16;
+          ctx.fillRect((k + (row % 2) * 0.5 + jit) / blocks, v, 0.004, 4.5);
+        }
+        ctx.fillStyle = dark;
+        for (let k = 0; k < blocks; k++) {
+          if (hash2(k, row, seed + 3) < 0.8) continue;
+          ctx.fillRect((k + (row % 2) * 0.5) / blocks, v + 0.5, 0.96 / blocks, 4);
         }
       }
       break;
     }
     case 'metal': {
+      // corrugation: a dark rib with a light edge beside it
       const ribs = Math.max(4, Math.round(len / 3.5));
-      ctx.fillStyle = dark;
-      for (let k = 1; k < ribs; k++) ctx.fillRect(k / ribs, 0, 0.4 / ribs, h);
+      for (let k = 1; k < ribs; k++) {
+        ctx.fillStyle = dark;
+        ctx.fillRect(k / ribs, 0, 0.4 / ribs, h);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.fillRect(k / ribs - 0.25 / ribs, 0, 0.25 / ribs, h);
+      }
       break;
     }
     case 'render': {

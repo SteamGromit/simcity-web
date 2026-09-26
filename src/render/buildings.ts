@@ -35,6 +35,7 @@ import {
 import { LAMP, hsl, materialOf, swatch } from './palette';
 import { LIGHT, wallLight, type Pt } from './sun';
 import { chimneyHeight, placeRoofProps, roofCap, roofKit, towerCrown } from './roofs';
+import { grain } from './surface';
 import { Sprite, blit, sprite } from './spritecache';
 import { drawHedge, drawRock, drawTree } from './scenery';
 import { effectiveSeason } from './seasonfx';
@@ -667,7 +668,16 @@ function lotSprite(k: LotKey): Sprite {
       ax: hw + GROWABLE_MARGIN_X,
       ay,
     },
-    (ctx) => paintLot(ctx, k),
+    (ctx) => {
+      paintLot(ctx, k);
+      if (k.glow) return;
+      // photographic grain over the finished bake — in device pixels, so the
+      // transform the cache set up for the painter is stood down first
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      grain(ctx, ctx.canvas.width, ctx.canvas.height, 0.03, k.bucket * 31 + k.stage);
+      ctx.restore();
+    },
     k.glow ? 1 : undefined,
   );
 }
