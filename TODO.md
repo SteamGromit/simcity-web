@@ -95,6 +95,21 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Done
 
+- **Realism, part two** — shipped v0.65.0 (lots, ground, roads, trees: every
+  developed lot stands on a plot laid out in tile space and turned to face
+  its street — sidewalk, lawn with mow lines, driveway with a car, path,
+  fence or hedge, flower bed, mailbox, shrubs and yard trees for houses;
+  paving, kerb, planters and a bin store for urban low-rise; a plaza for
+  towers; a striped parking lot with cars and a pylon sign for strip retail;
+  a fenced yard with a truck, pallets, a container and a tank for industry;
+  crop rows for farms; xeriscape in the desert — baked once per plot as its
+  own tile sprite under the shadow layer; a per-pixel tone field in every
+  ground sprite; trees rebuilt from leaf dabs with six species and forest
+  undergrowth; streets with asphalt grain, patches, seams, manholes, kerb
+  faces, paving joints and worn crosswalks; two sprite-key collisions fixed.
+  25 ms/frame on the 76k demo city. Part three — civic and rewards, industry
+  and farms, water and shore, night — follows.)
+
 - **Realism, part one** — shipped v0.64.0 (materials, light, windows, roofs,
   shadows, grade: a 32-swatch library of real wall materials capped at 28%
   saturation, chosen per archetype; a lighting model with corner occlusion,
