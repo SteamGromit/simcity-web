@@ -13,7 +13,7 @@
 import { fbm, hash2 } from './noise';
 import { ENV, Hsl, css, hsl, lit, mix } from './palette';
 import { LIGHT, Pt } from './sun';
-import { blit, sprite } from './spritecache';
+import { Sprite, blit, sprite } from './spritecache';
 import type { VegTint } from './seasonfx';
 import { TILE_H, TILE_W, TileGeom } from './iso';
 
@@ -96,7 +96,7 @@ function clipDiamond(ctx: CanvasRenderingContext2D, hw: number, hh: number): voi
  */
 function detailSprite(kind: GroundKind, variant: number) {
   return sprite(
-    `gd${kind[0]}${variant}`,
+    `gd${kind}${variant}`,
     { w: TILE_W + 2, h: TILE_H + 2, ax: HW + 1, ay: HH + 1 },
     (ctx) => {
       clipDiamond(ctx, HW + 1, HH + 1);
@@ -146,7 +146,7 @@ function detailSprite(kind: GroundKind, variant: number) {
         return;
       }
       // meadow: scattered blades, a few darker clumps, a light dusting
-      for (let k = 0; k < 44; k++) {
+      for (let k = 0; k < 64; k++) {
         const u = hash2(k, 11, seed) * 2 - 1;
         const v = hash2(k, 12, seed) * 2 - 1;
         if (Math.abs(u) + Math.abs(v) > 1.02) continue;
@@ -155,7 +155,7 @@ function detailSprite(kind: GroundKind, variant: number) {
         const r = hash2(k, 13, seed);
         if (r > 0.78) {
           // a tuft: two or three blades leaning the same way
-          ctx.strokeStyle = 'rgba(28, 52, 22, 0.34)';
+          ctx.strokeStyle = k % 3 === 0 ? 'rgba(196, 220, 140, 0.26)' : 'rgba(28, 52, 22, 0.34)';
           ctx.lineWidth = 0.9;
           const lean = (hash2(k, 14, seed) - 0.5) * 2;
           for (let b = -1; b <= 1; b++) {
@@ -172,6 +172,57 @@ function detailSprite(kind: GroundKind, variant: number) {
           ctx.fillRect(px, py, 1.4, 1);
         }
       }
+    },
+  );
+}
+
+/**
+ * A per-pixel tone texture for a ground kind: mid-frequency fbm rendered as a
+ * translucent dark field that is *multiplied* over the flat fill, so a meadow
+ * has hollows and patches at a scale the tile fill cannot carry. Four
+ * variants, so neighbours never repeat. Baked in device pixels; a no-op on a
+ * context with no pixels to read.
+ */
+export function textureSprite(kind: GroundKind, variant: number): Sprite {
+  return sprite(
+    `gt${kind}${variant}`,
+    { w: TILE_W + 2, h: TILE_H + 2, ax: HW + 1, ay: HH + 1 },
+    (ctx) => {
+      const get = (ctx as { getImageData?: unknown }).getImageData;
+      if (typeof get !== 'function') return;
+      const W = ctx.canvas.width;
+      const H = ctx.canvas.height;
+      let img: ImageData | undefined;
+      try {
+        img = ctx.getImageData(0, 0, W, H);
+      } catch {
+        return;
+      }
+      if (!img) return;
+      const d = img.data;
+      const scale = W / (TILE_W + 2); // device px per logical px
+      const cx = (HW + 1) * scale;
+      const cy = (HH + 1) * scale;
+      const freq = (kind === 'meadow' ? 0.11 : kind === 'desert' ? 0.07 : 0.16) / scale;
+      const amp = kind === 'snow' ? 0.12 : kind === 'rock' ? 0.3 : 0.24;
+      const seed = 900 + variant * 7 + kind.length;
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const dx = (x - cx) / cx;
+          const dy = (y - cy) / cy;
+          if (Math.abs(dx) + Math.abs(dy) > 1.02) continue;
+          const n = fbm(x * freq + variant * 13, y * freq * 2, seed, 3) - 0.5;
+          if (n >= 0) continue; // multiply leaves the fill alone here
+          const v = Math.round(255 * (1 + n * amp * 2)); // darker where the field dips
+          const i = (y * W + x) * 4;
+          d[i] = v;
+          d[i + 1] = v;
+          d[i + 2] = v;
+          d[i + 3] = 255;
+        }
+      }
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.putImageData(img, 0, 0);
     },
   );
 }
@@ -193,7 +244,12 @@ export function paintGround(
   ctx.closePath();
   ctx.fillStyle = style;
   ctx.fill();
-  if (detail >= 1) blit(ctx, detailSprite(kind, variant & 7), geom.cx, geom.cy);
+  if (detail >= 1) {
+    ctx.globalCompositeOperation = 'multiply';
+    blit(ctx, textureSprite(kind, variant & 3), geom.cx, geom.cy);
+    ctx.globalCompositeOperation = 'source-over';
+    blit(ctx, detailSprite(kind, variant & 7), geom.cx, geom.cy);
+  }
 }
 
 // ---------------------------------------------------------------------------
