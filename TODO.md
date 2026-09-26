@@ -90,6 +90,20 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Done
 
+- **Realism, part one** — shipped v0.64.0 (materials, light, windows, roofs,
+  shadows, grade: a 32-swatch library of real wall materials capped at 28%
+  saturation, chosen per archetype; a lighting model with corner occlusion,
+  free-edge lift and sky/bounce gradients; windows with frames, reveals,
+  sills, reflections and per-pane states, curtain walls with a reflected
+  horizon; pitched roofs with overhanging eaves, shingle courses, ridge caps,
+  dormers and eave shadows, flat roofs with gravel decks and richer plant;
+  one half-res shadow layer per frame, blurred and multiplied onto the
+  ground; shopfronts with fascias and awnings; photographic grain over every
+  bake; a lighter, warmer grade and a softer night; tilt-shift off after
+  dark. 24 ms/frame on the 76k demo city. Parts two (lots, ground, roads,
+  trees) and three (civic and rewards, industry and farms, water, night)
+  follow; the design is in the 2026-09-25 graphics-realism spec.)
+
 - **The city as a model on a table** — shipped v0.63.0 (a tilt-shift finish:
   the composed frame is copied at half resolution, blurred and lightly
   saturated, then laid back through a vertical mask that spares a central

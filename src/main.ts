@@ -12,6 +12,7 @@ import {
 import { roadLine } from './sim/grid';
 import { spawnDisaster } from './sim/disasters';
 import { idx } from './sim/grid';
+import { tileGeom } from './render/iso';
 import { createSaveStore, type SaveMeta } from './ui/savestore';
 import { createRegionStore } from './ui/regionstore';
 import { buildLaunchScreen } from './ui/launch';
@@ -118,6 +119,17 @@ const renderer = new Renderer(canvas, city.seed);
   /** Read-only camera snapshot. The touch and zoom paths have no other visible
    * output — they only move this — so tests and the console watch it here. */
   camera: () => ({ ...renderer.camera }),
+  /** Centre the view on a tile at a zoom — how the graphics passes get their
+   * screenshots of one district after another without a mouse. */
+  look(x: number, y: number, zoom = renderer.camera.zoom) {
+    const rect = canvas.getBoundingClientRect();
+    const elev = city.tiles[idx(x, y)]?.elevation ?? 0;
+    const g = tileGeom(x, y, elev);
+    renderer.camera.zoom = zoom;
+    renderer.camera.x = g.cx - rect.width / 2 / zoom;
+    renderer.camera.y = g.cy - rect.height / 2 / zoom;
+    return { ...renderer.camera };
+  },
   /** Where the last frame went, plus what the sprite cache is holding. */
   profile: () => ({ ...renderer.timings, sprites: spriteStats() }),
   /**
