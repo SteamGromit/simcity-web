@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { ENV, css, hsl, lit, material, mix } from '../src/render/palette';
+import { ENV, SWATCHES, css, hsl, lit, material, materialOf, mix, swatch, swatchIds } from '../src/render/palette';
 import { LIGHT } from '../src/render/sun';
 
 const parse = (s: string) => {
@@ -117,5 +117,40 @@ describe('the environment palette', () => {
 
   test('the sky is lighter at the horizon than overhead', () => {
     expect(ENV.skyHorizon.l).toBeGreaterThan(ENV.skyTop.l);
+  });
+});
+
+describe('swatch library', () => {
+  test('every family has at least three swatches', () => {
+    for (const fam of ['brick', 'stone', 'render', 'siding', 'concrete', 'glass', 'metal'] as const) {
+      expect(swatchIds(fam).length).toBeGreaterThanOrEqual(3);
+    }
+  });
+  test('bodies stay under their saturation cap', () => {
+    for (const sw of Object.values(SWATCHES)) {
+      expect(sw.body.s).toBeLessThanOrEqual(sw.satCap);
+      if (!['brick-red', 'siding-barn', 'metal-corten'].includes(sw.id)) expect(sw.satCap).toBe(28);
+    }
+  });
+  test('unknown id throws', () => {
+    expect(() => swatch('nope')).toThrow();
+  });
+  test('trim and glass follow a remapped body, roof follows the swatch', () => {
+    const sw = swatch('render-cream');
+    const remapped = hsl(300, 20, 40); // a Springfield-style hue wrap
+    const m = materialOf(sw, remapped);
+    expect(m.body).toEqual(remapped);
+    expect(Math.abs(m.trim.h - remapped.h)).toBeLessThan(30);
+    expect(m.trim.l).toBeGreaterThan(remapped.l);
+    expect(m.roof).toEqual(sw.roof);
+    expect(m.kind).toBe(sw.kind);
+  });
+  test('lit keeps sunlit warmer than shade and narrows the swing', () => {
+    const c = hsl(30, 20, 50);
+    const sun = lit(c, 1.1);
+    const shade = lit(c, 0.64);
+    expect(sun.l).toBeGreaterThan(shade.l);
+    expect(sun.l - shade.l).toBeLessThan(30);
+    expect(shade.h).toBeGreaterThan(c.h); // cools toward blue (hue rises from 30)
   });
 });

@@ -37,13 +37,14 @@ export function css(c: Hsl, alpha = 1): string {
  */
 export function lit(c: Hsl, level: number): Hsl {
   const t = level - 1;
-  const l = clamp(c.l * level, 2, 96);
-  // shadowed faces cool toward the sky, sunlit faces warm slightly
-  const hueShift = t < 0 ? t * 14 : t * -6;
-  const towardBlue = t < 0 ? -t * 8 : 0;
+  // a narrower swing than the old straight multiply: a sunlit face is not
+  // twice as bright as the shade face, it is warmer and a little lighter
+  const l = clamp(c.l * (1 + t * 0.8), 3, 96);
+  const hueShift = t < 0 ? t * 8 : t * -4;
+  const towardBlue = t < 0 ? -t * 14 : 0;
   return {
     h: c.h + (c.h > 180 && c.h < 300 ? -hueShift : hueShift) * 0.6 + towardBlue * 0.4,
-    s: clamp(c.s * (t < 0 ? 1 + t * 0.25 : 1 - t * 0.5), 0, 100),
+    s: clamp(c.s * (t < 0 ? 1 + t * 0.2 : 1 - t * 0.45), 0, 100),
     l,
   };
 }
@@ -59,23 +60,23 @@ export function mix(a: Hsl, b: Hsl, t: number): Hsl {
 // ---------------------------------------------------------------------------
 
 export const ENV = {
-  /** Sky behind the map: the void the old renderer painted #10151c. */
-  skyTop: hsl(208, 44, 62),
-  skyHorizon: hsl(202, 38, 78),
-  /** Aerial perspective — distance washes toward this. */
-  haze: hsl(205, 34, 80),
+  /** Sky behind the map: a real morning sky, not a saturated gradient. */
+  skyTop: hsl(206, 30, 70),
+  skyHorizon: hsl(200, 24, 86),
+  /** Aerial perspective — distance washes toward this, slightly warm. */
+  haze: hsl(40, 16, 84),
   /** Ambient bounce colour used to tint shadowed ground. */
-  bounce: hsl(96, 22, 44),
+  bounce: hsl(80, 18, 46),
   /** Cast-shadow ink. Kept blue-violet, never neutral grey: a grey shadow on
    * green grass reads as dirt, a blue one reads as shade. */
-  shadow: hsl(232, 40, 22),
-  water: hsl(200, 40, 28),
-  waterDeep: hsl(212, 46, 20),
-  waterShallow: hsl(190, 32, 38),
-  sand: hsl(42, 26, 62),
-  foam: hsl(196, 22, 90),
-  asphalt: hsl(220, 8, 26),
-  concreteKerb: hsl(210, 8, 62),
+  shadow: hsl(228, 42, 24),
+  water: hsl(202, 34, 32),
+  waterDeep: hsl(210, 40, 22),
+  waterShallow: hsl(186, 28, 42),
+  sand: hsl(40, 24, 66),
+  foam: hsl(196, 20, 92),
+  asphalt: hsl(220, 5, 30),
+  concreteKerb: hsl(38, 6, 66),
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -103,6 +104,8 @@ export interface Material {
   grain: number;
   /** Sheen: glass and metal pick up a sky gradient down the wall. */
   sheen: number;
+  /** Flat-roof deck colour, when the material comes from a swatch. */
+  roof?: Hsl;
 }
 
 /**
@@ -180,8 +183,107 @@ export function material(kind: MaterialKind, body: Hsl): Material {
 }
 
 /** Warm lamplight behind an occupied window after dark. */
-export const LAMP = hsl(38, 92, 66);
-/** The cool blue-white of a fluorescent office floor left on all night. */
-export const OFFICE_LAMP = hsl(52, 42, 82);
+export const LAMP = hsl(34, 90, 68);
+/** The cool white of a fluorescent office floor left on all night. */
+export const OFFICE_LAMP = hsl(48, 30, 84);
 /** Sodium street lighting. */
-export const STREET_LAMP = hsl(36, 88, 62);
+export const STREET_LAMP = hsl(36, 82, 60);
+
+// ---------------------------------------------------------------------------
+// Swatches
+// ---------------------------------------------------------------------------
+
+/**
+ * The swatch library: what real buildings are made of.
+ *
+ * The old palettes were hue ramps — a residential tower was "slate, a bit
+ * bluer per stage", and the family deltas swung that to teal or violet. A
+ * downtown of them read as a bag of sweets. Real walls are brick, buff,
+ * limestone, precast, painted render, weathered siding, blue-grey or bronze
+ * glass, and almost nothing on a building is more than a quarter saturated.
+ * Colour belongs to awnings, signs, doors, cars and trees.
+ */
+export type SwatchFamily = 'brick' | 'stone' | 'render' | 'siding' | 'concrete' | 'glass' | 'metal';
+
+export interface Swatch {
+  id: string;
+  family: SwatchFamily;
+  /** Which surface routine paints it; siding is timber, corrugated is metal. */
+  kind: MaterialKind;
+  body: Hsl;
+  /** Default flat-roof deck for a mass in this material. */
+  roof: Hsl;
+  /** The saturation this swatch is allowed; 28 for all but three. */
+  satCap: number;
+}
+
+const SW = (
+  id: string,
+  family: SwatchFamily,
+  kind: MaterialKind,
+  body: Hsl,
+  roof: Hsl,
+  satCap = 28,
+): Swatch => ({ id, family, kind, body, roof, satCap });
+
+const MEMBRANE = hsl(220, 6, 32);
+const GRAVEL = hsl(36, 8, 52);
+const TAR = hsl(220, 4, 26);
+
+export const SWATCHES: Record<string, Swatch> = Object.fromEntries(
+  [
+    SW('brick-red', 'brick', 'brick', hsl(10, 38, 40), TAR, 38),
+    SW('brick-brown', 'brick', 'brick', hsl(18, 26, 34), TAR),
+    SW('brick-buff', 'brick', 'brick', hsl(36, 24, 58), GRAVEL),
+    SW('brick-white', 'brick', 'brick', hsl(40, 8, 84), GRAVEL),
+    SW('brick-grey', 'brick', 'brick', hsl(210, 4, 62), MEMBRANE),
+    SW('stone-limestone', 'stone', 'stone', hsl(42, 14, 74), hsl(40, 8, 46)),
+    SW('stone-sandstone', 'stone', 'stone', hsl(34, 22, 66), hsl(30, 10, 42)),
+    SW('stone-granite', 'stone', 'stone', hsl(215, 5, 58), MEMBRANE),
+    SW('stone-brownstone', 'stone', 'stone', hsl(20, 20, 38), TAR),
+    SW('render-cream', 'render', 'render', hsl(44, 22, 84), hsl(20, 30, 40)),
+    SW('render-peach', 'render', 'render', hsl(26, 26, 78), hsl(18, 34, 42)),
+    SW('render-sage', 'render', 'render', hsl(96, 10, 66), hsl(30, 8, 40)),
+    SW('render-terracotta', 'render', 'render', hsl(18, 28, 62), hsl(14, 34, 38)),
+    SW('render-white', 'render', 'render', hsl(40, 4, 92), GRAVEL),
+    SW('render-grey', 'render', 'render', hsl(215, 3, 72), MEMBRANE),
+    SW('siding-white', 'siding', 'timber', hsl(40, 6, 88), hsl(210, 6, 34)),
+    SW('siding-grey', 'siding', 'timber', hsl(208, 4, 66), hsl(210, 6, 30)),
+    SW('siding-blue', 'siding', 'timber', hsl(210, 10, 60), hsl(215, 8, 32)),
+    SW('siding-olive', 'siding', 'timber', hsl(80, 10, 52), hsl(30, 12, 30)),
+    SW('siding-barn', 'siding', 'timber', hsl(8, 42, 36), hsl(210, 6, 32), 42),
+    SW('concrete-precast', 'concrete', 'concrete', hsl(30, 5, 64), GRAVEL),
+    SW('concrete-board', 'concrete', 'concrete', hsl(35, 4, 54), MEMBRANE),
+    SW('concrete-painted', 'concrete', 'concrete', hsl(215, 3, 68), MEMBRANE),
+    SW('glass-blue', 'glass', 'glass', hsl(208, 28, 46), MEMBRANE),
+    SW('glass-green', 'glass', 'glass', hsl(168, 20, 42), MEMBRANE),
+    SW('glass-bronze', 'glass', 'glass', hsl(32, 24, 36), TAR),
+    SW('glass-silver', 'glass', 'glass', hsl(210, 10, 66), MEMBRANE),
+    SW('glass-black', 'glass', 'glass', hsl(220, 8, 22), TAR),
+    SW('metal-aluminium', 'metal', 'metal', hsl(210, 4, 68), MEMBRANE),
+    SW('metal-corrugated', 'metal', 'metal', hsl(205, 5, 60), hsl(205, 5, 48)),
+    SW('metal-corten', 'metal', 'metal', hsl(20, 45, 34), hsl(20, 30, 28), 45),
+    SW('metal-white', 'metal', 'metal', hsl(40, 2, 90), hsl(210, 4, 70)),
+  ].map((s) => [s.id, s]),
+);
+
+export function swatch(id: string): Swatch {
+  const s = SWATCHES[id];
+  if (!s) throw new Error(`unknown swatch ${id}`);
+  return s;
+}
+
+export function swatchIds(family: SwatchFamily): string[] {
+  return Object.values(SWATCHES)
+    .filter((s) => s.family === family)
+    .map((s) => s.id);
+}
+
+/**
+ * A material from a swatch. `body` is the (possibly skin-remapped) wall
+ * colour; trim and glass are derived from it so a remapped skin stays
+ * coherent, while the roof deck stays the swatch's own.
+ */
+export function materialOf(sw: Swatch, body: Hsl = sw.body): Material {
+  return { ...material(sw.kind, body), roof: sw.roof };
+}
