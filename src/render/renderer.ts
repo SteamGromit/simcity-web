@@ -55,7 +55,7 @@ import { paintBloom, paintGrade, paintHaze, paintSky, paintVignette } from './gr
 import { paintTiltShift, tiltShiftActive } from './tiltshift';
 import { css, hsl, lit, mix } from './palette';
 import { LIGHT } from './sun';
-import { drawTree } from './scenery';
+import { drawTree, drawUndergrowth } from './scenery';
 import { hash2 } from './noise';
 import { blit, sprite } from './spritecache';
 import { ShadowLayer } from './shadows';
@@ -834,7 +834,8 @@ export class Renderer {
     }
     const wind = this.storm ? this.wind * (0.7 + this.variants[i] * 0.6) : 0;
     const desert = city.biome === 'desert';
-    const n = 3 + (hash2(x, y, 3) > 0.55 ? 1 : 0);
+    if (!desert) drawUndergrowth(this.ctx, geom.cx, geom.cy + 4, i, seasonOf(city.month));
+    const n = 4 + (hash2(x, y, 3) > 0.55 ? 1 : 0);
     for (let k = 0; k < n; k++) {
       const u = hash2(x * 7 + k, y * 3, 11) * 1.7 - 0.85;
       const v = hash2(x * 5, y * 11 + k, 17) * 1.7 - 0.85;
@@ -846,7 +847,7 @@ export class Renderer {
         geom.cx + u * 26,
         geom.cy + v * 13,
         kindPick,
-        14 + hash2(x, y + k, 41) * 10,
+        14 + hash2(x, y + k, 41) * 12,
         (i + k) % 6,
         seasonOf(city.month),
         wind,
