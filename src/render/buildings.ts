@@ -1,6 +1,6 @@
 import { buildingBySlot } from '../content/registry';
 import { MAX_BUILDING_PROPS, MOD_SLOT_BASE, type VisualDef } from '../content/types';
-import { IndustryKind, Stage, Tier, Wealth, Zone } from '../sim/types';
+import { Stage, Tier, Wealth, Zone } from '../sim/types';
 import { normalizeTier } from '../sim/tiers';
 import { entityFor } from '../sim/entities';
 import { TILE_H, TILE_W, TileGeom } from './iso';
@@ -25,15 +25,25 @@ import {
   parapet,
   prism,
   raise,
-  roofTone,
+
   shift,
   type Facade,
   type Hsl,
-  type MaterialKind,
+
   type WindowPattern,
 } from './massing';
-import { LAMP, hsl } from './palette';
+import { LAMP, hsl, materialOf, swatch } from './palette';
 import { LIGHT, wallLight, type Pt } from './sun';
+import {
+  chimneyHeight,
+  effectiveRoofStyle,
+  placeRoofProps,
+  roofCap,
+  roofKit,
+  towerCrown,
+  wantsHatch,
+} from './roofs';
+import { grain } from './surface';
 import { Sprite, blit, sprite } from './spritecache';
 import { drawHedge, drawRock, drawTree } from './scenery';
 import { effectiveSeason } from './seasonfx';
@@ -46,7 +56,7 @@ import {
   heightScaleFor,
   pickArchetype,
   pickFarmLayout,
-  paletteFamily,
+  pickSwatch,
   PropKind,
   RoofStyle,
 } from './archetypes';
@@ -57,124 +67,6 @@ const HEIGHTS: Partial<Record<Zone, number[]>> = {
   [Zone.Commercial]: [0, 17, 35, 60, 80, 102, 126, 152],
   [Zone.Industrial]: [0, 13, 23, 37, 50, 64, 80, 98],
 };
-
-/** Base wall colors [h, s, l] by tier and stage. Index 0 is unused (stage 0). */
-const R_PALETTES: Record<Wealth, [number, number, number][]> = {
-  1: [
-    [0, 0, 0],
-    [26, 26, 50], // cottage, weathered timber
-    [28, 24, 46],
-    [30, 22, 42],
-    [32, 20, 40],
-    [33, 18, 38],
-    [34, 17, 36],
-    [35, 16, 34],
-  ],
-  2: [
-    [0, 0, 0],
-    [92, 26, 60], // small house, pale green
-    [16, 42, 42], // rowhouse brick
-    [206, 18, 52], // apartment slate
-    [212, 20, 50], // mid-rise
-    [218, 22, 47], // block tower
-    [222, 24, 45], // high-rise
-    [228, 26, 43], // residential tower
-  ],
-  3: [
-    [0, 0, 0],
-    [42, 20, 76], // villa, pale stone
-    [40, 18, 74],
-    [38, 16, 72],
-    [200, 20, 66], // glass-and-stone mid-rise
-    [202, 22, 62],
-    [204, 24, 58],
-    [206, 26, 54],
-  ],
-};
-
-const C_PALETTES: Record<Wealth, [number, number, number][]> = {
-  1: [
-    [0, 0, 0],
-    [20, 38, 56], // strip retail, warm render
-    [24, 34, 52],
-    [26, 30, 48],
-    [28, 28, 46],
-    [30, 26, 44],
-    [32, 24, 42],
-    [34, 22, 40],
-  ],
-  2: [
-    [0, 0, 0],
-    [188, 28, 58], // shop
-    [196, 32, 50], // office, glassy cyan
-    [208, 32, 44], // tower
-    [204, 36, 42], // glass mid-rise
-    [209, 38, 40], // office slab
-    [214, 40, 38], // corporate tower
-    [219, 42, 36], // skyscraper
-  ],
-  3: [
-    [0, 0, 0],
-    [220, 22, 46],
-    [222, 24, 43],
-    [224, 26, 40], // dark glass tower — dark by *saturation*, not by going
-    [226, 28, 38], // black: a wall at l≈24 lit at 0.6 is unreadable mud, and
-    [228, 30, 36], // a downtown of them reads as a hole in the map
-    [230, 32, 34],
-    [232, 34, 32],
-  ],
-};
-
-const I_PALETTES: Record<IndustryKind, [number, number, number][]> = {
-  ag: [
-    [0, 0, 0],
-    [12, 44, 40], // barn red
-    [12, 42, 38],
-    [12, 40, 36],
-    [12, 40, 36],
-    [12, 40, 36],
-    [12, 40, 36],
-    [12, 40, 36],
-  ],
-  dirty: [
-    [0, 0, 0],
-    [34, 30, 52], // shed, ochre
-    [24, 26, 46], // works, rust
-    [20, 22, 40], // factory
-    [18, 20, 38], // heavy works
-    [15, 18, 36], // refinery block
-    [12, 17, 34], // industrial complex
-    [10, 15, 32], // mega-plant
-  ],
-  manu: [
-    [0, 0, 0],
-    [206, 7, 56], // mid-grey shed
-    [206, 7, 52],
-    [208, 8, 48],
-    [208, 8, 46],
-    [210, 9, 44],
-    [210, 9, 42],
-    [212, 10, 40],
-  ],
-  tech: [
-    [0, 0, 0],
-    [176, 18, 70], // clean white-teal
-    [176, 20, 68],
-    [178, 22, 65],
-    [178, 24, 62],
-    [180, 26, 59],
-    [180, 28, 56],
-    [182, 30, 53],
-  ],
-};
-
-function paletteFor(zone: Zone, tier: Tier, stage: Stage): [number, number, number] {
-  const t = normalizeTier(zone, tier);
-  if (zone === Zone.Residential) return R_PALETTES[t as Wealth][stage];
-  if (zone === Zone.Commercial) return C_PALETTES[t as Wealth][stage];
-  if (zone === Zone.Industrial) return I_PALETTES[t as IndustryKind][stage];
-  return [0, 0, 50];
-}
 
 // ---------------------------------------------------------------------------
 // Small shared helpers, kept at their old names for the rest of the renderer
@@ -343,48 +235,32 @@ function familyOf(zone: Zone, tier: Tier): FamilyKey {
 }
 
 interface LotStyle {
-  wall: MaterialKind;
   /** Draw a parapet lip round flat roofs. */
   lip: boolean;
 }
 
-/** What a lot is *made of*. The archetype decides the *shape* and how it is
- * fenestrated; this decides only the surface, so a shophouse and an office
- * slab can both be concrete without becoming the same building. */
+/** Whether a lot's flat roof gets a parapet lip. What a lot is *made of* is
+ * the archetype's business now (see `swatches` in archetypes.ts); this only
+ * decides the roofline. Still consumes a channel, so the bake's decision
+ * stream — which `hearthTip` replays — keeps its order. */
 function styleFor(fam: FamilyKey, stage: Stage, pick: number): LotStyle {
-  const tall = stage >= 5;
+  void pick;
   const mid = stage >= 3;
   switch (fam) {
     case 'R1':
-      return { wall: stage <= 2 ? 'timber' : 'render', lip: mid };
     case 'R2':
-      return {
-        wall: stage <= 2 ? (pick > 0.5 ? 'brick' : 'render') : tall ? 'concrete' : 'brick',
-        lip: mid,
-      };
-    case 'R3':
-      return {
-        wall: tall ? 'glass' : stage <= 2 ? 'stone' : 'render',
-        lip: true,
-      };
     case 'C1':
-      return { wall: stage <= 2 ? 'render' : 'brick', lip: mid };
+      return { lip: mid };
+    case 'R3':
     case 'C2':
-      return {
-        wall: mid ? 'glass' : pick > 0.45 ? 'render' : 'brick',
-        lip: true,
-      };
     case 'C3':
-      return { wall: 'glass', lip: true };
-    case 'dirty':
-      return { wall: mid ? 'concrete' : 'metal', lip: false };
-    case 'manu':
-      return { wall: 'metal', lip: false };
     case 'tech':
-      return { wall: mid ? 'glass' : 'metal', lip: true };
+      return { lip: true };
+    case 'dirty':
+    case 'manu':
     case 'ag':
     default:
-      return { wall: 'timber', lip: false };
+      return { lip: false };
   }
 }
 
@@ -411,391 +287,9 @@ export function growableHeight(zone: Zone, stage: Stage, tier: Tier, bucket: num
 export type StackKind = 'smoke' | 'steam' | 'hearth';
 export interface StackTip { x: number; y: number; kind: StackKind; s: number }
 
-/** Where roof props land — the pure half of roofKit, shared with the ambient
- * pass so a hearth wisp rises from exactly the chimney the bake drew. */
-export function placeRoofProps(
-  kinds: PropKind[],
-  roof: Pt[],
-  seed: number,
-): { kind: PropKind; x: number; y: number; k: number }[] {
-  const cx = (roof[0][0] + roof[2][0]) / 2;
-  const cy = (roof[1][1] + roof[3][1]) / 2;
-  const [hw, hh] = halfExtent(roof);
-  const out: { kind: PropKind; x: number; y: number; k: number }[] = [];
-  let k = 0;
-  for (const kind of kinds) {
-    // Most lots carry their props; a mast is the exception. Antennas on every
-    // tower turned downtown into a pin cushion, so only about one in five gets
-    // one and the rest take their silhouette from the crown instead.
-    const chance = kind === 'antenna' ? 0.2 : kind === 'helipad' ? 0.6 : 0.82;
-    if (hash2(k, 9, seed) > chance) {
-      k++;
-      continue;
-    }
-    const u = hash2(k, 1, seed) * 1.1 - 0.55;
-    const v = hash2(k, 2, seed) * 1.1 - 0.55;
-    const s = Math.min(1, 0.72 / (Math.abs(u) + Math.abs(v) + 1e-6));
-    out.push({ kind, x: cx + u * s * hw, y: cy + v * s * hh, k: k++ });
-  }
-  return out;
-}
-
-/** The baked chimney prism's height for placement index k (post-increment,
- * as the original inline code read it). Shared by roofKit's chimney case and
- * hearthTip so the wisp can never drift off the baked stack. */
-export function chimneyHeight(kPost: number, seed: number): number {
-  return 9 + hash2(kPost, 5, seed) * 4;
-}
-
-/** Rooftop furniture, drawn on the lifted roof quad. */
-function roofKit(
-  ctx: CanvasRenderingContext2D,
-  roof: Pt[],
-  kinds: PropKind[],
-  body: Hsl,
-  seed: number,
-  h: number,
-): void {
-  const cx = (roof[0][0] + roof[2][0]) / 2;
-  const cy = (roof[1][1] + roof[3][1]) / 2;
-  // measured, not read off corner indices: a quarter turn moves which corner
-  // is which, and props scattered by a zeroed extent all pile on the centre
-  const [hw, hh] = halfExtent(roof);
-  const metal = material('metal', hsl(210, 5, 58));
-  for (const { kind, x, y, k } of placeRoofProps(kinds, roof, seed)) {
-    switch (kind) {
-      case 'acUnit': {
-        const q = diamond(x, y, 5, 2.5);
-        prism(ctx, q, 4, metal, { seed, groundAo: false });
-        ctx.fillStyle = 'rgba(30, 36, 44, 0.6)';
-        for (let f = -1; f <= 1; f++) ctx.fillRect(x - 3 + f * 2.4, y - 5.6, 1.2, 2.6);
-        break;
-      }
-      case 'vent': {
-        const q = diamond(x, y, 3.4, 1.7);
-        prism(ctx, q, 3, metal, { seed, groundAo: false });
-        break;
-      }
-      case 'waterTower': {
-        ctx.strokeStyle = css(lit(hsl(26, 20, 34), LIGHT.right));
-        ctx.lineWidth = 1.2;
-        for (const dx of [-3.4, 3.4]) {
-          ctx.beginPath();
-          ctx.moveTo(x + dx, y);
-          ctx.lineTo(x + dx * 0.6, y - 8);
-          ctx.stroke();
-        }
-        const tank = hsl(30, 22, 44);
-        ctx.fillStyle = css(lit(tank, LIGHT.right));
-        ctx.fillRect(x - 4.6, y - 16, 9.2, 8);
-        ctx.fillStyle = css(lit(tank, LIGHT.left * 1.12));
-        ctx.fillRect(x - 4.6, y - 16, 3.4, 8);
-        fill(
-          ctx,
-          [
-            [x - 5, y - 16],
-            [x + 5, y - 16],
-            [x, y - 21],
-          ],
-          css(lit(tank, LIGHT.roof * 0.9)),
-        );
-        break;
-      }
-      case 'antenna': {
-        // the original code read k post-increment; hearthTip mirrors this via hit.k + 1
-        const th = 11 + hash2(k + 1, 4, seed) * 9 + h * 0.06;
-        ctx.strokeStyle = 'rgba(196, 204, 214, 0.95)';
-        ctx.lineWidth = 1.1;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x, y - th);
-        ctx.stroke();
-        ctx.strokeStyle = 'rgba(196, 204, 214, 0.55)';
-        ctx.lineWidth = 0.7;
-        for (const dx of [-4, 4]) {
-          ctx.beginPath();
-          ctx.moveTo(x, y - th * 0.72);
-          ctx.lineTo(x + dx, y);
-          ctx.stroke();
-        }
-        ctx.fillStyle = '#ff5a4a';
-        ctx.fillRect(x - 1, y - th - 2, 2, 2);
-        break;
-      }
-      case 'chimney': {
-        const q = diamond(x, y, 2.4, 1.2);
-        // k post-increment, as the original inline code read it — see chimneyHeight
-        prism(ctx, q, chimneyHeight(k + 1, seed), material('brick', mix(body, hsl(14, 34, 34), 0.7)), {
-          seed,
-          groundAo: false,
-        });
-        break;
-      }
-      case 'tank': {
-        const c = hsl(200, 8, 62);
-        ctx.fillStyle = css(lit(c, LIGHT.right));
-        ctx.beginPath();
-        ctx.ellipse(x, y - 4, 5, 4.6, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = css(lit(c, LIGHT.roof));
-        ctx.beginPath();
-        ctx.ellipse(x - 1.2, y - 5.6, 3.4, 3, 0, 0, Math.PI * 2);
-        ctx.fill();
-        break;
-      }
-      case 'helipad': {
-        const pad = diamond(x, y, 7, 3.5);
-        fill(ctx, pad, css(lit(hsl(220, 6, 34), LIGHT.roof)));
-        ctx.strokeStyle = 'rgba(230, 214, 96, 0.9)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.ellipse(x, y, 4.6, 2.3, 0, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.fillStyle = 'rgba(230, 214, 96, 0.9)';
-        ctx.fillRect(x - 2.2, y - 1.7, 1.2, 3.4);
-        ctx.fillRect(x + 1, y - 1.7, 1.2, 3.4);
-        ctx.fillRect(x - 1, y - 0.5, 2, 1);
-        break;
-      }
-      case 'skylight': {
-        for (let f = -1; f <= 1; f++) {
-          const q = diamond(x + f * 5, y + f * 2.5, 3, 1.5);
-          fill(ctx, q, 'rgba(150, 190, 220, 0.75)');
-          ctx.strokeStyle = 'rgba(226, 238, 248, 0.6)';
-          ctx.lineWidth = 0.7;
-          ctx.beginPath();
-          ctx.moveTo(x + f * 5 - 3, y + f * 2.5);
-          ctx.lineTo(x + f * 5, y + f * 2.5 - 1.5);
-          ctx.stroke();
-        }
-        break;
-      }
-      default:
-        break;
-    }
-  }
-  // a stair penthouse on anything with a real roof to reach
-  if (h > 40) {
-    const q = diamond(cx + hw * 0.24, cy + hh * 0.18, Math.max(5, hw * 0.24), Math.max(2.6, hh * 0.24));
-    prism(ctx, q, 7, material('concrete', mix(body, hsl(216, 5, 44), 0.6)), { seed, groundAo: false });
-  }
-}
-
-/**
- * What a tall building does at the top. A skyline of identical flat caps is
- * the thing that most makes a procedural city look procedural, so anything
- * over about six storeys takes one of four crowns from its seed: a setback
- * box, a stepped ziggurat, a sloped cap, or a plain machine floor.
- */
-function towerCrown(
-  ctx: CanvasRenderingContext2D,
-  roof: Pt[],
-  mat: ReturnType<typeof material>,
-  body: Hsl,
-  seed: number,
-): Pt[] {
-  const style = Math.floor(hash2(seed, 3, 517) * 4);
-  if (style === 0) {
-    // a single setback: one smaller box standing on the roof
-    const q = inset(roof, 0.66);
-    const r = prism(ctx, q, 12, mat, { seed, windows: 'ribbon', groundAo: false });
-    parapet(ctx, r.roof, material('concrete', mix(body, hsl(212, 6, 60), 0.5)), 1.6);
-    return r.roof;
-  }
-  if (style === 1) {
-    // stepped: three shrinking boxes, the classic setback skyscraper
-    let top = roof;
-    for (let k = 0; k < 3; k++) {
-      const r = prism(ctx, inset(top, 0.76), 8 - k * 1.6, mat, {
-        seed: seed + k,
-        windows: 'ribbon',
-        groundAo: false,
-      });
-      top = r.roof;
-    }
-    parapet(ctx, top, material('concrete', mix(body, hsl(212, 6, 62), 0.5)), 1.4);
-    return top;
-  }
-  if (style === 2 && roof.length === 4) {
-    // a shallow hipped cap in roofing, not wall colour — pulling the wall
-    // material up over a steep pyramid read as a gold tent on the skyline
-    const rise = 8;
-    const deck = mix(roofTone(mat), hsl(214, 10, 30), 0.5);
-    parapet(ctx, roof, material('concrete', mix(body, hsl(212, 6, 58), 0.5)), 1.6);
-    const lifted = raise(roof, 1.6);
-    const a: Pt = [(lifted[0][0] + lifted[3][0]) / 2, (lifted[0][1] + lifted[3][1]) / 2 - rise];
-    const b: Pt = [(lifted[1][0] + lifted[2][0]) / 2, (lifted[1][1] + lifted[2][1]) / 2 - rise];
-    fill(ctx, [lifted[1], lifted[2], b], css(lit(deck, LIGHT.right)));
-    fill(ctx, [lifted[3], lifted[2], b, a], css(lit(deck, LIGHT.left)));
-    fill(ctx, [lifted[0], lifted[1], b, a], css(lit(deck, LIGHT.roof)));
-    ctx.strokeStyle = css(lit(deck, LIGHT.roof * 1.3));
-    ctx.lineWidth = 1.1;
-    ctx.beginPath();
-    ctx.moveTo(a[0], a[1]);
-    ctx.lineTo(b[0], b[1]);
-    ctx.stroke();
-    return [a, b, b, a];
-  }
-  // plain machine floor with a heavy cornice
-  parapet(ctx, roof, material('concrete', mix(body, hsl(210, 8, 56), 0.55)), 3);
-  return roof;
-}
-
-/** Roofing a pitched building can be wearing: terracotta, slate, weathered
- * shingle, blue-grey tile, tin, and moss-stained green. */
-const ROOF_TILES: Hsl[] = [
-  hsl(14, 34, 32), // terracotta
-  hsl(210, 8, 30), // slate
-  hsl(28, 16, 26), // dark shingle
-  hsl(198, 14, 40), // blue-grey tile
-  hsl(36, 10, 46), // weathered tin
-  hsl(96, 12, 30), // moss-stained
-];
-
-/** Pitched, sawtooth and parapet roof caps over the main mass. */
-function roofCap(
-  ctx: CanvasRenderingContext2D,
-  roof: Pt[],
-  styleIn: RoofStyle,
-  body: Hsl,
-  seed: number,
-): void {
-  const [cx, cy] = centre(roof);
-  // How steep a pitch gets is a function of how wide the roof is, so it has
-  // to be measured rather than read off a corner index — turned half a circle
-  // the indexed version went negative and pitched every ridge downwards.
-  const [rhw] = halfExtent(roof);
-  let style = styleIn;
-  // The pitched forms are cut for a four-cornered plan that is roughly
-  // square. A chamfered mass has no ridge to speak of, and a long slab under
-  // a gable grows an absurd triangle at each end — both take a flat top.
-  if (roof.length !== 4) {
-    if (style !== 'parapet') style = 'flat';
-  } else {
-    const ex = Math.hypot(roof[1][0] - roof[0][0], roof[1][1] - roof[0][1]);
-    const ey = Math.hypot(roof[2][0] - roof[1][0], roof[2][1] - roof[1][1]);
-    const aspect = Math.max(ex, ey) / Math.max(1e-6, Math.min(ex, ey));
-    if (aspect > 1.9 && style !== 'sawtooth') style = style === 'parapet' ? 'parapet' : 'flat';
-  }
-  if (style === 'gabled') {
-    const rise = Math.min(13, 5 + rhw * 0.32);
-    // A street of identical terracotta roofs is the giveaway that a town was
-    // generated; real ones mix slate, tile, shingle and tin.
-    const tile = mix(body, ROOF_TILES[Math.floor(hash2(seed, 6, 331) * ROOF_TILES.length)], 0.78);
-    const a: Pt = [(roof[0][0] + roof[3][0]) / 2, (roof[0][1] + roof[3][1]) / 2 - rise];
-    const b: Pt = [(roof[1][0] + roof[2][0]) / 2, (roof[1][1] + roof[2][1]) / 2 - rise];
-    // the two slopes, then the gable ends peeking out at the sides
-    fill(ctx, [roof[0], roof[3], a], css(lit(mix(body, tile, 0.3), LIGHT.left * 0.96)));
-    fill(ctx, [roof[1], roof[2], b], css(lit(mix(body, tile, 0.3), LIGHT.right * 0.96)));
-    fill(ctx, [roof[0], roof[1], b, a], css(lit(tile, LIGHT.roof * 0.92)));
-    fill(ctx, [roof[3], roof[2], b, a], css(lit(tile, LIGHT.left * 0.82)));
-    // ridge and a courses hint
-    ctx.strokeStyle = css(lit(tile, LIGHT.roof * 1.2));
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(a[0], a[1]);
-    ctx.lineTo(b[0], b[1]);
-    ctx.stroke();
-    ctx.strokeStyle = css(lit(tile, LIGHT.roof * 0.7), 0.5);
-    ctx.lineWidth = 0.8;
-    for (let t = 0.25; t < 1; t += 0.25) {
-      ctx.beginPath();
-      ctx.moveTo(roof[0][0] + (a[0] - roof[0][0]) * t, roof[0][1] + (a[1] - roof[0][1]) * t);
-      ctx.lineTo(roof[1][0] + (b[0] - roof[1][0]) * t, roof[1][1] + (b[1] - roof[1][1]) * t);
-      ctx.stroke();
-    }
-    return;
-  }
-  if (style === 'hipped' && roof.length === 4) {
-    // four slopes meeting at a short ridge, the suburban standard
-    const rise = Math.min(12, 5 + rhw * 0.28);
-    const a: Pt = [cx - rhw * 0.2, cy - rise];
-    const b: Pt = [cx + rhw * 0.2, cy - rise];
-    const tile = mix(body, ROOF_TILES[Math.floor(hash2(seed, 6, 331) * ROOF_TILES.length)], 0.78);
-    fill(ctx, [roof[0], roof[1], b, a], css(lit(tile, LIGHT.roof * 0.9)));
-    fill(ctx, [roof[1], roof[2], b], css(lit(tile, LIGHT.right * 1.02)));
-    fill(ctx, [roof[2], roof[3], a, b], css(lit(tile, LIGHT.left * 0.86)));
-    fill(ctx, [roof[3], roof[0], a], css(lit(tile, LIGHT.left * 1.1)));
-    ctx.strokeStyle = css(lit(tile, LIGHT.roof * 1.2));
-    ctx.lineWidth = 1.1;
-    ctx.beginPath();
-    ctx.moveTo(a[0], a[1]);
-    ctx.lineTo(b[0], b[1]);
-    ctx.stroke();
-    return;
-  }
-  if (style === 'mansard' && roof.length === 4) {
-    // a steep lower slope with dormers, then a near-flat top — the extra
-    // storey a Paris or Brooklyn street gets out of its roofline
-    const steep = Math.min(7.5, 3.5 + rhw * 0.15);
-    const slate = mix(body, hsl(222, 8, 28), 0.66);
-    const top = inset(raise(roof, steep), 0.74);
-    for (let i = 0; i < 4; i++) {
-      const a = roof[i];
-      const b = roof[(i + 1) % 4];
-      if (b[0] - a[0] >= -1e-9) continue;
-      fill(ctx, [a, b, top[(i + 1) % 4], top[i]], css(lit(slate, wallLight(a[0], a[1], b[0], b[1]) * 1.05)));
-    }
-    // dormer windows punched into the steep face
-    const [fa, fb] = [roof[2], roof[3]];
-    for (let k = 0; k < 3; k++) {
-      const t = (k + 0.5) / 3;
-      const px = fa[0] + (fb[0] - fa[0]) * t;
-      const py = fa[1] + (fb[1] - fa[1]) * t - steep * 0.45;
-      ctx.fillStyle = css(lit(slate, LIGHT.left * 1.3));
-      ctx.fillRect(px - 2.6, py - 3.4, 5.2, 3.8);
-      ctx.fillStyle = css(lit(hsl(206, 24, 30), LIGHT.left * 1.2));
-      ctx.fillRect(px - 1.7, py - 2.8, 3.4, 2.6);
-    }
-    fill(ctx, top, css(lit(mix(body, hsl(220, 6, 34), 0.62), LIGHT.roof)));
-    return;
-  }
-  if (style === 'sawtooth') {
-    const teeth = 3;
-    const q = (t: number, s: number): Pt => {
-      const top: Pt = [
-        roof[0][0] + (roof[1][0] - roof[0][0]) * t,
-        roof[0][1] + (roof[1][1] - roof[0][1]) * t,
-      ];
-      const bot: Pt = [
-        roof[3][0] + (roof[2][0] - roof[3][0]) * t,
-        roof[3][1] + (roof[2][1] - roof[3][1]) * t,
-      ];
-      return [top[0] + (bot[0] - top[0]) * s, top[1] + (bot[1] - top[1]) * s];
-    };
-    const shell = mix(body, hsl(206, 6, 46), 0.55);
-    for (let k = 0; k < teeth; k++) {
-      const t0 = k / teeth;
-      const t1 = (k + 1) / teeth;
-      const a = q(t0, 0);
-      const b = q(t0, 1);
-      const c = q(t1, 1);
-      const d = q(t1, 0);
-      // the glazed north light, then the sloped deck over it
-      fill(
-        ctx,
-        [a, b, [b[0], b[1] - 4], [a[0], a[1] - 4]],
-        css(lit(hsl(198, 30, 52), LIGHT.left * 1.1)),
-      );
-      fill(ctx, [[a[0], a[1] - 4], [b[0], b[1] - 4], c, d], css(lit(shell, LIGHT.roof * 0.94)));
-    }
-    return;
-  }
-  if (style === 'parapet') {
-    parapet(ctx, roof, material('concrete', mix(body, hsl(210, 6, 62), 0.5)), 2.4);
-    return;
-  }
-  // 'flat' — prism() already capped it; add a drip edge so it isn't a bare plate
-  ctx.strokeStyle = css(lit(body, LIGHT.roof * 1.25), 0.6);
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(roof[0][0], roof[0][1]);
-  for (let i = 1; i < 4; i++) ctx.lineTo(roof[i][0], roof[i][1]);
-  ctx.closePath();
-  ctx.stroke();
-  void seed;
-  void cy;
-}
+// Roof geometry and painters live in roofs.ts; the pure placement halves are
+// re-exported here because the ambient pass and its tests reach for them here.
+export { placeRoofProps, chimneyHeight };
 
 /** Doors, shopfronts and signage along the front wall — the marks that make a
  * lot legible as somewhere people go. */
@@ -812,21 +306,44 @@ function streetLevel(
   if (walls.length === 0) return;
   const [a, b] = walls.reduce((p, w) => (w[0][1] + w[1][1] > p[0][1] + p[1][1] ? w : p), walls[0]);
   const at = (t: number): Pt => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
-  if (zone === Zone.Commercial && stage >= 2) {
-    // a glazed shopfront band the full width of every visible wall
+  if (zone === Zone.Commercial && stage >= 1) {
+    // a shopfront on every visible wall: glazing over a dark interior, a
+    // stall riser, a fascia in the business colour, a reflection strip
+    const fascia = entityHue !== null ? hsl(entityHue, 48, 40) : mat.trim;
     for (const [p, q2] of walls) {
       const level = wallLight(p[0], p[1], q2[0], q2[1]);
       fill(
         ctx,
-        [p, q2, [q2[0], q2[1] - 6], [p[0], p[1] - 6]],
-        css(lit(mat.glass, level * 1.25)),
+        [p, q2, [q2[0], q2[1] - 6.5], [p[0], p[1] - 6.5]],
+        css(lit({ ...mat.glass, l: mat.glass.l * 0.7 }, level)),
       );
-      ctx.strokeStyle = css(lit(mat.trim, level));
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(p[0], p[1] - 6.4);
-      ctx.lineTo(q2[0], q2[1] - 6.4);
-      ctx.stroke();
+      fill(ctx, [p, q2, [q2[0], q2[1] - 1.2], [p[0], p[1] - 1.2]], css(lit(mat.trim, level * 0.9)));
+      fill(
+        ctx,
+        [[p[0], p[1] - 6.5], [q2[0], q2[1] - 6.5], [q2[0], q2[1] - 9.2], [p[0], p[1] - 9.2]],
+        css(lit(fascia, level)),
+      );
+      fill(
+        ctx,
+        [[p[0], p[1] - 6.5], [q2[0], q2[1] - 6.5], [q2[0], q2[1] - 5.6], [p[0], p[1] - 5.6]],
+        'rgba(255, 252, 244, 0.25)',
+      );
+    }
+    if (stage <= 3 && hash2(5, 6, seed) > 0.5) {
+      // an awning off the front wall, with the shade it throws under it
+      const a1 = at(0.1);
+      const a2 = at(0.9);
+      const awn = entityHue !== null ? hsl(entityHue, 52, 46) : hsl(18, 40, 46);
+      fill(
+        ctx,
+        [[a1[0], a1[1] - 9.2], [a2[0], a2[1] - 9.2], [a2[0], a2[1] - 5.2], [a1[0], a1[1] - 5.2]],
+        css(lit(awn, LIGHT.roof)),
+      );
+      fill(
+        ctx,
+        [[a1[0], a1[1] - 5.2], [a2[0], a2[1] - 5.2], [a2[0], a2[1] - 4.4], [a1[0], a1[1] - 4.4]],
+        'rgba(10, 14, 26, 0.35)',
+      );
     }
   }
   if (stage >= 5) {
@@ -1016,19 +533,21 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
   }
 
   const h = growableHeight(zone, stage, tier, bucket);
+  // channel order is load-bearing: archetype, style, swatch, jitter —
+  // hearthTip replays the first draw to find the chimney the bake placed
   const arch: Archetype = pickArchetype(zone, tier, stage, chan());
   const style = styleFor(fam, stage, chan());
-  const [ph, ps, pl] = paletteFor(zone, tier, stage);
-  const [fh, fs, fl] = paletteFamily(zone, tier, chan());
+  const sw = swatch(pickSwatch(arch, chan()));
+  const jitter = chan();
   let body: Hsl = {
-    h: (ph + fh + Math.floor(chan() * 12) - 6 + 360) % 360,
-    s: Math.max(0, Math.min(100, ps + fs)),
-    l: Math.max(0, Math.min(100, pl + fl)),
+    h: (sw.body.h + Math.floor(jitter * 9) - 4 + 360) % 360,
+    s: sw.body.s,
+    l: Math.max(0, Math.min(100, sw.body.l + (hash2(bucket, stage, 5) - 0.5) * 6)),
   };
   if (abandoned) body = { h: body.h, s: 5, l: 30 };
   const skinned = getSkin().building(body.h, body.s, body.l);
   body = { h: skinned[0], s: skinned[1], l: skinned[2] };
-  const mat = material(abandoned ? 'render' : style.wall, body);
+  const mat = abandoned ? material('render', body) : materialOf(sw, body);
 
   const budget = footprintBudget(stage);
   // Back to front by the *centre* of each mass, and — critically — shortest
@@ -1057,6 +576,9 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
       // the dressing belongs to the mass that reaches full height — a podium
       // under a tower gets the podium treatment from its own recipe instead
       facade: sb.hf === 1 && !abandoned ? arch.facade : undefined,
+      // a pitched roof overhangs the wall and throws a band of shade down it
+      // — the roof the plan can actually carry, not the one the archetype asks for
+      eaveShadow: sb.hf === 1 && pitched(effectiveRoofStyle(raise(q, mh), arch.roof)) ? 3.5 : undefined,
     });
     if (ink > 0) {
       // Cartoon ink goes on each mass *as it is drawn*, so a mass in front
@@ -1083,13 +605,17 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
   if (h > 62 && arch.roof !== 'gabled' && arch.roof !== 'sawtooth') {
     top = towerCrown(ctx, primary.roof, mat, body, bucket * 11 + stage);
   } else {
-    roofCap(ctx, primary.roof, arch.roof, body, bucket);
+    roofCap(ctx, primary.roof, arch.roof, body, bucket, mat);
     if (style.lip && arch.roof === 'flat') {
       parapet(ctx, primary.roof, material('concrete', mix(body, hsl(212, 6, 60), 0.55)), 1.8);
     }
   }
   if (!abandoned) {
-    roofKit(ctx, top, arch.props, body, bucket * 7 + 1, h);
+    const crowned = top !== primary.roof;
+    roofKit(
+      ctx, top, arch.props, body, bucket * 7 + 1, h,
+      !crowned && wantsHatch(effectiveRoofStyle(primary.roof, arch.roof)),
+    );
     const ent = entityFor(zone, kind, stage, half);
     streetLevel(
       ctx,
@@ -1141,36 +667,20 @@ function tierAccents(
   const rc = zone === Zone.Residential || zone === Zone.Commercial;
   const cx = (roof[0][0] + roof[2][0]) / 2;
   const cy = (roof[1][1] + roof[3][1]) / 2;
-  if (rc && tier === 3 && stage >= 3) {
-    ctx.strokeStyle = 'rgba(255, 238, 196, 0.7)';
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(roof[0][0], roof[0][1]);
-    for (let i = 1; i < 4; i++) ctx.lineTo(roof[i][0], roof[i][1]);
-    ctx.closePath();
-    ctx.stroke();
+  if (rc && tier === 3 && stage >= 6 && hash2(seed, 12, 883) > 0.72) {
     // A gilded mast marks a prestige tower — but only some of them. Giving one
     // to every §§§ lot turned a wealthy downtown into a pin cushion.
-    if (stage >= 6 && hash2(seed, 12, 883) > 0.72) {
-      ctx.strokeStyle = '#e8e2d2';
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(cx, cy - 18);
-      ctx.stroke();
-      ctx.fillStyle = '#ffd76a';
-      ctx.fillRect(cx - 1.2, cy - 20, 2.4, 2.4);
-    }
-  } else if (rc && tier === 1) {
-    fill(ctx, roof, 'rgba(38, 34, 28, 0.24)');
-  } else if (zone === Zone.Industrial && tier === 'tech' && stage >= 5) {
-    ctx.strokeStyle = 'rgba(150, 232, 255, 0.8)';
-    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = '#e8e2d2';
+    ctx.lineWidth = 1.6;
     ctx.beginPath();
-    ctx.moveTo(roof[0][0], roof[0][1]);
-    for (let i = 1; i < 4; i++) ctx.lineTo(roof[i][0], roof[i][1]);
-    ctx.closePath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx, cy - 18);
     ctx.stroke();
+    ctx.fillStyle = '#ffd76a';
+    ctx.fillRect(cx - 1.2, cy - 20, 2.4, 2.4);
+  } else if (rc && tier === 1) {
+    // a poorer lot's roof is a little dirtier, and that is all it takes
+    fill(ctx, roof, 'rgba(38, 34, 28, 0.14)');
   }
 }
 
@@ -1190,7 +700,16 @@ function lotSprite(k: LotKey): Sprite {
       ax: hw + GROWABLE_MARGIN_X,
       ay,
     },
-    (ctx) => paintLot(ctx, k),
+    (ctx) => {
+      paintLot(ctx, k);
+      if (k.glow) return;
+      // photographic grain over the finished bake — in device pixels, so the
+      // transform the cache set up for the painter is stood down first
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      grain(ctx, ctx.canvas.width, ctx.canvas.height, 0.03, k.bucket * 31 + k.stage);
+      ctx.restore();
+    },
     k.glow ? 1 : undefined,
   );
 }
@@ -1228,8 +747,8 @@ function yardProps(
 interface CivicSpec {
   h: number;
   f: number;
-  body: Hsl;
-  wall: MaterialKind;
+  /** What it is built of — a swatch id from the palette's library. */
+  swatch: string;
   windows: WindowPattern;
   roof: RoofStyle;
   facade?: Facade;
@@ -1238,54 +757,64 @@ interface CivicSpec {
 
 const CIVIC: Partial<Record<Zone, CivicSpec>> = {
   [Zone.FireStation]: {
-    h: 19, f: 0.82, body: hsl(2, 56, 44), wall: 'brick', windows: 'punched', roof: 'parapet',
+    h: 19, f: 0.82, swatch: 'brick-red', windows: 'punched', roof: 'parapet',
     facade: { podium: 1 }, props: ['vent'],
   },
   [Zone.PoliceStation]: {
-    h: 19, f: 0.82, body: hsl(216, 34, 44), wall: 'brick', windows: 'punched', roof: 'parapet',
+    h: 19, f: 0.82, swatch: 'stone-granite', windows: 'punched', roof: 'parapet',
     facade: { cornice: true, stringCourse: 1 }, props: ['acUnit'],
   },
   [Zone.Hospital]: {
-    h: 26, f: 0.84, body: hsl(190, 10, 70), wall: 'concrete', windows: 'ribbon', roof: 'flat',
+    h: 26, f: 0.84, swatch: 'render-white', windows: 'ribbon', roof: 'flat',
     facade: { podium: 1, stringCourse: 2 }, props: ['acUnit', 'vent', 'helipad'],
   },
   [Zone.School]: {
-    h: 14, f: 0.86, body: hsl(38, 34, 54), wall: 'brick', windows: 'punched', roof: 'gabled',
+    h: 14, f: 0.86, swatch: 'brick-buff', windows: 'punched', roof: 'gabled',
     facade: { cornice: true }, props: ['skylight'],
   },
   [Zone.Prison]: {
-    h: 12, f: 0.88, body: hsl(210, 5, 44), wall: 'concrete', windows: 'none', roof: 'flat',
+    h: 12, f: 0.88, swatch: 'concrete-board', windows: 'none', roof: 'flat',
     facade: { stringCourse: 1 }, props: ['vent'],
   },
-  [Zone.BusStop]: { h: 7, f: 0.42, body: hsl(178, 34, 44), wall: 'metal', windows: 'ribbon', roof: 'flat' },
-  [Zone.StreetcarStop]: { h: 8, f: 0.46, body: hsl(178, 36, 46), wall: 'metal', windows: 'ribbon', roof: 'flat' },
-  [Zone.MonorailStation]: { h: 7, f: 0.48, body: hsl(196, 20, 52), wall: 'concrete', windows: 'ribbon', roof: 'flat' },
-  [Zone.SubwayStation]: { h: 7, f: 0.46, body: hsl(220, 14, 40), wall: 'concrete', windows: 'none', roof: 'flat' },
+  [Zone.BusStop]: { h: 7, f: 0.42, swatch: 'metal-aluminium', windows: 'ribbon', roof: 'flat' },
+  [Zone.StreetcarStop]: { h: 8, f: 0.46, swatch: 'metal-aluminium', windows: 'ribbon', roof: 'flat' },
+  [Zone.MonorailStation]: { h: 7, f: 0.48, swatch: 'concrete-precast', windows: 'ribbon', roof: 'flat' },
+  [Zone.SubwayStation]: { h: 7, f: 0.46, swatch: 'concrete-painted', windows: 'none', roof: 'flat' },
   [Zone.RailTerminal]: {
-    h: 18, f: 0.82, body: hsl(12, 40, 38), wall: 'brick', windows: 'punched', roof: 'gabled',
+    h: 18, f: 0.82, swatch: 'brick-brown', windows: 'punched', roof: 'gabled',
     facade: { pilasters: true, cornice: true },
   },
   [Zone.RecyclingCentre]: {
-    h: 16, f: 0.72, body: hsl(140, 20, 50), wall: 'metal', windows: 'ribbon', roof: 'sawtooth',
+    h: 16, f: 0.72, swatch: 'metal-corrugated', windows: 'ribbon', roof: 'sawtooth',
     props: ['skylight', 'vent'],
   },
   [Zone.Incinerator]: {
-    h: 21, f: 0.76, body: hsl(28, 10, 42), wall: 'concrete', windows: 'ribbon', roof: 'flat',
+    h: 21, f: 0.76, swatch: 'concrete-board', windows: 'ribbon', roof: 'flat',
     props: ['vent', 'tank'],
   },
-  [Zone.WaterPump]: { h: 13, f: 0.6, body: hsl(206, 38, 46), wall: 'concrete', windows: 'punched', roof: 'flat' },
+  [Zone.WaterPump]: { h: 13, f: 0.6, swatch: 'render-grey', windows: 'punched', roof: 'flat' },
   [Zone.PowerPlant]: {
-    h: 22, f: 0.86, body: hsl(20, 12, 38), wall: 'concrete', windows: 'ribbon', roof: 'flat',
+    h: 22, f: 0.86, swatch: 'concrete-board', windows: 'ribbon', roof: 'flat',
     props: ['tank', 'vent'],
   },
-  [Zone.SolarPlant]: { h: 4, f: 0.82, body: hsl(220, 10, 30), wall: 'concrete', windows: 'none', roof: 'flat' },
+  [Zone.SolarPlant]: { h: 4, f: 0.82, swatch: 'concrete-painted', windows: 'none', roof: 'flat' },
   [Zone.HydroPlant]: {
-    h: 15, f: 0.72, body: hsl(208, 34, 40), wall: 'concrete', windows: 'ribbon', roof: 'flat',
+    h: 15, f: 0.72, swatch: 'concrete-precast', windows: 'ribbon', roof: 'flat',
     props: ['vent'],
   },
-  [Zone.NuclearPlant]: { h: 12, f: 0.8, body: hsl(46, 7, 58), wall: 'concrete', windows: 'ribbon', roof: 'flat' },
-  [Zone.WindTurbine]: { h: 4, f: 0.3, body: hsl(0, 0, 58), wall: 'concrete', windows: 'none', roof: 'flat' },
+  [Zone.NuclearPlant]: { h: 12, f: 0.8, swatch: 'concrete-precast', windows: 'ribbon', roof: 'flat' },
+  [Zone.WindTurbine]: { h: 4, f: 0.3, swatch: 'metal-white', windows: 'none', roof: 'flat' },
 };
+
+/** Whether a roof form overhangs the wall on an eave. */
+function pitched(style: RoofStyle): boolean {
+  return style === 'gabled' || style === 'hipped' || style === 'mansard';
+}
+
+/** The swatch a civic building is built of, or null for anything else. */
+export function civicSwatch(zone: Zone): string | null {
+  return CIVIC[zone]?.swatch ?? null;
+}
 
 /** How tall a zone's mass stands, for the shadow pass. */
 export function massHeight(zone: Zone, stage: Stage, tier: Tier, bucket: number): number {
@@ -1331,17 +860,26 @@ function drawCivic(
   const spec = CIVIC[zone];
   if (!spec) return false;
   const s = getSkin();
-  const skinned = s.building(spec.body.h, spec.body.s, spec.body.l);
+  const sw = swatch(spec.swatch);
+  const skinned = s.building(sw.body.h, sw.body.s, sw.body.l);
   const body: Hsl = { h: skinned[0], s: skinned[1], l: skinned[2] };
-  const mat = material(spec.wall, body);
+  const mat = materialOf(sw, body);
   const h = spec.h * s.heightScale;
   const q = inset(quadOf(geom), spec.f);
   const cx = geom.cx;
   const cy = geom.cy;
   contactShadow(ctx, q);
-  const r = prism(ctx, q, h, mat, { seed: zone * 7 + 1, windows: spec.windows, facade: spec.facade });
-  roofCap(ctx, r.roof, spec.roof, body, zone);
-  if (detail >= 1 && spec.props?.length) roofKit(ctx, r.roof, spec.props, body, zone * 3 + 5, h);
+  const eff = effectiveRoofStyle(raise(q, h), spec.roof);
+  const r = prism(ctx, q, h, mat, {
+    seed: zone * 7 + 1,
+    windows: spec.windows,
+    facade: spec.facade,
+    eaveShadow: pitched(eff) ? 3.5 : undefined,
+  });
+  roofCap(ctx, r.roof, spec.roof, body, zone, mat);
+  if (detail >= 1 && spec.props?.length) {
+    roofKit(ctx, r.roof, spec.props, body, zone * 3 + 5, h, wantsHatch(eff));
+  }
 
   switch (zone) {
     case Zone.FireStation: {
@@ -2117,7 +1655,7 @@ export function drawBuilding(
   if (night > 0.06 && !abandoned && powered) {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    blit(ctx, lotSprite({ ...key, glow: true }), cx, cy, Math.min(0.8, night * 1.1));
+    blit(ctx, lotSprite({ ...key, glow: true }), cx, cy, Math.min(0.62, night * 0.85));
     ctx.restore();
   }
   if (detail >= 1) yardProps(ctx, geom, zone, tier, stage, bucket, size);
@@ -2136,12 +1674,13 @@ export function drawCastShadow(
   tier: Tier,
   variant: number,
   size = 1,
+  alpha?: number,
 ): void {
   const h = massHeight(zone, stage, tier, variantBucket(variant));
   if (h < 4) return;
   const f = massFootprint(zone, stage);
   if (f <= 0) return;
-  castShadow(ctx, inset(quadOf(geom), f), h, size > 1 ? 0.3 : 0.34);
+  castShadow(ctx, inset(quadOf(geom), f), h, alpha ?? (size > 1 ? 0.3 : 0.34));
 }
 
 /**

@@ -51,12 +51,13 @@ import {
 import { getWeatherFx } from './fx';
 import { GroundKind, groundTone, paintCliff, paintGround, paintShore, paintWater } from './ground';
 import { paintBloom, paintGrade, paintHaze, paintSky, paintVignette } from './grade';
-import { getTiltShift, paintTiltShift } from './tiltshift';
+import { paintTiltShift, tiltShiftActive } from './tiltshift';
 import { css, hsl, lit, mix } from './palette';
 import { LIGHT } from './sun';
 import { drawTree } from './scenery';
 import { hash2 } from './noise';
 import { blit, sprite } from './spritecache';
+import { ShadowLayer } from './shadows';
 
 export interface ViewState {
   hover: { x: number; y: number } | null;
@@ -107,6 +108,7 @@ export class Renderer {
   private depthStamp = -1;
   private automata = new Automata();
   private disasterFx = new DisasterFx();
+  private shadows = new ShadowLayer();
   /** tile paint order, ascending depth; rebuilt on each quarter turn */
   private order: Uint16Array;
   /** Quarter turns of the camera, 0..3. Only multiples of 90° are offered:
@@ -385,6 +387,9 @@ export class Renderer {
     // tiles that are painted *after* it. Drawn onto the finished ground, so
     // it lands on the street rather than being overdrawn by it.
     if (detail >= 1) {
+      // all of them into one half-res layer, laid back over the ground once,
+      // blurred into a penumbra and multiplied so they darken the texture
+      const sctx = this.shadows.begin(ctx, W, H, this.camera, dpr);
       for (let n = 0; n < this.order.length; n++) {
         const i = this.order[n];
         const x = i % GRID;
@@ -395,8 +400,10 @@ export class Renderer {
         const size = sizeOfSlot(t.zone);
         const g = size > 1 ? this.blockDrawGeom(city, i, size) : tileGeom(x, y, t.elevation);
         if (!g) continue;
-        drawCastShadow(ctx, g, t.zone, t.stage, t.tier, this.variants[i], size);
+        drawCastShadow(sctx, g, t.zone, t.stage, t.tier, this.variants[i], size, 1);
       }
+      this.shadows.end(ctx, this.camera.zoom);
+      camera();
     }
 
     mark('shadows', t0);
@@ -501,13 +508,13 @@ export class Renderer {
     // --- pass 5: finishing ----------------------------------------------
     if (style === 'realistic') {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      paintBloom(ctx, W, H, 0.05 + this.night * 0.17);
+      paintBloom(ctx, W, H, 0.03 + this.night * 0.15);
       paintGrade(ctx, W, H, this.night);
       paintVignette(ctx, W, H);
       camera();
     }
 
-    if (getTiltShift()) {
+    if (tiltShiftActive(this.night)) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       paintTiltShift(ctx, W, H);
       camera();
@@ -753,7 +760,7 @@ export class Renderer {
       if (t.wire) drawPole(ctx, geom.cx, geom.cy);
       if (this.night > 0.3) {
         const r = 12;
-        ctx.fillStyle = `rgba(255, 214, 130, ${(0.16 * this.night).toFixed(3)})`;
+        ctx.fillStyle = `rgba(255, 196, 110, ${(0.14 * this.night).toFixed(3)})`;
         ctx.beginPath();
         ctx.ellipse(geom.cx, geom.cy, r, r * 0.5, 0, 0, TAU);
         ctx.fill();
@@ -840,8 +847,11 @@ export class Renderer {
     c.height = 64;
     const g = c.getContext('2d')!;
     const grad = g.createRadialGradient(32, 32, 2, 32, 32, 32);
+    // a softer edge than the old two-stop cone, so a lit street fades into
+    // the dark instead of stopping at a rim
     grad.addColorStop(0, 'rgba(255,255,255,1)');
-    grad.addColorStop(0.55, 'rgba(255,255,255,0.55)');
+    grad.addColorStop(0.4, 'rgba(255,255,255,0.7)');
+    grad.addColorStop(0.75, 'rgba(255,255,255,0.25)');
     grad.addColorStop(1, 'rgba(255,255,255,0)');
     g.fillStyle = grad;
     g.fillRect(0, 0, 64, 64);

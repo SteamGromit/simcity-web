@@ -14,8 +14,10 @@
  */
 
 import { fbm, hash2 } from './noise';
-import { Hsl, LAMP, Material, MaterialKind, OFFICE_LAMP, css, lit, material, mix } from './palette';
+import { Hsl, Material, MaterialKind, css, lit, material, mix } from './palette';
 import { LIGHT, Pt, shadowQuad, wallLight } from './sun';
+import { SHADOW_INK } from './shadows';
+import { WindowPattern, WindowPlan, paintWindows, windowPlan } from './windows';
 
 /** Footprint corners, north/east/south/west, clockwise on a y-down canvas. */
 export type Quad = [Pt, Pt, Pt, Pt];
@@ -210,28 +212,37 @@ function texture(
   const pale = css(lit({ ...base, l: Math.min(96, base.l * 1.18) }, level), 0.4 * grain);
   switch (kind) {
     case 'brick': {
-      // courses every ~3.2px with a half-brick offset each row
+      // courses every ~3.2px with a light mortar joint, a header course every
+      // sixth, and per-brick tone so no two feet of wall are the same
       const course = 3.2;
-      ctx.fillStyle = dark;
+      const mortar = css(lit({ ...base, l: Math.min(96, base.l * 1.15 + 18), s: base.s * 0.3 }, level), 0.22 * grain);
+      ctx.fillStyle = mortar;
       for (let v = course; v < h; v += course) ctx.fillRect(0, v, 1, 0.5);
       const perRow = Math.max(3, Math.round(len / 5));
       for (let v = 0, row = 0; v < h; v += course, row++) {
-        for (let k = 0; k < perRow; k++) {
+        const header = row % 6 === 5;
+        const n = header ? perRow * 2 : perRow;
+        for (let k = 0; k < n; k++) {
           const r = hash2(k, row, seed);
-          if (r > 0.86) {
-            ctx.fillStyle = r > 0.94 ? pale : dark;
-            ctx.fillRect((k + (row % 2) * 0.5) / perRow, v + 0.5, 0.9 / perRow, course - 1);
+          if (r > 0.7) {
+            ctx.fillStyle = r > 0.88 ? pale : dark;
+            ctx.fillRect((k + (row % 2) * 0.5) / n, v + 0.5, 0.9 / n, course - 1);
           }
         }
       }
       break;
     }
     case 'concrete': {
-      // precast panel joints, plus vertical weather streaks below them
+      // precast panel joints, weather streaks under them, a rust line or two
       const panels = Math.max(2, Math.round(len / 11));
       ctx.fillStyle = dark;
       for (let k = 1; k < panels; k++) ctx.fillRect(k / panels - 0.0015, 0, 0.003, h);
-      for (let v = 8; v < h; v += 9) ctx.fillRect(0, v, 1, 0.4);
+      for (let v = 8; v < h; v += 9) {
+        ctx.fillStyle = dark;
+        ctx.fillRect(0, v, 1, 0.4);
+        ctx.fillStyle = 'rgba(20, 24, 30, 0.08)';
+        ctx.fillRect(0, v - 2.2, 1, 2.2);
+      }
       ctx.fillStyle = css(lit({ ...base, l: base.l * 0.9 }, level), 0.16 * grain);
       for (let k = 0; k < panels; k++) {
         if (hash2(k, 7, seed) < 0.6) continue;
@@ -240,25 +251,43 @@ function texture(
       break;
     }
     case 'timber': {
-      ctx.fillStyle = dark;
-      for (let v = 2.4; v < h; v += 2.4) ctx.fillRect(0, v, 1, 0.35);
+      // clapboard: a shadow line under every board, a highlight on its lip
+      for (let v = 2.4; v < h; v += 2.4) {
+        ctx.fillStyle = 'rgba(10, 14, 20, 0.32)';
+        ctx.fillRect(0, v, 1, 0.5);
+        ctx.fillStyle = 'rgba(255, 250, 240, 0.12)';
+        ctx.fillRect(0, v + 0.5, 1, 0.3);
+      }
       break;
     }
     case 'stone': {
+      // ashlar: light joints, blocks jittered a little in width
       const blocks = Math.max(2, Math.round(len / 7));
-      ctx.fillStyle = dark;
+      const joint = css(lit({ ...base, l: Math.min(96, base.l * 1.1 + 12) }, level), 0.2 * grain);
       for (let v = 0, row = 0; v < h; v += 4.5, row++) {
+        ctx.fillStyle = joint;
         ctx.fillRect(0, v, 1, 0.5);
         for (let k = 1; k < blocks; k++) {
-          ctx.fillRect((k + (row % 2) * 0.5) / blocks, v, 0.004, 4.5);
+          const jit = (hash2(k, row, seed) - 0.5) * 0.16;
+          ctx.fillRect((k + (row % 2) * 0.5 + jit) / blocks, v, 0.004, 4.5);
+        }
+        ctx.fillStyle = dark;
+        for (let k = 0; k < blocks; k++) {
+          if (hash2(k, row, seed + 3) < 0.8) continue;
+          ctx.fillRect((k + (row % 2) * 0.5) / blocks, v + 0.5, 0.96 / blocks, 4);
         }
       }
       break;
     }
     case 'metal': {
+      // corrugation: a dark rib with a light edge beside it
       const ribs = Math.max(4, Math.round(len / 3.5));
-      ctx.fillStyle = dark;
-      for (let k = 1; k < ribs; k++) ctx.fillRect(k / ribs, 0, 0.4 / ribs, h);
+      for (let k = 1; k < ribs; k++) {
+        ctx.fillStyle = dark;
+        ctx.fillRect(k / ribs, 0, 0.4 / ribs, h);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.fillRect(k / ribs - 0.25 / ribs, 0, 0.25 / ribs, h);
+      }
       break;
     }
     case 'render': {
@@ -284,99 +313,12 @@ function texture(
 }
 
 // ---------------------------------------------------------------------------
-// Windows
+// Windows live in windows.ts; re-exported so the rest of the renderer keeps
+// reaching for them here.
 // ---------------------------------------------------------------------------
 
-export type WindowPattern = 'punched' | 'ribbon' | 'curtain' | 'none';
-
-export interface WindowPlan {
-  pattern: WindowPattern;
-  /** Floor-to-floor height in screen px. */
-  floor: number;
-  /** Horizontal spacing of window bays, screen px. */
-  bay: number;
-}
-
-/** Floor heights by how tall the mass is: cottages get big windows, towers small. */
-export function windowPlan(pattern: WindowPattern, h: number): WindowPlan {
-  if (h < 22) return { pattern, floor: 8.5, bay: 8 };
-  if (h < 46) return { pattern, floor: 8, bay: 7.5 };
-  if (h < 90) return { pattern, floor: 7.2, bay: 7 };
-  return { pattern, floor: 6.6, bay: 6.6 };
-}
-
-/**
- * Punch a wall's windows. Called inside wall space. `glow` paints only the
- * lit panes on transparent black, for the night overlay sprite.
- */
-function paintWindows(
-  ctx: CanvasRenderingContext2D,
-  len: number,
-  h: number,
-  mat: Material,
-  plan: WindowPlan,
-  level: number,
-  seed: number,
-  glow: boolean,
-  occupied: boolean,
-  base = 0,
-): void {
-  if (plan.pattern === 'none' || h < 9) return;
-  const cols = Math.max(1, Math.round(len / plan.bay));
-  const rows = Math.max(1, Math.floor((h - 4.5 - base) / plan.floor));
-  if (rows < 1) return;
-  const wU = (plan.pattern === 'curtain' ? 0.78 : 0.5) / cols;
-  const wH = plan.pattern === 'ribbon' ? plan.floor * 0.4 : plan.floor * 0.52;
-  const glassDay = css(lit(mat.glass, level * 0.95));
-  const sill = css(lit(mat.trim, level));
-  const head = css(lit({ ...mat.body, l: mat.body.l * 0.6 }, level), 0.55);
-
-  for (let r = 0; r < rows; r++) {
-    const v = base + 4 + r * plan.floor;
-    if (v + wH > h - 1.5) break;
-    if (plan.pattern === 'ribbon') {
-      // a continuous band, mullions dropped in over it
-      if (!glow) {
-        ctx.fillStyle = glassDay;
-        ctx.fillRect(0.06, v, 0.88, wH);
-        ctx.fillStyle = head;
-        ctx.fillRect(0.06, v + wH - 0.5, 0.88, 0.5);
-      }
-      for (let c = 0; c < cols; c++) {
-        const u = 0.06 + (0.88 * (c + 0.5)) / cols;
-        const on = hash2(c, r, seed) > 0.52;
-        if (glow) {
-          if (!on || !occupied) continue;
-          ctx.fillStyle = css(hash2(c, r, seed + 5) > 0.6 ? OFFICE_LAMP : LAMP, 0.95);
-          ctx.fillRect(u - wU * 0.45, v + 0.4, wU * 0.9, wH - 0.8);
-        } else {
-          ctx.fillStyle = sill;
-          ctx.fillRect(u + wU * 0.5, v, 0.006, wH);
-        }
-      }
-      continue;
-    }
-    for (let c = 0; c < cols; c++) {
-      const u = (c + 0.5) / cols - wU / 2;
-      const on = hash2(c * 3 + 1, r * 7 + 2, seed) > (plan.pattern === 'curtain' ? 0.42 : 0.55);
-      if (glow) {
-        if (!on || !occupied) continue;
-        ctx.fillStyle = css(hash2(c, r, seed + 5) > 0.62 ? OFFICE_LAMP : LAMP, 0.95);
-        ctx.fillRect(u + wU * 0.08, v + 0.5, wU * 0.84, wH - 1);
-        continue;
-      }
-      ctx.fillStyle = glassDay;
-      ctx.fillRect(u, v, wU, wH);
-      // a dark head reveal: the depth cue that stops windows reading as decals
-      ctx.fillStyle = head;
-      ctx.fillRect(u, v + wH - 0.7, wU, 0.7);
-      if (plan.pattern === 'punched' && wU * len > 3.2) {
-        ctx.fillStyle = sill;
-        ctx.fillRect(u - 0.15 / cols, v - 0.5, wU + 0.3 / cols, 0.5);
-      }
-    }
-  }
-}
+export type { WindowPattern, WindowPlan };
+export { windowPlan };
 
 /**
  * Everything on a wall that isn't the wall or its windows. Drawn in wall
@@ -565,6 +507,9 @@ export interface PrismOptions {
   groundAo?: boolean;
   /** Facade dressing; the front wall gets the street-facing pieces. */
   facade?: Facade;
+  /** Height in px of the shadow band a pitched roof's eave throws down the
+   * wall — the single strongest cue that a roof overhangs. */
+  eaveShadow?: number;
 }
 
 /**
@@ -614,9 +559,9 @@ export function prism(
         // body with a vertical falloff: sky light at the parapet, bounced
         // ground light at the base, a trough of shade between
         const g = wctx.createLinearGradient(0, 0, 0, h);
-        g.addColorStop(0, css(lit(mat.body, level * 0.93)));
-        g.addColorStop(0.22, css(lit(mat.body, level * 0.985)));
-        g.addColorStop(1, css(lit(mat.body, level * (1 + mat.sheen * 0.22))));
+        g.addColorStop(0, css(lit(mat.body, level * 0.94)));
+        g.addColorStop(0.25, css(lit(mat.body, level)));
+        g.addColorStop(1, css(lit(mat.body, level * (1.03 + mat.sheen * 0.2))));
         wctx.fillStyle = g;
         wctx.fillRect(0, 0, 1, h);
         texture(wctx, mat.kind, len, h, mat.body, level, mat.grain, seed + i * 31);
@@ -646,12 +591,36 @@ export function prism(
         paintWindows(wctx, len, h, mat, plan, level, seed + i * 17, glow, occupied, podiumH);
       }
       if (!glow) facadeTrim(wctx, len, h, mat, level, seed + i * 23, fac, podiumH, plan, i === front);
+      if (!glow) {
+        // Corner occlusion and a free-edge lift — the horizontal half of
+        // faceValue — laid over everything, so windows and trim take it too.
+        // That is what turns two flat parallelograms into one solid.
+        const side = level >= LIGHT.left ? 'left' : 'right';
+        const cornerU = side === 'left' ? 0 : 1;
+        const dark = wctx.createLinearGradient(cornerU, 0, cornerU === 0 ? 0.55 : 0.45, 0);
+        dark.addColorStop(0, `rgba(12, 16, 34, ${side === 'left' ? 0.18 : 0.26})`);
+        dark.addColorStop(1, 'rgba(12, 16, 34, 0)');
+        wctx.fillStyle = dark;
+        wctx.fillRect(0, 0, 1, h);
+        const lift = wctx.createLinearGradient(1 - cornerU, 0, cornerU === 0 ? 0.7 : 0.3, 0);
+        lift.addColorStop(0, `rgba(255, 244, 226, ${side === 'left' ? 0.09 : 0.04})`);
+        lift.addColorStop(1, 'rgba(255, 244, 226, 0)');
+        wctx.fillStyle = lift;
+        wctx.fillRect(0, 0, 1, h);
+        if (opts.eaveShadow) {
+          const es = wctx.createLinearGradient(0, h, 0, h - opts.eaveShadow);
+          es.addColorStop(0, 'rgba(10, 14, 30, 0.38)');
+          es.addColorStop(1, 'rgba(10, 14, 30, 0)');
+          wctx.fillStyle = es;
+          wctx.fillRect(0, h - opts.eaveShadow, 1, opts.eaveShadow);
+        }
+      }
       if (!glow && opts.groundAo !== false && h > 6) {
-        const ao = wctx.createLinearGradient(0, 0, 0, Math.min(9, h * 0.4));
-        ao.addColorStop(0, 'rgba(16, 20, 32, 0.34)');
-        ao.addColorStop(1, 'rgba(16, 20, 32, 0)');
+        const ao = wctx.createLinearGradient(0, 0, 0, Math.min(10, h * 0.4));
+        ao.addColorStop(0, 'rgba(12, 16, 30, 0.42)');
+        ao.addColorStop(1, 'rgba(12, 16, 30, 0)');
         wctx.fillStyle = ao;
-        wctx.fillRect(0, 0, 1, Math.min(9, h * 0.4));
+        wctx.fillRect(0, 0, 1, Math.min(10, h * 0.4));
       }
     });
   }
@@ -689,7 +658,7 @@ export function prism(
 
 /** Roof deck colour for a wall material — dark membrane over the body hue. */
 export function roofTone(mat: Material): Hsl {
-  return mix(mat.body, { h: 220, s: 6, l: 34 }, mat.kind === 'glass' ? 0.5 : 0.62);
+  return mat.roof ?? mix(mat.body, { h: 220, s: 6, l: 34 }, mat.kind === 'glass' ? 0.5 : 0.62);
 }
 
 /**
@@ -715,7 +684,19 @@ export function parapet(
   }
   fill(ctx, cap, css(lit(mat.trim, LIGHT.roof * 0.98)));
   // the deck seen over the rim, back where the roof surface already was
-  fill(ctx, inset(cap, 0.86), css(lit(deck ?? roofTone(mat), LIGHT.roof * 0.94)));
+  const inner = inset(cap, 0.86);
+  fill(ctx, inner, css(lit(deck ?? roofTone(mat), LIGHT.roof * 0.94)));
+  // the rim's shadow pooling on the deck inside it
+  const core = inset(cap, 0.78);
+  ctx.beginPath();
+  ctx.moveTo(inner[0][0], inner[0][1]);
+  for (let i = 1; i < inner.length; i++) ctx.lineTo(inner[i][0], inner[i][1]);
+  ctx.closePath();
+  ctx.moveTo(core[0][0], core[0][1]);
+  for (let i = 1; i < core.length; i++) ctx.lineTo(core[i][0], core[i][1]);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(10, 14, 30, 0.22)';
+  ctx.fill('evenodd');
 }
 
 /** Ground contact shadow: a soft dark pool hugging the footprint, drawn under
@@ -738,7 +719,8 @@ export function castShadow(
 ): void {
   if (h <= 1) return;
   const quad = shadowQuad(foot, h);
-  fill(ctx, quad, `rgba(28, 32, 58, ${alpha})`);
+  // at full alpha the caller is a shadow layer that multiplies the ink later
+  fill(ctx, quad, alpha >= 1 ? SHADOW_INK : `rgba(28, 32, 58, ${alpha})`);
 }
 
 /** Re-export so callers don't have to reach into two modules for one shape. */

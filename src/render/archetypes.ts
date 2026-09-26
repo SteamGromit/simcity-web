@@ -51,6 +51,10 @@ export interface Archetype {
   /** Facade dressing on the primary mass — what makes a brick walk-up read
    * differently from a curtain-wall office at the same height. */
   facade?: Facade;
+  /** What the building is made of: candidate swatch ids from the palette's
+   * library, one picked per lot. A brick walk-up is brick; a glass tower is
+   * glass; nothing here is a hue delta over a stage ramp any more. */
+  swatches: string[];
 }
 
 /** Plan extents of a sub-box, in tile fractions. */
@@ -76,7 +80,7 @@ const A = (
   windows: WindowStyle,
   props: PropKind[],
   facade?: Facade,
-): Archetype => ({ boxes, roof, windows, props, facade });
+): Archetype => ({ boxes, roof, windows, props, facade, swatches: [] });
 
 // Facade recipes, named for what they actually are.
 const F = {
@@ -310,6 +314,67 @@ const TABLE: Record<FamilyKey, [Archetype[], Archetype[], Archetype[]]> = {
     ],
   ],
 };
+
+/** Swatch candidates per family and stage band, assigned to every archetype
+ * in the band. Low bands are timber and render, mid bands masonry, high bands
+ * precast and glass — the way a city's building stock actually ages up. */
+const SWATCH_TABLE: Record<FamilyKey, [string[], string[], string[]]> = {
+  R1: [
+    ['siding-white', 'siding-grey', 'siding-olive', 'render-cream'],
+    ['brick-red', 'brick-brown', 'render-grey', 'siding-grey'],
+    ['concrete-board', 'concrete-painted', 'brick-buff'],
+  ],
+  R2: [
+    ['siding-white', 'siding-blue', 'render-cream', 'brick-buff'],
+    ['brick-red', 'brick-buff', 'stone-brownstone', 'render-peach'],
+    ['concrete-precast', 'brick-buff', 'render-grey'],
+  ],
+  R3: [
+    ['render-white', 'stone-limestone', 'siding-white', 'render-sage'],
+    ['stone-limestone', 'stone-sandstone', 'render-cream'],
+    ['glass-blue', 'glass-silver', 'glass-green'],
+  ],
+  C1: [
+    ['render-cream', 'render-terracotta', 'brick-buff', 'metal-white'],
+    ['brick-red', 'render-peach', 'brick-white'],
+    ['concrete-precast', 'brick-grey', 'render-grey'],
+  ],
+  C2: [
+    ['brick-red', 'render-cream', 'stone-brownstone'],
+    ['glass-blue', 'concrete-precast', 'glass-green'],
+    ['glass-blue', 'glass-bronze', 'glass-silver', 'glass-green'],
+  ],
+  C3: [
+    ['glass-silver', 'stone-granite'],
+    ['glass-blue', 'glass-black', 'glass-bronze'],
+    ['glass-black', 'glass-blue', 'glass-bronze', 'glass-green'],
+  ],
+  dirty: [
+    ['metal-corrugated', 'brick-brown', 'metal-corten', 'concrete-board'],
+    ['metal-corrugated', 'brick-brown', 'metal-corten', 'concrete-board'],
+    ['metal-corrugated', 'brick-brown', 'metal-corten', 'concrete-board'],
+  ],
+  manu: [
+    ['metal-corrugated', 'metal-aluminium', 'concrete-precast'],
+    ['metal-corrugated', 'metal-aluminium', 'concrete-precast'],
+    ['metal-corrugated', 'metal-aluminium', 'concrete-precast'],
+  ],
+  tech: [
+    ['metal-white', 'glass-silver', 'glass-green', 'concrete-painted'],
+    ['metal-white', 'glass-silver', 'glass-green', 'concrete-painted'],
+    ['metal-white', 'glass-silver', 'glass-green', 'concrete-painted'],
+  ],
+};
+for (const key of Object.keys(TABLE) as FamilyKey[]) {
+  TABLE[key].forEach((band, i) => {
+    for (const a of band) a.swatches = SWATCH_TABLE[key][i];
+  });
+}
+
+/** The swatch a lot is built of, from its archetype and a 0..1 pick. */
+export function pickSwatch(arch: Archetype, pick: number): string {
+  return arch.swatches[Math.min(arch.swatches.length - 1, Math.floor(pick * arch.swatches.length))];
+}
 
 function familyKey(zone: Zone, tier: Tier): FamilyKey {
   const t = normalizeTier(zone, tier);

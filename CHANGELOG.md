@@ -4,6 +4,80 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.64.0] — 2026-09-25 · Realism, part one: materials, light, windows, roofs, shadows, grade
+
+The first of three drops toward a SimCity 4 standard of detail. The bake-once
+pipeline is untouched; what gets painted into every sprite is replaced. Nothing
+in the sim moved.
+
+### Added
+- **A swatch library** (`render/palette.ts`). Thirty-two real-world wall
+  materials — red, brown, buff, painted and grey brick; limestone, sandstone,
+  granite, brownstone; cream, peach, sage, terracotta, white and grey render;
+  white, grey, blue, olive and barn-red siding; precast, board-marked and
+  painted concrete; blue, green, bronze, silver and black glass; aluminium,
+  corrugated, corten and white metal panel — each with its own trim, glazing
+  and roof deck, and capped at 28% saturation (three exceptions). Every
+  archetype names the swatches it may be built of, so a brick walk-up is
+  brick and a glass tower is glass; the old hue-delta palettes are gone.
+  Skins still remap the body colour, and the trim and glass follow it.
+- **Windows that are objects** (`render/windows.ts`). Each pane has a frame, a
+  dark head reveal, a lit jamb, a sill, a sky reflection that brightens toward
+  its top, and a state from the seed — clear, blinds down, curtains, dark, or
+  lit by day; a mullion cross once the pane is wide enough. Ribbon windows are
+  a continuous glazed band with spandrels; curtain walls are one sheet of
+  glass with a reflected horizon, the dark bands of the buildings opposite,
+  mullions every bay and a glint down the sunlit edge.
+- **Roofs that are roofs** (`render/roofs.ts`). Gables and hips overhang the
+  wall on an eave with a fascia and throw a band of shade down the wall;
+  slopes carry shingle courses in one of eight roofings (asphalt, slate,
+  terracotta, concrete tile, three standing-seam metals); the ridge has a cap,
+  a gable end shows the wall material under a bargeboard, about a third of
+  roofs get a dormer, chimneys got caps. Flat roofs are a speckled gravel or
+  membrane deck with a drain stain and a parapet that shades it; the plant on
+  them gained fan discs, ducts, hatches, four-legged tanks with hoops, cowled
+  vents and ladders.
+- **Soft shadows** (`render/shadows.ts`). Every cast shadow goes into one
+  half-resolution layer per frame, which is blurred once into a penumbra and
+  *multiplied* onto the ground, so a tower's shadow darkens the grass texture
+  and the road markings rather than lying on them as a grey card. Where the
+  browser lacks canvas filters the layer draws unblurred — a hard shadow,
+  never a missing one.
+- **Shopfronts.** Every commercial lot has glazing over a dark interior, a
+  stall riser, a fascia in the business's colour and a reflection strip; low
+  shops hang an awning over the street.
+- **Photographic grain** (`render/surface.ts`): a hair of luminance noise over
+  every finished lot bake, so brick, render and glass read as one material
+  world. Brick got light mortar joints and header courses, stone got ashlar
+  joints with jittered blocks, siding got board shadows and lips, precast got
+  weather streaks, corrugated metal got a lit edge on every rib.
+
+### Changed
+- **The lighting model.** Faces darken into the corner they share and lift at
+  their free edge, brighten toward the sky and hold a bounced-light base, so
+  two parallelograms read as one solid. Sun/shade contrast narrowed
+  (roof 1.10, sunlit 1.00, shade 0.64); `lit()` warms sunlit faces and cools
+  shaded ones with a smaller lightness swing. Ground-contact occlusion is
+  deeper; parapets shade the deck inside them.
+- **The grade.** A less saturated sky, a warm and weaker haze, half the
+  vignette, less daytime bloom; the night wash is lighter, the darkness layer's
+  light pools have a soft edge, street lamps and window lamps are warmer.
+- **Tilt-shift stands down after dark.** The miniature blur turned a lit
+  downtown into mush; it now runs only while the night factor is under 0.5.
+- The §§§ gilt roof outline and the high-tech cyan outline are gone; wealth
+  shows in the materials now. The occasional gilded mast stays.
+- Civic buildings are built of swatches too (fire station in red brick, police
+  in granite, hospital in white render, school in buff brick, and so on) and
+  their pitched roofs take the eave treatment.
+- Roof decks and roofing come from the swatch and roofing tables rather than
+  the wall colour, so a skin's hue remap (NYC) or saturation boost
+  (Springfield) now stops at the roofline — walls restyle, roofs stay real.
+- A `window.__simcity.look(x, y, zoom)` debug hook centres the camera on a
+  tile — how the graphics passes take their screenshots.
+
+Measured on the 76,000-population demo city at zoom 1: ground 8.7 ms,
+shadows 2.5, scene 10.5, finish 2.4 — 24 ms against the 36 ms budget.
+
 ## [0.63.0] — 2026-08-10 · The city as a model on a table
 
 Closes Slice C, "Tilt-shift" — the last finishing pass in the ambient-detail

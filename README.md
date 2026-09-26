@@ -51,11 +51,17 @@ decides what happens next:
   direction, and a silo or coop.
 - **A city that's lit, not just coloured** — one sun sits low in the west
   for the whole map, so every wall takes the brightness its orientation
-  earns and every building throws a shadow that lies along the ground and
-  lengthens with its height. Walls are brick, render, concrete, glass,
-  metal, timber or stone, each with its own courses, panel joints and
-  sheen, and windows are real openings that light up floor by floor after
-  dark. Streets carry lamp standards that come on at dusk, signals cycling
+  earns, darkens into the corner it shares with its neighbour, and throws a
+  soft shadow that lies along the ground, lengthens with its height and
+  darkens whatever it falls on. Buildings are built of real materials — a
+  library of thirty-odd swatches from red brick and limestone to corrugated
+  steel and bronze glass, none of them more than a quarter saturated — each
+  with its own courses, joints and sheen. Windows are objects: frames,
+  reveals, sills, a sky reflection, blinds or curtains behind some; curtain
+  walls reflect a horizon and the towers opposite. Pitched roofs overhang on
+  an eave and carry shingle courses, ridge caps, dormers and chimneys; flat
+  ones are gravel decks with real plant on them. Shops have shopfronts and
+  awnings. Streets carry lamp standards that come on at dusk, signals cycling
   at the junctions, and cars parked at the kerb.
 - **Context-aware traffic** — vehicles pick roles by location: trucks move
   goods on industrial roads, taxis and vans favor commercial routes, and
@@ -107,8 +113,8 @@ whole thing small and blits it back with nearest-neighbour for a retro
 sprite-art crunch. A **Tilt-shift** toggle sits alongside them — softening
 the top and bottom of the screen like a miniature-photo model shot while a
 central band stays sharp — on by default in Realistic, off in the others,
-until you choose; it works under any style and never blurs cursors or
-placement previews.
+until you choose; it works under any style, never blurs cursors or
+placement previews, and stands down after dark.
 
 On older machines: if the frame rate dips, switch to **Smooth** and turn
 off weather effects in the Config panel (day/night lighting is already off

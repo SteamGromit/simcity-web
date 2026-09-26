@@ -567,12 +567,12 @@ function lampSprite(lit_: boolean) {
     c.moveTo(0, -30);
     c.quadraticCurveTo(4, -33, 8, -32);
     c.stroke();
-    c.fillStyle = lit_ ? '#ffe9b0' : css(lit(hsl(46, 10, 62), LIGHT.roof));
+    c.fillStyle = lit_ ? '#ffd98a' : css(lit(hsl(46, 10, 62), LIGHT.roof));
     c.fillRect(6, -32.4, 4.4, 1.8);
     if (lit_) {
       const g = c.createRadialGradient(8, -31, 0, 8, -31, 11);
-      g.addColorStop(0, 'rgba(255, 226, 150, 0.55)');
-      g.addColorStop(1, 'rgba(255, 226, 150, 0)');
+      g.addColorStop(0, 'rgba(255, 210, 130, 0.55)');
+      g.addColorStop(1, 'rgba(255, 210, 130, 0)');
       c.fillStyle = g;
       c.beginPath();
       c.arc(8, -31, 11, 0, Math.PI * 2);
