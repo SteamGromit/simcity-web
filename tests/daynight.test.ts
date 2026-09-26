@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'vitest';
-import { DAY_CYCLE_MS, getDayNight, nightFactor, nightTint, setDayNight } from '../src/render/daynight';
+import {
+  DAY_CYCLE_MS,
+  getDayNight,
+  nightActive,
+  nightFactor,
+  nightTint,
+  setDayNight,
+} from '../src/render/daynight';
 
 describe('nightFactor', () => {
   test('midday is bright, midnight is dark', () => {
@@ -38,9 +45,15 @@ describe('day/night toggle', () => {
 });
 
 describe('night wash', () => {
-  test('the midnight tint is lighter than the v0.63 wash', () => {
+  test('the midnight tint is deep enough to read as night, and no deeper than the v0.63 wash', () => {
     const m = /rgba\(\d+, \d+, \d+, ([\d.]+)\)/.exec(nightTint(1));
     expect(m).not.toBeNull();
-    expect(parseFloat(m![1])).toBeLessThanOrEqual(0.5);
+    expect(parseFloat(m![1])).toBeGreaterThanOrEqual(0.55);
+    expect(parseFloat(m![1])).toBeLessThanOrEqual(0.6);
+  });
+  test('nightActive is off by day and on once it is dark', () => {
+    expect(nightActive(0)).toBe(false);
+    expect(nightActive(0.01)).toBe(false);
+    expect(nightActive(0.1)).toBe(true);
   });
 });

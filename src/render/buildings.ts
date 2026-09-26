@@ -659,6 +659,12 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
     }
     if (sb.hf === 1) primary = { roof: r.roof, walls: r.walls };
   }
+  if (primary && glow && zone === Zone.Commercial && stage >= 1) {
+    // a shop's glazing spills light onto the pavement after dark
+    for (const [p, q2] of primary.walls) {
+      fill(ctx, [p, q2, [q2[0], q2[1] - 6.5], [p[0], p[1] - 6.5]], css(LAMP, 0.55));
+    }
+  }
   if (!primary || glow) return;
 
   let top = primary.roof;
@@ -1854,7 +1860,7 @@ export function drawBuilding(
   if (night > 0.06 && !abandoned && powered) {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    blit(ctx, lotSprite({ ...key, glow: true }), cx, cy, Math.min(0.62, night * 0.85));
+    blit(ctx, lotSprite({ ...key, glow: true }), cx, cy, Math.min(0.5, night * 0.7));
     ctx.restore();
   }
   if (!powered && !abandoned) {

@@ -20,6 +20,7 @@ import { hash2 } from './noise';
 import { ENV, css, hsl, lit, mix } from './palette';
 import { LIGHT } from './sun';
 import { getSkin } from './skins';
+import { nightActive } from './daynight';
 import { blit, sprite } from './spritecache';
 import { grain } from './surface';
 
@@ -658,6 +659,18 @@ function signalSprite(phase: number) {
   });
 }
 
+/** The sodium pool a lamp standard throws on the road after dark. */
+function lampPool(ctx: CanvasRenderingContext2D, x: number, y: number, night: number): void {
+  const r = 14;
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, `rgba(255, 200, 120, ${(0.22 * night).toFixed(3)})`);
+  g.addColorStop(1, 'rgba(255, 200, 120, 0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.ellipse(x, y, r, r * 0.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 /** A car left at the kerb; the street looks abandoned without them. */
 function parkedSprite(variant: number, along: boolean) {
   const colors = ['#c9c4bb', '#8f9aa6', '#7d5a4a', '#4a6a94', '#3d4249', '#a8483c'];
@@ -712,11 +725,13 @@ export function drawStreetFurniture(
     blit(ctx, signalSprite(phase === 2 ? 2 : phase), geom.cx - HW * 0.42, geom.cy + HH * 0.42);
     return;
   }
-  // lamps every few tiles along a street, on the footway side
+  // lamps every few tiles along a street, on the footway side — and after
+  // dark, the warm pool each one throws on the road under it
   if (hash2(seed, 1, 404) > 0.72) {
     for (let k = 0; k < 4; k++) {
       if (mask & (1 << k)) continue;
       const [mx, my] = SIDE_MID[k];
+      if (nightActive(night)) lampPool(ctx, geom.cx + mx * 0.5, geom.cy + my * 0.5, night);
       blit(ctx, lampSprite(night > 0.28), geom.cx + mx * 0.78, geom.cy + my * 0.78);
       break;
     }

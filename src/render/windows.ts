@@ -119,7 +119,10 @@ export function paintWindows(
       const st = paneState(p.row, p.col, seed, plan.pattern);
       if (!glowsAtNight(st, p.row, p.col, seed)) continue;
       const office = plan.pattern !== 'punched' || hash2(p.col, p.row, seed + 9) > 0.7;
-      ctx.fillStyle = css(office ? OFFICE_LAMP : LAMP, st === 'curtain' ? 0.55 : 0.95);
+      // a curtain wall is nearly all pane: at full strength the whole tower
+      // whited out under the lighter composite
+      const a = plan.pattern === 'curtain' ? 0.6 : st === 'curtain' ? 0.55 : 0.95;
+      ctx.fillStyle = css(office ? OFFICE_LAMP : LAMP, a);
       ctx.fillRect(p.u + px * 0.5, p.v + 0.5, p.w - px, p.h - 1);
     }
     return;
