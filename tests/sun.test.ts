@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import {
+  FACE,
   LIGHT,
+  faceValue,
   Pt,
   SUN_DX,
   SUN_DY,
@@ -138,5 +140,29 @@ describe('wallLight', () => {
     expect(LIGHT.roof).toBeGreaterThan(LIGHT.left);
     expect(LIGHT.left).toBeGreaterThan(LIGHT.right);
     expect(LIGHT.right).toBeGreaterThan(LIGHT.ambient);
+  });
+});
+
+describe('face model', () => {
+  test('roof is brightest, left brighter than right', () => {
+    expect(LIGHT.roof).toBeGreaterThan(LIGHT.left);
+    expect(LIGHT.left).toBeGreaterThan(LIGHT.right);
+  });
+  test('lit face darkens toward the shared corner at u=0, shade face at u=1', () => {
+    expect(faceValue(0, 0.5, 'left')).toBeLessThan(faceValue(1, 0.5, 'left'));
+    expect(faceValue(1, 0.5, 'right')).toBeLessThan(faceValue(0, 0.5, 'right'));
+  });
+  test('monotone up the wall and lit above shade everywhere', () => {
+    for (const side of ['left', 'right'] as const) {
+      for (let u = 0; u <= 1; u += 0.25) {
+        expect(faceValue(u, 1, side)).toBeGreaterThanOrEqual(faceValue(u, 0, side));
+      }
+    }
+    for (let u = 0; u <= 1; u += 0.25) {
+      for (let v = 0; v <= 1; v += 0.25) {
+        expect(faceValue(u, v, 'left')).toBeGreaterThan(faceValue(1 - u, v, 'right'));
+      }
+    }
+    void FACE;
   });
 });

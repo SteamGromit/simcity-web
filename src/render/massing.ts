@@ -565,6 +565,9 @@ export interface PrismOptions {
   groundAo?: boolean;
   /** Facade dressing; the front wall gets the street-facing pieces. */
   facade?: Facade;
+  /** Height in px of the shadow band a pitched roof's eave throws down the
+   * wall — the single strongest cue that a roof overhangs. */
+  eaveShadow?: number;
 }
 
 /**
@@ -614,9 +617,9 @@ export function prism(
         // body with a vertical falloff: sky light at the parapet, bounced
         // ground light at the base, a trough of shade between
         const g = wctx.createLinearGradient(0, 0, 0, h);
-        g.addColorStop(0, css(lit(mat.body, level * 0.93)));
-        g.addColorStop(0.22, css(lit(mat.body, level * 0.985)));
-        g.addColorStop(1, css(lit(mat.body, level * (1 + mat.sheen * 0.22))));
+        g.addColorStop(0, css(lit(mat.body, level * 0.94)));
+        g.addColorStop(0.25, css(lit(mat.body, level)));
+        g.addColorStop(1, css(lit(mat.body, level * (1.03 + mat.sheen * 0.2))));
         wctx.fillStyle = g;
         wctx.fillRect(0, 0, 1, h);
         texture(wctx, mat.kind, len, h, mat.body, level, mat.grain, seed + i * 31);
@@ -646,12 +649,36 @@ export function prism(
         paintWindows(wctx, len, h, mat, plan, level, seed + i * 17, glow, occupied, podiumH);
       }
       if (!glow) facadeTrim(wctx, len, h, mat, level, seed + i * 23, fac, podiumH, plan, i === front);
+      if (!glow) {
+        // Corner occlusion and a free-edge lift — the horizontal half of
+        // faceValue — laid over everything, so windows and trim take it too.
+        // That is what turns two flat parallelograms into one solid.
+        const side = level >= LIGHT.left ? 'left' : 'right';
+        const cornerU = side === 'left' ? 0 : 1;
+        const dark = wctx.createLinearGradient(cornerU, 0, cornerU === 0 ? 0.55 : 0.45, 0);
+        dark.addColorStop(0, `rgba(12, 16, 34, ${side === 'left' ? 0.18 : 0.26})`);
+        dark.addColorStop(1, 'rgba(12, 16, 34, 0)');
+        wctx.fillStyle = dark;
+        wctx.fillRect(0, 0, 1, h);
+        const lift = wctx.createLinearGradient(1 - cornerU, 0, cornerU === 0 ? 0.7 : 0.3, 0);
+        lift.addColorStop(0, `rgba(255, 244, 226, ${side === 'left' ? 0.09 : 0.04})`);
+        lift.addColorStop(1, 'rgba(255, 244, 226, 0)');
+        wctx.fillStyle = lift;
+        wctx.fillRect(0, 0, 1, h);
+        if (opts.eaveShadow) {
+          const es = wctx.createLinearGradient(0, h, 0, h - opts.eaveShadow);
+          es.addColorStop(0, 'rgba(10, 14, 30, 0.38)');
+          es.addColorStop(1, 'rgba(10, 14, 30, 0)');
+          wctx.fillStyle = es;
+          wctx.fillRect(0, h - opts.eaveShadow, 1, opts.eaveShadow);
+        }
+      }
       if (!glow && opts.groundAo !== false && h > 6) {
-        const ao = wctx.createLinearGradient(0, 0, 0, Math.min(9, h * 0.4));
-        ao.addColorStop(0, 'rgba(16, 20, 32, 0.34)');
-        ao.addColorStop(1, 'rgba(16, 20, 32, 0)');
+        const ao = wctx.createLinearGradient(0, 0, 0, Math.min(10, h * 0.4));
+        ao.addColorStop(0, 'rgba(12, 16, 30, 0.42)');
+        ao.addColorStop(1, 'rgba(12, 16, 30, 0)');
         wctx.fillStyle = ao;
-        wctx.fillRect(0, 0, 1, Math.min(9, h * 0.4));
+        wctx.fillRect(0, 0, 1, Math.min(10, h * 0.4));
       }
     });
   }
@@ -689,7 +716,7 @@ export function prism(
 
 /** Roof deck colour for a wall material — dark membrane over the body hue. */
 export function roofTone(mat: Material): Hsl {
-  return mix(mat.body, { h: 220, s: 6, l: 34 }, mat.kind === 'glass' ? 0.5 : 0.62);
+  return mat.roof ?? mix(mat.body, { h: 220, s: 6, l: 34 }, mat.kind === 'glass' ? 0.5 : 0.62);
 }
 
 /**
@@ -715,7 +742,19 @@ export function parapet(
   }
   fill(ctx, cap, css(lit(mat.trim, LIGHT.roof * 0.98)));
   // the deck seen over the rim, back where the roof surface already was
-  fill(ctx, inset(cap, 0.86), css(lit(deck ?? roofTone(mat), LIGHT.roof * 0.94)));
+  const inner = inset(cap, 0.86);
+  fill(ctx, inner, css(lit(deck ?? roofTone(mat), LIGHT.roof * 0.94)));
+  // the rim's shadow pooling on the deck inside it
+  const core = inset(cap, 0.78);
+  ctx.beginPath();
+  ctx.moveTo(inner[0][0], inner[0][1]);
+  for (let i = 1; i < inner.length; i++) ctx.lineTo(inner[i][0], inner[i][1]);
+  ctx.closePath();
+  ctx.moveTo(core[0][0], core[0][1]);
+  for (let i = 1; i < core.length; i++) ctx.lineTo(core[i][0], core[i][1]);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(10, 14, 30, 0.22)';
+  ctx.fill('evenodd');
 }
 
 /** Ground contact shadow: a soft dark pool hugging the footprint, drawn under

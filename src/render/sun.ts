@@ -24,14 +24,43 @@ export const SUN_DY = 0.42;
 /** Face brightness multipliers under the fixed sun. */
 export const LIGHT = {
   /** Roofs face the sky and take the most light. */
-  roof: 1.14,
-  /** The screen-left wall (grid +y normal) catches the sun edge-on. */
-  left: 0.86,
+  roof: 1.1,
+  /** The screen-left wall (grid +y normal) catches the sun. */
+  left: 1.0,
   /** The screen-right wall (grid +x normal) turns away from it. */
-  right: 0.6,
+  right: 0.64,
   /** Anything treated as ambient-only — undersides, recesses. */
-  ambient: 0.42,
+  ambient: 0.46,
 } as const;
+
+/**
+ * Value multipliers across (u) and up (v) a face. The shared corner of the
+ * two visible walls is u=0 on the screen-left wall and u=1 on the right one:
+ * both darken into it, which is what makes two parallelograms read as one
+ * solid. Sky light brightens toward the top; bounced ground light keeps the
+ * base from going black.
+ */
+export const FACE = {
+  freeLit: 1.04,
+  cornerLit: 0.9,
+  freeShade: 0.92,
+  cornerShade: 0.8,
+  baseV: 0.94,
+  topV: 1.03,
+} as const;
+
+/** The lit value at (u across, v01 up) on a wall of the given screen side. */
+export function faceValue(u: number, v01: number, side: 'left' | 'right'): number {
+  const t = side === 'left' ? u : 1 - u; // 0 at the shared corner
+  const [corner, free] =
+    side === 'left' ? [FACE.cornerLit, FACE.freeLit] : [FACE.cornerShade, FACE.freeShade];
+  const across = corner + (free - corner) * Math.min(1, t / 0.55);
+  const up =
+    v01 < 0.25
+      ? FACE.baseV + (1 - FACE.baseV) * (v01 / 0.25)
+      : 1 + (FACE.topV - 1) * ((v01 - 0.25) / 0.75);
+  return LIGHT[side] * across * up;
+}
 
 /** Where a point `h` pixels above the ground drops its shadow. */
 export function shadowOffset(h: number): Pt {
