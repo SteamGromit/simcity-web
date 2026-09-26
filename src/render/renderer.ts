@@ -6,7 +6,8 @@ import { AmbientEnv, drawAmbient } from './ambientfx';
 import {
   drawBuilding,
   drawCastShadow,
-  drawLotApron,
+  drawYardTrees,
+  variantBucket,
   drawFire,
   drawCrimeFlash,
   drawAccident,
@@ -36,8 +37,8 @@ import { isPlant } from '../sim/energy';
 import { detailLevel } from './detail';
 import { drawLineVehicles } from './linevehicles';
 import { PIXEL_SCALE, getRenderStyle } from './renderstyle';
-import { VegTint, vegTint } from './seasonfx';
-import { seasonOf } from '../sim/weather';
+import { VegTint, effectiveSeason, vegTint } from './seasonfx';
+import { Season, seasonOf } from '../sim/weather';
 import { getSkin } from './skins';
 import {
   drawBridge,
@@ -58,6 +59,7 @@ import { drawTree } from './scenery';
 import { hash2 } from './noise';
 import { blit, sprite } from './spritecache';
 import { ShadowLayer } from './shadows';
+import { drawLotGround, roadSideOf } from './lots';
 
 export interface ViewState {
   hover: { x: number; y: number } | null;
@@ -133,6 +135,13 @@ export class Renderer {
   private detail: 0 | 1 | 2 = 1;
   /** Seasonal vegetation tint for the current frame. */
   private veg: VegTint = vegTint('summer');
+  /** The season anything baked this frame should wear. */
+  private season: Season = 'summer';
+  /** Which screen side each lot's street is on (0..3, −1 none), so its plot
+   * can face it. Rebuilt when the road network or the camera quarter moves. */
+  private roadSide = new Int8Array(GRID * GRID);
+  private roadStamp = -1;
+  private roadQuarter = -1;
   /** Inclusive tile bounds visible this frame, so off-screen work is skipped. */
   private clip = { x0: 0, y0: 0, x1: GRID - 1, y1: GRID - 1 };
   /** Milliseconds each pass took last frame. Read by the `__simcity.profile`
@@ -327,6 +336,7 @@ export class Renderer {
     this.automata.step(city, now, AUTOMATA_SCALE[this.simSpeed]);
     this.disasterFx.step(city, now, AUTOMATA_SCALE[this.simSpeed]);
     this.ensureDepth(city);
+    this.ensureRoadSides(city);
     this.computeClip();
 
     const W = this.ctx.canvas.width;
@@ -359,6 +369,7 @@ export class Renderer {
       winter: season === 'winter',
     };
     this.veg = vegTint(season);
+    this.season = effectiveSeason(season);
     setRenderSeason(season);
 
     const mark = (name: string, from: number) => {
@@ -452,6 +463,12 @@ export class Renderer {
             ctx, drawGeom, t.zone, t.stage, t.tier, this.variants[i], size,
             t.powered, t.abandoned, t.pollution, ambient,
           );
+          if (detail >= 1 && size === 1 && t.stage > 0 && t.stage <= 3 && this.isGrowable(t.zone)) {
+            drawYardTrees(
+              ctx, drawGeom, t.zone, t.tier, t.stage, variantBucket(this.variants[i]), 1,
+              this.roadSide[i], city.biome === 'desert', this.season,
+            );
+          }
         }
       }
       if (t.burning > 0) drawFire(ctx, geom, now, this.variants[i]);
@@ -794,7 +811,10 @@ export class Renderer {
     // A built lot's apron covers the turf, so its texture would never be seen
     paintGround(ctx, geom, kind, tone, i, developed ? 0 : this.detail);
     if (this.detail >= 1 && developed) {
-      drawLotApron(ctx, geom, t.zone, t.stage, t.tier, this.variants[i]);
+      drawLotGround(
+        ctx, geom, t.zone, t.tier, t.stage, variantBucket(this.variants[i]), 1,
+        this.roadSide[i], city.biome === 'desert', this.season,
+      );
     }
     if (this.storm && this.shoreline(city, x, y)) {
       const pulse = 0.1 + 0.1 * Math.sin(this.frameNow / 200 + (x * 3 + y) * 1.3);
@@ -974,6 +994,27 @@ export class Renderer {
       this.ctx.beginPath();
       this.ctx.arc(g.cx, g.cy, 4, 0, TAU);
       this.ctx.stroke();
+    }
+  }
+
+  private isGrowable(zone: Zone): boolean {
+    return zone === Zone.Residential || zone === Zone.Commercial || zone === Zone.Industrial;
+  }
+
+  /** Which screen side every lot's street is on. Cheap enough to redo whenever
+   * a road tile appears or vanishes, or the camera turns a quarter. */
+  private ensureRoadSides(city: CityState) {
+    let stamp = 0;
+    for (let i = 0; i < city.tiles.length; i += 3) {
+      if (city.tiles[i].zone === Zone.Road) stamp = (stamp * 31 + i) | 0;
+    }
+    if (stamp === this.roadStamp && this.quarter === this.roadQuarter) return;
+    this.roadStamp = stamp;
+    this.roadQuarter = this.quarter;
+    for (let i = 0; i < city.tiles.length; i++) {
+      this.roadSide[i] = this.isGrowable(city.tiles[i].zone)
+        ? roadSideOf(city, i % GRID, (i / GRID) | 0, this.quarter)
+        : -1;
     }
   }
 
