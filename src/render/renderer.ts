@@ -458,6 +458,7 @@ export class Renderer {
             this.night,
             detail,
             size,
+            this.season,
           );
           drawAmbient(
             ctx, drawGeom, t.zone, t.stage, t.tier, this.variants[i], size,

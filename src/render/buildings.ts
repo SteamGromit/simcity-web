@@ -1354,15 +1354,21 @@ const REWARD_HEIGHT: Partial<Record<Zone, number>> = {
 /** Slots the reward painter owns; everything else falls through to its own art. */
 const REWARD_ZONES = new Set<Zone>(Object.keys(REWARD_HEIGHT).map(Number) as Zone[]);
 
-function drawReward(
+/**
+ * Paint a reward with its block centre at the origin — the bake's frame. The
+ * geometry is measured from the footprint quad, never indexed, so the same
+ * bake is right at every quarter turn.
+ */
+function paintReward(
   ctx: CanvasRenderingContext2D,
-  geom: TileGeom,
   zone: Zone,
   powered: boolean,
   detail: 0 | 1 | 2,
+  size: number,
 ): void {
-  const { cx, cy } = geom;
-  const q = quadOf(geom);
+  const cx = 0;
+  const cy = 0;
+  const q = diamond(0, 0, (TILE_W * size) / 2, (TILE_H * size) / 2);
   const [hw, hh] = halfExtent(q);
   const skin = getSkin();
   const scale = skin.heightScale;
@@ -1458,10 +1464,10 @@ function drawReward(
         ctx.fill();
       }
       if (detail >= 1) {
-        // a colonnade across the front
+        // a colonnade across the front — the edge nearest the viewer,
+        // measured, so a turned camera does not put it round the back
         const cols = zone === Zone.Museum ? 7 : 5;
-        const a = bodyQ[2];
-        const b = bodyQ[3];
+        const [a, b] = nearEdge(bodyQ);
         for (let k = 0; k < cols; k++) {
           const t = (k + 0.5) / cols;
           const x = a[0] + (b[0] - a[0]) * t;
@@ -1583,7 +1589,39 @@ function drawReward(
     }
   }
 
-  if (!powered) drawNoPowerBolt(ctx, cx, cy - 30 * scale);
+}
+
+/** Headroom over a reward's tallest thing: the monument's spire, a
+ * floodlight mast, the research dome. */
+const REWARD_MARGIN_TOP = 80;
+
+function rewardSprite(zone: Zone, powered: boolean, detail: 0 | 1 | 2, size: number): Sprite {
+  const scale = getSkin().heightScale;
+  const w = TILE_W * size + 40;
+  const h = TILE_H * size + (REWARD_HEIGHT[zone] ?? 20) * scale + REWARD_MARGIN_TOP;
+  return sprite(
+    `W${zone}.${powered ? 1 : 0}.${size}.${detail}.${getSkin().id}`,
+    { w, h, ax: w / 2, ay: h - (TILE_H * size) / 2 - 6 },
+    (c) => {
+      paintReward(c, zone, powered, detail, size);
+      c.save();
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      grain(c, c.canvas.width, c.canvas.height, 0.03, zone * 5 + 2);
+      c.restore();
+    },
+  );
+}
+
+function drawReward(
+  ctx: CanvasRenderingContext2D,
+  geom: TileGeom,
+  zone: Zone,
+  powered: boolean,
+  detail: 0 | 1 | 2,
+  size: number,
+): void {
+  blit(ctx, rewardSprite(zone, powered, detail, size), geom.cx, geom.cy);
+  if (!powered) drawNoPowerBolt(ctx, geom.cx, geom.cy - 30 * getSkin().heightScale);
 }
 
 // ---------------------------------------------------------------------------
@@ -1638,27 +1676,36 @@ function drawMissingBuilding(ctx: CanvasRenderingContext2D, geom: TileGeom) {
   prism(ctx, q, 12, material('concrete', hsl(0, 0, 38)), { seed: 1 });
 }
 
-/** A park: turf, a path, benches, and a stand of trees. */
-function drawPark(ctx: CanvasRenderingContext2D, geom: TileGeom, bucket: number) {
-  const q = quadOf(geom);
-  fill(ctx, q, css(hsl(106, 38, 36)));
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(q[0][0], q[0][1]);
-  for (let i = 1; i < 4; i++) ctx.lineTo(q[i][0], q[i][1]);
-  ctx.closePath();
-  ctx.clip();
-  ctx.strokeStyle = css(hsl(44, 16, 66), 0.75);
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.moveTo(geom.cx - 34, geom.cy + (bucket % 2 ? -6 : 6));
-  ctx.quadraticCurveTo(geom.cx, geom.cy + (bucket % 2 ? 8 : -8), geom.cx + 34, geom.cy + (bucket % 2 ? -4 : 4));
-  ctx.stroke();
-  ctx.restore();
-  drawTree(ctx, geom.cx - 12, geom.cy - 4, 'broadleaf', 18, bucket % 6, season);
-  drawTree(ctx, geom.cx + 10, geom.cy + 3, bucket % 3 === 0 ? 'conifer' : 'broadleaf', 15, (bucket + 2) % 6, season);
-  if (bucket % 3 === 1) drawHedge(ctx, geom.cx + 2, geom.cy + 9, 14, season);
-  else drawRock(ctx, geom.cx + 16, geom.cy - 3, 3, bucket);
+/** A park: turf, a path, a rock or a hedge, and a stand of trees — baked per
+ * variant and season, trees and all (a nested sprite bakes first). */
+function parkSprite(bucket: number, season: Season): Sprite {
+  const w = TILE_W + 24;
+  const h = TILE_H + 44;
+  return sprite(`P${bucket}.${season.slice(0, 2)}`, { w, h, ax: w / 2, ay: h - TILE_H / 2 - 4 }, (ctx) => {
+    const q = diamond(0, 0, TILE_W / 2, TILE_H / 2);
+    fill(ctx, q, css(hsl(106, 38, 36)));
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(q[0][0], q[0][1]);
+    for (let i = 1; i < 4; i++) ctx.lineTo(q[i][0], q[i][1]);
+    ctx.closePath();
+    ctx.clip();
+    ctx.strokeStyle = css(hsl(44, 16, 66), 0.75);
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(-34, bucket % 2 ? -6 : 6);
+    ctx.quadraticCurveTo(0, bucket % 2 ? 8 : -8, 34, bucket % 2 ? -4 : 4);
+    ctx.stroke();
+    ctx.restore();
+    drawTree(ctx, -12, -4, 'broadleaf', 18, bucket % 6, season);
+    drawTree(ctx, 10, 3, bucket % 3 === 0 ? 'conifer' : 'broadleaf', 15, (bucket + 2) % 6, season);
+    if (bucket % 3 === 1) drawHedge(ctx, 2, 9, 14, season);
+    else drawRock(ctx, 16, -3, 3, bucket);
+  });
+}
+
+function drawPark(ctx: CanvasRenderingContext2D, geom: TileGeom, bucket: number, season: Season) {
+  blit(ctx, parkSprite(bucket, season), geom.cx, geom.cy);
 }
 
 // ---------------------------------------------------------------------------
@@ -1677,6 +1724,7 @@ export function drawBuilding(
   night = 0, // 0 day .. 1 midnight, brings the lit-window overlay up
   detail: 0 | 1 | 2 = 1, // zoom LOD
   size = 1,
+  season: Season = 'summer', // what anything baked with vegetation wears
 ) {
   const { cx, cy } = geom;
   const bucket = variantBucket(variant);
@@ -1687,7 +1735,7 @@ export function drawBuilding(
     return;
   }
   if (REWARD_ZONES.has(zone)) {
-    drawReward(ctx, geom, zone, powered, detail);
+    drawReward(ctx, geom, zone, powered, detail, size);
     return;
   }
   if (zone >= MOD_SLOT_BASE && !authored) {
@@ -1695,7 +1743,7 @@ export function drawBuilding(
     return;
   }
   if (zone === Zone.Park) {
-    drawPark(ctx, geom, bucket);
+    drawPark(ctx, geom, bucket, season);
     return;
   }
   if (zone === Zone.PowerLine) {

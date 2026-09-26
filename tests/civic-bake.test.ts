@@ -58,6 +58,16 @@ describe('civic bake', () => {
     expect(trace.some((t) => t === 'globalCompositeOperation=lighter')).toBe(true);
     expect(trace.filter((t) => t.startsWith('drawImage')).length).toBe(2);
   });
+  test('a park bakes per season', () => {
+    const { ctx } = strictCtx();
+    const before = spriteStats().bakes;
+    drawBuilding(ctx, tileGeom(4, 4, 0), Zone.Park, 0, 2, false, true, 0.3, 0, 1, 1, 'summer');
+    drawBuilding(ctx, tileGeom(4, 4, 0), Zone.Park, 0, 2, false, true, 0.3, 0, 1, 1, 'summer');
+    const summer = spriteStats().bakes - before;
+    drawBuilding(ctx, tileGeom(4, 4, 0), Zone.Park, 0, 2, false, true, 0.3, 0, 1, 1, 'winter');
+    expect(spriteStats().bakes - before).toBeGreaterThan(summer);
+    expect(summer).toBeGreaterThanOrEqual(1);
+  });
   test('every civic zone bakes at every quarter without a negative radius', () => {
     for (const q of [0, 1, 2, 3]) {
       setViewAngle((q * Math.PI) / 2);
