@@ -652,3 +652,27 @@ export function roofKit(
     prism(ctx, q, 7, material('concrete', mix(body, hsl(216, 5, 44), 0.6)), { seed, groundAo: false });
   }
 }
+
+/**
+ * A horizontal pipe run between two points: a shadow under it, a two-tone
+ * cylinder, and a flange ring at each end. The works are strung together
+ * with these, which is most of what says "works" rather than "shed".
+ */
+export function pipeRun(ctx: CanvasRenderingContext2D, a: Pt, b: Pt, r: number, body: Hsl): void {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const len = Math.hypot(dx, dy);
+  if (len < 1 || r <= 0) return;
+  ctx.save();
+  ctx.translate(a[0], a[1]);
+  ctx.rotate(Math.atan2(dy, dx));
+  ctx.fillStyle = 'rgba(20, 24, 40, 0.28)';
+  ctx.fillRect(0, r * 0.4, len, r * 1.2);
+  ctx.fillStyle = css(lit(body, LIGHT.right));
+  ctx.fillRect(0, -r, len, r * 2);
+  ctx.fillStyle = css(lit(body, LIGHT.roof * 1.05));
+  ctx.fillRect(0, -r, len, r * 0.8);
+  ctx.fillStyle = css(lit(body, LIGHT.roof * 0.7));
+  for (const x of [0, len - r * 1.2]) ctx.fillRect(x, -r * 1.3, r * 1.2, r * 2.6);
+  ctx.restore();
+}

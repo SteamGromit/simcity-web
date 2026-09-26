@@ -63,7 +63,11 @@ decides what happens next:
   ones are gravel decks with real plant on them. Shops have shopfronts and
   awnings. Every lot stands on a plot that faces its street — a lawn with a
   driveway, a car and a fence; a striped parking lot; a fenced yard with a
-  truck at the dock; a plaza — and the plot turns with the camera. The ground
+  truck at the dock; a plaza — and the plot turns with the camera. Farms
+  wear the season; the waterfront is mirrored in water that carries
+  caustics and a sky; after dark the city reads as lit against the dark,
+  with warm pools under the lamp standards and shopfronts spilling light.
+  The ground
   has tone, trees are oaks, maples, birches, pines, spruces and cypresses
   built from leaf clusters, and streets carry asphalt grain, kerb faces,
   paving joints, worn crosswalks, lamp standards that come on at dusk,

@@ -94,15 +94,19 @@ export function stubCanvasFactory() {
   /** The draw trace of each baked sprite, in bake order — so a test can ask
    * what a bake painted, not only that it painted. */
   const traces: string[][] = [];
+  /** Every ellipse/arc radius each bake asked for, so a baked painter can be
+   * held to the same no-negative-radius rule as a live one. */
+  const radii: number[][] = [];
   const factory = (w: number, h: number) => {
-    const { ctx, trace } = strictCtx();
+    const { ctx, trace, radii: r } = strictCtx();
     contexts.push(ctx);
     traces.push(trace);
+    radii.push(r);
     return {
       width: w,
       height: h,
       getContext: () => ctx,
     } as unknown as HTMLCanvasElement;
   };
-  return { factory, contexts, traces };
+  return { factory, contexts, traces, radii };
 }

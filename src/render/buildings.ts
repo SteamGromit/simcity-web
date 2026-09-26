@@ -29,6 +29,7 @@ import {
   shift,
   type Facade,
   type Hsl,
+  type Material,
 
   type WindowPattern,
 } from './massing';
@@ -40,6 +41,7 @@ import {
   placeRoofProps,
   roofCap,
   roofKit,
+  pipeRun,
   towerCrown,
   wantsHatch,
 } from './roofs';
@@ -395,11 +397,23 @@ function streetLevel(
   }
 }
 
-/** Farmland: tilled ground, a barn, and whatever the layout adds. */
-function paintFarm(ctx: CanvasRenderingContext2D, q: Quad, bucket: number): void {
+/** What a field wears in each season: tilled brown in spring, green rows in
+ * summer, gold at harvest, pale stubble in winter. */
+const CROP: Record<Season, { soil: Hsl; crop: Hsl }> = {
+  spring: { soil: hsl(28, 26, 32), crop: hsl(88, 30, 36) },
+  summer: { soil: hsl(40, 24, 34), crop: hsl(96, 36, 34) },
+  autumn: { soil: hsl(34, 22, 36), crop: hsl(44, 46, 46) },
+  winter: { soil: hsl(36, 12, 46), crop: hsl(42, 16, 56) },
+};
+
+/** Farmland: tilled ground under crop rows, a barn, a fence along the
+ * street, and whatever the layout adds — a silo, a coop with a pond, a
+ * tractor. Baked per season. */
+function paintFarm(ctx: CanvasRenderingContext2D, q: Quad, bucket: number, season: Season): void {
   const chan = channels((bucket + 0.5) / VARIANTS);
   const layout = pickFarmLayout(chan());
-  const soil = hsl(74 + chan() * 10, 30, 34 + chan() * 6);
+  const wear = CROP[season];
+  const soil = { ...wear.soil, h: wear.soil.h + chan() * 10, l: wear.soil.l + chan() * 6 };
   fill(ctx, q, css(soil));
   ctx.save();
   ctx.beginPath();
@@ -407,13 +421,14 @@ function paintFarm(ctx: CanvasRenderingContext2D, q: Quad, bucket: number): void
   for (let i = 1; i < 4; i++) ctx.lineTo(q[i][0], q[i][1]);
   ctx.closePath();
   ctx.clip();
-  // furrows running one way or the other across the field. The centre is
-  // measured, not assembled from corner 0's x and corner 1's y — that only
-  // lands on the middle while the camera is at rest.
+  // crop rows one way or the other across the field, a darker furrow
+  // between each pair. The centre is measured, not assembled from corner
+  // 0's x and corner 1's y — that only lands on the middle at rest.
   const [cx, cy] = centre(q);
-  ctx.lineWidth = 1.4;
   for (let k = -5; k <= 5; k++) {
-    ctx.strokeStyle = k % 2 ? css(lit(soil, 0.86), 0.7) : css(lit(soil, 1.14), 0.55);
+    const crop = k % 2 !== 0;
+    ctx.strokeStyle = crop ? css(lit(wear.crop, 1)) : css(lit(soil, 0.82), 0.8);
+    ctx.lineWidth = crop ? 2 : 1.2;
     ctx.beginPath();
     if (layout.furrowAngle === 0) {
       ctx.moveTo(cx - 34, cy + k * 3.4 - 17);
@@ -425,6 +440,38 @@ function paintFarm(ctx: CanvasRenderingContext2D, q: Quad, bucket: number): void
     ctx.stroke();
   }
   ctx.restore();
+  // a post-and-rail fence along the street edge
+  {
+    const [fa, fb] = nearEdge(q);
+    ctx.strokeStyle = 'rgba(225, 216, 196, 0.9)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(fa[0], fa[1] - 2.6);
+    ctx.lineTo(fb[0], fb[1] - 2.6);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(215, 206, 186, 0.95)';
+    for (let t = 0.05; t < 1; t += 0.12) {
+      ctx.fillRect(fa[0] + (fb[0] - fa[0]) * t - 0.5, fa[1] + (fb[1] - fa[1]) * t - 3.6, 1, 3.6);
+    }
+  }
+  if (chan() > 0.6) {
+    // a tractor parked in the field: a lit box with a darker cab and big wheels
+    const tx = cx + (layout.barnOx > 0 ? -18 : 18);
+    const ty = cy + 6;
+    ctx.fillStyle = 'rgba(20, 24, 40, 0.3)';
+    ctx.fillRect(tx - 3, ty + 0.5, 8, 2.4);
+    ctx.fillStyle = css(lit(hsl(8, 60, 42), LIGHT.right));
+    ctx.fillRect(tx - 3, ty - 3, 7, 3.4);
+    ctx.fillStyle = css(lit(hsl(8, 60, 42), LIGHT.roof));
+    ctx.fillRect(tx - 3, ty - 3.8, 7, 0.9);
+    ctx.fillStyle = 'rgba(30, 34, 44, 0.9)';
+    ctx.fillRect(tx + 1, ty - 6, 2.6, 3);
+    ctx.fillStyle = '#1e2026';
+    ctx.beginPath();
+    ctx.ellipse(tx - 2, ty + 0.4, 1.6, 1.6, 0, 0, Math.PI * 2);
+    ctx.ellipse(tx + 3, ty + 0.4, 1.1, 1.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
   const barnQ = inset(offsetQuad(q, layout.barnOx, layout.barnOy), 0.42);
   const barn = material('timber', hsl(9, 44, 34));
   const r = prism(ctx, barnQ, 10 + chan() * 4, barn, { seed: bucket + 3, windows: 'none' });
@@ -467,6 +514,16 @@ function paintFarm(ctx: CanvasRenderingContext2D, q: Quad, bucket: number): void
       css(lit(hsl(206, 8, 46), LIGHT.roof)),
     );
   } else if (layout.extra === 'coop') {
+    // a farm pond beside the coop, with a lighter rim of trodden bank
+    const pc = centre(offsetQuad(q, -layout.barnOx * 1.4, -layout.barnOy * 1.4));
+    ctx.fillStyle = css(hsl(44, 20, 58));
+    ctx.beginPath();
+    ctx.ellipse(pc[0], pc[1], 8, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = css(hsl(200, 34, 40));
+    ctx.beginPath();
+    ctx.ellipse(pc[0], pc[1], 6.5, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
     const c = inset(offsetQuad(q, -layout.barnOx * 0.8, -layout.barnOy * 0.8), 0.2);
     const r2 = prism(ctx, c, 5, material('timber', hsl(34, 26, 52)), { seed: bucket });
     roofCap(ctx, r2.roof, 'gabled', hsl(34, 26, 52), bucket + 1);
@@ -494,6 +551,8 @@ interface LotKey {
   size: number;
   abandoned: boolean;
   glow: boolean;
+  /** Set for farms only: a field is the one growable that wears the season. */
+  season?: Season;
 }
 
 /** Industrial growable stack placement — shared by the bake and stackTips. */
@@ -529,7 +588,7 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
   const tile = diamond(0, 0, hw, hh);
 
   if (fam === 'ag' && !abandoned) {
-    if (!glow) paintFarm(ctx, tile, bucket);
+    if (!glow) paintFarm(ctx, tile, bucket, k.season ?? 'summer');
     return;
   }
 
@@ -600,6 +659,12 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
     }
     if (sb.hf === 1) primary = { roof: r.roof, walls: r.walls };
   }
+  if (primary && glow && zone === Zone.Commercial && stage >= 1) {
+    // a shop's glazing spills light onto the pavement after dark
+    for (const [p, q2] of primary.walls) {
+      fill(ctx, [p, q2, [q2[0], q2[1] - 6.5], [p[0], p[1] - 6.5]], css(LAMP, 0.55));
+    }
+  }
   if (!primary || glow) return;
 
   let top = primary.roof;
@@ -644,7 +709,16 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
   }
 
   if (zone === Zone.Industrial && stage >= 2 && !abandoned && (kind === 'dirty' || kind === 'manu')) {
-    for (const [i2, st] of industryStacks(stage, kind, hw, hh, h).entries()) {
+    const stacks = industryStacks(stage, kind, hw, hh, h);
+    // pipe runs along the roof: between the two stacks of a dirty works, or
+    // from the single stack back across the roof of a manufacturing shed
+    const pipe = hsl(205, 6, 58);
+    if (stacks.length >= 2) {
+      pipeRun(ctx, [stacks[0].x, stacks[0].y - 4], [stacks[1].x, stacks[1].y - 4], 1.4, pipe);
+    } else if (stacks.length === 1) {
+      pipeRun(ctx, [stacks[0].x, stacks[0].y - 3], [stacks[0].x - hw * 0.4, stacks[0].y - 3 + hh * 0.2], 1.2, pipe);
+    }
+    for (const [i2, st] of stacks.entries()) {
       const q2 = diamond(st.x, st.y, st.w, st.w / 2);
       prism(ctx, q2, st.stackH, material('brick', hsl(16, 22 - i2 * 2, 34 - i2 * 4)), {
         seed: bucket + i2,
@@ -692,7 +766,7 @@ function lotSprite(k: LotKey): Sprite {
   const ay = h + hh + marginTop(h);
   const key = `L${k.zone}.${k.stage}.${k.tier}.${k.bucket}.${k.size}${k.abandoned ? 'a' : ''}${
     k.glow ? 'g' : ''
-  }${getSkin().id}`;
+  }${k.season ? '.' + k.season.slice(0, 2) : ''}${getSkin().id}`;
   return sprite(
     key,
     {
@@ -819,6 +893,9 @@ function pitched(style: RoofStyle): boolean {
   return style === 'gabled' || style === 'hipped' || style === 'mansard';
 }
 
+/** The civic table, read-only, for tests that hold the bakes to it. */
+export const CIVIC_SPECS: Readonly<Partial<Record<Zone, CivicSpec>>> = CIVIC;
+
 /** The swatch a civic building is built of, or null for anything else. */
 export function civicSwatch(zone: Zone): string | null {
   return CIVIC[zone]?.swatch ?? null;
@@ -858,24 +935,38 @@ export const COAL_STACKS = [[-16, 26], [-3, 32]] as const;
 export const INCINERATOR_STACK = { dx: 8, h: 38 } as const;
 export const NUCLEAR_TOWER = { dx: 15, dy: -2, h: 32 } as const;
 
-function drawCivic(
+/** Headroom a civic bake keeps over its roof: stacks, masts and the nuclear
+ * cooling tower stand well over the mass. */
+const CIVIC_MARGIN_TOP = 70;
+const CIVIC_MARGIN_X = 20;
+
+/** The skinned material a civic spec is built of. */
+function civicMaterial(spec: CivicSpec): { body: Hsl; mat: Material } {
+  const sw = swatch(spec.swatch);
+  const skinned = getSkin().building(sw.body.h, sw.body.s, sw.body.l);
+  const body: Hsl = { h: skinned[0], s: skinned[1], l: skinned[2] };
+  return { body, mat: materialOf(sw, body) };
+}
+
+/**
+ * Paint a civic building with its tile centre at the origin — the bake's
+ * frame. Everything the old live painter did, less the no-power bolt, which
+ * stays live because it is a state marker rather than architecture.
+ */
+function paintCivic(
   ctx: CanvasRenderingContext2D,
-  geom: TileGeom,
+  spec: CivicSpec,
   zone: Zone,
   powered: boolean,
   detail: 0 | 1 | 2,
-): boolean {
-  const spec = CIVIC[zone];
-  if (!spec) return false;
+): void {
   const s = getSkin();
-  const sw = swatch(spec.swatch);
-  const skinned = s.building(sw.body.h, sw.body.s, sw.body.l);
-  const body: Hsl = { h: skinned[0], s: skinned[1], l: skinned[2] };
-  const mat = materialOf(sw, body);
+  const { body, mat } = civicMaterial(spec);
   const h = spec.h * s.heightScale;
-  const q = inset(quadOf(geom), spec.f);
-  const cx = geom.cx;
-  const cy = geom.cy;
+  const tileQ = diamond(0, 0, TILE_W / 2, TILE_H / 2);
+  const q = inset(tileQ, spec.f);
+  const cx = 0;
+  const cy = 0;
   contactShadow(ctx, q);
   const eff = effectiveRoofStyle(raise(q, h), spec.roof);
   const r = prism(ctx, q, h, mat, {
@@ -936,7 +1027,7 @@ function drawCivic(
       // perimeter wall with a watchtower on the near corner
       ctx.strokeStyle = css(lit(body, LIGHT.roof * 1.1));
       ctx.lineWidth = 2;
-      const w = inset(quadOf(geom), 0.98);
+      const w = inset(tileQ, 0.98);
       ctx.beginPath();
       ctx.moveTo(w[0][0], w[0][1]);
       for (let i = 1; i < 4; i++) ctx.lineTo(w[i][0], w[i][1]);
@@ -1194,7 +1285,73 @@ function drawCivic(
     default:
       break;
   }
-  if (!powered) drawNoPowerBolt(ctx, cx, cy - h - 14);
+}
+
+/** The civic building's daylight sprite, baked once per zone, power state,
+ * detail level and skin. */
+function civicSprite(zone: Zone, spec: CivicSpec, powered: boolean, detail: 0 | 1 | 2): Sprite {
+  const h = spec.h * getSkin().heightScale;
+  const w = TILE_W + CIVIC_MARGIN_X * 2;
+  const ht = h + TILE_H + CIVIC_MARGIN_TOP + 8;
+  // detail only tells 0 from 1+ in the painter, so the key says no more —
+  // or zooming in would re-bake the same picture
+  return sprite(
+    `V${zone}.${powered ? 1 : 0}.${detail ? 1 : 0}.${getSkin().id}`,
+    { w, h: ht, ax: w / 2, ay: ht - TILE_H / 2 - 8 },
+    (c) => {
+      paintCivic(c, spec, zone, powered, detail);
+      c.save();
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      grain(c, c.canvas.width, c.canvas.height, 0.03, zone * 3 + 1);
+      c.restore();
+    },
+  );
+}
+
+/** Only the lit panes of the main mass, on transparent black, for the night
+ * overlay — the growables' glow bake, for the civic set. */
+function civicGlowSprite(zone: Zone, spec: CivicSpec): Sprite {
+  const h = spec.h * getSkin().heightScale;
+  const w = TILE_W + CIVIC_MARGIN_X * 2;
+  const ht = h + TILE_H + CIVIC_MARGIN_TOP + 8;
+  return sprite(
+    `Vg${zone}.${getSkin().id}`,
+    { w, h: ht, ax: w / 2, ay: ht - TILE_H / 2 - 8 },
+    (c) => {
+      const { mat } = civicMaterial(spec);
+      const q = inset(diamond(0, 0, TILE_W / 2, TILE_H / 2), spec.f);
+      // the same facade as the daylight bake: a podium lifts the first row
+      // of windows, and the lit rows have to lift with it
+      prism(c, q, h, mat, {
+        seed: zone * 7 + 1,
+        windows: spec.windows,
+        facade: spec.facade,
+        glow: true,
+      });
+    },
+    1,
+  );
+}
+
+function drawCivic(
+  ctx: CanvasRenderingContext2D,
+  geom: TileGeom,
+  zone: Zone,
+  powered: boolean,
+  detail: 0 | 1 | 2,
+  night: number,
+): boolean {
+  const spec = CIVIC[zone];
+  if (!spec) return false;
+  const { cx, cy } = geom;
+  blit(ctx, civicSprite(zone, spec, powered, detail), cx, cy);
+  if (night > 0.06 && powered && spec.windows !== 'none') {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    blit(ctx, civicGlowSprite(zone, spec), cx, cy, Math.min(0.55, night * 0.8));
+    ctx.restore();
+  }
+  if (!powered) drawNoPowerBolt(ctx, cx, cy - spec.h * getSkin().heightScale - 14);
   return true;
 }
 
@@ -1282,15 +1439,21 @@ const REWARD_HEIGHT: Partial<Record<Zone, number>> = {
 /** Slots the reward painter owns; everything else falls through to its own art. */
 const REWARD_ZONES = new Set<Zone>(Object.keys(REWARD_HEIGHT).map(Number) as Zone[]);
 
-function drawReward(
+/**
+ * Paint a reward with its block centre at the origin — the bake's frame. The
+ * geometry is measured from the footprint quad, never indexed, so the same
+ * bake is right at every quarter turn.
+ */
+function paintReward(
   ctx: CanvasRenderingContext2D,
-  geom: TileGeom,
   zone: Zone,
   powered: boolean,
   detail: 0 | 1 | 2,
+  size: number,
 ): void {
-  const { cx, cy } = geom;
-  const q = quadOf(geom);
+  const cx = 0;
+  const cy = 0;
+  const q = diamond(0, 0, (TILE_W * size) / 2, (TILE_H * size) / 2);
   const [hw, hh] = halfExtent(q);
   const skin = getSkin();
   const scale = skin.heightScale;
@@ -1386,10 +1549,10 @@ function drawReward(
         ctx.fill();
       }
       if (detail >= 1) {
-        // a colonnade across the front
+        // a colonnade across the front — the edge nearest the viewer,
+        // measured, so a turned camera does not put it round the back
         const cols = zone === Zone.Museum ? 7 : 5;
-        const a = bodyQ[2];
-        const b = bodyQ[3];
+        const [a, b] = nearEdge(bodyQ);
         for (let k = 0; k < cols; k++) {
           const t = (k + 0.5) / cols;
           const x = a[0] + (b[0] - a[0]) * t;
@@ -1511,7 +1674,39 @@ function drawReward(
     }
   }
 
-  if (!powered) drawNoPowerBolt(ctx, cx, cy - 30 * scale);
+}
+
+/** Headroom over a reward's tallest thing: the monument's spire, a
+ * floodlight mast, the research dome. */
+const REWARD_MARGIN_TOP = 80;
+
+function rewardSprite(zone: Zone, powered: boolean, detail: 0 | 1 | 2, size: number): Sprite {
+  const scale = getSkin().heightScale;
+  const w = TILE_W * size + 40;
+  const h = TILE_H * size + (REWARD_HEIGHT[zone] ?? 20) * scale + REWARD_MARGIN_TOP + 2;
+  return sprite(
+    `W${zone}.${powered ? 1 : 0}.${size}.${detail ? 1 : 0}.${getSkin().id}`,
+    { w, h, ax: w / 2, ay: h - (TILE_H * size) / 2 - 8 },
+    (c) => {
+      paintReward(c, zone, powered, detail, size);
+      c.save();
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      grain(c, c.canvas.width, c.canvas.height, 0.03, zone * 5 + 2);
+      c.restore();
+    },
+  );
+}
+
+function drawReward(
+  ctx: CanvasRenderingContext2D,
+  geom: TileGeom,
+  zone: Zone,
+  powered: boolean,
+  detail: 0 | 1 | 2,
+  size: number,
+): void {
+  blit(ctx, rewardSprite(zone, powered, detail, size), geom.cx, geom.cy);
+  if (!powered) drawNoPowerBolt(ctx, geom.cx, geom.cy - 30 * getSkin().heightScale);
 }
 
 // ---------------------------------------------------------------------------
@@ -1566,27 +1761,36 @@ function drawMissingBuilding(ctx: CanvasRenderingContext2D, geom: TileGeom) {
   prism(ctx, q, 12, material('concrete', hsl(0, 0, 38)), { seed: 1 });
 }
 
-/** A park: turf, a path, benches, and a stand of trees. */
-function drawPark(ctx: CanvasRenderingContext2D, geom: TileGeom, bucket: number) {
-  const q = quadOf(geom);
-  fill(ctx, q, css(hsl(106, 38, 36)));
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(q[0][0], q[0][1]);
-  for (let i = 1; i < 4; i++) ctx.lineTo(q[i][0], q[i][1]);
-  ctx.closePath();
-  ctx.clip();
-  ctx.strokeStyle = css(hsl(44, 16, 66), 0.75);
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.moveTo(geom.cx - 34, geom.cy + (bucket % 2 ? -6 : 6));
-  ctx.quadraticCurveTo(geom.cx, geom.cy + (bucket % 2 ? 8 : -8), geom.cx + 34, geom.cy + (bucket % 2 ? -4 : 4));
-  ctx.stroke();
-  ctx.restore();
-  drawTree(ctx, geom.cx - 12, geom.cy - 4, 'broadleaf', 18, bucket % 6, season);
-  drawTree(ctx, geom.cx + 10, geom.cy + 3, bucket % 3 === 0 ? 'conifer' : 'broadleaf', 15, (bucket + 2) % 6, season);
-  if (bucket % 3 === 1) drawHedge(ctx, geom.cx + 2, geom.cy + 9, 14, season);
-  else drawRock(ctx, geom.cx + 16, geom.cy - 3, 3, bucket);
+/** A park: turf, a path, a rock or a hedge, and a stand of trees — baked per
+ * variant and season, trees and all (a nested sprite bakes first). */
+function parkSprite(bucket: number, season: Season): Sprite {
+  const w = TILE_W + 24;
+  const h = TILE_H + 44;
+  return sprite(`P${bucket}.${season.slice(0, 2)}`, { w, h, ax: w / 2, ay: h - TILE_H / 2 - 4 }, (ctx) => {
+    const q = diamond(0, 0, TILE_W / 2, TILE_H / 2);
+    fill(ctx, q, css(hsl(106, 38, 36)));
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(q[0][0], q[0][1]);
+    for (let i = 1; i < 4; i++) ctx.lineTo(q[i][0], q[i][1]);
+    ctx.closePath();
+    ctx.clip();
+    ctx.strokeStyle = css(hsl(44, 16, 66), 0.75);
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(-34, bucket % 2 ? -6 : 6);
+    ctx.quadraticCurveTo(0, bucket % 2 ? 8 : -8, 34, bucket % 2 ? -4 : 4);
+    ctx.stroke();
+    ctx.restore();
+    drawTree(ctx, -12, -4, 'broadleaf', 18, bucket % 6, season);
+    drawTree(ctx, 10, 3, bucket % 3 === 0 ? 'conifer' : 'broadleaf', 15, (bucket + 2) % 6, season);
+    if (bucket % 3 === 1) drawHedge(ctx, 2, 9, 14, season);
+    else drawRock(ctx, 16, -3, 3, bucket);
+  });
+}
+
+function drawPark(ctx: CanvasRenderingContext2D, geom: TileGeom, bucket: number, season: Season) {
+  blit(ctx, parkSprite(bucket, season), geom.cx, geom.cy);
 }
 
 // ---------------------------------------------------------------------------
@@ -1605,6 +1809,7 @@ export function drawBuilding(
   night = 0, // 0 day .. 1 midnight, brings the lit-window overlay up
   detail: 0 | 1 | 2 = 1, // zoom LOD
   size = 1,
+  season: Season = 'summer', // what anything baked with vegetation wears
 ) {
   const { cx, cy } = geom;
   const bucket = variantBucket(variant);
@@ -1615,7 +1820,7 @@ export function drawBuilding(
     return;
   }
   if (REWARD_ZONES.has(zone)) {
-    drawReward(ctx, geom, zone, powered, detail);
+    drawReward(ctx, geom, zone, powered, detail, size);
     return;
   }
   if (zone >= MOD_SLOT_BASE && !authored) {
@@ -1623,7 +1828,7 @@ export function drawBuilding(
     return;
   }
   if (zone === Zone.Park) {
-    drawPark(ctx, geom, bucket);
+    drawPark(ctx, geom, bucket, season);
     return;
   }
   if (zone === Zone.PowerLine) {
@@ -1650,7 +1855,7 @@ export function drawBuilding(
     ctx.stroke();
     return;
   }
-  if (drawCivic(ctx, geom, zone, powered, detail)) return;
+  if (drawCivic(ctx, geom, zone, powered, detail, night)) return;
 
   if (stage === 0) {
     drawSurveyedLot(ctx, geom, zone);
@@ -1658,17 +1863,48 @@ export function drawBuilding(
     return;
   }
 
-  const key: LotKey = { zone, stage, tier, bucket, size, abandoned, glow: false };
+  const farm = zone === Zone.Industrial && normalizeTier(zone, tier) === 'ag' && !abandoned;
+  const key: LotKey = {
+    zone, stage, tier, bucket, size, abandoned, glow: false,
+    season: farm ? season : undefined,
+  };
   blit(ctx, lotSprite(key), cx, cy);
-  if (night > 0.06 && !abandoned && powered) {
+  if (night > 0.06 && !abandoned && powered && !farm) {
+    // (a farm's glow bake is empty — nothing to blit)
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    blit(ctx, lotSprite({ ...key, glow: true }), cx, cy, Math.min(0.62, night * 0.85));
+    blit(ctx, lotSprite({ ...key, glow: true }), cx, cy, Math.min(0.5, night * 0.7));
     ctx.restore();
   }
   if (!powered && !abandoned) {
     drawNoPowerBolt(ctx, cx, cy - growableHeight(zone, stage, tier, bucket) - 14);
   }
+}
+
+/**
+ * The daylight sprite the map would blit for a lot or a civic building —
+ * for the waterfront pass, which mirrors it into the water. Null for
+ * anything else (rewards, parks, stage-0 lots, mods).
+ */
+export function standingSpriteFor(
+  zone: Zone,
+  stage: Stage,
+  tier: Tier,
+  variant: number,
+  powered: boolean,
+  abandoned: boolean,
+  season: Season,
+): Sprite | null {
+  const civic = CIVIC[zone];
+  if (civic) return civicSprite(zone, civic, powered, 1);
+  if (zone !== Zone.Residential && zone !== Zone.Commercial && zone !== Zone.Industrial) return null;
+  if (stage === 0) return null;
+  const bucket = variantBucket(variant);
+  const farm = normalizeTier(zone, tier) === 'ag' && !abandoned;
+  return lotSprite({
+    zone, stage, tier, bucket, size: 1, abandoned, glow: false,
+    season: farm ? season : undefined,
+  });
 }
 
 /** The ground shadow for whatever stands on this tile. Called from the shadow

@@ -24,12 +24,18 @@ export function nightFactor(timeMs: number): number {
  * rather than as daytime with the lights switched on: the window glow is
  * additive, so if the wash under it is weak the whole city just goes pale. */
 export function nightTint(f: number): string {
-  return `rgba(14, 18, 48, ${(0.5 * f).toFixed(3)})`;
+  return `rgba(10, 14, 40, ${(0.58 * f).toFixed(3)})`;
 }
 
 /** The deep-night darkness that light sources punch through. */
 export function darknessAlpha(f: number): number {
-  return Math.min(0.78, 0.8 * f);
+  return Math.min(0.84, 0.86 * f);
+}
+
+/** Whether the night additions — pools, glow, reflections' wash — run this
+ * frame. Everything night-only asks this, so a day frame is untouched. */
+export function nightActive(f: number): boolean {
+  return f > 0.02;
 }
 
 /** Player toggle for the visual cycle: off means permanent daylight.

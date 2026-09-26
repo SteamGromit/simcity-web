@@ -1,10 +1,11 @@
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { drawBuilding } from '../src/render/buildings';
 import { blockGeom, setViewAngle } from '../src/render/iso';
 import { centre, halfExtent, tileRect } from '../src/render/massing';
 import { ensureCoreContent } from '../src/sim/content';
 import { Stage, Tier, Zone } from '../src/sim/types';
-import { strictCtx } from './stubctx';
+import { strictCtx, stubCanvasFactory } from './stubctx';
+import { clearSprites, setCanvasFactory, spriteStats } from '../src/render/spritecache';
 
 /**
  * Every slot the reward painter owns: footprint from the pack, and whether
@@ -27,8 +28,14 @@ const REWARDS: { zone: Zone; size: number; discs: boolean }[] = [
 
 const QUARTERS = [0, 1, 2, 3];
 
+beforeEach(() => {
+  setCanvasFactory(stubCanvasFactory().factory);
+  clearSprites();
+});
+
 afterEach(() => {
   setViewAngle(0);
+  setCanvasFactory(null);
 });
 
 describe('halfExtent', () => {
@@ -90,14 +97,19 @@ describe('rewards survive a rotated camera', () => {
     test(`${Zone[zone]} draws at every quarter turn`, () => {
       for (const q of QUARTERS) {
         setViewAngle((q * Math.PI) / 2);
+        clearSprites();
+        const bake = stubCanvasFactory();
+        setCanvasFactory(bake.factory);
         const { ctx, radii } = strictCtx();
         const geom = blockGeom(46, 46, size, 0);
         expect(() =>
           drawBuilding(ctx, geom, zone, 3 as Stage, 2 as Tier, false, true, 0.5, 0, 2, size),
         ).not.toThrow();
         // and it must not collapse to a point: a quarter turn that zeroed the
-        // half-extents drew the campus and the stadium bowl as nothing at all
-        if (discs) expect(radii.some((r) => r > 1)).toBe(true);
+        // half-extents drew the campus and the stadium bowl as nothing at all.
+        // The art bakes into a sprite now, so the radii to check are the
+        // bake's — the live context only sees a blit.
+        if (discs) expect([...radii, ...bake.radii.flat()].some((r) => r > 1)).toBe(true);
       }
     });
   }
@@ -109,5 +121,36 @@ describe('rewards survive a rotated camera', () => {
     expect(() =>
       drawBuilding(ctx, geom, Zone.College, 3 as Stage, 2 as Tier, false, false, 0.5, 0, 2, 3),
     ).not.toThrow();
+  });
+});
+
+describe('rewards bake', () => {
+  test('a reward bakes once per zone, power state and size, and blits after', () => {
+    ensureCoreContent();
+    const { ctx, trace } = strictCtx();
+    const before = spriteStats().bakes;
+    const geom = blockGeom(46, 46, 3, 0);
+    drawBuilding(ctx, geom, Zone.Museum, 3 as Stage, 2 as Tier, false, true, 0.5, 0, 2, 3);
+    const afterFirst = spriteStats().bakes;
+    drawBuilding(ctx, geom, Zone.Museum, 3 as Stage, 2 as Tier, false, true, 0.5, 0, 2, 3);
+    // the second identical draw bakes nothing at all
+    expect(spriteStats().bakes).toBe(afterFirst);
+    drawBuilding(ctx, geom, Zone.Museum, 3 as Stage, 2 as Tier, false, false, 0.5, 0, 2, 3);
+    expect(trace.filter((t) => t.startsWith('drawImage')).length).toBe(3);
+    expect(spriteStats().bakes - before).toBeGreaterThanOrEqual(2);
+  });
+  test('the colonnade paints the same picture at every quarter', () => {
+    ensureCoreContent();
+    const pictures: string[] = [];
+    for (const q of [0, 1, 2, 3]) {
+      setViewAngle((q * Math.PI) / 2);
+      clearSprites();
+      const bake = stubCanvasFactory();
+      setCanvasFactory(bake.factory);
+      const g = blockGeom(46, 46, 2, 0);
+      drawBuilding(strictCtx().ctx, { cx: 0, cy: 0, corners: g.corners.map(([x, y]) => [x - g.cx, y - g.cy] as [number, number]) }, Zone.Library, 3 as Stage, 2 as Tier, false, true, 0.5, 0, 2, 2);
+      pictures.push(bake.traces[0].join('\n'));
+    }
+    expect(new Set(pictures).size).toBe(1);
   });
 });

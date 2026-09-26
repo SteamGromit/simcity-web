@@ -1,0 +1,120 @@
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { drawBuilding } from '../src/render/buildings';
+import { CIVIC_SPECS } from '../src/render/buildings';
+import { windowGrid, windowPlan } from '../src/render/windows';
+import { setViewAngle, tileGeom } from '../src/render/iso';
+import { clearSprites, setCanvasFactory, spriteStats } from '../src/render/spritecache';
+import { ensureCoreContent } from '../src/sim/content';
+import { Zone } from '../src/sim/types';
+import { strictCtx, stubCanvasFactory } from './stubctx';
+
+const CIVIC = [
+  Zone.FireStation,
+  Zone.PoliceStation,
+  Zone.Hospital,
+  Zone.School,
+  Zone.Prison,
+  Zone.BusStop,
+  Zone.StreetcarStop,
+  Zone.MonorailStation,
+  Zone.SubwayStation,
+  Zone.RailTerminal,
+  Zone.RecyclingCentre,
+  Zone.Incinerator,
+  Zone.WaterPump,
+  Zone.PowerPlant,
+  Zone.SolarPlant,
+  Zone.HydroPlant,
+  Zone.NuclearPlant,
+  Zone.WindTurbine,
+];
+
+describe('civic bake', () => {
+  beforeEach(() => {
+    ensureCoreContent();
+    setCanvasFactory(stubCanvasFactory().factory);
+    clearSprites();
+  });
+  afterEach(() => {
+    setCanvasFactory(null);
+    setViewAngle(0);
+  });
+  test('a civic building bakes once and blits after', () => {
+    const { ctx, trace } = strictCtx();
+    const before = spriteStats().bakes;
+    drawBuilding(ctx, tileGeom(4, 4, 0), Zone.FireStation, 0, 2, false, true, 0.5, 0, 1);
+    drawBuilding(ctx, tileGeom(4, 4, 0), Zone.FireStation, 0, 2, false, true, 0.5, 0, 1);
+    expect(spriteStats().bakes - before).toBe(1);
+    expect(trace.filter((t) => t.startsWith('drawImage')).length).toBe(2);
+  });
+  test('losing power changes the sprite', () => {
+    const { ctx } = strictCtx();
+    const before = spriteStats().bakes;
+    drawBuilding(ctx, tileGeom(4, 4, 0), Zone.PoliceStation, 0, 2, false, true, 0.5, 0, 1);
+    drawBuilding(ctx, tileGeom(4, 4, 0), Zone.PoliceStation, 0, 2, false, false, 0.5, 0, 1);
+    expect(spriteStats().bakes - before).toBe(2);
+  });
+  test('at night a powered civic building adds a glow blit under lighter', () => {
+    const { ctx, trace } = strictCtx();
+    drawBuilding(ctx, tileGeom(4, 4, 0), Zone.Hospital, 0, 2, false, true, 0.5, 0.9, 1);
+    expect(trace.some((t) => t === 'globalCompositeOperation=lighter')).toBe(true);
+    expect(trace.filter((t) => t.startsWith('drawImage')).length).toBe(2);
+  });
+  test('a park bakes per season', () => {
+    const { ctx } = strictCtx();
+    const before = spriteStats().bakes;
+    drawBuilding(ctx, tileGeom(4, 4, 0), Zone.Park, 0, 2, false, true, 0.3, 0, 1, 1, 'summer');
+    drawBuilding(ctx, tileGeom(4, 4, 0), Zone.Park, 0, 2, false, true, 0.3, 0, 1, 1, 'summer');
+    const summer = spriteStats().bakes - before;
+    drawBuilding(ctx, tileGeom(4, 4, 0), Zone.Park, 0, 2, false, true, 0.3, 0, 1, 1, 'winter');
+    expect(spriteStats().bakes - before).toBeGreaterThan(summer);
+    expect(summer).toBeGreaterThanOrEqual(1);
+  });
+  test('a farm bakes per season, a factory does not', () => {
+    const { ctx } = strictCtx();
+    let before = spriteStats().bakes;
+    drawBuilding(ctx, tileGeom(4, 4, 0), Zone.Industrial, 1, 'ag', false, true, 0.3, 0, 1, 1, 'summer');
+    drawBuilding(ctx, tileGeom(4, 4, 0), Zone.Industrial, 1, 'ag', false, true, 0.3, 0, 1, 1, 'summer');
+    const summer = spriteStats().bakes - before;
+    drawBuilding(ctx, tileGeom(4, 4, 0), Zone.Industrial, 1, 'ag', false, true, 0.3, 0, 1, 1, 'winter');
+    expect(spriteStats().bakes - before).toBeGreaterThan(summer);
+    clearSprites();
+    before = spriteStats().bakes;
+    drawBuilding(ctx, tileGeom(4, 4, 0), Zone.Industrial, 3, 'manu', false, true, 0.3, 0, 1, 1, 'summer');
+    drawBuilding(ctx, tileGeom(4, 4, 0), Zone.Industrial, 3, 'manu', false, true, 0.3, 0, 1, 1, 'winter');
+    expect(spriteStats().bakes - before).toBe(1);
+  });
+  test('the glow lights the rows the daytime windows are on — podium included', () => {
+    // a podium lifts the first row of windows; the glow bake must lift it too,
+    // or a fire station lights a row across its engine-bay doors
+    for (const z of [Zone.FireStation, Zone.Hospital]) {
+      const bake = stubCanvasFactory();
+      setCanvasFactory(bake.factory);
+      clearSprites();
+      drawBuilding(strictCtx().ctx, tileGeom(4, 4, 0), z, 0, 2, false, true, 0.5, 0.9, 1);
+      // bake 0 is the daylight sprite, the last one is the glow
+      const day = bake.traces[0];
+      const glow = bake.traces[bake.traces.length - 1];
+      const rows = (t: string[]) =>
+        [...new Set(t.filter((c) => c.startsWith('fillRect(')).map((c) => c.split(',')[1]))].sort();
+      const spec = CIVIC_SPECS[z]!;
+      const podium = spec.facade?.podium ?? 0;
+      expect(podium).toBeGreaterThan(0);
+      const panes = windowGrid(30, spec.h, windowPlan(spec.windows, spec.h), 4 + podium * windowPlan(spec.windows, spec.h).floor);
+      const glowRows = rows(glow);
+      for (const p of panes) expect(glowRows.some((r) => Math.abs(parseFloat(r) - (p.v + 0.5)) < 0.1), `${Zone[z]} row v=${p.v}`).toBe(true);
+      void day;
+    }
+  });
+  test('every civic zone bakes at every quarter without a negative radius', () => {
+    for (const q of [0, 1, 2, 3]) {
+      setViewAngle((q * Math.PI) / 2);
+      for (const z of CIVIC) {
+        clearSprites();
+        expect(() =>
+          drawBuilding(strictCtx().ctx, tileGeom(4, 4, 0), z, 0, 2, false, true, 0.5, 0.5, 2),
+        ).not.toThrow();
+      }
+    }
+  });
+});

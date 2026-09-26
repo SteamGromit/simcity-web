@@ -13,7 +13,7 @@
 import { fbm, hash2 } from './noise';
 import { ENV, Hsl, css, hsl, lit, mix } from './palette';
 import { LIGHT, Pt } from './sun';
-import { blit, sprite } from './spritecache';
+import { Sprite, blit, sprite } from './spritecache';
 import type { VegTint } from './seasonfx';
 import { TILE_H, TILE_W, TileGeom } from './iso';
 
@@ -252,6 +252,52 @@ export function paintGround(
 
 const WAVE_FRAMES = 8;
 
+/**
+ * One frame of caustics: the bright, wandering lines light draws on a
+ * rippled surface, from a per-pixel noise field thresholded thin. Eight
+ * frames cycle; neighbouring tiles run out of phase so a lake reads as one
+ * body. Device pixels; a no-op on a context with no pixels to read.
+ */
+export function causticSprite(frame: number): Sprite {
+  const f = ((frame % WAVE_FRAMES) + WAVE_FRAMES) % WAVE_FRAMES;
+  return sprite(`wc${f}`, { w: TILE_W + 2, h: TILE_H + 2, ax: HW + 1, ay: HH + 1 }, (ctx) => {
+    const get = (ctx as { getImageData?: unknown }).getImageData;
+    if (typeof get !== 'function') return;
+    const W = ctx.canvas.width;
+    const H = ctx.canvas.height;
+    let img: ImageData | undefined;
+    try {
+      img = ctx.getImageData(0, 0, W, H);
+    } catch {
+      return;
+    }
+    if (!img) return;
+    const d = img.data;
+    const scale = W / (TILE_W + 2);
+    const cx = (HW + 1) * scale;
+    const cy = (HH + 1) * scale;
+    const phase = (f / WAVE_FRAMES) * 2;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const dx = (x - cx) / cx;
+        const dy = (y - cy) / cy;
+        if (Math.abs(dx) + Math.abs(dy) > 1.02) continue;
+        const n = fbm((x / scale) * 0.09 + phase, (y / scale) * 0.18 - phase * 0.6, 4141, 3);
+        // a thin band of the field, so the light lies in lines rather than blobs
+        const band = 1 - Math.min(1, Math.abs(n - 0.56) / 0.045);
+        if (band <= 0) continue;
+        const i = (y * W + x) * 4;
+        d[i] = 220;
+        d[i + 1] = 240;
+        d[i + 2] = 252;
+        d[i + 3] = Math.round(255 * 0.2 * band);
+      }
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.putImageData(img, 0, 0);
+  });
+}
+
 /** One frame of moving surface: crests, glitter and a hint of current. */
 function waveSprite(frame: number) {
   return sprite(`wv${frame}`, { w: TILE_W + 2, h: TILE_H + 2, ax: HW + 1, ay: HH + 1 }, (ctx) => {
@@ -302,6 +348,12 @@ export function paintWater(
   ctx.closePath();
   ctx.fillStyle = css(tone);
   ctx.fill();
+  // the sky in it: a touch lighter toward the top of the tile
+  const sky = ctx.createLinearGradient(0, geom.cy - TILE_H / 2, 0, geom.cy + TILE_H / 2);
+  sky.addColorStop(0, 'rgba(200, 226, 244, 0.1)');
+  sky.addColorStop(1, 'rgba(200, 226, 244, 0)');
+  ctx.fillStyle = sky;
+  ctx.fill();
   if (detail === 0) return;
   // A sun glint that drifts with the swell, brightest out in the open. The
   // spatial term is deliberately slow — a per-tile phase this fast turned a
@@ -311,9 +363,11 @@ export function paintWater(
     glint * (0.65 + 0.35 * Math.sin(timeMs / 1600 + (x - y) * 0.11))
   ).toFixed(3)})`;
   ctx.fill();
-  // neighbouring tiles run out of phase, so the surface reads as one body
-  const frame = Math.floor(timeMs / 190 + x * 3 + y * 5) % WAVE_FRAMES;
-  blit(ctx, waveSprite(frame), geom.cx, geom.cy, 0.4 + 0.4 * (1 - d));
+  // caustics, then glitter: neighbouring tiles run out of phase, so the
+  // surface reads as one body
+  const frame = Math.floor(timeMs / 240 + x * 3 + y * 5) % WAVE_FRAMES;
+  blit(ctx, causticSprite(frame), geom.cx, geom.cy, 0.35 + 0.25 * (1 - d));
+  blit(ctx, waveSprite((frame + 3) % WAVE_FRAMES), geom.cx, geom.cy, 0.3 + 0.3 * (1 - d));
 }
 
 /**
