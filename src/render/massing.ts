@@ -14,8 +14,9 @@
  */
 
 import { fbm, hash2 } from './noise';
-import { Hsl, LAMP, Material, MaterialKind, OFFICE_LAMP, css, lit, material, mix } from './palette';
+import { Hsl, Material, MaterialKind, css, lit, material, mix } from './palette';
 import { LIGHT, Pt, shadowQuad, wallLight } from './sun';
+import { WindowPattern, WindowPlan, paintWindows, windowPlan } from './windows';
 
 /** Footprint corners, north/east/south/west, clockwise on a y-down canvas. */
 export type Quad = [Pt, Pt, Pt, Pt];
@@ -284,99 +285,12 @@ function texture(
 }
 
 // ---------------------------------------------------------------------------
-// Windows
+// Windows live in windows.ts; re-exported so the rest of the renderer keeps
+// reaching for them here.
 // ---------------------------------------------------------------------------
 
-export type WindowPattern = 'punched' | 'ribbon' | 'curtain' | 'none';
-
-export interface WindowPlan {
-  pattern: WindowPattern;
-  /** Floor-to-floor height in screen px. */
-  floor: number;
-  /** Horizontal spacing of window bays, screen px. */
-  bay: number;
-}
-
-/** Floor heights by how tall the mass is: cottages get big windows, towers small. */
-export function windowPlan(pattern: WindowPattern, h: number): WindowPlan {
-  if (h < 22) return { pattern, floor: 8.5, bay: 8 };
-  if (h < 46) return { pattern, floor: 8, bay: 7.5 };
-  if (h < 90) return { pattern, floor: 7.2, bay: 7 };
-  return { pattern, floor: 6.6, bay: 6.6 };
-}
-
-/**
- * Punch a wall's windows. Called inside wall space. `glow` paints only the
- * lit panes on transparent black, for the night overlay sprite.
- */
-function paintWindows(
-  ctx: CanvasRenderingContext2D,
-  len: number,
-  h: number,
-  mat: Material,
-  plan: WindowPlan,
-  level: number,
-  seed: number,
-  glow: boolean,
-  occupied: boolean,
-  base = 0,
-): void {
-  if (plan.pattern === 'none' || h < 9) return;
-  const cols = Math.max(1, Math.round(len / plan.bay));
-  const rows = Math.max(1, Math.floor((h - 4.5 - base) / plan.floor));
-  if (rows < 1) return;
-  const wU = (plan.pattern === 'curtain' ? 0.78 : 0.5) / cols;
-  const wH = plan.pattern === 'ribbon' ? plan.floor * 0.4 : plan.floor * 0.52;
-  const glassDay = css(lit(mat.glass, level * 0.95));
-  const sill = css(lit(mat.trim, level));
-  const head = css(lit({ ...mat.body, l: mat.body.l * 0.6 }, level), 0.55);
-
-  for (let r = 0; r < rows; r++) {
-    const v = base + 4 + r * plan.floor;
-    if (v + wH > h - 1.5) break;
-    if (plan.pattern === 'ribbon') {
-      // a continuous band, mullions dropped in over it
-      if (!glow) {
-        ctx.fillStyle = glassDay;
-        ctx.fillRect(0.06, v, 0.88, wH);
-        ctx.fillStyle = head;
-        ctx.fillRect(0.06, v + wH - 0.5, 0.88, 0.5);
-      }
-      for (let c = 0; c < cols; c++) {
-        const u = 0.06 + (0.88 * (c + 0.5)) / cols;
-        const on = hash2(c, r, seed) > 0.52;
-        if (glow) {
-          if (!on || !occupied) continue;
-          ctx.fillStyle = css(hash2(c, r, seed + 5) > 0.6 ? OFFICE_LAMP : LAMP, 0.95);
-          ctx.fillRect(u - wU * 0.45, v + 0.4, wU * 0.9, wH - 0.8);
-        } else {
-          ctx.fillStyle = sill;
-          ctx.fillRect(u + wU * 0.5, v, 0.006, wH);
-        }
-      }
-      continue;
-    }
-    for (let c = 0; c < cols; c++) {
-      const u = (c + 0.5) / cols - wU / 2;
-      const on = hash2(c * 3 + 1, r * 7 + 2, seed) > (plan.pattern === 'curtain' ? 0.42 : 0.55);
-      if (glow) {
-        if (!on || !occupied) continue;
-        ctx.fillStyle = css(hash2(c, r, seed + 5) > 0.62 ? OFFICE_LAMP : LAMP, 0.95);
-        ctx.fillRect(u + wU * 0.08, v + 0.5, wU * 0.84, wH - 1);
-        continue;
-      }
-      ctx.fillStyle = glassDay;
-      ctx.fillRect(u, v, wU, wH);
-      // a dark head reveal: the depth cue that stops windows reading as decals
-      ctx.fillStyle = head;
-      ctx.fillRect(u, v + wH - 0.7, wU, 0.7);
-      if (plan.pattern === 'punched' && wU * len > 3.2) {
-        ctx.fillStyle = sill;
-        ctx.fillRect(u - 0.15 / cols, v - 0.5, wU + 0.3 / cols, 0.5);
-      }
-    }
-  }
-}
+export type { WindowPattern, WindowPlan };
+export { windowPlan };
 
 /**
  * Everything on a wall that isn't the wall or its windows. Drawn in wall
