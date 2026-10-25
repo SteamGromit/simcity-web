@@ -35,6 +35,7 @@ import {
 import { LAMP, hsl, materialOf, swatch } from './palette';
 import { LIGHT, wallLight, type Pt } from './sun';
 import { NO_SITE, type Site } from './site';
+import { podiumTower } from './podium';
 import { DOOR_COLORS, frontWallFor, letteringDashes, SIGN_PALETTE, TERRACE_BUCKET, terracePlan, terraceRecipe, terraceStage } from './frontage';
 import {
   chimneyHeight,
@@ -672,7 +673,14 @@ function lotMassing(k: LotKey, chan: () => number) {
   const rc = zone === Zone.Residential || zone === Zone.Commercial;
   const pick = chan(); // always drawn, so the stream keeps its order
   const terrace = rc && party !== 0 && !k.abandoned;
-  const arch: Archetype = terrace ? terraceRecipe(zone, tier) : pickArchetype(zone, tier, stage, pick);
+  let arch: Archetype = terrace ? terraceRecipe(zone, tier) : pickArchetype(zone, tier, stage, pick);
+  const wealth = normalizeTier(zone, tier);
+  if (!terrace && rc && stage >= 5 && (wealth === 2 || wealth === 3) && chan() < 0.5) {
+    // half the tall lots stand as a tower on a podium, generated from the
+    // channels rather than taken from the table, so the skyline is the city's
+    const gen = podiumTower(chan, side);
+    arch = { ...arch, boxes: gen.boxes, roof: 'flat', props: arch.props };
+  }
   const h = terrace
     ? growableHeight(zone, terraceStage(zone), tier, TERRACE_BUCKET)
     : growableHeight(zone, stage, tier, bucket);

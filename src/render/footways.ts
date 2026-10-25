@@ -9,6 +9,7 @@
  * Pure: nothing here touches the canvas or the walkers themselves.
  */
 import { idx, inBounds } from '../sim/grid';
+import { underConstruction } from '../sim/develop';
 import { drivable, frontage } from '../sim/roads';
 import { CityState, GRID } from '../sim/types';
 import { EDGE_DIR, opposite, type Edge } from './lanegeom';
@@ -208,6 +209,7 @@ export function successors(city: CityState, leg: Leg): Option[] {
  * first of N, E, S, W, the order the lot art uses for its street side.
  */
 export function doorOf(city: CityState, lot: number): { tile: number; edge: Edge; at: Pt } | null {
+  if (underConstruction(city.tiles[lot])) return null; // a building site has no door yet
   const x = lot % GRID;
   const y = (lot / GRID) | 0;
   for (let k = 0; k < 4; k++) {
