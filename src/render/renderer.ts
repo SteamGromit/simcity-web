@@ -110,7 +110,7 @@ export class Renderer {
   /** Distance-from-shore for every water tile, rebuilt when the coast moves. */
   private depth: Float32Array;
   private depthStamp = -1;
-  private automata = new Automata();
+  readonly automata = new Automata();
   private disasterFx = new DisasterFx();
   private shadows = new ShadowLayer();
   /** tile paint order, ascending depth; rebuilt on each quarter turn */
@@ -146,6 +146,8 @@ export class Renderer {
   private roadQuarter = -1;
   /** Inclusive tile bounds visible this frame, so off-screen work is skipped. */
   private clip = { x0: 0, y0: 0, x1: GRID - 1, y1: GRID - 1 };
+  /** The ground under the viewport, no allowance for height; where people step out. */
+  private focus = { x0: 0, y0: 0, x1: GRID - 1, y1: GRID - 1 };
   /** Milliseconds each pass took last frame. Read by the `__simcity.profile`
    * debug hook; the cost of filling it is four `performance.now()` calls. */
   readonly timings: Record<string, number> = {};
@@ -264,6 +266,30 @@ export class Renderer {
       x1: Math.min(GRID - 1, x1 + pad),
       y1: Math.min(GRID - 1, y1 + pad),
     };
+    // the ground the player actually sees, without the allowance for towers:
+    // where the automata put the people
+    let fx0 = GRID;
+    let fy0 = GRID;
+    let fx1 = -1;
+    let fy1 = -1;
+    for (const [sx, sy] of [
+      [this.camera.x, this.camera.y],
+      [this.camera.x + w, this.camera.y],
+      [this.camera.x + w, this.camera.y + h],
+      [this.camera.x, this.camera.y + h],
+    ]) {
+      const g = screenToIso(sx, sy);
+      fx0 = Math.min(fx0, Math.floor(g.x));
+      fx1 = Math.max(fx1, Math.ceil(g.x));
+      fy0 = Math.min(fy0, Math.floor(g.y));
+      fy1 = Math.max(fy1, Math.ceil(g.y));
+    }
+    this.focus = {
+      x0: Math.max(0, fx0 - 1),
+      y0: Math.max(0, fy0 - 1),
+      x1: Math.min(GRID - 1, fx1 + 1),
+      y1: Math.min(GRID - 1, fy1 + 1),
+    };
   }
 
   private visible(x: number, y: number): boolean {
@@ -335,12 +361,12 @@ export class Renderer {
     this.frameNow = now;
     this.storm = city.disasters.hurricaneTicks > 0;
     this.wind = this.storm ? -5 + Math.sin(now / 120) * 3.5 : 0;
-    this.automata.setView(this.night, this.camera.zoom);
+    this.computeClip(); // before the automata read `focus`, so a jump spawns against the new view
+    this.automata.setView(this.night, this.camera.zoom, this.focus, this.lineClock / 1000);
     this.automata.step(city, now, AUTOMATA_SCALE[this.simSpeed]);
     this.disasterFx.step(city, now, AUTOMATA_SCALE[this.simSpeed]);
     this.ensureDepth(city);
     this.ensureRoadSides(city);
-    this.computeClip();
 
     const W = this.ctx.canvas.width;
     const H = this.ctx.canvas.height;
@@ -1005,7 +1031,7 @@ export class Renderer {
     const tSec = this.lineClock / 1000;
     for (const line of city.transitLines) {
       this.strokeSegments(line.path, city, line.color, 0.8);
-      drawLineVehicles(this.ctx, city, line, tSec);
+      drawLineVehicles(this.ctx, city, line, tSec, this.quarter);
     }
     const d = view.transitDraft;
     if (!d) return;

@@ -142,6 +142,10 @@ const renderer = new Renderer(canvas, city.seed);
   },
   /** Where the last frame went, plus what the sprite cache is holding. */
   profile: () => ({ ...renderer.timings, sprites: spriteStats() }),
+  /** The cars and people as they stand, for checking a scene from the console. */
+  automata: () => renderer.automata,
+  /** The live city, for stepping the automata by hand from the console. */
+  city: () => city,
   /**
    * Lay a tool along a line without going through the toolbar. The art for
    * the upper road classes is otherwise only reachable in a city of 45,000

@@ -68,8 +68,12 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    transient markers are all held to painting the same picture (or at least
    sane geometry) at all four quarters, and it found four real bugs on the way
    in v0.60.1. What is still unswept is the *composed* scene rather than the
-   individual painters: overlays and data views, the transit line bands and
-   line vehicles, disaster effects, and the halo/cursor layer.
+   individual painters: overlays and data views, the transit line bands,
+   disaster effects, and the halo/cursor layer (the line vehicles bake per
+   quarter since v0.71.0).
+   From the v0.70.0 review: a car between 0.82 and 0.90 of its approach
+   tile when the signal goes red stops hard a few pixels into the box with
+   its brake lights on (`mustWait` lets a car through only past 0.90).
 
 8. **City styles** — one distinct look per style, beyond the palette shifts
    the three skins do today: Simpsons Springfield, present-day Hong Kong,
@@ -79,6 +83,11 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Done
 
+- **People and transit (graphics drop 2)** — shipped v0.71.0: footway
+  graph with kerbs, corners and crossings at the ladders; box-model figures
+  with a gait, umbrellas and masks; doors, crowds by hour, spawning where
+  the player looks; transit vehicles as box models that dwell at stops with
+  queues that board and alight. Drop 3 (buildings) follows.
 - **Vehicles: realistic movement and 3D orientation** — shipped v0.70.0
   (box-model vehicles baked per heading and quarter; right-hand lanes and
   arcs through junctions; following, acceleration, two-phase signals and

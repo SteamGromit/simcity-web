@@ -59,3 +59,17 @@ export function dayPhase(timeMs: number): number {
   if (!enabled) return 0;
   return ((timeMs % DAY_CYCLE_MS) + DAY_CYCLE_MS) % DAY_CYCLE_MS / DAY_CYCLE_MS;
 }
+
+export type DayBand = 'morning' | 'midday' | 'evening' | 'night';
+
+/**
+ * The hour band of a day phase (0 noon, 0.5 midnight), as the traffic and
+ * the crowds read it: the morning commute runs up to late morning, the
+ * evening one from mid-afternoon, and the small hours are night.
+ */
+export function dayBand(ph: number): DayBand {
+  if (ph >= 0.6 && ph < 0.95) return 'morning';
+  if (ph >= 0.15 && ph < 0.4) return 'evening';
+  if (ph >= 0.4 && ph < 0.6) return 'night';
+  return 'midday';
+}

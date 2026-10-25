@@ -26,8 +26,9 @@ decides what happens next:
 - **A living city** — zone at low, medium, or high density and watch shacks
   become towers as land value, services, and schools allow; cars drive to
   work in the morning and home at night, queue at the lights and pull in at
-  the kerb, citizens stroll outside their buildings, and day fades into
-  night with glowing windows, streetlights and headlamp beams. Even a paused city keeps
+  the kerb, people come out of their doors and walk the footways, cross at
+  the lights and queue for the bus, and day fades into night with glowing
+  windows, streetlights and headlamp beams. Even a paused city keeps
   moving: smoke drifts from industry stacks and the power plants, the
   nuclear towers vent steam, chimneys breathe on frosty homes, tower
   beacons blink after dark, flags ripple, and a few park fountains loop.
@@ -81,6 +82,16 @@ decides what happens next:
   have destinations (residential to work in the morning, home in the
   evening) and park when they arrive. Fire engines run to fires, police
   cars to crimes, and garbage trucks make their rounds.
+- **People on the footways** — every person is a small figure that faces
+  the way it walks, with a gait that matches its pace. People step out of a
+  home or shop door, keep to the kerb, turn the block's corners, cross a
+  junction arm at the crosswalk, and go in by another door; the crowd is
+  thickest on shopping streets at lunch and in the suburbs at dusk, and
+  thin at night. Up to four wait at a bus or streetcar stop and board when
+  the vehicle dwells. Umbrellas come out in the rain.
+- **Transit that stops** — buses, streetcars, monorails and three-car
+  trains are drawn in their line's colour, face along the route, and dwell
+  at each stop.
 - **Context-aware traffic** — vehicles pick roles by location: trucks move
   goods on industrial roads, taxis and vans favor commercial routes, and
   buses cluster near transit stops. Each kind has distinct speeds and paint.
