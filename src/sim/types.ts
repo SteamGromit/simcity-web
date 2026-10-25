@@ -193,11 +193,6 @@ export const PANDEMIC_MONTHS = 6;
 export type Biome = 'temperate' | 'desert';
 
 /**
- * A city's side of its region's contracts and borders. Capacities are signed —
- * positive when this city is importing — and `income` is the net monthly money,
- * positive when this city is being paid.
- */
-/**
  * A border road position joined to a connected neighbour, and the share of
  * that neighbour's economy that comes through it. Traffic seeds its commute
  * fields here, so a resident beside the border drives to the job next door.
@@ -211,6 +206,11 @@ export interface Gate {
   workers: number;
 }
 
+/**
+ * A city's side of its region's contracts and borders. Capacities are signed —
+ * positive when this city is importing — and `income` is the net monthly money,
+ * positive when this city is being paid.
+ */
 export interface NeighborState {
   /** Plant capacity bought from (+) or sold to (−) neighbours. */
   power: number;

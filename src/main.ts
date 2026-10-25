@@ -530,6 +530,7 @@ const regionMap = buildRegionMap(uiRoot, {
   leave() {
     if (region) regionStore.saveRegion(region, Date.now());
     region = null;
+    regionCityOpen = false;
     regionMap.close();
     launch.open();
   },

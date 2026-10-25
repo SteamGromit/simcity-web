@@ -150,6 +150,25 @@ describe('border gates', () => {
     expect(city.tiles[idx(80, 40)].traffic).toBe(Math.round(250 / WORKERS_PER_CAR));
   });
 
+  test('a gate on the way to a nearer local job is passed through, not stopped at', () => {
+    const city = makeCity();
+    road(city, GRID - 1, 30, GRID - 1, 50);
+    zone(city, GRID - 2, 30, Zone.Residential, 2);
+    zone(city, GRID - 2, 50, Zone.Commercial, 2);
+    city.neighbors.gates = [{ tile: idx(GRID - 1, 40), jobs: 300, workers: 0 }];
+    updateTraffic(city);
+    // 20 steps to the local job beats 10 steps plus the border trip
+    expect(city.tiles[idx(GRID - 2, 30)].commute).toBe(20);
+    for (let y = 30; y <= 50; y++) expect(city.tiles[idx(GRID - 1, y)].traffic).toBe(1);
+  });
+
+  test('a gate with workers but no jobs is not a destination: no local work reads Infinity', () => {
+    const city = edgeTown();
+    city.neighbors.gates = [{ tile: gate, jobs: 0, workers: 250 }];
+    updateTraffic(city);
+    expect(city.tiles[idx(80, 41)].commute).toBe(Infinity);
+  });
+
   test('a crash at the crossing closes the gate', () => {
     const city = edgeTown();
     city.neighbors.gates = [{ tile: gate, jobs: 300, workers: 250 }];

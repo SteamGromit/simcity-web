@@ -150,7 +150,8 @@ function roadDistanceTo(city: CityState, zones: Zone[], gateSeeds: number[] = []
   // A gate is where the border is crossed: what lies beyond it starts
   // BORDER_TRIP away. A crash on the crossing closes it like any road tile.
   for (const g of gateSeeds) {
-    if (!usable(city.tiles[g]) || dist[g] <= BORDER_TRIP) continue;
+    // a gate beside a local job is already a zone seed at 0; leave it
+    if (!usable(city.tiles[g]) || dist[g] === 0) continue;
     dist[g] = BORDER_TRIP;
     heap.push(g);
   }
@@ -185,7 +186,6 @@ export function updateTraffic(city: CityState): void {
   const gates = city.neighbors.gates;
   const jobGates = gates.filter((g) => g.jobs > 0).map((g) => g.tile);
   const workerGates = gates.filter((g) => g.workers > 0).map((g) => g.tile);
-  const jobGateSet: ReadonlySet<number> = new Set(jobGates);
   const jobDist = roadDistanceTo(city, [Zone.Commercial, Zone.Industrial], jobGates);
   const workerDist = roadDistanceTo(city, [Zone.Residential], workerGates);
   const localJobDist =
@@ -218,7 +218,7 @@ export function updateTraffic(city: CityState): void {
     const t = city.tiles[i];
     if (t.zone !== Zone.Residential || t.stage === 0 || t.abandoned) continue;
     if (!Number.isFinite(t.commute) || accessIdx[i] === -1) continue;
-    const path = descend(city, accessIdx[i], jobDist, jobGateSet);
+    const path = descend(city, accessIdx[i], jobDist);
     const share = carShare(city, t, city.tiles[path[path.length - 1]]);
     for (const p of path) city.tiles[p].traffic += share;
   }
@@ -229,28 +229,24 @@ export function updateTraffic(city: CityState): void {
   for (const g of gates) {
     if (g.workers <= 0 || !usable(city.tiles[g.tile])) continue;
     if (!Number.isFinite(localJobDist[g.tile])) continue;
-    const path = descend(city, g.tile, localJobDist, NO_STOPS);
+    const path = descend(city, g.tile, localJobDist);
     const cars = Math.round(g.workers / WORKERS_PER_CAR);
     const share = carShare(city, city.tiles[g.tile], city.tiles[path[path.length - 1]]);
     for (const p of path) city.tiles[p].traffic += cars * share;
   }
 }
 
-const NO_STOPS: ReadonlySet<number> = new Set();
-
-/** Walk from a road tile down `field` until it reads 0 or reaches a stop;
- * the tiles visited, in order, starting with `from`. */
-function descend(
-  city: CityState,
-  from: number,
-  field: Float64Array,
-  stops: ReadonlySet<number>,
-): number[] {
+/** Walk from a road tile down `field` until it reads 0 or nothing lower is
+ * adjacent (a gate that is the destination reads BORDER_TRIP with no lower
+ * neighbour, so the walk ends there of its own accord; a gate on the way to
+ * a nearer local job is passed through like any road tile). The tiles
+ * visited, in order, starting with `from`. */
+function descend(city: CityState, from: number, field: Float64Array): number[] {
   let cur = from;
   const path: number[] = [];
   for (let step = 0; step < MAX_WALK; step++) {
     path.push(cur);
-    if (field[cur] === 0 || stops.has(cur)) break;
+    if (field[cur] === 0) break;
     const cx = cur % GRID;
     const cy = (cur / GRID) | 0;
     let next = -1;
