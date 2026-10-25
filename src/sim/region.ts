@@ -43,13 +43,17 @@ export const DEFAULT_ROWS = 3;
  */
 export const POWER_PRICE = 0.95;
 export const GARBAGE_PRICE = 0.07;
+/** Per consumer tile a month: a pump's 200 tiles for §25 is §0.125 a tile,
+ * so buying water lands just under owning the pump, minus the site. */
+export const WATER_PRICE = 0.12;
+const PRICES: Record<DealKind, number> = { power: POWER_PRICE, garbage: GARBAGE_PRICE, water: WATER_PRICE };
 
 /** Share of a connected neighbour's economy that counts toward your demand. */
 export const BORDER_SHARE = 0.35;
 /** Of a neighbour's population, the part that is workforce (mirrors demand.ts). */
 const WORKFORCE_FRACTION = 0.55;
 
-export type DealKind = 'power' | 'garbage';
+export type DealKind = 'power' | 'garbage' | 'water';
 export type EdgeName = 'n' | 'e' | 's' | 'w';
 
 /** Positions along each map edge that carry drivable road. */
@@ -76,6 +80,7 @@ export interface RegionTile {
   /** Capacity going spare at the last save — what a deal is struck against. */
   sparePower: number;
   spareGarbage: number;
+  spareWater: number;
   edges: EdgeRoads;
 }
 
@@ -135,6 +140,7 @@ export function newRegion(
         savedAt: 0,
         sparePower: 0,
         spareGarbage: 0,
+        spareWater: 0,
         edges: emptyEdges(),
       });
     }
@@ -225,11 +231,11 @@ export function connected(region: Region, a: number, b: number): boolean {
 }
 
 export function dealPrice(kind: DealKind, amount: number): number {
-  return Math.round(amount * (kind === 'power' ? POWER_PRICE : GARBAGE_PRICE));
+  return Math.round(amount * PRICES[kind]);
 }
 
 function spareOf(tile: RegionTile, kind: DealKind): number {
-  return kind === 'power' ? tile.sparePower : tile.spareGarbage;
+  return kind === 'power' ? tile.sparePower : kind === 'water' ? tile.spareWater : tile.spareGarbage;
 }
 
 /** How much of `seller`'s spare capacity is already promised elsewhere. */
@@ -342,6 +348,7 @@ export function neighborStateFor(region: Region, i: number): NeighborState {
     const sign = d.buyer === i ? 1 : d.seller === i ? -1 : 0;
     if (sign === 0) continue;
     if (d.kind === 'power') state.power += sign * d.amount;
+    else if (d.kind === 'water') state.water += sign * d.amount;
     else state.garbage += sign * d.amount;
     // the buyer pays, so its income moves the other way from its capacity
     state.income -= sign * d.price;
@@ -406,7 +413,7 @@ export function recordCity(
   col: number,
   row: number,
   city: CityState,
-  spare: { power: number; garbage: number } = { power: 0, garbage: 0 },
+  spare: { power: number; garbage: number; water?: number } = { power: 0, garbage: 0 },
   now = 0,
 ): void {
   const t = tileAt(region, col, row);
@@ -419,6 +426,7 @@ export function recordCity(
   t.savedAt = now;
   t.sparePower = Math.max(0, Math.round(spare.power));
   t.spareGarbage = Math.max(0, Math.round(spare.garbage));
+  t.spareWater = Math.max(0, Math.round(spare.water ?? 0));
   t.edges = edgeRoadsOf(city);
 }
 

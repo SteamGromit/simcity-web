@@ -30,11 +30,16 @@ export interface NeighborActions {
   notify(msg: string, kind: 'info' | 'error'): void;
 }
 
-const KINDS: { kind: DealKind; label: string; unit: string; spare: 'sparePower' | 'spareGarbage' }[] =
-  [
-    { kind: 'power', label: 'Power', unit: 'MW', spare: 'sparePower' },
-    { kind: 'garbage', label: 'Refuse', unit: 't', spare: 'spareGarbage' },
-  ];
+const KINDS: {
+  kind: DealKind;
+  label: string;
+  unit: string;
+  spare: 'sparePower' | 'spareGarbage' | 'spareWater';
+}[] = [
+  { kind: 'power', label: 'Power', unit: 'MW', spare: 'sparePower' },
+  { kind: 'garbage', label: 'Refuse', unit: 't', spare: 'spareGarbage' },
+  { kind: 'water', label: 'Water', unit: ' tiles', spare: 'spareWater' },
+];
 
 export function buildNeighborsPanel(root: HTMLElement, actions: NeighborActions) {
   const panel = document.createElement('div');

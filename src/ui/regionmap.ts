@@ -171,7 +171,8 @@ export function buildRegionMap(root: HTMLElement, actions: RegionMapActions) {
       const buyer = region.tiles[d.buyer];
       const row = document.createElement('div');
       row.className = 'menu-row menu-row-static';
-      const unit = d.kind === 'power' ? 'MW of power' : 'tonnes of refuse';
+      const unit =
+        d.kind === 'power' ? 'MW of power' : d.kind === 'water' ? 'tiles of water' : 'tonnes of refuse';
       row.innerHTML = `<span class="menu-row-meta"></span>`;
       (row.querySelector('.menu-row-meta') as HTMLElement).textContent =
         `${seller?.name ?? 'a city'} → ${buyer?.name ?? 'a city'}: ` +

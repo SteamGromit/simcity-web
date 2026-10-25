@@ -103,6 +103,28 @@ describe('round-tripping a region', () => {
     expect(back.deals[0].amount).toBe(200);
   });
 
+  test('a water contract survives the trip, and an older tile reads no spare water', () => {
+    const res = store.create('Twin Valleys', 42, 100);
+    if (!res.ok) throw new Error('setup failed');
+    const region = res.region;
+    const a = tileAt(region, 0, 0)!;
+    const b = tileAt(region, 1, 0)!;
+    a.founded = true;
+    a.spareWater = 400;
+    b.founded = true;
+    openDeal(region, 'water', regionIndex(region, 0, 0), regionIndex(region, 1, 0), 250);
+    store.saveRegion(region, 200);
+    const raw = JSON.parse(mem.map.get('simcity.region.' + region.slug)!);
+    delete raw.tiles[1].spareWater;
+    mem.map.set('simcity.region.' + region.slug, JSON.stringify(raw));
+
+    const back = store.loadRegion(region.slug)!;
+    expect(back.tiles[0].spareWater).toBe(400);
+    expect(back.tiles[1].spareWater).toBe(0);
+    expect(back.deals).toHaveLength(1);
+    expect(back.deals[0].kind).toBe('water');
+  });
+
   test('a document written by an older version gains the fields it lacks', () => {
     const res = store.create('Twin Valleys', 42, 100);
     if (!res.ok) throw new Error('setup failed');

@@ -27,6 +27,7 @@ import {
   type Region,
 } from './sim/region';
 import { powerSupply } from './sim/power';
+import { waterSupply } from './sim/water';
 import { wasteSupply } from './sim/waste';
 import { CityState, defaultNeighbors, Density, Zone } from './sim/types';
 import { Renderer, ViewState } from './render/renderer';
@@ -419,13 +420,17 @@ function saveRegionCity() {
     regionCol,
     regionRow,
     city,
-    { power: powerSupply(city).spare, garbage: wasteSupply(city).spare },
+    {
+      power: powerSupply(city).spare,
+      garbage: wasteSupply(city).spare,
+      water: waterSupply(city).spare,
+    },
     Date.now(),
   );
   for (const d of pruneDeals(region)) {
     const other = region.tiles[d.seller === regionIndex(region, regionCol, regionRow) ? d.buyer : d.seller];
     notify(
-      `The ${d.kind === 'power' ? 'power' : 'refuse'} contract with ` +
+      `The ${d.kind === 'power' ? 'power' : d.kind === 'water' ? 'water' : 'refuse'} contract with ` +
         `${other?.name ?? 'a neighbour'} has ended — the capacity is no longer there.`,
       'alert',
     );
