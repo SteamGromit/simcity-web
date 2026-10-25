@@ -27,9 +27,9 @@ const HH = TILE_H / 2;
 const SCAN_INTERVAL = 15; // steps between full-grid rescans
 
 /** Most cars on the road at once; the target below it follows the sim's traffic. */
-export const MAX_CARS = 160;
+export const MAX_CARS = 400;
 /** Traffic units (summed over busy road tiles) per car on screen. */
-export const CARS_PER_TRAFFIC = 40;
+export const CARS_PER_TRAFFIC = 25;
 const MAX_PEDS = 60;
 
 /** Following distance, bumper to bumper, in tiles. */
@@ -389,6 +389,11 @@ export class Automata {
   /** Pandemic flag from the last step; thins targets and masks the peds. */
   private pandemic = false;
   private night = 0;
+  private zoom = 1;
+  /** View constants for the frame being drawn, set once per step. */
+  private quarter: 0 | 1 | 2 | 3 = 0;
+  private cosA = 1;
+  private sinA = 0;
 
   carCount(): number {
     return this.cars.length;
@@ -398,9 +403,10 @@ export class Automata {
     return this.peds.length;
   }
 
-  /** Night 0..1 from the renderer, which thins the traffic. */
-  setNight(n: number): void {
-    this.night = n;
+  /** Night 0..1 (thins the traffic) and zoom (hides what cannot be seen) from the renderer. */
+  setView(night: number, zoom: number): void {
+    this.night = night;
+    this.zoom = zoom;
   }
 
   /** Test hook: put a car on the road with a route of your choosing. */
@@ -443,6 +449,10 @@ export class Automata {
     this.stepCars(city, dt, now);
     this.stepPeds(city, dt, this.lots);
     this.bucket();
+    const angle = getViewAngle();
+    this.quarter = (((Math.round(angle / (Math.PI / 2)) % 4) + 4) % 4) as 0 | 1 | 2 | 3;
+    this.cosA = Math.cos(angle);
+    this.sinA = Math.sin(angle);
   }
 
   private scan(city: CityState): void {
@@ -908,13 +918,11 @@ export class Automata {
 
   /** Draw the automata that belong to tile i. Called inside the painter's loop. */
   drawTile(ctx: CanvasRenderingContext2D, i: number, night = 0): void {
-    const angle = getViewAngle();
-    const quarter = ((Math.round(angle / (Math.PI / 2)) % 4) + 4) % 4 as 0 | 1 | 2 | 3;
-    const cosA = Math.cos(angle);
-    const sinA = Math.sin(angle);
+    const { quarter, cosA, sinA } = this;
     const blink = (this.clock / 0.8) % 1;
 
-    if (this.junction[i] === 4) this.drawSignals(ctx, i, cosA, sinA);
+    // a signal post is a few pixels tall: below this zoom it is a speck
+    if (this.junction[i] === 4 && this.zoom >= 1.4) this.drawSignals(ctx, i);
 
     const cars = this.carBuckets.get(i);
     if (cars) {
@@ -977,7 +985,7 @@ export class Automata {
   }
 
   /** A signal post at the kerb of each approach, its lamp in the live colour. */
-  private drawSignals(ctx: CanvasRenderingContext2D, i: number, cosA: number, sinA: number): void {
+  private drawSignals(ctx: CanvasRenderingContext2D, i: number): void {
     const phase = signalPhase(i, this.clock);
     const x = i % GRID;
     const y = (i / GRID) | 0;
@@ -999,7 +1007,5 @@ export class Automata {
       ctx.fillStyle = green ? '#4ee07a' : '#ff4a3c';
       ctx.fillRect(p.sx - 0.7, p.sy - (green ? 6.6 : 8.0), 1.4, 1.2);
     }
-    void cosA;
-    void sinA;
   }
 }

@@ -294,10 +294,10 @@ describe('driving', () => {
   });
 
   test('the car count follows the traffic, the night and a pandemic', () => {
-    expect(targetCars(400, 0, false)).toBe(10);
+    expect(targetCars(250, 0, false)).toBe(10);
     expect(targetCars(1e6, 0, false)).toBe(MAX_CARS);
-    expect(targetCars(400, 1, false)).toBe(4);
-    expect(targetCars(400, 0, true)).toBe(Math.round(10 * 0.25));
+    expect(targetCars(250, 1, false)).toBe(4);
+    expect(targetCars(250, 0, true)).toBe(Math.round(10 * 0.25));
     expect(SIGNAL_PERIOD).toBeGreaterThan(0);
   });
 });
