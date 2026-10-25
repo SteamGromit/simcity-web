@@ -414,19 +414,29 @@ describe('people', () => {
     const a = new Automata();
     a.setView(0, 2, { x0: 18, y0: 0, x1: 26, y1: 20 }); // nine of the seventeen lots along each side
     stepFor(a, city, 3);
-    const peds = a.pedsNow();
-    expect(peds.length).toBeGreaterThan(8);
+    expect(a.pedsNow().length).toBeGreaterThan(8);
     const within = (lo: number, hi: number) =>
       a.pedsNow().filter((p) => {
         const x = p.leg!.on % GRID;
         return x >= lo && x <= hi;
       }).length / a.pedsNow().length;
-    // by chance alone it would be about half; three in four spawn in view
-    expect(within(18, 26)).toBeGreaterThan(0.6);
+    // the crowd here is sixteen people, so one walker is six points: average
+    // twenty samples over five seconds rather than read one frame
+    const share = (lo: number, hi: number) => {
+      let t = 0;
+      for (let k = 0; k < 20; k++) {
+        stepFor(a, city, 0.25);
+        t += within(lo, hi);
+      }
+      return t / 20;
+    };
+    // by chance alone it would be about half; three in four spawn in view and
+    // the recycle keeps at least SEEN_SHARE of the crowd on screen
+    expect(share(18, 26)).toBeGreaterThan(0.55);
     // the view moves: within a few seconds the crowd has followed it
     a.setView(0, 2, { x0: 10, y0: 0, x1: 18, y1: 20 });
     stepFor(a, city, 5);
-    expect(within(10, 18)).toBeGreaterThan(0.45);
+    expect(share(10, 18)).toBeGreaterThan(0.5);
   });
 
   test('the walkers are gone the step after their street is bulldozed', () => {
