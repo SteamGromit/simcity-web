@@ -2144,6 +2144,13 @@ body.in-menu #ui > *:not(.menu-screen) {
   line-height: 1.45;
 }
 
+.neighbor-visit {
+  align-self: flex-start;
+  margin: 2px 0 8px;
+  padding: 5px 10px;
+  font-size: 11px;
+}
+
 .neighbor-offer {
   display: grid;
   grid-template-columns: 1fr auto;

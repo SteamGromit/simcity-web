@@ -348,6 +348,14 @@ const fileMenu = buildFileMenu(uiRoot, saveStore, {
 
 const neighborsPanel = buildNeighborsPanel(uiRoot, {
   context: () => (region ? { region, col: regionCol, row: regionRow } : null),
+  visit(col, row) {
+    if (!region) return;
+    const tile = region.tiles[regionIndex(region, col, row)];
+    if (!tile?.founded) return;
+    saveRegionCity();
+    neighborsPanel.close();
+    enterCity(col, row, tile.name);
+  },
   changed() {
     // a contract only means anything once the city is told about it and the
     // region has it written down
