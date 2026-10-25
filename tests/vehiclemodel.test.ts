@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
   faceLight,
   MODELS,
+  paintLights,
   paintVehicle,
   projectBoxes,
   spriteBounds,
@@ -100,5 +101,33 @@ describe('vehicle sprites', () => {
     }
     expect(trace.some((t) => t.startsWith('fill('))).toBe(true);
     expect(radii.every((r) => r >= 0)).toBe(true);
+  });
+});
+
+describe('lights', () => {
+  const base = { night: 0, brake: false, indicator: 0 as const, blink: 0.2, emergency: false };
+  test('nothing by day on a car driving straight', () => {
+    const { ctx, trace } = strictCtx();
+    paintLights(ctx, 'saloon', 0.3, 1, 0, base);
+    expect(trace.filter((t) => /^fill/.test(t))).toHaveLength(0);
+  });
+  test('beams and tail lights at night, brighter brake lights, an indicator, beacons', () => {
+    const { ctx, trace } = strictCtx();
+    paintLights(ctx, 'saloon', 0.3, 1, 0, { ...base, night: 1 });
+    expect(trace.some((t) => t.startsWith('createLinearGradient('))).toBe(true);
+    const night = trace.filter((t) => t.startsWith('fillRect(')).length;
+    expect(night).toBe(4); // two headlamps, two tail lights
+    const b = strictCtx();
+    paintLights(b.ctx, 'saloon', 0.3, 1, 0, { ...base, brake: true });
+    expect(b.trace.filter((t) => t.startsWith('fillRect(')).length).toBe(2);
+    const i = strictCtx();
+    paintLights(i.ctx, 'saloon', 0.3, 1, 0, { ...base, indicator: 1 });
+    expect(i.trace.filter((t) => t.startsWith('fillRect(')).length).toBe(2);
+    const off = strictCtx();
+    paintLights(off.ctx, 'saloon', 0.3, 1, 0, { ...base, indicator: 1, blink: 0.7 });
+    expect(off.trace.filter((t) => t.startsWith('fillRect(')).length).toBe(0);
+    const e = strictCtx();
+    paintLights(e.ctx, 'fireEngine', 0.3, 1, 0, { ...base, emergency: true });
+    expect(e.trace.filter((t) => t.startsWith('fillRect(')).length).toBe(2);
   });
 });
