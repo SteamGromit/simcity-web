@@ -27,6 +27,7 @@ import { idx } from './grid';
 import { drivable } from './roads';
 import { mulberry32 } from './city';
 import { Biome, CityState, GRID, NeighborState } from './types';
+import type { World } from './terrain';
 
 export const REGION_VERSION = 1;
 export const DEFAULT_COLS = 3;
@@ -150,6 +151,15 @@ export function newRegion(
     deals: [],
     lastPlayed: -1,
   };
+}
+
+/**
+ * The landscape every city in the region samples. A region written before
+ * terrain became a field has the same four numbers, so an old document yields
+ * a world like any other; only the cities founded since read it.
+ */
+export function worldOf(region: Region): World {
+  return { seed: region.seed, cols: region.cols, rows: region.rows, biome: region.biome };
 }
 
 export function regionIndex(region: Region, col: number, row: number): number {
