@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
+  BORDER_SHARE,
   worldOf,
   DEFAULT_COLS,
   DEFAULT_ROWS,
@@ -478,5 +479,31 @@ describe('one world per region', () => {
   test('a revived old region still yields a world', () => {
     const r = newRegion('Old', 'old', 3);
     expect(worldOf(r)).toEqual({ seed: 3, cols: 3, rows: 3, biome: r.biome });
+  });
+});
+
+describe('gates', () => {
+  test('one gate per matching border position, shares split evenly', () => {
+    const r = newRegion('G', 'g', 1, 2, 1);
+    const a = found(r, 0, 0);
+    const b = found(r, 1, 0);
+    b.jobs = 1000;
+    b.population = 2000;
+    a.edges.e = [10, 20, 30];
+    b.edges.w = [20, 30, 40];
+    const s = neighborStateFor(r, 0);
+    expect(s.gates.map((g) => g.tile)).toEqual([idx(GRID - 1, 20), idx(GRID - 1, 30)]);
+    expect(s.gates[0].jobs).toBe(Math.round((1000 * BORDER_SHARE) / 2));
+    expect(s.gates[0].workers).toBe(Math.round((2000 * 0.55 * BORDER_SHARE) / 2));
+    expect(s.jobs).toBe(Math.round(1000 * BORDER_SHARE));
+    // the other side's gates face west
+    expect(neighborStateFor(r, 1).gates.map((g) => g.tile)).toEqual([idx(0, 20), idx(0, 30)]);
+  });
+
+  test('no gates without a connection', () => {
+    const r = newRegion('G', 'g', 1, 2, 1);
+    found(r, 0, 0).edges.e = [10];
+    found(r, 1, 0).edges.w = [11];
+    expect(neighborStateFor(r, 0).gates).toEqual([]);
   });
 });

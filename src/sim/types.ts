@@ -197,6 +197,20 @@ export type Biome = 'temperate' | 'desert';
  * positive when this city is importing — and `income` is the net monthly money,
  * positive when this city is being paid.
  */
+/**
+ * A border road position joined to a connected neighbour, and the share of
+ * that neighbour's economy that comes through it. Traffic seeds its commute
+ * fields here, so a resident beside the border drives to the job next door.
+ */
+export interface Gate {
+  /** Tile index of this city's road tile on the border. */
+  tile: number;
+  /** The neighbour's lent jobs reached through this gate. */
+  jobs: number;
+  /** The neighbour's lent workers who come in through this gate. */
+  workers: number;
+}
+
 export interface NeighborState {
   /** Plant capacity bought from (+) or sold to (−) neighbours. */
   power: number;
@@ -208,10 +222,12 @@ export interface NeighborState {
   jobs: number;
   /** Workers reachable across a connected border. */
   workers: number;
+  /** Where the joined borders are crossed; derived, never saved. */
+  gates: Gate[];
 }
 
 export function defaultNeighbors(): NeighborState {
-  return { power: 0, garbage: 0, income: 0, jobs: 0, workers: 0 };
+  return { power: 0, garbage: 0, income: 0, jobs: 0, workers: 0, gates: [] };
 }
 
 /** What the city threw out last month, and what happened to it. */

@@ -327,7 +327,14 @@ export function pruneDeals(region: Region): Deal[] {
  * is the net monthly money, positive when this city is being paid.
  */
 export function neighborStateFor(region: Region, i: number): NeighborState {
-  const state: NeighborState = { power: 0, garbage: 0, income: 0, jobs: 0, workers: 0 };
+  const state: NeighborState = {
+    power: 0,
+    garbage: 0,
+    income: 0,
+    jobs: 0,
+    workers: 0,
+    gates: [],
+  };
   if (!tileByIndex(region, i)) return state;
 
   for (const d of region.deals) {
@@ -342,10 +349,39 @@ export function neighborStateFor(region: Region, i: number): NeighborState {
   for (const n of neighborsOf(region, i)) {
     if (!connected(region, i, n)) continue;
     const t = region.tiles[n];
-    state.jobs += Math.round(t.jobs * BORDER_SHARE);
-    state.workers += Math.round(t.population * WORKFORCE_FRACTION * BORDER_SHARE);
+    const jobs = Math.round(t.jobs * BORDER_SHARE);
+    const workers = Math.round(t.population * WORKFORCE_FRACTION * BORDER_SHARE);
+    state.jobs += jobs;
+    state.workers += workers;
+    // One gate per road position both sides reach; the neighbour's share is
+    // split evenly across them, so a second crossing halves the load on the
+    // first rather than doubling what comes through.
+    const [mine, theirs] = sharedEdge(region, i, n)!;
+    const theirSet = new Set(region.tiles[n].edges[theirs]);
+    const positions = region.tiles[i].edges[mine].filter((p) => theirSet.has(p)).sort((a, b) => a - b);
+    for (const p of positions) {
+      state.gates.push({
+        tile: gateTile(mine, p),
+        jobs: Math.round(jobs / positions.length),
+        workers: Math.round(workers / positions.length),
+      });
+    }
   }
   return state;
+}
+
+/** The tile index of a border position on the given edge of this city. */
+function gateTile(edge: EdgeName, p: number): number {
+  switch (edge) {
+    case 'n':
+      return idx(p, 0);
+    case 's':
+      return idx(p, GRID - 1);
+    case 'w':
+      return idx(0, p);
+    default:
+      return idx(GRID - 1, p);
+  }
 }
 
 /** Positions along each map edge where a city's road reaches the border. */
