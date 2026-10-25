@@ -60,7 +60,9 @@ describe('Automata', () => {
 
     automata.step(city, 2100, 1);
     const a = positions();
-    automata.step(city, 2200, 0); // paused: time passes, nothing moves
+    const n = automata.carCount();
+    automata.step(city, 2200, 0); // paused: time passes, nothing moves, nothing spawns
+    expect(automata.carCount()).toBe(n);
     expect(positions()).toBe(a);
     automata.step(city, 2300, 1); // running again
     expect(positions()).not.toBe(a);
@@ -268,6 +270,39 @@ describe('driving', () => {
     a.setClock(clock + 0.1);
     stepFor(a, city, 2);
     expect(car.at).toBeGreaterThan(7);
+  });
+
+  test('two stem cars crossing a double-width street do not wait on each other', () => {
+    // two parallel streets: every interior tile is a T, and a car crossing from
+    // one to the other is a stem car whose junction tile may hold the other
+    // car, itself a stem car waiting on the first
+    const city = makeCity();
+    road(city, 10, 5, 10, 15);
+    road(city, 11, 5, 11, 15);
+    expect(junctionKind(city, idx(10, 10))).toBe(3);
+    expect(junctionKind(city, idx(11, 10))).toBe(3);
+    const a = new Automata();
+    a.step(city, wall, 1);
+    const east = a.plant(city, [idx(10, 10), idx(11, 10), idx(11, 11)], { s: 0.6 });
+    const west = a.plant(city, [idx(11, 10), idx(10, 10), idx(10, 9)], { s: 0.6 });
+    stepFor(a, city, 2); // well under MAX_WAIT: the direction rule, not the timeout, clears them
+    expect(east.at).toBeGreaterThanOrEqual(1);
+    expect(west.at).toBeGreaterThanOrEqual(1);
+  });
+
+  test('a fire on the station\'s own kerb does not block the engine for a fire further on', () => {
+    const city = makeCity();
+    road(city, 10, 10, 30, 10);
+    const station = city.tiles[idx(12, 11)];
+    station.zone = Zone.FireStation;
+    station.powered = true;
+    city.tiles[idx(12, 9)].burning = 3; // shares the station's kerb tile (12,10)
+    city.tiles[idx(25, 9)].burning = 3;
+    const a = new Automata();
+    stepFor(a, city, 1);
+    const engines = a.carsNow().filter((c) => c.role === 'fire');
+    expect(engines).toHaveLength(1);
+    expect(engines[0].stops[0].fireTile).toBe(idx(25, 9));
   });
 
   test('a car with a route drives it to the end and leaves', () => {

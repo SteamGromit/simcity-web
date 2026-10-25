@@ -508,7 +508,7 @@ export class Renderer {
         drawCollapse(ctx, geom, Math.min(1, t.collapseFlash / 90));
         t.collapseFlash -= 1; // render-only decay
       }
-      this.automata.drawTile(ctx, i, this.night);
+      this.automata.drawTile(ctx, i);
     }
 
     mark('scene', t0);

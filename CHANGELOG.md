@@ -27,12 +27,12 @@ and never stopped. Now they are small 3D bodies that drive somewhere.
   accelerating, 4.5 braking, free speed by road class (street 1.8, route
   and boulevard 2.4, motorway 3.6 tiles/s, times the kind factor). A car
   holds 0.22 tile behind the car ahead in its lane. A crossroads of plain
-  streets is a two-phase signal (9 s cycle, 0.8 s all-red) with posts at
+  streets is a two-phase signal (9 s cycle, 0.45 s all-red between phases) with posts at
   the kerbs; a T gives way from the stem. Brake lights, indicators before
   a turn, and the night beams and tail lights.
 - **Trips.** Cars spawn on trafficked roads with a destination lot and
-  route to it (BFS honouring carriageway direction), then pull off at the
-  kerb; by the render clock's hour they go residential to work in the
+  route to it (BFS honouring carriageway direction), then stop on the
+  destination's street tile and fade; by the render clock's hour they go residential to work in the
   morning and back in the evening. Count follows the sim's traffic field:
   one car per 25 units, at most 400, thinned at night and in a pandemic.
 - **Service vehicles.** A fire engine from the nearest powered fire

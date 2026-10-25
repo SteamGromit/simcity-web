@@ -40,6 +40,8 @@ export const BRAKE = 4.5;
 /** A signalled crossroads cycles once every this many seconds of animation time. */
 export const SIGNAL_PERIOD = 9;
 /** Where along the approach tile a car waits for a light, 0..1. */
+/** Seconds a stem car holds at a give-way line before it is let through. */
+export const MAX_WAIT = 4;
 export const STOP_AT = 0.82;
 /** Free speed by road class, tiles per second: street, route, boulevard, motorway, upper deck. */
 const CLASS_SPEED = [1.8, 2.4, 2.4, 3.6, 3.6];
@@ -141,6 +143,8 @@ export interface Car {
   /** Fade: 1 arriving on the road, 0 driving, −1 pulling off it. */
   alpha: number;
   fading: -1 | 0 | 1;
+  /** Seconds held at a give-way line this tile; a long wait is let through. */
+  waited: number;
   /** Planted by a test: never thinned to meet the traffic target. */
   pinned?: boolean;
 }
@@ -525,16 +529,21 @@ export class Automata {
         }
       }
     }
+    for (const home of this.nextRound.keys()) if (!this.disposals.includes(home)) this.nextRound.delete(home);
   }
 
+  /** The road tile a vehicle stops on for lot `i`: a plain street if there is one, else any drivable neighbour. */
   private roadBeside(city: CityState, i: number): number {
     const x = i % GRID;
     const y = (i / GRID) | 0;
+    let any = -1;
     for (const [nx, ny] of neighbors4(x, y)) {
       const ni = idx(nx, ny);
-      if (drivable(city.tiles[ni])) return ni;
+      if (!drivable(city.tiles[ni])) continue;
+      if (city.tiles[ni].road === 0) return ni;
+      if (any === -1) any = ni;
     }
-    return -1;
+    return any;
   }
 
   // -------------------------------------------------------------------------
@@ -552,7 +561,7 @@ export class Automata {
       v: CLASS_SPEED[city.tiles[tile].road] * KIND_SPEED[kind] * 0.5, brake: false,
       path, at: 0, stops: [], dwellLeft: 0,
       kind, style, color, role,
-      alpha: 0, fading: 1,
+      alpha: 0, fading: 1, waited: 0,
     };
   }
 
@@ -630,29 +639,29 @@ export class Automata {
       return best;
     };
     if (this.fires.length && this.fireStations.length && count('fire') < 4 && this.clock - this.lastDispatch.fire > 3) {
-      const target = this.fires.find((f) => !this.cars.some((c) => c.role === 'fire' && c.stops[0]?.fireTile === f.tile));
-      if (target) {
+      for (const target of this.fires) {
+        if (this.cars.some((c) => c.role === 'fire' && c.stops[0]?.fireTile === target.tile)) continue;
         const home = nearest(this.fireStations, target.road);
         const trip = this.roundTrip(city, [home, target.road, home]);
-        if (trip) {
-          const car = this.makeCar(city, trip.path, 'fire', 'truck', 'fireEngine', FIRE_BODY);
-          car.stops = [{ at: trip.stops[0].at, dwell: 40, fireTile: target.tile }];
-          this.cars.push(car);
-          this.lastDispatch.fire = this.clock;
-        }
+        if (!trip) continue; // a fire on the station's own kerb: the next one gets the engine
+        const car = this.makeCar(city, trip.path, 'fire', 'truck', 'fireEngine', FIRE_BODY);
+        car.stops = [{ at: trip.stops[0].at, dwell: 40, fireTile: target.tile }];
+        this.cars.push(car);
+        this.lastDispatch.fire = this.clock;
+        break;
       }
     }
     if (this.crimes.length && this.policeStations.length && count('police') < 3 && this.clock - this.lastDispatch.police > 4) {
-      const target = this.crimes.find((r) => !this.cars.some((c) => c.role === 'police' && c.path[c.stops[0]?.at ?? -1] === r));
-      if (target !== undefined) {
+      for (const target of this.crimes) {
+        if (this.cars.some((c) => c.role === 'police' && c.path[c.stops[0]?.at ?? -1] === target)) continue;
         const home = nearest(this.policeStations, target);
         const trip = this.roundTrip(city, [home, target, home]);
-        if (trip) {
-          const car = this.makeCar(city, trip.path, 'police', 'car', 'police', POLICE_BODY);
-          car.stops = [{ at: trip.stops[0].at, dwell: 6 }];
-          this.cars.push(car);
-          this.lastDispatch.police = this.clock;
-        }
+        if (!trip) continue;
+        const car = this.makeCar(city, trip.path, 'police', 'car', 'police', POLICE_BODY);
+        car.stops = [{ at: trip.stops[0].at, dwell: 6 }];
+        this.cars.push(car);
+        this.lastDispatch.police = this.clock;
+        break;
       }
     }
     const kerbs = this.destR.concat(this.destC);
@@ -716,7 +725,9 @@ export class Automata {
     // a T: the stem gives way to the through road
     const stem = !(this.arms[next] & (1 << car.exit));
     if (!stem) return false;
+    if (car.waited > MAX_WAIT) return false; // a long wait is let through rather than lock up
     for (let e = 0; e < 4; e++) {
+      if (e === opposite(car.exit)) continue; // heading onto my tile: the other lane
       const list = this.occ.get(next * 4 + e);
       if (list && list.length) return true;
     }
@@ -729,6 +740,8 @@ export class Automata {
       for (let k = c.at; k < c.path.length; k++) if (!drivable(city.tiles[c.path[k]])) return false;
       return true;
     });
+
+    if (dt <= 0) return; // paused: nothing spawns, thins, dispatches or moves
 
     const target = targetCars(this.trafficSum, this.night, this.pandemic);
     let trips = 0;
@@ -793,7 +806,10 @@ export class Automata {
       const last = car.at === car.path.length - 1;
       const halting = car.stops.length > 0 && car.stops[0].at === car.at;
       if (last || halting) want = Math.min(want, stopLimit(0.5));
-      else if (this.mustWait(car)) want = Math.min(want, stopLimit(STOP_AT));
+      else if (this.mustWait(car)) {
+        want = Math.min(want, stopLimit(STOP_AT));
+        if (car.v < 0.05) car.waited += dt;
+      }
 
       const v0 = car.v;
       const dv = want - car.v;
@@ -820,6 +836,7 @@ export class Automata {
         }
         const over = (car.s - 1) * len;
         car.at++;
+        car.waited = 0;
         car.tile = next;
         car.entry = opposite(car.exit);
         const after = car.path[car.at + 1];
@@ -917,7 +934,8 @@ export class Automata {
   }
 
   /** Draw the automata that belong to tile i. Called inside the painter's loop. */
-  drawTile(ctx: CanvasRenderingContext2D, i: number, night = 0): void {
+  drawTile(ctx: CanvasRenderingContext2D, i: number): void {
+    const night = this.night;
     const { quarter, cosA, sinA } = this;
     const blink = (this.clock / 0.8) % 1;
 
