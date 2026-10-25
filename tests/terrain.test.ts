@@ -121,10 +121,9 @@ describe('terrain rules', () => {
 
 describe('terrain density at 96×96', () => {
   // Feature counts scale with area; loose floors so seeds can't flake.
-  // Seeds 163 and 198 are guard seeds: without the AREA_SCALE multiplier in
-  // generateTerrain, their forest counts (55 and 56) fall below the floor
-  // below, so they're the ones that actually catch a regression if the
-  // scaling is ever removed. Seeds 2, 3, 5 pass either way.
+  // Seeds 163 and 198 were guard seeds for the old blob generator's area
+  // scaling; they are kept as floors the sampled field (sim/terrain.ts) must
+  // also clear, so a retuning that starves a map of lakes or woods is caught.
   test('temperate maps keep their feature density on the bigger grid', () => {
     for (const seed of [2, 3, 5, 163, 198]) {
       const city = newCity(seed);

@@ -4,6 +4,48 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.67.0] — 2026-10-25 · Region terrain: one landscape, drawn
+
+Backlog #1, first of three parts. Terrain generation was rewritten so a
+region's cities share one piece of country.
+
+### Added
+- **Terrain is a sampled field** (`sim/terrain.ts`). The old generator grew
+  blobs outward from random points, so two neighbouring region tiles could
+  not agree about the land between them. The land is now a pure function of
+  a world coordinate: relief from low-frequency noise, a **river** that runs
+  edge to edge across the whole region (three temperate regions in five get a
+  tributary that ends where it meets the main river), one guaranteed lake basin and
+  one true snowcapped peak per city tile placed well inside it, noise lakes
+  on flat ground, and forest that thickens beside water and thins above the
+  tree line. A city on a region tile samples the field at its offset, so
+  the river continues across the border into the next city.
+- **The region map is a map.** Each tile card draws its land behind the
+  text, sampled from the same field without loading a city, so the cards
+  laid edge to edge are one drawn landscape with the river running card to
+  card. Roads that reach a border are ticked grey; a joined border is
+  ticked gold across both cards. A founded city shows a settlement mark
+  sized by population.
+- **Region size.** The launch screen offers 2×2, 3×3 and 4×4 regions. A
+  bigger region's river is longer and wanders more.
+
+### Changed
+- **Single-city maps changed character.** A new single city is a 1×1 world
+  and rolls for a river like a region does, so most now have one, with
+  bridges to pay for; deserts roll one with probability 0.3 and never a
+  tributary. Water covers 4–10% of a
+  temperate map (it was 1–3%) and forest 4–16%; deserts are sparser than
+  before. The guard seeds in the terrain tests keep their floors.
+- `newCity(seed, biome, place?)` takes an optional placement
+  `{ world, col, row }`; `mulberry32` moved to `sim/rng.ts` (still
+  re-exported from `sim/city.ts`).
+
+### Compatibility
+- Existing saves keep their tiles untouched. A city founded in an older
+  region on the blob generator will not match a neighbour founded now, and
+  its card on the region map draws the field rather than the blobs it
+  holds. No migration; the three cities so founded are the owner's.
+
 ## [0.66.0] — 2026-09-25 · Realism, part three: civic and rewards, farms, water, night
 
 The last of three drops toward a SimCity 4 standard of detail. Nothing in

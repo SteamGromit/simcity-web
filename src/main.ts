@@ -23,6 +23,7 @@ import {
   pruneDeals,
   recordCity,
   regionIndex,
+  worldOf,
   type Region,
 } from './sim/region';
 import { powerSupply } from './sim/power';
@@ -435,9 +436,9 @@ function enterCity(col: number, row: number, name: string) {
   if (!tile) return;
   let next = regionStore.loadCity(region.slug, col, row);
   if (!next) {
-    // A region's cities share its climate, so the map is generated against the
-    // region's biome rather than rolling its own.
-    next = newCity(tile.seed, region.biome);
+    // A region's cities share one landscape: the map samples the region's
+    // world at this tile's offset, so the land continues across the border.
+    next = newCity(tile.seed, region.biome, { world: worldOf(region), col, row });
     tile.name = name;
     tile.founded = true;
   } else if (name) {

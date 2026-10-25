@@ -44,6 +44,11 @@ export function buildLaunchScreen(
           <div class="menu-new">
             <input type="text" id="launch-region-name" placeholder="Region name"
                    maxlength="${MAX_NAME}">
+            <select id="launch-region-size" title="Region size" aria-label="Region size">
+              <option value="2">2×2</option>
+              <option value="3" selected>3×3</option>
+              <option value="4">4×4</option>
+            </select>
             <button type="button" id="launch-create" class="menu-btn menu-primary">
               New region
             </button>
@@ -70,6 +75,7 @@ export function buildLaunchScreen(
   const regionList = screen.querySelector('#launch-regions') as HTMLElement;
   const saveList = screen.querySelector('#launch-saves') as HTMLElement;
   const nameInput = screen.querySelector('#launch-region-name') as HTMLInputElement;
+  const sizeSel = screen.querySelector('#launch-region-size') as HTMLSelectElement;
   const errorEl = screen.querySelector('#launch-error') as HTMLElement;
   const picker = screen.querySelector('#launch-picker') as HTMLInputElement;
 
@@ -151,7 +157,8 @@ export function buildLaunchScreen(
   screen.querySelector('#launch-create')!.addEventListener('click', () => {
     const name = cleanName(nameInput.value);
     if (!name) return fail('give the region a name');
-    const res = regions.create(name, Date.now() % 2 ** 31, Date.now());
+    const n = Number(sizeSel.value) || 3;
+    const res = regions.create(name, Date.now() % 2 ** 31, Date.now(), n, n);
     if (!res.ok) return fail(res.error);
     nameInput.value = '';
     fail('');

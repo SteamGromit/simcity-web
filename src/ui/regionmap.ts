@@ -17,8 +17,11 @@ import {
   neighborsOf,
   regionIndex,
   regionPopulation,
+  sharedEdge,
+  worldOf,
   type Region,
 } from '../sim/region';
+import { paintLand, type Link } from './regionland';
 
 export interface RegionMapActions {
   /** Play the city on this tile, founding it first if it is empty. */
@@ -84,12 +87,31 @@ export function buildRegionMap(root: HTMLElement, actions: RegionMapActions) {
     const card = document.createElement('div');
     card.className = `region-tile${t.founded ? ' founded' : ''}`;
 
+    // The land first: every card samples the same field, so the cards laid
+    // edge to edge are one drawn country. A joined border is ticked in gold.
+    const links: Link[] = [];
+    const joinedTo = neighborsOf(region, i).filter((n) => connected(region, i, n));
+    for (const n of joinedTo) {
+      const edges = sharedEdge(region, i, n);
+      if (!edges) continue;
+      const theirs = new Set(region.tiles[n].edges[edges[1]]);
+      links.push({ edge: edges[0], positions: t.edges[edges[0]].filter((p) => theirs.has(p)) });
+    }
+    const land = document.createElement('canvas');
+    land.className = 'region-land';
+    paintLand(land, worldOf(region), t, links);
+    card.appendChild(land);
+
+    const scrim = document.createElement('div');
+    scrim.className = 'region-tile-scrim';
+    card.appendChild(scrim);
+
     if (!t.founded) {
-      card.innerHTML = `
+      scrim.innerHTML = `
         <span class="region-tile-empty">Unclaimed land</span>
         <button type="button" class="menu-btn region-found">Found a city</button>
       `;
-      card.querySelector('.region-found')!.addEventListener('click', () => {
+      scrim.querySelector('.region-found')!.addEventListener('click', () => {
         const proposed = window.prompt('Name the city', defaultCityName(region, col, row));
         if (proposed === null) return; // cancelled
         const name = cleanName(proposed.slice(0, MAX_NAME)) || defaultCityName(region, col, row);
@@ -98,8 +120,8 @@ export function buildRegionMap(root: HTMLElement, actions: RegionMapActions) {
       return card;
     }
 
-    const links = neighborsOf(region, i).filter((n) => connected(region, i, n)).length;
-    card.innerHTML = `
+    const crossings = joinedTo.length;
+    scrim.innerHTML = `
       <span class="region-tile-name"></span>
       <span class="region-tile-meta"></span>
       <span class="region-tile-links"></span>
@@ -108,16 +130,16 @@ export function buildRegionMap(root: HTMLElement, actions: RegionMapActions) {
         <button type="button" class="menu-btn region-raze" title="Raze this city">Raze</button>
       </div>
     `;
-    (card.querySelector('.region-tile-name') as HTMLElement).textContent = t.name;
-    (card.querySelector('.region-tile-meta') as HTMLElement).textContent =
+    (scrim.querySelector('.region-tile-name') as HTMLElement).textContent = t.name;
+    (scrim.querySelector('.region-tile-meta') as HTMLElement).textContent =
       `pop ${t.population.toLocaleString()} · §${t.funds.toLocaleString()} · ${monthLabel(t.month)}`;
-    (card.querySelector('.region-tile-links') as HTMLElement).textContent =
-      links === 0 ? 'no road to a neighbour' : links === 1 ? '1 border crossing' : `${links} border crossings`;
+    (scrim.querySelector('.region-tile-links') as HTMLElement).textContent =
+      crossings === 0 ? 'no road to a neighbour' : crossings === 1 ? '1 border crossing' : `${crossings} border crossings`;
 
-    card.querySelector('.region-enter')!.addEventListener('click', () => {
+    scrim.querySelector('.region-enter')!.addEventListener('click', () => {
       actions.enter(col, row, t.name);
     });
-    const raze = card.querySelector('.region-raze') as HTMLButtonElement;
+    const raze = scrim.querySelector('.region-raze') as HTMLButtonElement;
     raze.addEventListener('click', () => {
       if (raze.dataset.armed !== '1') {
         raze.dataset.armed = '1';

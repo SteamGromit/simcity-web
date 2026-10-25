@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
+  worldOf,
   DEFAULT_COLS,
   DEFAULT_ROWS,
   GARBAGE_PRICE,
@@ -18,6 +19,7 @@ import {
   sharedEdge,
   tileAt,
 } from '../src/sim/region';
+import { newCity } from '../src/sim/city';
 import { idx } from '../src/sim/grid';
 import { GRID, Zone } from '../src/sim/types';
 import { makeCity } from './helpers';
@@ -458,5 +460,23 @@ describe('regionPopulation', () => {
 
   test('unclaimed land counts for nothing', () => {
     expect(regionPopulation(region())).toBe(0);
+  });
+});
+
+describe('one world per region', () => {
+  test('two tiles of one region share a landscape', () => {
+    const r = newRegion('Shire', 'shire', 11, 2, 1);
+    const a = newCity(r.tiles[0].seed, r.biome, { world: worldOf(r), col: 0, row: 0 });
+    const b = newCity(r.tiles[1].seed, r.biome, { world: worldOf(r), col: 1, row: 0 });
+    for (let y = 0; y < GRID; y++) {
+      expect(
+        Math.abs(a.tiles[idx(GRID - 1, y)].elevation - b.tiles[idx(0, y)].elevation),
+      ).toBeLessThanOrEqual(1);
+    }
+  });
+
+  test('a revived old region still yields a world', () => {
+    const r = newRegion('Old', 'old', 3);
+    expect(worldOf(r)).toEqual({ seed: 3, cols: 3, rows: 3, biome: r.biome });
   });
 });

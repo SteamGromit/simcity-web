@@ -30,17 +30,22 @@ describe('desert biome', () => {
   });
 
   test('deserts are dry and sparse: less water and forest than temperate', () => {
-    let desertSeed = -1;
-    for (let seed = 1; seed <= 40 && desertSeed < 0; seed++) {
-      if (newCity(seed).biome === 'desert') desertSeed = seed;
+    // Medians over the first few seeds of each climate, so one desert that
+    // happens to roll a river does not stand for all of them.
+    const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[xs.length >> 1];
+    const count = (seed: number, kind: Terrain) =>
+      newCity(seed).tiles.filter((t) => t.terrain === kind).length;
+    const seeds = { desert: [] as number[], temperate: [] as number[] };
+    for (let seed = 1; seed <= 80; seed++) {
+      const b = newCity(seed).biome;
+      if (seeds[b].length < 6) seeds[b].push(seed);
     }
-    expect(desertSeed).toBeGreaterThan(0);
-    const desert = newCity(desertSeed);
-    const forest = desert.tiles.filter((t) => t.terrain === Terrain.Forest).length;
-    const water = desert.tiles.filter((t) => t.terrain === Terrain.Water).length;
-    expect(forest).toBeLessThan(40);
-    expect(water).toBeLessThan(60);
-    expect(water).toBeGreaterThan(0); // an oasis — pumps must have a chance
+    expect(seeds.desert.length).toBeGreaterThan(2);
+    const forest = (list: number[]) => median(list.map((s) => count(s, Terrain.Forest)));
+    const water = (list: number[]) => median(list.map((s) => count(s, Terrain.Water)));
+    expect(forest(seeds.desert)).toBeLessThan(forest(seeds.temperate) / 3);
+    expect(water(seeds.desert)).toBeLessThan(water(seeds.temperate) / 2);
+    for (const s of seeds.desert) expect(count(s, Terrain.Water)).toBeGreaterThan(0); // an oasis — pumps must have a chance
   });
 
   test('desert air is dry: fires ignite more easily', () => {

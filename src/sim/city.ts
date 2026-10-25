@@ -12,6 +12,7 @@ import { updateLandValue } from './landvalue';
 import { updatePollution } from './pollution';
 import { updatePower } from './power';
 import { updateWater } from './water';
+import { fillTerrain, rolledBiome, singleWorld, type World } from './terrain';
 import { updateWasteMonthly } from './waste';
 import { crimeIncidents, updateCrime } from './crime';
 import { accidentRoll, updateAccidents } from './accidents';
@@ -49,116 +50,22 @@ import {
 export const DEV_SLICE = (GRID * GRID) / TICKS_PER_MONTH;
 const FIELD_INTERVAL = 4; // ticks between field recomputes
 
-/** Grow an organic blob of `terrain` from a random start; deterministic. */
-function growBlob(
-  tiles: CityState['tiles'],
-  rand: () => number,
-  terrain: Terrain,
-  size: number,
-): void {
-  const frontier: [number, number][] = [
-    [4 + Math.floor(rand() * (GRID - 8)), 4 + Math.floor(rand() * (GRID - 8))],
-  ];
-  let placed = 0;
-  let guard = size * 20;
-  while (placed < size && frontier.length > 0 && guard-- > 0) {
-    const k = Math.floor(rand() * frontier.length);
-    const [x, y] = frontier.splice(k, 1)[0];
-    if (!inBounds(x, y)) continue;
-    const t = tiles[idx(x, y)];
-    if (t.terrain !== Terrain.Grass) continue;
-    t.terrain = terrain;
-    placed++;
-    for (const [nx, ny] of neighbors4(x, y)) {
-      if (rand() < 0.75) frontier.push([nx, ny]);
-    }
-  }
-}
-
-/** Raise an organic blob of land by one level; returns the raised tiles. */
-function raiseBlob(
-  tiles: CityState['tiles'],
-  rand: () => number,
-  size: number,
-  start?: [number, number],
-): number[] {
-  const frontier: [number, number][] = [
-    start ?? [4 + Math.floor(rand() * (GRID - 8)), 4 + Math.floor(rand() * (GRID - 8))],
-  ];
-  const raised = new Set<number>();
-  let guard = size * 20;
-  while (raised.size < size && frontier.length > 0 && guard-- > 0) {
-    const k = Math.floor(rand() * frontier.length);
-    const [x, y] = frontier.splice(k, 1)[0];
-    if (!inBounds(x, y) || raised.has(idx(x, y))) continue;
-    const t = tiles[idx(x, y)];
-    t.elevation = Math.min(MAX_ELEV, t.elevation + 1);
-    raised.add(idx(x, y));
-    for (const [nx, ny] of neighbors4(x, y)) {
-      if (rand() < 0.8) frontier.push([nx, ny]);
-    }
-  }
-  return [...raised];
-}
-
-function generateTerrain(tiles: CityState['tiles'], seed: number, forced?: Biome): Biome {
-  const rand = mulberry32(seed ^ 0x7e44a1);
-  // The roll happens either way, so forcing a biome changes the climate
-  // without shifting the random stream that lays out the land under it.
-  const rolled: Biome = rand() < 0.25 ? 'desert' : 'temperate';
-  const biome: Biome = forced ?? rolled;
-
-  const AREA_SCALE = (GRID * GRID) / 4096; // 1 at the original 64×64
-
-  // rolling hills first: broad base blobs with smaller caps stacked on top.
-  // The first hill is always a true mountain — stacked to the snowcap.
-  const hills = Math.round((2 + Math.floor(rand() * 3)) * AREA_SCALE);
-  for (let i = 0; i < hills; i++) {
-    const base = raiseBlob(tiles, rand, 80 + Math.floor(rand() * 120));
-    if (base.length === 0) continue;
-    const capAt = base[Math.floor(rand() * base.length)];
-    const cap = raiseBlob(tiles, rand, 20 + Math.floor(rand() * 40), [
-      capAt % GRID,
-      (capAt / GRID) | 0,
-    ]);
-    const layers = i === 0 ? 3 : rand() < 0.6 ? 1 : 0;
-    let on = cap.length > 0 ? cap : base;
-    for (let k = 0; k < layers && on.length > 0; k++) {
-      // climb from the highest point so the stack always gains a level
-      const at = on.reduce((b, t) => (tiles[t].elevation > tiles[b].elevation ? t : b), on[0]);
-      on = raiseBlob(tiles, rand, Math.max(4, 14 - k * 4), [at % GRID, (at / GRID) | 0]);
-    }
-  }
-
-  if (biome === 'desert') {
-    // oases and scrub patches — pumps and shade are precious out here
-    const patches = Math.max(1, Math.round(AREA_SCALE));
-    for (let i = 0; i < patches; i++) {
-      growBlob(tiles, rand, Terrain.Water, 18 + Math.floor(rand() * 20));
-      growBlob(tiles, rand, Terrain.Forest, 8 + Math.floor(rand() * 12));
-    }
-  } else {
-    growBlob(tiles, rand, Terrain.Water, 70 + Math.floor(rand() * 90));
-    const extraLakes = Math.round(AREA_SCALE);
-    for (let i = 0; i < extraLakes; i++) {
-      if (rand() < 0.5) growBlob(tiles, rand, Terrain.Water, 40 + Math.floor(rand() * 50));
-    }
-    const forests = Math.round((3 + Math.floor(rand() * 3)) * AREA_SCALE);
-    for (let i = 0; i < forests; i++) {
-      growBlob(tiles, rand, Terrain.Forest, 15 + Math.floor(rand() * 35));
-    }
-  }
-  return biome;
-}
-
 /**
  * A fresh city. `biome` forces the climate, which is how a region keeps its
  * cities in one place rather than putting a desert next to a lake district.
  */
-export function newCity(seed: number, biome?: Biome): CityState {
+export function newCity(
+  seed: number,
+  biome?: Biome,
+  place?: { world: World; col: number; row: number },
+): CityState {
   ensureCoreContent();
   const tiles = Array.from({ length: GRID * GRID }, blankTile);
-  const chosen = generateTerrain(tiles, seed, biome);
+  const chosen = biome ?? rolledBiome(seed);
+  // A region's cities sample one world at an offset, which is how a river
+  // continues across the border. A city on its own is a 1×1 world.
+  const world = place?.world ?? singleWorld(seed, chosen);
+  fillTerrain(tiles, world, place?.col ?? 0, place?.row ?? 0);
   return {
     version: 1,
     seed,
@@ -185,16 +92,7 @@ export function newCity(seed: number, biome?: Biome): CityState {
   };
 }
 
-/** Deterministic 32-bit RNG (mulberry32). */
-export function mulberry32(seed: number): () => number {
-  let a = seed | 0;
-  return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
+export { mulberry32 } from './rng';
 
 const TOOL_ZONE: Partial<Record<ToolId, Zone>> = {
   // every class of road builds into the one Road slot; the class rides on the
