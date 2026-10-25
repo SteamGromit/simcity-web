@@ -15,6 +15,7 @@ import {
 import { TileGeom } from './iso';
 import { halfExtent } from './massing';
 import { hash2 } from './noise';
+import { NO_SITE, type Site } from './site';
 
 export interface AmbientEnv {
   /** ms; sim-speed-scaled with a slow paused drift (renderer owns it). */
@@ -161,6 +162,7 @@ export function drawAmbient(
   abandoned: boolean,
   pollution: number,
   env: AmbientEnv,
+  site: Site = NO_SITE,
 ): void {
   if (abandoned || !powered) return;
   const bucket = variantBucket(variant);
@@ -172,7 +174,7 @@ export function drawAmbient(
   if (env.detail === 0) return; // far zoom: industry/civic plumes only
 
   if (env.winter) {
-    const hearth = hearthTip(zone, stage, tier, bucket);
+    const hearth = hearthTip(zone, stage, tier, bucket, site);
     if (hearth) drawPlume(ctx, cx, cy, hearth, 0, env);
   }
   if (

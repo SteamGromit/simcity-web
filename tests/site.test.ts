@@ -25,7 +25,7 @@ describe('site', () => {
     const city = row();
     expect(streetSide(city, at(14, 11))).toBe(0);
     // quarter 0: screen side = grid side; party bits on E (1) and W (3)
-    expect(siteOf(city, at(14, 11), 0, 0)).toEqual({ side: 0, corner: false, party: (1 << 1) | (1 << 3) });
+    expect(siteOf(city, at(14, 11), 0, 0)).toEqual({ side: 0, corner: -1, party: (1 << 1) | (1 << 3) });
     expect(siteOf(city, at(12, 11), 0, 0).party).toBe(1 << 1); // west end: a partner east only
     expect(siteOf(city, at(16, 11), 0, 0).party).toBe(1 << 3); // east end
   });
@@ -39,11 +39,13 @@ describe('site', () => {
     }
   });
 
-  test('no partner across a difference in stage, tier, zone, standing, or street', () => {
+  test('no partner across a difference in band, tier, zone, standing, or street', () => {
     const base = row();
     expect(partners(base, at(13, 11), at(14, 11))).toBe(true);
     let city = row();
-    city.tiles[at(14, 11)].stage = 3;
+    city.tiles[at(14, 11)].stage = 3; // another stage in the band still joins
+    expect(partners(city, at(13, 11), at(14, 11))).toBe(true);
+    city.tiles[at(14, 11)].stage = 4; // past the band does not
     expect(partners(city, at(13, 11), at(14, 11))).toBe(false);
     city = row();
     city.tiles[at(14, 11)].tier = 1;
@@ -76,16 +78,17 @@ describe('site', () => {
     expect(siteOf(city, at(13, 11), 0, 0).party).toBe(1 << 3);
   });
 
-  test('a corner has a second road on an adjacent side, not the opposite one', () => {
+  test('a corner names the side of its second road; a road behind is not a corner', () => {
     const city = row();
     road(city, 11, 10, 11, 14); // a side street down the west end
-    expect(siteOf(city, at(12, 11), 0, 0).corner).toBe(true);
-    expect(siteOf(city, at(13, 11), 0, 0).corner).toBe(false);
+    expect(siteOf(city, at(12, 11), 0, 0).corner).toBe(3); // the side street is to its west
+    expect(siteOf(city, at(12, 11), 1, 1).corner).toBe(0); // a quarter on, the west is screen north
+    expect(siteOf(city, at(13, 11), 0, 0).corner).toBe(-1);
     // the corner lot still joins the row along its street
     expect(siteOf(city, at(12, 11), 0, 0).party).toBe(1 << 1);
     const across = row();
     road(across, 10, 12, 30, 12); // a parallel street behind the row
-    expect(siteOf(across, at(14, 11), 0, 0).corner).toBe(false);
+    expect(siteOf(across, at(14, 11), 0, 0).corner).toBe(-1);
   });
 
   test('a stage-5 shop is past the band', () => {

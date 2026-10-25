@@ -61,6 +61,7 @@ import { hash2 } from './noise';
 import { blit, sprite } from './spritecache';
 import { ShadowLayer } from './shadows';
 import { drawLotGround, roadSidesFor, roadStampOf } from './lots';
+import { NO_SITE, siteOf } from './site';
 import { ShorelineLot, drawReflection, shoreStampOf, shorelineLots } from './reflections';
 
 export interface ViewState {
@@ -498,6 +499,9 @@ export class Renderer {
         const size = sizeOfSlot(t.zone);
         const drawGeom = size > 1 ? this.blockDrawGeom(city, i, size) : geom;
         if (drawGeom) {
+          const site = detail >= 1 && size === 1 && t.stage > 0 && this.isGrowable(t.zone)
+            ? siteOf(city, i, this.quarter, this.roadSide[i])
+            : NO_SITE;
           drawBuilding(
             ctx,
             drawGeom,
@@ -511,10 +515,11 @@ export class Renderer {
             detail,
             size,
             this.season,
+            site,
           );
           drawAmbient(
             ctx, drawGeom, t.zone, t.stage, t.tier, this.variants[i], size,
-            t.powered, t.abandoned, t.pollution, ambient,
+            t.powered, t.abandoned, t.pollution, ambient, site,
           );
           if (detail >= 1 && size === 1 && t.stage > 0 && t.stage <= 3 && this.isGrowable(t.zone)) {
             drawYardTrees(

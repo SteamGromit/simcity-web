@@ -177,12 +177,14 @@ export function gravelSpeckle(ctx: CanvasRenderingContext2D, deck: Pt[], tone: H
  * eave shadow, the hatch) ask this rather than the archetype, so a demoted
  * roof never leaves the shadow of an eave it does not have.
  */
-export function effectiveRoofStyle(roof: Pt[], style: RoofStyle): RoofStyle {
+export function effectiveRoofStyle(roof: Pt[], style: RoofStyle, row = false): RoofStyle {
   if (roof.length !== 4) return style === 'parapet' ? 'parapet' : 'flat';
   const ex = Math.hypot(roof[1][0] - roof[0][0], roof[1][1] - roof[0][1]);
   const ey = Math.hypot(roof[2][0] - roof[1][0], roof[2][1] - roof[1][1]);
   const aspect = Math.max(ex, ey) / Math.max(1e-6, Math.min(ex, ey));
-  if (aspect > 1.9 && style !== 'sawtooth') return style === 'parapet' ? 'parapet' : 'flat';
+  // a long thin block takes a flat top, except a terrace house, whose plan
+  // is long only because it runs to the party walls: its gable is the point
+  if (aspect > 1.9 && style !== 'sawtooth' && !row) return style === 'parapet' ? 'parapet' : 'flat';
   return style;
 }
 
@@ -211,13 +213,15 @@ export function roofCap(
   body: Hsl,
   seed: number,
   mat?: Material,
+  /** Bitmask of screen sides where a gabled roof runs on into a partner's: no gable end there. */
+  through = 0,
 ): void {
   const [cx, cy] = centre(roof);
   // How steep a pitch gets is a function of how wide the roof is, so it has
   // to be measured rather than read off a corner index — turned half a circle
   // the indexed version went negative and pitched every ridge downwards.
   const [rhw] = halfExtent(roof);
-  const style = effectiveRoofStyle(roof, styleIn);
+  const style = effectiveRoofStyle(roof, styleIn, through !== 0);
   const tile = ROOFING[Math.floor(hash2(seed, 6, 331) * ROOFING.length)];
   const trim = mat?.trim ?? hsl(40, 8, 80);
   const wall = mat?.body ?? body;
@@ -239,7 +243,7 @@ export function roofCap(
       );
     }
     const lifted = raise(eave, 1.6);
-    const slopes: { pts: Pt[]; level: number; isEnd: boolean }[] = [];
+    const slopes: { pts: Pt[]; level: number; isEnd: boolean; edge: number }[] = [];
     for (let i = 0; i < 4; i++) {
       const p = lifted[i];
       const q = lifted[(i + 1) % 4];
@@ -259,9 +263,9 @@ export function roofCap(
       if (isEnd) {
         const dpa = Math.hypot(p[0] - a[0], p[1] - a[1]);
         const dpb = Math.hypot(p[0] - b[0], p[1] - b[1]);
-        slopes.push({ pts: [p, q, dpa + dqa < dpb + dqb ? a : b], level, isEnd: true });
+        slopes.push({ pts: [p, q, dpa + dqa < dpb + dqb ? a : b], level, isEnd: true, edge: i });
       } else {
-        slopes.push({ pts: [p, q, nearQ, nearP], level, isEnd: false });
+        slopes.push({ pts: [p, q, nearQ, nearP], level, isEnd: false, edge: i });
       }
     }
     // back slopes first: sort by the mean screen y of the slope
@@ -269,6 +273,7 @@ export function roofCap(
     slopes.sort((s, t) => meanY(s.pts) - meanY(t.pts));
     for (const s of slopes) {
       if (style === 'gabled' && s.isEnd) {
+        if (eave.length === 4 && through & (1 << s.edge)) continue; // the row's roof carries on
         // a gable end: the wall carries on up under a bargeboard
         const p = s.pts[0];
         const q = s.pts[1];

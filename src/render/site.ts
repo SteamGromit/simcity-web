@@ -14,13 +14,13 @@ import { CityState, GRID, Stage, Tile, Zone } from '../sim/types';
 export interface Site {
   /** Screen side (0..3) of the nearest frontage road, or −1. */
   side: number;
-  /** A second frontage road touches an adjacent side: the lot is a corner. */
-  corner: boolean;
+  /** Screen side of a second frontage road on an adjacent side (a corner lot), or −1. */
+  corner: number;
   /** Bitmask of screen sides (1 << side) whose neighbour is a terrace partner. */
   party: number;
 }
 
-export const NO_SITE: Site = { side: -1, corner: false, party: 0 };
+export const NO_SITE: Site = { side: -1, corner: -1, party: 0 };
 
 /** Grid sides in `roadSideOf` order: N, E, S, W. */
 const DIRS: [number, number][] = [
@@ -57,15 +57,17 @@ function rowable(t: Tile): boolean {
 
 /**
  * Two lots are terrace partners when they are neighbours along the same
- * street, both single-tile, the same zone, tier and stage (a stepped join
- * reads as two houses, so the spec's "stage band" is tightened to the
- * stage), both standing, and neither still a building site.
+ * street, both single-tile, the same zone and tier, both in the row band,
+ * both standing, and neither still a building site. The band, not the
+ * stage: on a real street of houses almost no two neighbours share a stage
+ * (18 of 997 on the demo city) while 382 share the band, and the row paints
+ * at one height for its band so the roofline is level anyway.
  */
 export function partners(city: CityState, i: number, j: number): boolean {
   if (!inBounds(j % GRID, (j / GRID) | 0)) return false;
   const a = city.tiles[i];
   const b = city.tiles[j];
-  if (a.zone !== b.zone || a.stage !== b.stage) return false;
+  if (a.zone !== b.zone) return false;
   if (normalizeTier(a.zone, a.tier) !== normalizeTier(b.zone, b.tier)) return false;
   if (!rowable(a) || !rowable(b)) return false;
   const sa = streetSide(city, i);
@@ -82,14 +84,14 @@ export function partners(city: CityState, i: number, j: number): boolean {
 /** The site of lot `i` as seen at `quarter`; `roadSide` is the renderer's screen side for it. */
 export function siteOf(city: CityState, i: number, quarter: number, roadSide: number): Site {
   const gs = streetSide(city, i);
-  if (gs < 0) return { side: roadSide, corner: false, party: 0 };
+  if (gs < 0) return { side: roadSide, corner: -1, party: 0 };
   const x = i % GRID;
   const y = (i / GRID) | 0;
   const q = ((quarter % 4) + 4) % 4;
   let party = 0;
-  let corner = false;
+  let corner = -1;
   for (const k of [(gs + 1) % 4, (gs + 3) % 4]) {
-    if (roadOn(city, x, y, k)) corner = true;
+    if (corner < 0 && roadOn(city, x, y, k)) corner = (k + q) % 4;
     const nx = x + DIRS[k][0];
     const ny = y + DIRS[k][1];
     if (inBounds(nx, ny) && partners(city, i, idx(nx, ny))) party |= 1 << ((k + q) % 4);

@@ -25,16 +25,17 @@ import {
   parapet,
   prism,
   raise,
-
   shift,
   type Facade,
   type Hsl,
   type Material,
-
   type WindowPattern,
+  cutCorner,
 } from './massing';
 import { LAMP, hsl, materialOf, swatch } from './palette';
 import { LIGHT, wallLight, type Pt } from './sun';
+import { NO_SITE, type Site } from './site';
+import { DOOR_COLORS, frontWallFor, letteringDashes, SIGN_PALETTE, TERRACE_BUCKET, terracePlan, terraceRecipe, terraceStage } from './frontage';
 import {
   chimneyHeight,
   effectiveRoofStyle,
@@ -62,6 +63,7 @@ import {
   pickSwatch,
   PropKind,
   RoofStyle,
+  type SubBox,
 } from './archetypes';
 
 /** Heights (px) by zone and stage 1..7. */
@@ -305,14 +307,27 @@ function streetLevel(
   seed: number,
   entityHue: number | null,
   initials: string | null,
+  side: number,
+  kind: Tier,
 ): void {
   if (walls.length === 0) return;
-  const [a, b] = walls.reduce((p, w) => (w[0][1] + w[1][1] > p[0][1] + p[1][1] ? w : p), walls[0]);
+  const [a, b] = walls[frontWallFor(walls, side)];
   const at = (t: number): Pt => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  // the unit normal of the front wall pointing out into the street (down-screen)
+  const wl = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+  let nx = (b[1] - a[1]) / wl;
+  let ny = -(b[0] - a[0]) / wl;
+  if (ny < 0) {
+    nx = -nx;
+    ny = -ny;
+  }
+  const out = (p: Pt, d: number): Pt => [p[0] + nx * d, p[1] + ny * d];
   if (zone === Zone.Commercial && stage >= 1) {
     // a shopfront on every visible wall: glazing over a dark interior, a
     // stall riser, a fascia in the business colour, a reflection strip
-    const fascia = entityHue !== null ? hsl(entityHue, 48, 40) : mat.trim;
+    const fascia = entityHue !== null
+      ? hsl(entityHue, 48, 40)
+      : hsl(SIGN_PALETTE[Math.floor(hash2(7, 8, seed) * SIGN_PALETTE.length)], 52, 42);
     for (const [p, q2] of walls) {
       const level = wallLight(p[0], p[1], q2[0], q2[1]);
       fill(
@@ -332,15 +347,42 @@ function streetLevel(
         'rgba(255, 252, 244, 0.25)',
       );
     }
-    if (stage <= 3 && hash2(5, 6, seed) > 0.5) {
-      // an awning off the front wall, with the shade it throws under it
+    if (stage <= 5) {
+      // lettering on the fascia: dashes whose lengths are the lot's own
+      ctx.fillStyle = 'rgba(255, 252, 240, 0.82)';
+      let u = 0.12;
+      for (const d of letteringDashes(channels(hash2(seed, 11, 907)), 6)) {
+        const p = at(u);
+        const q = at(u + d);
+        fill(ctx, [[p[0], p[1] - 7.3], [q[0], q[1] - 7.3], [q[0], q[1] - 8.4], [p[0], p[1] - 8.4]], 'rgba(255, 252, 240, 0.82)');
+        u += d + 0.04;
+      }
+    }
+    if (stage <= 5 && hash2(5, 6, seed) < 0.34) {
+      // an awning projecting over the footway, striped on half of them, with
+      // the shade it throws on the wall under it
       const a1 = at(0.1);
       const a2 = at(0.9);
-      const awn = entityHue !== null ? hsl(entityHue, 52, 46) : hsl(18, 40, 46);
+      const o1 = out(a1, 4.4);
+      const o2 = out(a2, 4.4);
+      const awn = entityHue !== null ? hsl(entityHue, 52, 46) : hsl(SIGN_PALETTE[Math.floor(hash2(2, 9, seed) * SIGN_PALETTE.length)], 46, 44);
       fill(
         ctx,
-        [[a1[0], a1[1] - 9.2], [a2[0], a2[1] - 9.2], [a2[0], a2[1] - 5.2], [a1[0], a1[1] - 5.2]],
+        [[a1[0], a1[1] - 9.2], [a2[0], a2[1] - 9.2], [o2[0], o2[1] - 7.2], [o1[0], o1[1] - 7.2]],
         css(lit(awn, LIGHT.roof)),
+      );
+      if (hash2(4, 9, seed) > 0.5) {
+        ctx.fillStyle = 'rgba(255, 252, 244, 0.5)';
+        for (let t = 0.1; t < 0.9; t += 0.16) {
+          const p = at(t);
+          const q = at(t + 0.08);
+          fill(ctx, [[p[0], p[1] - 9.2], [q[0], q[1] - 9.2], [out(q, 4.4)[0], out(q, 4.4)[1] - 7.2], [out(p, 4.4)[0], out(p, 4.4)[1] - 7.2]], 'rgba(255, 252, 244, 0.5)');
+        }
+      }
+      fill(
+        ctx,
+        [[o1[0], o1[1] - 7.2], [o2[0], o2[1] - 7.2], [o2[0], o2[1] - 6.4], [o1[0], o1[1] - 6.4]],
+        'rgba(10, 14, 26, 0.3)',
       );
       fill(
         ctx,
@@ -360,17 +402,56 @@ function streetLevel(
     ctx.moveTo(e1[0], e1[1] - 10.5);
     ctx.lineTo(e2[0], e2[1] - 10.5);
     ctx.stroke();
+  } else if (zone === Zone.Industrial) {
+    // a roller door, one in two rolled up on a dark interior; a works
+    // entrance beside it
+    const d1 = at(0.3);
+    const d2 = at(0.62);
+    const open = hash2(3, 4, seed) > 0.5;
+    const level = wallLight(a[0], a[1], b[0], b[1]);
+    fill(ctx, [d1, d2, [d2[0], d2[1] - 9], [d1[0], d1[1] - 9]], open ? 'rgba(18, 16, 14, 0.9)' : css(lit(hsl(210, 6, 52), level)));
+    ctx.strokeStyle = open ? css(lit(hsl(210, 6, 52), level)) : 'rgba(20, 20, 24, 0.35)';
+    ctx.lineWidth = 0.6;
+    for (let yy = open ? 8.4 : 1.2; yy < 9; yy += 1.3) {
+      ctx.beginPath();
+      ctx.moveTo(d1[0], d1[1] - yy);
+      ctx.lineTo(d2[0], d2[1] - yy);
+      ctx.stroke();
+      if (open) break;
+    }
+    if (open) fill(ctx, [[d1[0], d1[1] - 8], [d2[0], d2[1] - 8], [d2[0], d2[1] - 9.4], [d1[0], d1[1] - 9.4]], css(lit(hsl(210, 6, 52), level)));
+    const e1 = at(0.74);
+    const e2 = at(0.84);
+    fill(ctx, [e1, e2, [e2[0], e2[1] - 6.5], [e1[0], e1[1] - 6.5]], 'rgba(28, 26, 24, 0.85)');
   } else {
     const d1 = at(0.42);
     const d2 = at(0.58);
+    const house = zone === Zone.Residential;
+    if (house && stage <= 2) {
+      // a path from the door to the kerb, and a step up to the door
+      const p1 = out(at(0.44), 0);
+      const p2 = out(at(0.56), 0);
+      const far = 0.42 * TILE_H + 4;
+      fill(ctx, [p1, p2, out(p2, far), out(p1, far)], 'rgba(214, 206, 190, 0.7)');
+      fill(ctx, [out(d1, 0), out(d2, 0), out(d2, 2.2), out(d1, 2.2)], css(lit(mat.trim, LIGHT.roof * 0.9)));
+    }
+    const door = house ? DOOR_COLORS[Math.floor(hash2(6, 4, seed) * DOOR_COLORS.length)] : 'rgba(28, 22, 18, 0.85)';
     fill(ctx, [d1, d2, [d2[0], d2[1] - 7], [d1[0], d1[1] - 7]], 'rgba(28, 22, 18, 0.85)');
+    if (house) fill(ctx, [at(0.44), at(0.56), [at(0.56)[0], at(0.56)[1] - 6.4], [at(0.44)[0], at(0.44)[1] - 6.4]], door);
     ctx.strokeStyle = css(lit(mat.trim, LIGHT.left * 1.1));
     ctx.lineWidth = 0.9;
     ctx.beginPath();
     ctx.moveTo(d1[0], d1[1] - 7.4);
     ctx.lineTo(d2[0], d2[1] - 7.4);
     ctx.stroke();
-    if (zone === Zone.Residential && hash2(3, 4, seed) > 0.5) {
+    if (house && stage >= 3) {
+      // an entrance canopy over the door, its own small shade beneath
+      const c1 = at(0.36);
+      const c2 = at(0.64);
+      fill(ctx, [[c1[0], c1[1] - 7.6], [c2[0], c2[1] - 7.6], [out(c2, 3.2)[0], out(c2, 3.2)[1] - 6.8], [out(c1, 3.2)[0], out(c1, 3.2)[1] - 6.8]], css(lit(kind === 3 ? hsl(40, 10, 82) : mat.trim, LIGHT.roof)));
+      fill(ctx, [[c1[0], c1[1] - 5.2], [c2[0], c2[1] - 5.2], [c2[0], c2[1] - 4.6], [c1[0], c1[1] - 4.6]], 'rgba(10, 14, 26, 0.3)');
+    }
+    if (house && hash2(3, 4, seed) > 0.5) {
       // a stoop light beside the door
       ctx.fillStyle = css(LAMP, 0.5);
       ctx.beginPath();
@@ -553,6 +634,10 @@ interface LotKey {
   glow: boolean;
   /** Set for farms only: a field is the one growable that wears the season. */
   season?: Season;
+  /** Screen side of the street (−1 none), party-wall bitmask, corner side (−1 none). */
+  side: number;
+  party: number;
+  corner: number;
 }
 
 /** Industrial growable stack placement — shared by the bake and stackTips. */
@@ -576,15 +661,50 @@ export function industryStacks(
  * windows, roof, signage — lands in a bitmap that is afterwards copied in a
  * single call, which is what makes this much detail affordable at all.
  */
+/**
+ * The massing a lot bakes with: its archetype, its height and the plan of
+ * its primary mass. A row house uses the row's recipe, height bucket and a
+ * plan that runs to the party walls; everything else comes from the table.
+ * `hearthTip` replays this to find the chimney, so it must stay in step.
+ */
+function lotMassing(k: LotKey, chan: () => number) {
+  const { zone, stage, tier, bucket, party, side } = k;
+  const rc = zone === Zone.Residential || zone === Zone.Commercial;
+  const pick = chan(); // always drawn, so the stream keeps its order
+  const terrace = rc && party !== 0 && !k.abandoned;
+  const arch: Archetype = terrace ? terraceRecipe(zone, tier) : pickArchetype(zone, tier, stage, pick);
+  const h = terrace
+    ? growableHeight(zone, terraceStage(zone), tier, TERRACE_BUCKET)
+    : growableHeight(zone, stage, tier, bucket);
+  const budget = footprintBudget(terrace ? terraceStage(zone) : stage);
+  const planOf = (sb: SubBox): Pt[] => {
+    if (terrace && sb.hf === 1) {
+      const tp = terracePlan(budget, party, side);
+      const c = tileOffset(tp.cx, tp.cy);
+      return tileRect(c[0], c[1], tp.a, tp.b);
+    }
+    const e = boxExtent(sb);
+    const c = tileOffset(sb.ox * budget, sb.oy * budget);
+    const plan = tileRect(c[0], c[1], (e.w * budget) / 2, (e.d * budget) / 2);
+    let q: Pt[] = sb.chamfer ? chamfer(plan, sb.chamfer) : plan;
+    if (sb.hf === 1 && !terrace && zone === Zone.Commercial && k.corner >= 0 && side >= 0 && q.length === 4) {
+      // a corner shop: the entrance is splayed across the street corner
+      const v = k.corner === (side + 1) % 4 ? k.corner : side;
+      q = cutCorner(q, v, 0.2);
+    }
+    return q;
+  };
+  return { arch, h, budget, terrace, planOf };
+}
+
 function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
-  const { zone, stage, tier, bucket, size, abandoned, glow } = k;
+  const { zone, stage, tier, bucket, size, abandoned, glow, side, party } = k;
   const kind = normalizeTier(zone, tier);
   const fam = familyOf(zone, tier);
   const half = (bucket + 0.5) / VARIANTS;
   const chan = channels(half);
   const hw = (TILE_W * size) / 2;
   const hh = (TILE_H * size) / 2;
-  const base = { cx: 0, cy: 0 };
   const tile = diamond(0, 0, hw, hh);
 
   if (fam === 'ag' && !abandoned) {
@@ -592,10 +712,9 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
     return;
   }
 
-  const h = growableHeight(zone, stage, tier, bucket);
   // channel order is load-bearing: archetype, style, swatch, jitter —
   // hearthTip replays the first draw to find the chimney the bake placed
-  const arch: Archetype = pickArchetype(zone, tier, stage, chan());
+  const { arch, h, budget, terrace, planOf } = lotMassing(k, chan);
   const style = styleFor(fam, stage, chan());
   const sw = swatch(pickSwatch(arch, chan()));
   const jitter = chan();
@@ -609,19 +728,14 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
   body = { h: skinned[0], s: skinned[1], l: skinned[2] };
   const mat = abandoned ? material('render', body) : materialOf(sw, body);
 
-  const budget = footprintBudget(stage);
   // Back to front by the *centre* of each mass, and — critically — shortest
   // first when two masses share a centre. Sorting by the south corner put a
   // wide low podium after the slender tower standing on it, which painted the
   // podium's roof cap straight across the tower's face.
   const masses = arch.boxes
-    .map((sb) => {
-      const e = boxExtent(sb);
-      const c = tileOffset(sb.ox * budget, sb.oy * budget);
-      const plan = tileRect(c[0] + base.cx, c[1] + base.cy, (e.w * budget) / 2, (e.d * budget) / 2);
-      return { sb, q: sb.chamfer ? chamfer(plan, sb.chamfer) : (plan as Pt[]) };
-    })
+    .map((sb) => ({ sb, q: planOf(sb) }))
     .sort((a, b) => centre(a.q)[1] - centre(b.q)[1] || a.sb.hf - b.sb.hf);
+  void budget;
 
   const ink = glow ? 0 : getSkin().outline;
   let primary: { roof: Pt[]; walls: [Pt, Pt][] } | null = null;
@@ -638,7 +752,9 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
       facade: sb.hf === 1 && !abandoned ? arch.facade : undefined,
       // a pitched roof overhangs the wall and throws a band of shade down it
       // — the roof the plan can actually carry, not the one the archetype asks for
-      eaveShadow: sb.hf === 1 && pitched(effectiveRoofStyle(raise(q, mh), arch.roof)) ? 3.5 : undefined,
+      eaveShadow: sb.hf === 1 && pitched(effectiveRoofStyle(raise(q, mh), arch.roof, terrace)) ? 3.5 : undefined,
+      front: side,
+      skipWalls: terrace && sb.hf === 1 ? party : 0,
     });
     if (ink > 0) {
       // Cartoon ink goes on each mass *as it is drawn*, so a mass in front
@@ -660,9 +776,12 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
     if (sb.hf === 1) primary = { roof: r.roof, walls: r.walls };
   }
   if (primary && glow && zone === Zone.Commercial && stage >= 1) {
-    // a shop's glazing spills light onto the pavement after dark
+    // a shop's glazing spills light onto the pavement after dark, and the
+    // fascia is lit: one sign in three a cool tube, the rest warm
+    const tube = hash2(bucket, 9, 517) < 0.34 ? 'rgba(126, 222, 240, 0.85)' : 'rgba(255, 198, 112, 0.85)';
     for (const [p, q2] of primary.walls) {
       fill(ctx, [p, q2, [q2[0], q2[1] - 6.5], [p[0], p[1] - 6.5]], css(LAMP, 0.55));
+      if (stage <= 5) fill(ctx, [[p[0], p[1] - 6.5], [q2[0], q2[1] - 6.5], [q2[0], q2[1] - 9.2], [p[0], p[1] - 9.2]], tube);
     }
   }
   if (!primary || glow) return;
@@ -671,7 +790,8 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
   if (h > 62 && arch.roof !== 'gabled' && arch.roof !== 'sawtooth') {
     top = towerCrown(ctx, primary.roof, mat, body, bucket * 11 + stage);
   } else {
-    roofCap(ctx, primary.roof, arch.roof, body, bucket, mat);
+    // a row shares one roofing, so the seed is the row's, not the lot's
+    roofCap(ctx, primary.roof, arch.roof, body, terrace ? 1000 + (typeof tier === 'number' ? tier : 0) : bucket, mat, terrace ? party : 0);
     if (style.lip && arch.roof === 'flat') {
       parapet(ctx, primary.roof, material('concrete', mix(body, hsl(212, 6, 60), 0.55)), 1.8);
     }
@@ -680,7 +800,7 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
     const crowned = top !== primary.roof;
     roofKit(
       ctx, top, arch.props, body, bucket * 7 + 1, h,
-      !crowned && wantsHatch(effectiveRoofStyle(primary.roof, arch.roof)),
+      !crowned && wantsHatch(effectiveRoofStyle(primary.roof, arch.roof, terrace)),
     );
     const ent = entityFor(zone, kind, stage, half);
     streetLevel(
@@ -692,6 +812,8 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
       bucket * 5 + 2,
       ent ? ent.hue : null,
       ent ? ent.initials : null,
+      side,
+      kind,
     );
     tierAccents(ctx, top, zone, kind, stage, bucket * 3 + stage);
   } else {
@@ -766,7 +888,7 @@ function lotSprite(k: LotKey): Sprite {
   const ay = h + hh + marginTop(h);
   const key = `L${k.zone}.${k.stage}.${k.tier}.${k.bucket}.${k.size}${k.abandoned ? 'a' : ''}${
     k.glow ? 'g' : ''
-  }${k.season ? '.' + k.season.slice(0, 2) : ''}${getSkin().id}`;
+  }${k.season ? '.' + k.season.slice(0, 2) : ''}.${k.side}${k.party}${k.corner}${getSkin().id}`;
   return sprite(
     key,
     {
@@ -1397,21 +1519,18 @@ export function stackTips(zone: Zone, stage: Stage, tier: Tier, bucket: number, 
 
 /** The chimney a low-rise home would vent in winter — null when its archetype
  * has none. Replays the exact placement the bake used via placeRoofProps. */
-export function hearthTip(zone: Zone, stage: Stage, tier: Tier, bucket: number): StackTip | null {
+export function hearthTip(zone: Zone, stage: Stage, tier: Tier, bucket: number, site: Site = NO_SITE): StackTip | null {
   if (zone !== Zone.Residential || stage < 1 || stage > 3) return null;
   const half = (bucket + 0.5) / VARIANTS;
   const chan = channels(half);
-  const arch = pickArchetype(zone, tier, stage, chan());
+  const { arch, h, planOf } = lotMassing(
+    { zone, stage, tier, bucket, size: 1, abandoned: false, glow: false, side: site.side, party: site.party, corner: site.corner },
+    chan,
+  );
   if (!arch.props.includes('chimney')) return null;
-  const h = growableHeight(zone, stage, tier, bucket);
-  const budget = footprintBudget(stage);
   const sb = arch.boxes.find((b) => b.hf === 1);
   if (!sb) return null;
-  const e = boxExtent(sb);
-  const c = tileOffset(sb.ox * budget, sb.oy * budget);
-  const plan = tileRect(c[0], c[1], (e.w * budget) / 2, (e.d * budget) / 2);
-  const q = sb.chamfer ? chamfer(plan, sb.chamfer) : (plan as Pt[]);
-  const roof = raise(q, h);
+  const roof = raise(planOf(sb), h);
   const hit = placeRoofProps(arch.props, roof, bucket * 7 + 1).find((p) => p.kind === 'chimney');
   if (!hit) return null;
   // vent from the cap of the exact prism roofKit's chimney case bakes
@@ -1810,6 +1929,7 @@ export function drawBuilding(
   detail: 0 | 1 | 2 = 1, // zoom LOD
   size = 1,
   season: Season = 'summer', // what anything baked with vegetation wears
+  site: Site = NO_SITE, // the street's side, the terrace partners, the corner
 ) {
   const { cx, cy } = geom;
   const bucket = variantBucket(variant);
@@ -1867,6 +1987,7 @@ export function drawBuilding(
   const key: LotKey = {
     zone, stage, tier, bucket, size, abandoned, glow: false,
     season: farm ? season : undefined,
+    side: site.side, party: site.party, corner: site.corner,
   };
   blit(ctx, lotSprite(key), cx, cy);
   if (night > 0.06 && !abandoned && powered && !farm) {
@@ -1904,6 +2025,7 @@ export function standingSpriteFor(
   return lotSprite({
     zone, stage, tier, bucket, size: 1, abandoned, glow: false,
     season: farm ? season : undefined,
+    side: -1, party: 0, corner: -1,
   });
 }
 
