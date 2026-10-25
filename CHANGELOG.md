@@ -4,6 +4,43 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.68.0] — 2026-10-25 · Commuters cross the border
+
+Backlog #1, second of three parts. A joined border was a number in the
+demand equation; now it is a place on the road network.
+
+### Added
+- **Gates.** Where two cities' roads meet at the same border position, the
+  region now records a *gate* on each side (`NeighborState.gates`, derived
+  on every sync and never saved). A connected neighbour's lent jobs and
+  workers (still 35% of its totals) are split evenly across the gates on
+  that border.
+- **Commuting through a gate** (`sim/traffic.ts`). The commute fields seed
+  each gate at `BORDER_TRIP = 12` road steps, the drive into the next town,
+  so a residence whose nearest work is across the border reads a finite
+  commute (its road steps to the gate plus 12), can develop on the strength
+  of the neighbour's jobs, and loads every road tile on the way to the
+  crossing exactly as a trip to a local job does. The neighbour's workers
+  come in the other way: from each gate, one car per `WORKERS_PER_CAR = 50`
+  lent workers drives down the local-jobs field to the nearest work here
+  (a developed residence tile, which holds 30–70 workers at the stages most
+  of a city sits at, puts one car on the road, so inbound and outbound are
+  on one scale). Bus coverage at both ends cuts the cars the same way it
+  does for residents. A crash on the crossing closes the gate until it is
+  cleared.
+
+### Fixed
+- **Closing the tab on the region map could blank the first city.** Opening
+  a region left the current city as whatever was loaded before (at startup,
+  a placeholder) and the tile pointer at the first tile; a save on the way
+  out of the layer or on `pagehide` then wrote that placeholder over tile
+  A1's real city. Region saves now happen only while a region tile's city
+  is actually being played.
+
+### Unchanged
+- Demand itself: the 35% border shares feed it exactly as before. What is
+  new is that the people implied by those shares are now on the road.
+
 ## [0.67.0] — 2026-10-25 · Region terrain: one landscape, drawn
 
 Backlog #1, first of three parts. Terrain generation was rewritten so a

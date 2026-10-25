@@ -164,7 +164,11 @@ neighbouring cities:
   shared border and the two cities are joined. A share of your neighbour's
   jobs feeds your residential demand, and a share of its workers feeds your
   commercial and industrial demand — so a bedroom suburb beside an industrial
-  city grows because the work is next door.
+  city grows because the work is next door. The crossing is a real place on
+  the road: residents near the border commute through it (their commute is
+  the road to the crossing plus a fixed drive beyond it), and the
+  neighbour's workers drive in through it to your jobs, so the road to the
+  border carries traffic and can jam like any other.
 
 Only one city simulates at a time; the others sit as you left them. Regions
 export and import as a single file, cities included.
