@@ -1004,8 +1004,12 @@ export class Automata {
       this.peds.push(this.spawnParker());
       parkers++;
     }
-    if (walkers > walkTarget) {
-      // too many for the hour: the newest fade out where they stand
+    // too many for the hour: the newest fade out where they stand. A few over
+    // is not too many: passengers alighting from a bus push the count over by
+    // up to three, and thinning for that faded a fresh walker for every one
+    // of them — ten people a second dying young.
+    const slack = Math.max(3, Math.round(walkTarget * 0.05));
+    if (walkers > walkTarget + slack) {
       let over = walkers - walkTarget;
       for (let i = this.peds.length - 1; i >= 0 && over > 0; i--) {
         const p = this.peds[i];
