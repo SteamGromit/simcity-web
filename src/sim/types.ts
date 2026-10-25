@@ -216,6 +216,8 @@ export interface NeighborState {
   power: number;
   /** Refuse capacity bought from (+) or sold to (−) neighbours. */
   garbage: number;
+  /** Pump capacity, in consumer tiles, bought from (+) or sold to (−). */
+  water: number;
   /** Net monthly money from every contract. */
   income: number;
   /** Jobs reachable across a connected border. */
@@ -227,7 +229,7 @@ export interface NeighborState {
 }
 
 export function defaultNeighbors(): NeighborState {
-  return { power: 0, garbage: 0, income: 0, jobs: 0, workers: 0, gates: [] };
+  return { power: 0, garbage: 0, water: 0, income: 0, jobs: 0, workers: 0, gates: [] };
 }
 
 /** What the city threw out last month, and what happened to it. */
@@ -265,6 +267,8 @@ export interface CityState {
   eduLevel: number;
   /** Consumers denied power last tick because the plant pool ran dry. */
   brownouts: number;
+  /** Consumers the pumps could not reach with water last pass. */
+  dryouts: number;
   lastBudget: BudgetReport;
   /** Last month's refuse ledger; recomputed by the waste pass. */
   waste: WasteReport;

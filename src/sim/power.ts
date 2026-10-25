@@ -13,8 +13,10 @@ function conducts(t: Tile): boolean {
 
 /** Structures that draw from the plant pool. Lines, wired roads, parks,
  * and pipes conduct without consuming; so do the body tiles of a block,
- * which are the same building as their anchor and must not be billed twice. */
-function consumes(t: Tile, i: number): boolean {
+ * which are the same building as their anchor and must not be billed twice.
+ * Water reads the same set (minus the pumps themselves), so the two
+ * utilities bill the same tiles. */
+export function consumes(t: Tile, i: number): boolean {
   if (isBody(t, i)) return false;
   switch (t.zone) {
     case Zone.Residential:

@@ -9,6 +9,7 @@ export type TipId =
   | 'welcome'
   | 'no-power-plant'
   | 'brownout'
+  | 'watershort'
   | 'unpowered-zones'
   | 'no-road-access'
   | 'no-fire-coverage'
@@ -59,6 +60,8 @@ const TIP_TEXT: Record<TipId, string> = {
   'no-power-plant': 'Your zones have no electricity — build a Coal Plant to get things growing.',
   brownout:
     'The grid is over capacity and browning out — build another power plant to cover demand.',
+  watershort:
+    'Your pumps are at capacity — each waters about 200 tiles. Build another beside open water, or buy water from a neighbour.',
   'unpowered-zones':
     'Some zones are unpowered — string Power Lines from the plant (roads carry wires too).',
   'no-road-access':
@@ -145,6 +148,7 @@ export function adviseTips(city: CityState): Tip[] {
   }
   if (zonedTiles > 0 && !hasPlant) add('no-power-plant');
   if (city.brownouts > 0) add('brownout');
+  if (city.dryouts > 0) add('watershort');
   if (hasPlant && unpoweredZones > 0) add('unpowered-zones');
   if (roadlessZones > 0) add('no-road-access');
   if (uncoveredBuildings > 0) add('no-fire-coverage');

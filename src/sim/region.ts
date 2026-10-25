@@ -330,6 +330,7 @@ export function neighborStateFor(region: Region, i: number): NeighborState {
   const state: NeighborState = {
     power: 0,
     garbage: 0,
+    water: 0,
     income: 0,
     jobs: 0,
     workers: 0,

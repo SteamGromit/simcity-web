@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
 import { Terrain, Zone } from '../src/sim/types';
 import { updatePower } from '../src/sim/power';
-import { updateWater } from '../src/sim/water';
+import { updateWater, WATER_PER_PUMP, waterSupply } from '../src/sim/water';
 import { developTile } from '../src/sim/develop';
 import { collectBudget } from '../src/sim/budget';
 import { applyTool } from '../src/sim/city';
@@ -148,5 +148,81 @@ describe('water tip', () => {
     expect(adviseTips(city).map((x) => x.id)).toContain('no-water');
     t.watered = true;
     expect(adviseTips(city).map((x) => x.id)).not.toContain('no-water');
+  });
+});
+
+describe('water has a capacity', () => {
+  /** `n` residences in a 6-wide block below the pump, nearest first. */
+  function block(city: ReturnType<typeof makeCity>, n: number) {
+    for (let k = 0; k < n; k++) zone(city, 20 + (k % 6), 21 + Math.floor(k / 6), Zone.Residential);
+  }
+  const last = (n: number) => idx(20 + ((n - 1) % 6), 21 + Math.floor((n - 1) / 6));
+
+  test('a pump waters at most WATER_PER_PUMP consumers; the farthest go dry', () => {
+    const city = makeCity();
+    workingPump(city, 20, 20);
+    block(city, WATER_PER_PUMP + 30);
+    updateWater(city);
+    const wet = city.tiles.filter((t) => t.zone === Zone.Residential && t.watered).length;
+    expect(wet).toBe(WATER_PER_PUMP);
+    expect(city.dryouts).toBe(30);
+    expect(city.tiles[idx(20, 21)].watered).toBe(true); // nearest first
+    expect(city.tiles[last(WATER_PER_PUMP + 30)].watered).toBe(false);
+  });
+
+  test('a second pump doubles the pool', () => {
+    const city = makeCity();
+    workingPump(city, 20, 20);
+    workingPump(city, 24, 20);
+    block(city, WATER_PER_PUMP + 30);
+    updateWater(city);
+    const wet = city.tiles.filter((t) => t.zone === Zone.Residential && t.watered).length;
+    expect(wet).toBe(WATER_PER_PUMP + 30);
+    expect(city.dryouts).toBe(0);
+  });
+
+  test('imported water joins the pool and exported water leaves it', () => {
+    const city = makeCity();
+    workingPump(city, 20, 20);
+    block(city, WATER_PER_PUMP);
+    city.neighbors.water = -50;
+    updateWater(city);
+    expect(city.dryouts).toBe(50);
+    city.neighbors.water = 30;
+    updateWater(city);
+    expect(city.dryouts).toBe(0);
+  });
+
+  test('waterSupply counts what updateWater counts', () => {
+    const city = makeCity();
+    workingPump(city, 20, 20);
+    block(city, 120);
+    updateWater(city);
+    expect(waterSupply(city)).toEqual({ capacity: WATER_PER_PUMP, demand: 120, spare: WATER_PER_PUMP - 120 });
+  });
+
+  test('a dry consumer still conducts, so the block behind it is not cut off', () => {
+    const city = makeCity();
+    workingPump(city, 20, 20);
+    city.neighbors.water = -(WATER_PER_PUMP - 1); // one tile's worth of water
+    zone(city, 20, 21, Zone.Residential);
+    zone(city, 20, 22, Zone.Residential);
+    zone(city, 20, 23, Zone.WaterPipe);
+    zone(city, 20, 24, Zone.Residential);
+    updateWater(city);
+    expect(city.tiles[idx(20, 21)].watered).toBe(true);
+    expect(city.tiles[idx(20, 22)].watered).toBe(false);
+    expect(city.tiles[idx(20, 23)].watered).toBe(true); // a pipe conducts and drinks nothing
+    expect(city.tiles[idx(20, 24)].watered).toBe(false);
+    expect(city.dryouts).toBe(2);
+  });
+
+  test('dryouts survive a save round-trip and default to 0 in an old save', () => {
+    const city = makeCity();
+    city.dryouts = 7;
+    expect(deserialize(serialize(city))!.dryouts).toBe(7);
+    const old = JSON.parse(serialize(city));
+    delete old.dryouts;
+    expect(deserialize(JSON.stringify(old))!.dryouts).toBe(0);
   });
 });
