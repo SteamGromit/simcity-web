@@ -85,6 +85,9 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    month (3.3 ms on the 71k demo) and could be spread over frames; a
    building site's frame is drawn to a third of the final height whatever
    the stage, so a stage 3 house's frame is a few pixels.
+   Tests the v0.72.0 review asked for and that are not written: prism
+   `skipWalls` and `front`, `cutCorner`, `roofCap` `through`, and `hearthTip`
+   landing on a row's roof.
 
 8. **City styles** — one distinct look per style, beyond the palette shifts
    the three skins do today: Simpsons Springfield, present-day Hong Kong,
