@@ -1,9 +1,11 @@
 import { corridorAt, travelDir } from '../sim/corridor';
 import { idx, inBounds, neighbors4 } from '../sim/grid';
-import { drivable } from '../sim/roads';
+import { drivable, frontage } from '../sim/roads';
 import { CityState, GRID, Zone } from '../sim/types';
-import { dayPhase } from './daynight';
-import { ELEV_PX, TILE_H, TILE_W, getViewAngle, isoToScreen, tileDepth } from './iso';
+import { dayBand, dayPhase, type DayBand } from './daynight';
+import { figureSprite, frameFor, PALETTES } from './figure';
+import { doorOf, FOOT_IN, footLeg, hasKerb, midpointOf, successors, type Leg, type Option, type Pt } from './footways';
+import { ELEV_PX, getViewAngle, isoToScreen, tileDepth } from './iso';
 import {
   EDGE_DIR,
   edgeToward,
@@ -22,15 +24,36 @@ import { paintLights, vehicleSprite, type BodyStyle } from './vehiclemodel';
 
 export type { BodyStyle } from './vehiclemodel';
 
-const HW = TILE_W / 2;
-const HH = TILE_H / 2;
 const SCAN_INTERVAL = 15; // steps between full-grid rescans
 
 /** Most cars on the road at once; the target below it follows the sim's traffic. */
 export const MAX_CARS = 400;
 /** Traffic units (summed over busy road tiles) per car on screen. */
 export const CARS_PER_TRAFFIC = 25;
-const MAX_PEDS = 60;
+/** Most people out at once; the hour and the lots set the target below it. */
+export const MAX_PEDS = 220;
+/** People per developed lot per stage, [residential, commercial], by hour band. */
+export const PED_DENSITY: Record<DayBand, [number, number]> = {
+  morning: [0.4, 0.3],
+  midday: [0.15, 0.6],
+  evening: [0.4, 0.6],
+  night: [0.05, 0.1],
+};
+/** The cap follows the hour too, or a big city's night is as busy as its noon. */
+const PED_CAP: Record<DayBand, number> = { morning: 1, midday: 0.85, evening: 1, night: 0.25 };
+/** Share of the people kept on a loop inside the parks. */
+export const PARK_SHARE = 0.15;
+/** Walking pace, tiles per second. */
+const PACE_MIN = 0.22;
+const PACE_MAX = 0.34;
+
+/** How many people the lots justify for the hour. */
+export function targetPeds(stageR: number, stageC: number, band: DayBand, pandemic: boolean): number {
+  const [r, c] = PED_DENSITY[band];
+  let n = Math.min(Math.round(MAX_PEDS * PED_CAP[band]), Math.round(stageR * r + stageC * c));
+  if (pandemic) n = Math.ceil(n * 0.15);
+  return n;
+}
 
 /** Following distance, bumper to bumper, in tiles. */
 export const GAP = 0.22;
@@ -63,11 +86,6 @@ const GARBAGE_BODY = '#8d949c';
 const KIND_SPEED: Record<VehicleKind, number> = {
   car: 1, taxi: 1.1, van: 0.95, truck: 0.8, bus: 0.75,
 };
-
-const PED_COLORS = [
-  '#3a3530', '#5a4a3a', '#2f3a4a', '#4a3a4a',
-  '#6e3d33', '#33523f', '#7a7469', '#42356b',
-];
 
 /** Kind weights from what the spawn road serves. Pure — unit tested. */
 export function vehicleWeights(neighborZones: Zone[]): Record<VehicleKind, number> {
@@ -324,25 +342,41 @@ export function targetCars(trafficSum: number, night: number, pandemic: boolean)
   return Math.round(scaled);
 }
 
-interface Ped {
+export type PedMode = 'exit' | 'walk' | 'enter' | 'park';
+
+export interface Ped {
+  mode: PedMode;
+  palette: number;
+  /** Walking pace, tiles/s. */
+  pace: number;
+  /** Tiles walked: sets the gait frame and, in time, the urge to go indoors. */
+  dist: number;
+  alpha: number;
+  /** Drawn with this tile. */
   tile: number;
-  ox: number; // offset within tile diamond, screen px
-  oy: number;
-  vx: number;
-  vy: number;
-  ttl: number; // seconds until respawn
-  color: string;
-  w: number; // 1–2 px
-  h: number; // 2–4 px
+  /** On the footways: the leg and the fraction of it walked. */
+  leg: Leg | null;
+  s: number;
+  /** In a park: offset from the lot centre and velocity, tile units. */
+  du: number;
+  dv: number;
+  vu: number;
+  vv: number;
+  ttl: number;
 }
 
 /** Elevations of the last-stepped city, so actors ride their tile's height. */
 let elevs: { elevation: number }[] | null = null;
 
-function center(i: number): { sx: number; sy: number } {
-  const p = isoToScreen((i % GRID) + 0.5, ((i / GRID) | 0) + 0.5);
-  if (elevs) p.sy -= elevs[i].elevation * ELEV_PX;
-  return p;
+function weightedPick(opts: Option[]): Leg {
+  let sum = 0;
+  for (const o of opts) sum += o.weight;
+  let r = Math.random() * sum;
+  for (const o of opts) {
+    r -= o.weight;
+    if (r <= 0) return o.leg;
+  }
+  return opts[opts.length - 1].leg;
 }
 
 function pick<T>(list: T[]): T {
@@ -375,6 +409,12 @@ export class Automata {
   private destC: number[] = [];
   private destI: number[] = [];
   private lots: number[] = [];
+  private lotsR: number[] = [];
+  private lotsC: number[] = [];
+  private stageR = 0;
+  private stageC = 0;
+  private parks: number[] = [];
+  private rain = false;
   private junction = new Uint8Array(GRID * GRID);
   private arms = new Uint8Array(GRID * GRID);
   private trafficSum = 0;
@@ -405,6 +445,11 @@ export class Automata {
 
   pedCount(): number {
     return this.peds.length;
+  }
+
+  /** Test hook: the people as they stand. */
+  pedsNow(): readonly Ped[] {
+    return this.peds;
   }
 
   /** Night 0..1 (thins the traffic) and zoom (hides what cannot be seen) from the renderer. */
@@ -450,8 +495,9 @@ export class Automata {
     }
 
     this.pandemic = city.disasters.pandemicMonths > 0;
+    this.rain = city.weather.kind === 'rain';
     this.stepCars(city, dt, now);
-    this.stepPeds(city, dt, this.lots);
+    this.stepPeds(city, dt, now);
     this.bucket();
     const angle = getViewAngle();
     this.quarter = (((Math.round(angle / (Math.PI / 2)) % 4) + 4) % 4) as 0 | 1 | 2 | 3;
@@ -467,6 +513,11 @@ export class Automata {
     this.destC = [];
     this.destI = [];
     this.lots = [];
+    this.lotsR = [];
+    this.lotsC = [];
+    this.stageR = 0;
+    this.stageC = 0;
+    this.parks = [];
     this.fireStations = [];
     this.policeStations = [];
     this.disposals = [];
@@ -508,6 +559,15 @@ export class Automata {
       this.junction[i] = 0;
       if ((t.zone === Zone.Residential || t.zone === Zone.Commercial) && t.stage > 0 && !t.abandoned) {
         this.lots.push(i);
+        if (t.zone === Zone.Residential) {
+          this.lotsR.push(i);
+          this.stageR += t.stage;
+        } else {
+          this.lotsC.push(i);
+          this.stageC += t.stage;
+        }
+      } else if (t.zone === Zone.Park) {
+        this.parks.push(i);
       }
       if (t.burning > 0) {
         const road = this.roadBeside(city, i);
@@ -853,56 +913,193 @@ export class Automata {
   // Pedestrians
   // -------------------------------------------------------------------------
 
-  private stepPeds(city: CityState, dt: number, lots: number[]): void {
-    // lots can devolve (abandonment, bulldoze) between scans
+  private stepPeds(city: CityState, dt: number, now: number): void {
+    // the ground can change under anyone: a street bulldozed or built beside, a park rezoned
     this.peds = this.peds.filter((p) => {
-      const t = city.tiles[p.tile];
-      return (
-        (t.zone === Zone.Residential || t.zone === Zone.Commercial) && t.stage > 0 && !t.abandoned
-      );
+      if (p.mode === 'park') return city.tiles[p.tile].zone === Zone.Park;
+      const leg = p.leg!;
+      if (!frontage(city.tiles[leg.on])) return false;
+      return leg.kind !== 'foot' || hasKerb(city, leg.ctx.tile, leg.ctx.edge);
     });
-    let target = Math.min(MAX_PEDS, lots.length * 2);
-    if (this.pandemic) target = Math.ceil(target * 0.15);
-    while (this.peds.length < target && lots.length > 0) {
-      this.peds.push(this.spawnPed(lots));
-    }
-    if (this.peds.length > target) this.peds.length = target;
+    if (dt <= 0) return; // paused: nobody spawns or moves
 
-    for (let i = 0; i < this.peds.length; i++) {
-      const p = this.peds[i];
-      p.ttl -= dt;
-      if (p.ttl <= 0 && lots.length > 0) {
-        this.peds[i] = this.spawnPed(lots);
+    const band = dayBand(dayPhase(now));
+    const target = targetPeds(this.stageR, this.stageC, band, this.pandemic);
+    const parkTarget = Math.min(Math.round(target * PARK_SHARE), this.parks.length * 2);
+    const walkTarget = target - parkTarget;
+    let walkers = 0;
+    let parkers = 0;
+    for (const p of this.peds) if (p.mode === 'park') parkers++; else walkers++;
+    for (let n = 0; n < 4 && walkers < walkTarget; n++) {
+      if (!this.spawnWalker(city, band)) break;
+      walkers++;
+    }
+    while (parkers < parkTarget) {
+      this.peds.push(this.spawnParker());
+      parkers++;
+    }
+    if (walkers > walkTarget) {
+      // too many for the hour: the newest fade out where they stand
+      let over = walkers - walkTarget;
+      for (let i = this.peds.length - 1; i >= 0 && over > 0; i--) {
+        const p = this.peds[i];
+        if (p.mode !== 'walk') continue;
+        const l = p.leg!;
+        const at: Pt = [l.p0[0] + (l.p1[0] - l.p0[0]) * p.s, l.p0[1] + (l.p1[1] - l.p0[1]) * p.s];
+        const dx = (l.p1[0] - l.p0[0]) * 0.1;
+        const dy = (l.p1[1] - l.p0[1]) * 0.1;
+        p.leg = { kind: 'door', on: l.on, p0: at, p1: [at[0] + dx, at[1] + dy], len: Math.hypot(dx, dy) || 0.05, ctx: l.ctx };
+        p.s = 0;
+        p.mode = 'enter';
+        over--;
+      }
+    }
+    if (parkers > parkTarget) {
+      let over = parkers - parkTarget;
+      this.peds = this.peds.filter((p) => !(p.mode === 'park' && over-- > 0));
+    }
+
+    const gone: Ped[] = [];
+    for (const p of this.peds) {
+      if (p.mode === 'park') {
+        this.stepParker(p, dt);
         continue;
       }
-      p.ox += p.vx * dt;
-      p.oy += p.vy * dt;
-      // stay in the sidewalk annulus: outside the building footprint,
-      // inside the tile diamond
-      const d = Math.abs(p.ox) / HW + Math.abs(p.oy) / HH;
-      if (d > 0.92 || d < 0.55) {
-        p.vx = -p.vx;
-        p.vy = -p.vy;
+      const leg = p.leg!;
+      const step = p.pace * dt;
+      p.dist += step;
+      let s = p.s + (leg.len > 1e-6 ? step / leg.len : 1);
+      if (p.mode === 'exit') {
+        p.alpha = Math.min(1, s);
+        if (s >= 1) {
+          const dir = Math.random() < 0.5 ? 1 : -1;
+          p.leg = footLeg(city, leg.ctx.tile, leg.ctx.edge, dir, leg.p1);
+          p.s = 0;
+          p.mode = 'walk';
+          p.tile = p.leg.on;
+        } else {
+          p.s = s;
+        }
+        continue;
       }
+      if (p.mode === 'enter') {
+        p.alpha = Math.max(0, 1 - s);
+        if (s >= 1) gone.push(p);
+        else p.s = s;
+        continue;
+      }
+      if (leg.kind === 'foot') {
+        const door = this.doorAhead(city, leg, p.s, s);
+        if (door && Math.random() < (p.dist < 1.5 ? 0 : p.dist < 8 ? 0.08 : 0.6)) {
+          p.leg = door;
+          p.s = 0;
+          p.mode = 'enter';
+          p.tile = door.on;
+          continue;
+        }
+      }
+      let guard = 0;
+      while (s >= 1 && guard++ < 4) {
+        const cur = p.leg!;
+        const rem = (s - 1) * cur.len;
+        const next = weightedPick(successors(city, cur));
+        p.leg = next;
+        p.tile = next.on;
+        s = next.len > 1e-6 ? rem / next.len : 1;
+      }
+      p.s = Math.min(s, 1);
     }
+    if (gone.length) this.peds = this.peds.filter((p) => !gone.includes(p));
   }
 
-  private spawnPed(lots: number[]): Ped {
+  /** A person at a lot's door, about to step out onto the kerb. */
+  private spawnWalker(city: CityState, band: DayBand): boolean {
+    const [r, c] = PED_DENSITY[band];
+    const wR = this.stageR * r;
+    const wC = this.stageC * c;
+    if (wR + wC <= 0) return false;
+    let list = Math.random() * (wR + wC) < wR ? this.lotsR : this.lotsC;
+    if (!list.length) list = list === this.lotsR ? this.lotsC : this.lotsR;
+    for (let tries = 0; tries < 3 && list.length; tries++) {
+      const door = doorOf(city, pick(list));
+      if (!door) continue;
+      const o = EDGE_DIR[door.edge];
+      const inside: Pt = [door.at[0] + o[0] * (FOOT_IN + 0.05), door.at[1] + o[1] * (FOOT_IN + 0.05)];
+      const leg: Leg = {
+        kind: 'door', on: door.tile, p0: inside, p1: door.at, len: FOOT_IN + 0.05,
+        ctx: { tile: door.tile, edge: door.edge, dir: 1 },
+      };
+      this.peds.push({
+        mode: 'exit', palette: (Math.random() * PALETTES.length) | 0,
+        pace: PACE_MIN + Math.random() * (PACE_MAX - PACE_MIN), dist: 0, alpha: 0,
+        tile: door.tile, leg, s: 0, du: 0, dv: 0, vu: 0, vv: 0, ttl: 0,
+      });
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * The door this foot leg passes between s0 and s1, if the lot across the
+   * kerb is lived in and faces this way: a leg from the kerb to the threshold.
+   */
+  private doorAhead(city: CityState, leg: Leg, s0: number, s1: number): Leg | null {
+    const { tile, edge } = leg.ctx;
+    const m = midpointOf(tile, edge);
+    const dx = leg.p1[0] - leg.p0[0];
+    const dy = leg.p1[1] - leg.p0[1];
+    const l2 = dx * dx + dy * dy;
+    if (l2 < 1e-9) return null;
+    const t = ((m[0] - leg.p0[0]) * dx + (m[1] - leg.p0[1]) * dy) / l2;
+    if (!(s0 < t && t <= s1)) return null;
+    const o = EDGE_DIR[edge];
+    const lx = (tile % GRID) + o[0];
+    const ly = ((tile / GRID) | 0) + o[1];
+    if (!inBounds(lx, ly)) return null;
+    const lot = idx(lx, ly);
+    const lt = city.tiles[lot];
+    if (!((lt.zone === Zone.Residential || lt.zone === Zone.Commercial) && lt.stage > 0 && !lt.abandoned)) return null;
+    const door = doorOf(city, lot);
+    if (!door || door.tile !== tile || door.edge !== edge) return null;
+    const p1: Pt = [m[0] + o[0] * (FOOT_IN + 0.05), m[1] + o[1] * (FOOT_IN + 0.05)];
+    return { kind: 'door', on: tile, p0: m, p1, len: FOOT_IN + 0.05, ctx: leg.ctx };
+  }
+
+  /** Someone on a loop round a park, inside the lot's ring of paths. */
+  private spawnParker(): Ped {
     const a = Math.random() * Math.PI * 2;
-    // spawn in the sidewalk annulus (see stepPeds)
-    const r = 0.6 + Math.random() * 0.28;
-    const pace = 0.7 + Math.random() * 0.7;
-    return {
-      tile: lots[(Math.random() * lots.length) | 0],
-      ox: Math.cos(a) * HW * r * 0.7,
-      oy: Math.sin(a) * HH * r * 0.7,
-      vx: Math.cos(a) * 4 * pace,
-      vy: Math.sin(a) * 2 * pace,
-      ttl: 4 + Math.random() * 6,
-      color: PED_COLORS[(Math.random() * PED_COLORS.length) | 0],
-      w: 1 + ((Math.random() * 2) | 0),
-      h: 2 + ((Math.random() * 3) | 0),
+    const r = 0.3 + Math.random() * 0.14;
+    const p: Ped = {
+      mode: 'park', palette: (Math.random() * PALETTES.length) | 0,
+      pace: PACE_MIN + Math.random() * (PACE_MAX - PACE_MIN) * 0.6, dist: 0, alpha: 1,
+      tile: pick(this.parks), leg: null, s: 0,
+      du: Math.cos(a) * r, dv: Math.sin(a) * r, vu: 0, vv: 0, ttl: 0,
     };
+    this.aimParker(p);
+    return p;
+  }
+
+  private aimParker(p: Ped): void {
+    const a = Math.random() * Math.PI * 2;
+    p.vu = Math.cos(a) * p.pace;
+    p.vv = Math.sin(a) * p.pace;
+    p.ttl = 3 + Math.random() * 5;
+  }
+
+  private stepParker(p: Ped, dt: number): void {
+    p.ttl -= dt;
+    if (p.ttl <= 0) this.aimParker(p);
+    p.du += p.vu * dt;
+    p.dv += p.vv * dt;
+    p.dist += p.pace * dt;
+    // stay on the ring of paths: outside the lawn, inside the lot
+    const d = Math.max(Math.abs(p.du), Math.abs(p.dv));
+    if (d > 0.46 || d < 0.27) {
+      p.vu = -p.vu;
+      p.vv = -p.vv;
+      p.du = Math.max(-0.46, Math.min(0.46, p.du));
+      p.dv = Math.max(-0.46, Math.min(0.46, p.dv));
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -981,23 +1178,28 @@ export class Automata {
 
     const peds = this.pedBuckets.get(i);
     if (peds) {
+      const x = i % GRID;
+      const y = (i / GRID) | 0;
+      const elev = elevs ? elevs[i].elevation * ELEV_PX : 0;
+      const costume = { umbrella: this.rain, mask: this.pandemic };
       for (const p of peds) {
-        const c = center(p.tile);
-        const x = c.sx + p.ox;
-        const y = c.sy + p.oy;
-        // a squashed shadow first, so a walker stands on the pavement
-        ctx.fillStyle = 'rgba(20, 24, 38, 0.22)';
-        ctx.fillRect(x - p.w / 2 + 0.8, y - 0.4, p.w + 0.8, 1.1);
-        ctx.fillStyle = p.color;
-        ctx.fillRect(x - p.w / 2, y - p.h, p.w, p.h);
-        // a head about a fifth of the figure — any bigger and a crowd reads
-        // as a scattering of pale dots rather than as people
-        ctx.fillStyle = 'rgba(212, 178, 148, 0.95)';
-        ctx.fillRect(x - p.w / 2 + 0.2, y - p.h - 0.9, Math.max(0.8, p.w - 0.4), 0.9);
-        if (this.pandemic) {
-          ctx.fillStyle = '#f2f5f8'; // masked up
-          ctx.fillRect(x - p.w / 2 + 0.2, y - p.h - 0.4, Math.max(0.8, p.w - 0.4), 0.5);
+        let wx: number;
+        let wy: number;
+        let heading: number;
+        if (p.mode === 'park') {
+          wx = x + 0.5 + p.du;
+          wy = y + 0.5 + p.dv;
+          heading = Math.atan2(p.vv, p.vu);
+        } else {
+          const l = p.leg!;
+          wx = l.p0[0] + (l.p1[0] - l.p0[0]) * p.s;
+          wy = l.p0[1] + (l.p1[1] - l.p0[1]) * p.s;
+          heading = Math.atan2(l.p1[1] - l.p0[1], l.p1[0] - l.p0[0]);
         }
+        const sp = isoToScreen(wx, wy);
+        // the gait is invisible below this zoom: hold the pose and spare the bakes
+        const frame = this.zoom >= 1.5 && (p.mode === 'walk' || p.mode === 'park') ? frameFor(p.dist) : 0;
+        blit(ctx, figureSprite(p.palette, frame, heading, quarter, costume), sp.sx, sp.sy - elev, p.alpha);
       }
     }
   }

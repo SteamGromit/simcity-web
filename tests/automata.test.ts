@@ -4,6 +4,8 @@ import { GRID, Zone } from '../src/sim/types';
 import {
   Automata,
   GAP,
+  MAX_PEDS,
+  targetPeds,
   junctionKind,
   MAX_CARS,
   pickBody,
@@ -16,6 +18,8 @@ import {
   vehicleWeights,
 } from '../src/render/automata';
 import type { VehicleKind } from '../src/render/automata';
+import { dayBand } from '../src/render/daynight';
+import { FOOT_IN } from '../src/render/footways';
 import { clearSprites, setCanvasFactory } from '../src/render/spritecache';
 import { makeCity, road, zone } from './helpers';
 import { strictCtx, stubCanvasFactory } from './stubctx';
@@ -72,7 +76,7 @@ describe('Automata', () => {
     const city = makeCity();
     road(city, 10, 10, 30, 10);
     for (let x = 10; x <= 30; x++) city.tiles[idx(x, 10)].traffic = 8;
-    for (let x = 10; x <= 30; x += 2) zone(city, x, 12, Zone.Residential, 2);
+    for (let x = 10; x <= 30; x += 2) zone(city, x, 11, Zone.Residential, 4);
     const automata = new Automata();
     for (let t = 0; t < 20; t++) automata.step(city, t * 100);
     const cars = automata.carCount();
@@ -83,9 +87,10 @@ describe('Automata', () => {
     expect(automata.pedCount()).toBeLessThan(peds);
   });
 
-  test('pedestrians appear on developed lots', () => {
+  test('pedestrians appear on developed lots beside a street', () => {
     const city = makeCity();
-    zone(city, 5, 5, Zone.Residential, 2);
+    road(city, 3, 6, 8, 6);
+    zone(city, 5, 5, Zone.Residential, 6);
     const automata = new Automata();
     automata.step(city, 0);
     automata.step(city, 100);
@@ -334,5 +339,104 @@ describe('driving', () => {
     expect(targetCars(250, 1, false)).toBe(4);
     expect(targetCars(250, 0, true)).toBe(Math.round(10 * 0.25));
     expect(SIGNAL_PERIOD).toBeGreaterThan(0);
+  });
+});
+
+describe('people', () => {
+  let wall = 5000;
+  const stepFor = (a: Automata, city: ReturnType<typeof makeCity>, seconds: number) => {
+    const n = Math.round(seconds / 0.016);
+    for (let k = 1; k <= n; k++) {
+      wall += 16;
+      a.step(city, wall, 1);
+    }
+  };
+  const street = () => {
+    const city = makeCity();
+    road(city, 10, 10, 30, 10);
+    for (let x = 12; x <= 28; x++) {
+      zone(city, x, 9, Zone.Residential, 2);
+      zone(city, x, 11, x % 3 ? Zone.Residential : Zone.Commercial, 2);
+    }
+    return city;
+  };
+
+  test('the hour bands', () => {
+    expect([0, 0.1, 0.2, 0.45, 0.7, 0.97].map(dayBand)).toEqual(['midday', 'midday', 'evening', 'night', 'morning', 'midday']);
+  });
+
+  test('the crowd follows the hour, the lots and a pandemic', () => {
+    expect(targetPeds(100, 50, 'morning', false)).toBe(55);
+    expect(targetPeds(100, 50, 'night', false)).toBe(10);
+    expect(targetPeds(100, 50, 'morning', true)).toBe(9);
+    expect(targetPeds(5000, 2000, 'midday', false)).toBe(Math.round(MAX_PEDS * 0.85));
+    expect(targetPeds(5000, 2000, 'night', false)).toBe(Math.round(MAX_PEDS * 0.25));
+  });
+
+  test('people walk the kerbs, never the carriageway, and come and go by the doors', () => {
+    const city = street();
+    const a = new Automata();
+    stepFor(a, city, 6);
+    const peds = a.pedsNow();
+    expect(peds.length).toBeGreaterThan(5);
+    expect(peds.length).toBeLessThanOrEqual(MAX_PEDS);
+    let walking = 0;
+    for (const p of peds) {
+      expect(p.mode).not.toBe('park');
+      const l = p.leg!;
+      const x = l.on % GRID;
+      const y = (l.on / GRID) | 0;
+      const wx = l.p0[0] + (l.p1[0] - l.p0[0]) * p.s;
+      const wy = l.p0[1] + (l.p1[1] - l.p0[1]) * p.s;
+      expect(city.tiles[l.on].zone).toBe(Zone.Road);
+      expect(wx).toBeGreaterThanOrEqual(x - 1e-9);
+      expect(wx).toBeLessThanOrEqual(x + 1 + 1e-9);
+      if (l.kind === 'foot') {
+        walking++;
+        // this street runs east-west: a kerb walker is FOOT_IN inside the north or south edge
+        const inset = Math.min(wy - y, y + 1 - wy);
+        expect(inset).toBeCloseTo(FOOT_IN, 6);
+      } else if (l.kind === 'door') {
+        expect(Math.abs(wx - x - 0.5)).toBeLessThan(1e-6); // at the door, mid-lot
+      }
+    }
+    expect(walking).toBeGreaterThan(0);
+    // some of the first wave have gone indoors by now, so the fleet turns over
+    const early = new Set(peds);
+    stepFor(a, city, 40);
+    expect(a.pedsNow().some((p) => !early.has(p))).toBe(true);
+    expect(a.pedsNow().length).toBeLessThanOrEqual(MAX_PEDS);
+  });
+
+  test('the walkers are gone the step after their street is bulldozed', () => {
+    const city = street();
+    const a = new Automata();
+    stepFor(a, city, 3);
+    expect(a.pedCount()).toBeGreaterThan(0);
+    for (let x = 10; x <= 30; x++) city.tiles[idx(x, 10)].zone = Zone.None;
+    wall += 16;
+    a.step(city, wall, 1);
+    expect(a.pedCount()).toBe(0);
+  });
+
+  test('lots with no street have no doors, so nobody comes out', () => {
+    const city = makeCity();
+    for (let x = 12; x <= 20; x++) zone(city, x, 9, Zone.Residential, 3);
+    const a = new Automata();
+    stepFor(a, city, 2);
+    expect(a.pedCount()).toBe(0);
+  });
+
+  test('a park keeps a few people on its paths', () => {
+    const city = street();
+    for (let x = 14; x <= 16; x++) zone(city, x, 12, Zone.Park);
+    const a = new Automata();
+    stepFor(a, city, 4);
+    const parkers = a.pedsNow().filter((p) => p.mode === 'park');
+    expect(parkers.length).toBeGreaterThan(0);
+    for (const p of parkers) {
+      expect(city.tiles[p.tile].zone).toBe(Zone.Park);
+      expect(Math.max(Math.abs(p.du), Math.abs(p.dv))).toBeLessThanOrEqual(0.46 + 1e-9);
+    }
   });
 });

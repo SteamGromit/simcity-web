@@ -20,7 +20,10 @@ export type BodyStyle =
   | 'bus' | 'taxi'
   | 'fireEngine' | 'police' | 'garbage';
 
-export type Paint = 'body' | 'glass' | 'dark' | 'cargo' | 'white' | 'red' | 'ladder';
+export type Paint =
+  | 'body' | 'glass' | 'dark' | 'cargo' | 'white' | 'red' | 'ladder'
+  // figures (`figure.ts` picks these from its palettes)
+  | 'shirt' | 'trousers' | 'skin' | 'umbrella';
 
 export interface Box {
   /** Centre of the footprint and the base height, vehicle frame. */
@@ -309,10 +312,12 @@ function paintBase(paint: Paint, style: BodyStyle, color: string): string {
       return '#c8282a';
     case 'ladder':
       return '#9aa0a8';
+    default:
+      return color;
   }
 }
 
-function fillPoly(ctx: CanvasRenderingContext2D, pts: [number, number][]): void {
+export function fillPoly(ctx: CanvasRenderingContext2D, pts: [number, number][]): void {
   ctx.beginPath();
   ctx.moveTo(pts[0][0], pts[0][1]);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);

@@ -42,7 +42,7 @@ export interface Kerb {
   dir: 1 | -1;
 }
 
-export type LegKind = 'foot' | 'cross' | 'corner' | 'back';
+export type LegKind = 'foot' | 'cross' | 'corner' | 'back' | 'door';
 
 export interface Leg {
   kind: LegKind;
