@@ -141,13 +141,18 @@ static file server, or the hosted link above.
 ### Regions
 
 The game opens on a **launch screen** rather than dropping you into a map.
-From there you either found a **region** — a 3×3 grid of city tiles sharing
-one landscape and one climate — or start a **single city**, which is the game
-exactly as it was before regions and remains a complete way to play.
+From there you either found a **region** — a 2×2, 3×3 or 4×4 grid of city
+tiles sharing one landscape and one climate — or start a **single city**,
+which is the game exactly as it was before regions and remains a complete way
+to play.
 
-Inside a region, each tile is unclaimed land or a founded city. Found one,
-play it, and press **◀ Region** to save and come back out. Two things pass
-between neighbouring cities:
+The region map draws the land itself: the terrain is one field sampled by
+every city, so the **river** that crosses the region runs from one tile into
+the next and a city's map continues exactly where its neighbour's ends. Each
+tile is unclaimed land or a founded city. Found one, play it, and press
+**◀ Region** to save and come back out. Roads that reach a border are ticked
+on the map; a joined border is ticked gold. Two things pass between
+neighbouring cities:
 
 - **Contracts.** A city with spare **power** or **refuse** capacity can sell
   it to the city next door. The seller loses the capacity and is paid monthly;
@@ -166,8 +171,9 @@ export and import as a single file, cities included.
 
 ### A city
 
-New maps come with lakes, forests, **rolling hills**, and a guaranteed
-snowcapped **mountain**; about one map in four rolls a **desert** — one
+New maps come with a **river** (and often a tributary), lakes, forests,
+**rolling hills**, and a guaranteed snowcapped **mountain**; about one map in
+four rolls a **desert** — one
 oasis, no lakes, tinder-dry air — where the water utility is a matter of
 survival. Before you build
 anything, the **terrain tools** (Water / Forest / Level Land / Raise /

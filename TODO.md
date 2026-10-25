@@ -6,18 +6,15 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Backlog (in order)
 
-1. **Region follow-ups** — the layer is in but three things it implies are
-   not. *Terrain does not line up across a border*: `generateTerrain` grows
-   blobs outward from random seed points rather than sampling a field, so a
-   river cannot simply continue into the next tile — matching them means
-   rewriting terrain generation onto a sampled field, which is its own piece
-   of work. *Commuters stop at the map edge*: a border crossing feeds demand,
-   not the road network, so nobody actually drives to the job next door.
-   *Water is not tradable*: `updateWater` is an unbounded flood fill from any
-   working pump, so one pump waters a whole city and there is nothing to sell
-   — water deals need a water capacity model first. Also: region size is fixed
-   at 3×3, the region map is a list of cards rather than a drawn map of the
-   land, and a city can only be entered from that screen.
+1. **Region follow-ups** — terrain now lines up across a border and the
+   region map draws the land (v0.67.0). Two things the layer implies are
+   still not there. *Commuters stop at the map edge*: a border crossing feeds
+   demand, not the road network, so nobody actually drives to the job next
+   door. *Water is not tradable*: `updateWater` is an unbounded flood fill
+   from any working pump, so one pump waters a whole city and there is
+   nothing to sell — water deals need a water capacity model first. Also: a
+   city can only be entered from the region screen.
+
 2. **Modding: the parts the editor doesn't cover yet** — freehand/pixel
    drawing of buildings (today's look is composed from a mass, roof and
    props, not drawn), authoring multi-tile buildings (the *engine* now
@@ -96,6 +93,10 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Done
 
+- **Region terrain** — shipped v0.67.0 (terrain is a sampled field with
+  rivers, tributaries, a guaranteed basin and peak per tile, and land that
+  continues across a border; the region map draws the land; regions come in
+  2×2, 3×3 and 4×4).
 - **Realism, part three** — shipped v0.66.0 (civic and rewards, farms, water,
   night: the whole civic set, every reward and every park now bakes once
   into a sprite keyed on zone, power, size, skin and — for parks — season,
