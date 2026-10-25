@@ -54,8 +54,12 @@ export function setSpriteScale(s: number): void {
   clearSprites();
 }
 
-/** ~56 MB of RGBA, which comfortably holds a large city's distinct lots. */
-const PIXEL_BUDGET = 14_000_000;
+/**
+ * ~80 MB of RGBA. A downtown screen at zoom 2 is about 2,500 sprites and
+ * 13.7 M px now that lots bake per street side and terrace run (v0.72.0), so
+ * the old 14 M budget sat on the working set and evicted what was on screen.
+ */
+export const PIXEL_BUDGET = 20_000_000;
 
 /**
  * Evictions since the last quality step. A cache whose working set doesn't fit
@@ -65,7 +69,23 @@ const PIXEL_BUDGET = 14_000_000;
  * softer and the frame rate stays.
  */
 let evictions = 0;
+/** Bakes that landed while the frame's own working set was over budget. */
+let overruns = 0;
+/** The last few baked keys, a ring, so a profile can say what is churning. */
+const recent: string[] = new Array(64).fill('');
 const THRASH_LIMIT = 400;
+/**
+ * The frame being drawn. An entry touched this frame is part of the working
+ * set and is never evicted: throwing it out would only have it baked again a
+ * frame later, which is the thrash the budget exists to prevent. When the
+ * working set alone is over budget the cache runs over for that frame rather
+ * than re-baking the view every frame.
+ */
+let frame = 0;
+/** Call once at the top of each frame. */
+export function beginSpriteFrame(): void {
+  frame++;
+}
 
 type Factory = (w: number, h: number) => HTMLCanvasElement;
 
@@ -87,6 +107,8 @@ interface Entry {
   sprite: Sprite;
   pixels: number;
   used: number;
+  /** The frame that last used it. */
+  frame: number;
 }
 
 const cache = new Map<string, Entry>();
@@ -107,6 +129,7 @@ export function sprite(
   const hit = cache.get(key);
   if (hit) {
     hit.used = ++clock;
+    hit.frame = frame;
     return hit.sprite;
   }
   const cw = Math.max(1, Math.ceil(spec.w * scale));
@@ -116,10 +139,12 @@ export function sprite(
   ctx.setTransform(scale, 0, 0, scale, spec.ax * scale, spec.ay * scale);
   paint(ctx, spec);
   bakes++;
+  recent[bakes % recent.length] = key;
   const entry: Entry = {
     sprite: { canvas, w: spec.w, h: spec.h, ax: spec.ax, ay: spec.ay },
     pixels: cw * ch,
     used: ++clock,
+    frame,
   };
   cache.set(key, entry);
   pixels += entry.pixels;
@@ -133,12 +158,16 @@ function evict(): void {
   const order = [...cache.entries()].sort((a, b) => a[1].used - b[1].used);
   for (const [key, entry] of order) {
     if (pixels <= PIXEL_BUDGET * 0.8) break;
+    if (entry.frame === frame) continue; // on screen now: evicting it is a re-bake next frame
     cache.delete(key);
     pixels -= entry.pixels;
     evictions++;
   }
-  if (evictions > THRASH_LIMIT && spriteScale > 1) {
-    // the working set doesn't fit: bake smaller and start over
+  // still over after sparing this frame's sprites: the working set itself
+  // doesn't fit. Once that has gone on for a while, bake smaller and start over.
+  if (pixels > PIXEL_BUDGET) overruns++;
+  if (overruns > THRASH_LIMIT && spriteScale > 1) {
+    overruns = 0;
     setSpriteScale(Math.max(1, spriteScale - 0.5));
   }
 }
@@ -176,7 +205,9 @@ export function spriteStats(): {
   count: number;
   pixels: number;
   bakes: number;
+  evictions: number;
   scale: number;
+  recent: string[];
 } {
-  return { count: cache.size, pixels, bakes, scale: spriteScale };
+  return { count: cache.size, pixels, bakes, evictions, scale: spriteScale, recent: recent.filter((k) => k !== '') };
 }

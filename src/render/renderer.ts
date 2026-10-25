@@ -58,7 +58,7 @@ import { css, hsl, lit, mix } from './palette';
 import { LIGHT } from './sun';
 import { drawTree, drawUndergrowth } from './scenery';
 import { hash2 } from './noise';
-import { blit, sprite } from './spritecache';
+import { beginSpriteFrame, blit, sprite } from './spritecache';
 import { ShadowLayer } from './shadows';
 import { drawLotGround, roadSidesFor, roadStampOf } from './lots';
 import { isCorner, NO_SITE, siteOf } from './site';
@@ -362,6 +362,7 @@ export class Renderer {
   }
 
   draw(city: CityState, view: ViewState) {
+    beginSpriteFrame();
     const style = getRenderStyle();
     const ps = style === 'pixel' ? PIXEL_SCALE : 1;
     if (ps < 1) {

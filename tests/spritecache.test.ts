@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
+  beginSpriteFrame,
   clearSprites,
   getSpriteScale,
   setCanvasFactory,
   setSpriteScale,
   sprite,
   spriteStats,
+  PIXEL_BUDGET,
 } from '../src/render/spritecache';
 
 /** A canvas stand-in: the cache only ever asks for a 2d context and a size. */
@@ -106,13 +108,17 @@ describe('sprite caching', () => {
 });
 
 describe('eviction', () => {
-  test('a working set past the budget is trimmed rather than left to grow', () => {
+  test('sprites from an earlier frame are trimmed once the budget is passed', () => {
+    beginSpriteFrame();
     // 1600×1600 = 2.56M pixels each: six of them overrun any sane budget
     const big = { w: 1600, h: 1600, ax: 0, ay: 0 };
-    for (let k = 0; k < 8; k++) sprite(`big${k}`, big, () => {});
+    for (let k = 0; k < 8; k++) {
+      if (k === 4) beginSpriteFrame();
+      sprite(`big${k}`, big, () => {});
+    }
     const stats = spriteStats();
     expect(stats.count).toBeLessThan(8);
-    expect(stats.pixels).toBeLessThanOrEqual(14_000_000);
+    expect(stats.pixels).toBeLessThanOrEqual(PIXEL_BUDGET);
   });
 
   test('the most recently used sprite survives a trim', () => {
@@ -131,5 +137,25 @@ describe('eviction', () => {
     const big = { w: 1200, h: 1200, ax: 0, ay: 0 };
     for (let k = 0; k < 500; k++) sprite(`t${k}`, big, () => {});
     expect(getSpriteScale()).toBeLessThan(2);
+  });
+});
+
+describe('eviction and the working set', () => {
+  test('a sprite used this frame is never evicted, even over budget; the last frame can go', () => {
+    const big = { w: 2000, h: 2000, ax: 0, ay: 0 }; // 4 M px each; the budget is 20 M
+    const paint = () => {};
+    beginSpriteFrame();
+    for (let k = 0; k < 4; k++) sprite(`old${k}`, big, paint); // 16 M, under budget
+    beginSpriteFrame();
+    const before = spriteStats().bakes;
+    for (let k = 0; k < 6; k++) sprite(`now${k}`, big, paint); // 24 M on its own
+    // everything from this frame is still cached: asking again bakes nothing
+    for (let k = 0; k < 6; k++) sprite(`now${k}`, big, paint);
+    expect(spriteStats().bakes - before).toBe(6);
+    // and the old frame's sprites were the ones dropped
+    const oldBakes = spriteStats().bakes;
+    sprite('old0', big, paint);
+    expect(spriteStats().bakes).toBe(oldBakes + 1);
+    expect(spriteStats().pixels).toBeGreaterThan(PIXEL_BUDGET); // ran over rather than thrash
   });
 });
