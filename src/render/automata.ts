@@ -980,11 +980,14 @@ export class Automata {
     }
     // when the view has moved on, recycle people nobody can see so the new
     // street fills in seconds rather than when the old crowd happens to go in
-    if (this.clip && walkers >= walkTarget) {
+    // — but only while there is a door in view to step out of: over water or
+    // forest the crowd would churn 240 people a second for nothing visible
+    const anyInView = this.clip && (this.inView(this.lotsR) || this.inView(this.lotsC));
+    if (anyInView && walkers >= walkTarget) {
       let seen = 0;
       for (const p of this.peds) if (p.mode !== 'park' && p.mode !== 'wait' && this.onScreen(p.tile)) seen++;
       if (seen < walkTarget * SEEN_SHARE) {
-        let drop = 4;
+        let drop = 2; // two a frame: the new street fills over a second or two, not in a wave
         this.peds = this.peds.filter((p) => {
           if (drop <= 0 || p.mode === 'park' || p.mode === 'wait' || p.mode === 'board' || this.onScreen(p.tile)) return true;
           drop--;
@@ -1155,7 +1158,7 @@ export class Automata {
     const at: Pt = [l.p0[0] + (l.p1[0] - l.p0[0]) * p.s, l.p0[1] + (l.p1[1] - l.p0[1]) * p.s];
     const dx = (l.p1[0] - l.p0[0]) * 0.1;
     const dy = (l.p1[1] - l.p0[1]) * 0.1;
-    p.leg = { kind: 'door', on: l.on, p0: at, p1: [at[0] + dx, at[1] + dy], len: Math.hypot(dx, dy) || 0.05, ctx: l.ctx };
+    p.leg = { kind: 'door', on: l.on, p0: at, p1: [at[0] + dx, at[1] + dy], len: Math.max(Math.hypot(dx, dy), 0.05), ctx: l.ctx };
     p.s = 0;
     p.mode = 'enter';
   }
@@ -1208,8 +1211,10 @@ export class Automata {
       // and some alight and walk off
       const off = (Math.random() * 4) | 0;
       for (let k = 0; k < off; k++) {
-        const from: Pt = [kerb.at[0] - o[0] * 0.2, kerb.at[1] - o[1] * 0.2];
-        const p = this.spawnAtKerb(kerb, from, 'exit');
+        // step down clear of the queue, which stands between 0.32 and 0.68
+        const at = kerbPoint(kerb.tile, kerb.edge, k % 2 ? 0.2 : 0.8);
+        const from: Pt = [at[0] - o[0] * 0.2, at[1] - o[1] * 0.2];
+        const p = this.spawnAtKerb({ ...kerb, at }, from, 'exit');
         p.dist = 2; // free to go indoors soon
       }
     }

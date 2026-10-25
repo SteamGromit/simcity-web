@@ -361,12 +361,12 @@ export class Renderer {
     this.frameNow = now;
     this.storm = city.disasters.hurricaneTicks > 0;
     this.wind = this.storm ? -5 + Math.sin(now / 120) * 3.5 : 0;
+    this.computeClip(); // before the automata read `focus`, so a jump spawns against the new view
     this.automata.setView(this.night, this.camera.zoom, this.focus, this.lineClock / 1000);
     this.automata.step(city, now, AUTOMATA_SCALE[this.simSpeed]);
     this.disasterFx.step(city, now, AUTOMATA_SCALE[this.simSpeed]);
     this.ensureDepth(city);
     this.ensureRoadSides(city);
-    this.computeClip();
 
     const W = this.ctx.canvas.width;
     const H = this.ctx.canvas.height;

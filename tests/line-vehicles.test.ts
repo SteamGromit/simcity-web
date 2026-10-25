@@ -95,13 +95,27 @@ describe('trains and stops', () => {
   it('a train\'s cars trail the lead by CAR_GAP, clamped to the path', () => {
     expect(trainCars(5, 1, 10)).toEqual([5, 5 - CAR_GAP, 5 - 2 * CAR_GAP]);
     expect(trainCars(5, -1, 10)).toEqual([5, 5 + CAR_GAP, 5 + 2 * CAR_GAP]);
-    expect(trainCars(0.2, 1, 10)).toEqual([0.2, 0, 0]);
+    // at the near terminus the lead holds back so the cars never pile up
+    expect(trainCars(0.2, 1, 10)).toEqual([2 * CAR_GAP, CAR_GAP, 0]);
+    const back = trainCars(9.9, -1, 10);
+    expect(back[0]).toBeCloseTo(10 - 2 * CAR_GAP, 9);
+    expect(back[1]).toBeCloseTo(10 - CAR_GAP, 9);
+    expect(back[2]).toBe(10);
   });
 
   it('a stop maps to the path tile it sits on or beside', () => {
     const path: [number, number][] = [];
     for (let x = 10; x <= 20; x++) path.push([x, 10]);
     expect(stopIndices({ id: 1, mode: Zone.BusStop, color: '#000', path, stops: [[12, 11], [15, 10], [40, 40]] })).toEqual([2, 5]);
+    // two stops either side of one path tile are one dwell, so the headways stay even
+    expect(stopIndices({ id: 1, mode: Zone.BusStop, color: '#000', path, stops: [[15, 9], [15, 11]] })).toEqual([5]);
+  });
+
+  it('the terminus layover is one continuous dwell across the half cycle', () => {
+    const half = 10 + 3 * 2;
+    for (const t of [half - 1e-6, half, half + 1e-6]) {
+      expect(vehicleProgressWithDwell(11, [0, 5, 10], t, 1, 0, 2)).toMatchObject({ dwelling: true, at: 10 });
+    }
   });
 
   it('servedNow names the stop tiles a vehicle is dwelling at', () => {

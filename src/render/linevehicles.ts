@@ -117,16 +117,24 @@ export function stopIndices(line: TransitLine): number[] {
       }
       if (d === 1 && best < 0) best = i;
     }
-    if (best >= 0) out.push(best);
+    if (best >= 0 && !out.includes(best)) out.push(best);
   }
   return out;
 }
 
 /** Distances along the path of a train's cars, the lead car first. */
 export function trainCars(dist: number, dir: 1 | -1, steps: number, cars = 3): number[] {
+  // the lead car stops short of the near terminus so the train stays a train
+  const room = CAR_GAP * (cars - 1);
+  const lead = dir === 1 ? Math.max(dist, Math.min(room, steps)) : Math.min(dist, Math.max(steps - room, 0));
   const out: number[] = [];
-  for (let k = 0; k < cars; k++) out.push(Math.max(0, Math.min(steps, dist - dir * CAR_GAP * k)));
+  for (let k = 0; k < cars; k++) out.push(Math.max(0, Math.min(steps, lead - dir * CAR_GAP * k)));
   return out;
+}
+
+/** Seconds (× speed) one full out-and-back takes, dwells included. */
+export function lineCycle(pathLen: number, idxs: number[], speed: number): number {
+  return 2 * (pathLen - 1 + idxs.length * DWELL * speed);
 }
 
 /** The stop tiles a vehicle is dwelling at this instant, across every line. */
@@ -138,7 +146,7 @@ export function servedNow(city: CityState, tSec: number): Set<number> {
     if (!idxs.length) continue;
     const speed = SPEED[line.mode] ?? 1.6;
     const n = vehicleCount(line.path.length);
-    const cycle = 2 * (line.path.length - 1 + idxs.length * DWELL * speed);
+    const cycle = lineCycle(line.path.length, idxs, speed);
     for (let k = 0; k < n; k++) {
       const p = vehicleProgressWithDwell(line.path.length, idxs, tSec, speed, (k * cycle) / n);
       if (!p.dwelling) continue;
@@ -216,7 +224,7 @@ export function drawLineVehicles(
   const speed = SPEED[line.mode] ?? 1.6;
   const idxs = stopIndices(line);
   const steps = line.path.length - 1;
-  const cycle = 2 * (steps + idxs.length * DWELL * speed);
+  const cycle = lineCycle(line.path.length, idxs, speed);
   const n = vehicleCount(line.path.length);
   const style = STYLE[line.mode] ?? 'bus';
   const lift = line.mode === Zone.MonorailStation ? 14 : 0;
