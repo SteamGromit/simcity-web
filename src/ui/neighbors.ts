@@ -27,14 +27,21 @@ export interface NeighborActions {
   context(): { region: Region; col: number; row: number } | null;
   /** A contract was opened or closed: re-derive and persist. */
   changed(): void;
+  /** Save this city and play the neighbour on that tile instead. */
+  visit(col: number, row: number): void;
   notify(msg: string, kind: 'info' | 'error'): void;
 }
 
-const KINDS: { kind: DealKind; label: string; unit: string; spare: 'sparePower' | 'spareGarbage' }[] =
-  [
-    { kind: 'power', label: 'Power', unit: 'MW', spare: 'sparePower' },
-    { kind: 'garbage', label: 'Refuse', unit: 't', spare: 'spareGarbage' },
-  ];
+const KINDS: {
+  kind: DealKind;
+  label: string;
+  unit: string;
+  spare: 'sparePower' | 'spareGarbage' | 'spareWater';
+}[] = [
+  { kind: 'power', label: 'Power', unit: 'MW', spare: 'sparePower' },
+  { kind: 'garbage', label: 'Refuse', unit: 't', spare: 'spareGarbage' },
+  { kind: 'water', label: 'Water', unit: ' tiles', spare: 'spareWater' },
+];
 
 export function buildNeighborsPanel(root: HTMLElement, actions: NeighborActions) {
   const panel = document.createElement('div');
@@ -128,6 +135,14 @@ export function buildNeighborsPanel(root: HTMLElement, actions: NeighborActions)
       : `No road crosses this border · pop ${them.population.toLocaleString()} · ` +
         'run a road to the map edge on both sides to join them up';
     block.appendChild(status);
+
+    // The other side of the border is a click away: save here, open there.
+    const visit = document.createElement('button');
+    visit.type = 'button';
+    visit.className = 'menu-btn neighbor-visit';
+    visit.textContent = `Visit ${them.name}`;
+    visit.addEventListener('click', () => actions.visit(them.col, them.row));
+    block.appendChild(visit);
 
     for (const k of KINDS) {
       const spare = them[k.spare];

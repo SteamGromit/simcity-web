@@ -154,8 +154,8 @@ tile is unclaimed land or a founded city. Found one, play it, and press
 on the map; a joined border is ticked gold. Two things pass between
 neighbouring cities:
 
-- **Contracts.** A city with spare **power** or **refuse** capacity can sell
-  it to the city next door. The seller loses the capacity and is paid monthly;
+- **Contracts.** A city with spare **power**, **refuse** or **water**
+  capacity can sell it to the city next door. The seller loses the capacity and is paid monthly;
   the buyer gains it and pays. Open them from the **Neighbours** panel inside
   a city, where you can see who has what going spare. If the seller later
   loses the capacity — a plant burns down, say — the contract breaks and you
@@ -170,8 +170,9 @@ neighbouring cities:
   neighbour's workers drive in through it to your jobs, so the road to the
   border carries traffic and can jam like any other.
 
-Only one city simulates at a time; the others sit as you left them. Regions
-export and import as a single file, cities included.
+Only one city simulates at a time; the others sit as you left them. The
+**Neighbours** panel's Visit button saves the city you are in and opens the
+one next door. Regions export and import as a single file, cities included.
 
 ### A city
 
@@ -211,8 +212,10 @@ Turbine** (pop 2,000), **Solar Farm** (pop 5,000), **Hydro Plant** (pop
 
 **Water** works the same way: build a powered **Water Pump** within two
 tiles of open water and the supply spreads through adjacent buildings;
-**Pipes** bridge gaps and cross under roads. Buildings need running water
-to grow past stage 2.
+**Pipes** bridge gaps and cross under roads. A pump waters about 200
+buildings; past that the farthest run dry and a tip says so. Buildings need
+running water to grow past stage 2, and a neighbour with spare pumps will
+sell you water.
 
 **Rubbish** is the one service with two ways to fail. Every developed lot
 puts out refuse each month, and a disposal building has to both *reach*

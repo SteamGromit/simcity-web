@@ -80,6 +80,7 @@ export function newCity(
     jobs: 0,
     eduLevel: 0,
     brownouts: 0,
+    dryouts: 0,
     lastBudget: { rIncome: 0, cIncome: 0, iIncome: 0, expenses: 0, neighbors: 0, net: 0 },
     waste: defaultWaste(),
     neighbors: defaultNeighbors(),

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
   BORDER_SHARE,
+  WATER_PRICE,
   worldOf,
   DEFAULT_COLS,
   DEFAULT_ROWS,
@@ -34,13 +35,14 @@ function found(
   r: ReturnType<typeof region>,
   col: number,
   row: number,
-  opts: { power?: number; garbage?: number; population?: number } = {},
+  opts: { power?: number; garbage?: number; water?: number; population?: number } = {},
 ) {
   const t = tileAt(r, col, row)!;
   t.founded = true;
   t.name = `City ${col}${row}`;
   t.sparePower = opts.power ?? 0;
   t.spareGarbage = opts.garbage ?? 0;
+  t.spareWater = opts.water ?? 0;
   t.population = opts.population ?? 0;
   return t;
 }
@@ -505,5 +507,45 @@ describe('gates', () => {
     found(r, 0, 0).edges.e = [10];
     found(r, 1, 0).edges.w = [11];
     expect(neighborStateFor(r, 0).gates).toEqual([]);
+  });
+});
+
+describe('water deals', () => {
+  test('water is priced by the tile at WATER_PRICE', () => {
+    expect(dealPrice('water', 200)).toBe(Math.round(200 * WATER_PRICE));
+  });
+
+  test('the buyer gains water, the seller loses it, and the money moves the other way', () => {
+    const r = region();
+    found(r, 0, 0, { water: 300 });
+    found(r, 1, 0);
+    const s = regionIndex(r, 0, 0);
+    const b = regionIndex(r, 1, 0);
+    const deal = openDeal(r, 'water', s, b, 120)!;
+    expect(deal).not.toBeNull();
+    expect(neighborStateFor(r, b).water).toBe(120);
+    expect(neighborStateFor(r, s).water).toBe(-120);
+    expect(neighborStateFor(r, s).income).toBe(deal.price);
+    expect(neighborStateFor(r, b).income).toBe(-deal.price);
+  });
+
+  test('a water deal breaks when the seller\'s spare is gone', () => {
+    const r = region();
+    const seller = found(r, 0, 0, { water: 300 });
+    found(r, 1, 0);
+    openDeal(r, 'water', regionIndex(r, 0, 0), regionIndex(r, 1, 0), 200);
+    seller.spareWater = 100;
+    const dropped = pruneDeals(r);
+    expect(dropped).toHaveLength(1);
+    expect(dropped[0].kind).toBe('water');
+    expect(r.deals).toEqual([]);
+  });
+
+  test('recordCity mirrors spare water', () => {
+    const r = region();
+    recordCity(r, 0, 0, makeCity(), { power: 1, garbage: 2, water: 150 });
+    expect(tileAt(r, 0, 0)!.spareWater).toBe(150);
+    recordCity(r, 1, 0, makeCity());
+    expect(tileAt(r, 1, 0)!.spareWater).toBe(0);
   });
 });

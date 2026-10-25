@@ -4,6 +4,41 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.69.0] — 2026-10-25 · Water has a capacity, so it trades
+
+Backlog #1, last of three parts. The third utility now runs short like the
+other two, which is what makes it worth buying.
+
+### Added
+- **Water capacity** (`sim/water.ts`). A working pump (powered, open water
+  within 2 tiles) waters `WATER_PER_PUMP = 200` consumer tiles; the
+  consumers are the tiles power bills, minus the pumps themselves.
+  `updateWater` is now the pooled flood fill `updatePower` is: water is
+  handed out in distance order from the pumps until the city-wide pool runs
+  dry, a dry consumer still conducts so the block behind it is not cut off,
+  and `city.dryouts` counts what went short. A coal plant makes 240 for
+  §150 a month; a pump makes 200 for §25, because the real cost of a pump is
+  the lakeside site. A tip says so when the pumps are at capacity.
+- **Water contracts.** `'water'` is the third `DealKind`, priced at
+  `WATER_PRICE = 0.12` a tile-month (a pump's 200 tiles cost §25 to own,
+  §0.125 a tile, so buying lands just under owning, minus the site). Spare
+  water is mirrored on the region tile at save, the Neighbours panel offers
+  it beside power and refuse, the region map lists it, and pruning,
+  balancing and revival need no new rules beyond the kind.
+- **Visit.** Each founded neighbour's block in the Neighbours panel has a
+  Visit button: the current city is saved and the neighbour's opens, without
+  going out through the region map.
+
+### Changed
+- **Existing saves keep their buildings but may run dry.** A city that got
+  by on one pump now has that pump's 200 tiles wet and the rest dry, which
+  stops them growing past stage 2 (`servicesAllow`) but does not shrink
+  them. Build pumps, or buy water.
+
+### Compatibility
+- `dryouts` defaults to 0 in an older save; `spareWater` to 0 on an older
+  region tile.
+
 ## [0.68.0] — 2026-10-25 · Commuters cross the border
 
 Backlog #1, second of three parts. A joined border was a number in the

@@ -84,6 +84,7 @@ function reviveRegion(raw: unknown): Region | null {
       savedAt: Math.max(0, Number(t.savedAt) || 0),
       sparePower: Math.max(0, Number(t.sparePower) || 0),
       spareGarbage: Math.max(0, Number(t.spareGarbage) || 0),
+      spareWater: Math.max(0, Number(t.spareWater) || 0),
       edges: {
         n: nums((edges as Record<string, unknown>).n),
         e: nums((edges as Record<string, unknown>).e),
@@ -99,7 +100,8 @@ function reviveRegion(raw: unknown): Region | null {
           typeof d === 'object' &&
           typeof (d as { id?: unknown }).id === 'string' &&
           ((d as { kind?: unknown }).kind === 'power' ||
-            (d as { kind?: unknown }).kind === 'garbage') &&
+            (d as { kind?: unknown }).kind === 'garbage' ||
+            (d as { kind?: unknown }).kind === 'water') &&
           Number.isFinite((d as { seller?: unknown }).seller) &&
           Number.isFinite((d as { buyer?: unknown }).buyer) &&
           Number.isFinite((d as { amount?: unknown }).amount),
@@ -244,6 +246,7 @@ export function createRegionStore(storage: Storage) {
         t.savedAt = 0;
         t.sparePower = 0;
         t.spareGarbage = 0;
+        t.spareWater = 0;
         t.edges = { n: [], e: [], s: [], w: [] };
       }
       // contracts with a city that no longer exists cannot survive it

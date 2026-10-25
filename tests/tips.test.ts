@@ -102,3 +102,18 @@ describe('adviseTips', () => {
     }
   });
 });
+
+describe('water at capacity', () => {
+  test('a shortfall at the pumps gives one tip, not the pipes tip too', () => {
+    const city = makeCity();
+    road(city, 10, 10, 20, 10);
+    zone(city, 12, 11, Zone.Residential, 3);
+    city.tiles[idx(12, 11)].watered = false;
+    city.dryouts = 3;
+    const got = ids(city);
+    expect(got).toContain('watershort');
+    expect(got).not.toContain('no-water');
+    city.dryouts = 0;
+    expect(ids(city)).toContain('no-water');
+  });
+});
