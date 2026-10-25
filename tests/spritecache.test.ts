@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
+  beginSpriteFrame,
   clearSprites,
   getSpriteScale,
   setCanvasFactory,
   setSpriteScale,
   sprite,
   spriteStats,
+  PIXEL_BUDGET,
 } from '../src/render/spritecache';
 
 /** A canvas stand-in: the cache only ever asks for a 2d context and a size. */
@@ -106,13 +108,17 @@ describe('sprite caching', () => {
 });
 
 describe('eviction', () => {
-  test('a working set past the budget is trimmed rather than left to grow', () => {
+  test('sprites from an earlier frame are trimmed once the budget is passed', () => {
+    beginSpriteFrame();
     // 1600×1600 = 2.56M pixels each: six of them overrun any sane budget
     const big = { w: 1600, h: 1600, ax: 0, ay: 0 };
-    for (let k = 0; k < 8; k++) sprite(`big${k}`, big, () => {});
+    for (let k = 0; k < 8; k++) {
+      if (k === 4) beginSpriteFrame();
+      sprite(`big${k}`, big, () => {});
+    }
     const stats = spriteStats();
     expect(stats.count).toBeLessThan(8);
-    expect(stats.pixels).toBeLessThanOrEqual(14_000_000);
+    expect(stats.pixels).toBeLessThanOrEqual(PIXEL_BUDGET);
   });
 
   test('the most recently used sprite survives a trim', () => {
@@ -126,10 +132,66 @@ describe('eviction', () => {
     expect(painted).toBe(0);
   });
 
-  test('sustained thrashing steps the bake scale down instead of re-baking forever', () => {
+  test('a working set over budget for many frames steps the bake scale down; one frame does not', () => {
+    setSpriteScale(2);
+    const big = { w: 1200, h: 1200, ax: 0, ay: 0 }; // 5.76 M px at scale 2
+    const frameOver = () => {
+      beginSpriteFrame();
+      for (let k = 0; k < 5; k++) sprite(`t${k}`, big, () => {}); // 28.8 M, over on its own
+    };
+    frameOver();
+    beginSpriteFrame();
+    expect(getSpriteScale()).toBe(2); // one bad frame is not a trend
+    for (let f = 0; f < 100; f++) frameOver();
+    expect(getSpriteScale()).toBeLessThan(2);
+  });
+
+  test('a cache that fits again forgets its overrun streak, and clearing resets it', () => {
     setSpriteScale(2);
     const big = { w: 1200, h: 1200, ax: 0, ay: 0 };
-    for (let k = 0; k < 500; k++) sprite(`t${k}`, big, () => {});
-    expect(getSpriteScale()).toBeLessThan(2);
+    for (let f = 0; f < 60; f++) {
+      beginSpriteFrame();
+      for (let k = 0; k < 5; k++) sprite(`t${k}`, big, () => {});
+    }
+    for (let f = 0; f < 60; f++) {
+      beginSpriteFrame();
+      sprite('small', { w: 10, h: 10, ax: 0, ay: 0 }, () => {}); // old frames' sprites go; fits
+    }
+    for (let f = 0; f < 60; f++) {
+      beginSpriteFrame();
+      for (let k = 0; k < 5; k++) sprite(`u${k}`, big, () => {});
+    }
+    expect(getSpriteScale()).toBe(2); // 60 + 60 never made 90 in a row
+    clearSprites();
+    expect(spriteStats().evictions).toBe(0);
+  });
+
+  test('over budget with nothing evictable, a bake does not re-sort the cache', () => {
+    const big = { w: 2000, h: 2000, ax: 0, ay: 0 };
+    beginSpriteFrame();
+    for (let k = 0; k < 6; k++) sprite(`w${k}`, big, () => {}); // 24 M, all this frame
+    const t0 = performance.now();
+    for (let k = 0; k < 2000; k++) sprite(`x${k}`, { w: 4, h: 4, ax: 0, ay: 0 }, () => {});
+    expect(performance.now() - t0).toBeLessThan(50);
+  });
+});
+
+describe('eviction and the working set', () => {
+  test('a sprite used this frame is never evicted, even over budget; the last frame can go', () => {
+    const big = { w: 2000, h: 2000, ax: 0, ay: 0 }; // 4 M px each; the budget is 20 M
+    const paint = () => {};
+    beginSpriteFrame();
+    for (let k = 0; k < 4; k++) sprite(`old${k}`, big, paint); // 16 M, under budget
+    beginSpriteFrame();
+    const before = spriteStats().bakes;
+    for (let k = 0; k < 6; k++) sprite(`now${k}`, big, paint); // 24 M on its own
+    // everything from this frame is still cached: asking again bakes nothing
+    for (let k = 0; k < 6; k++) sprite(`now${k}`, big, paint);
+    expect(spriteStats().bakes - before).toBe(6);
+    // and the old frame's sprites were the ones dropped
+    const oldBakes = spriteStats().bakes;
+    sprite('old0', big, paint);
+    expect(spriteStats().bakes).toBe(oldBakes + 1);
+    expect(spriteStats().pixels).toBeGreaterThan(PIXEL_BUDGET); // ran over rather than thrash
   });
 });

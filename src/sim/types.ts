@@ -131,6 +131,10 @@ export interface Tile {
   /** Months the current structure has stood. 0 on (re)build or repair;
    * past COLLAPSE_AGE an old, unmaintained building can fall. Persisted. */
   age: number;
+  /** Months since the stage last rose, capped at GREW_CAP (24). A lot that
+   * grew within the last few months is a building site (see
+   * develop.ts underConstruction). Old saves revive at the cap. */
+  grew: number;
   /** Frames of collapse dust left; render-only, never saved. */
   collapseFlash: number;
   /** Ticks of fire left on this tile; 0 = not burning. */

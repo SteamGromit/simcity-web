@@ -3,6 +3,19 @@ import { chooseTier } from './tiers';
 import { roadAccess } from './traffic';
 import { CityState, MAX_STAGE_BY_DENSITY, Tile, Zone } from './types';
 
+/** Months after which a lot stops counting how long since it grew. */
+export const GREW_CAP = 24;
+
+/**
+ * A lot that grew within the last few months is still a building site: a
+ * frame and a scaffold for a house, a concrete frame and a crane for a
+ * tower. The renderer paints it so; the footways give it no door.
+ */
+export function underConstruction(t: Pick<Tile, 'stage' | 'grew' | 'abandoned'>): boolean {
+  if (t.stage <= 0 || t.abandoned) return false;
+  return t.stage >= 3 ? t.grew < 5 : t.grew < 3;
+}
+
 const GROW_SCALE = 0.6;
 const DECAY_CHANCE = 0.35;
 const DEMAND_COLLAPSE = -0.3;
@@ -110,14 +123,19 @@ export function developTile(city: CityState, x: number, y: number, rand: () => n
         t.stage = 1;
         t.tier = chooseTier(city, t);
         t.age = 0; // a fresh structure on the lot
+        t.grew = 0;
       } else if (t.stage === 0) {
         t.stage = 1;
         t.tier = chooseTier(city, t);
         t.age = 0;
+        t.grew = 0;
       } else if (t.stage < MAX_STAGE_BY_DENSITY[t.density]) {
         const next = t.stage + 1;
         const lvGated = t.zone !== Zone.Industrial && t.landValue < LV_GATES[next];
-        if (!lvGated && servicesAllow(t, next)) t.stage = next as Tile['stage'];
+        if (!lvGated && servicesAllow(t, next)) {
+          t.stage = next as Tile['stage'];
+          t.grew = 0;
+        }
       }
     }
     return;

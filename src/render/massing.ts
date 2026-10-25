@@ -510,6 +510,27 @@ export interface PrismOptions {
   /** Height in px of the shadow band a pitched roof's eave throws down the
    * wall — the single strongest cue that a roof overhangs. */
   eaveShadow?: number;
+  /** Screen side of the street (1 = the right visible wall, 2 = the left):
+   * that wall carries the door and the street-facing trim. Any other value
+   * means the street is behind, and the lowest wall carries them. */
+  front?: number;
+  /** Bitmask of screen sides whose visible wall is a party wall shared with
+   * a terrace partner: not painted, not inked, not returned. */
+  skipWalls?: number;
+}
+
+/**
+ * Cut one corner `v` of a footprint by fraction `c` of its two edges: the
+ * splayed entrance of a corner shop. The vertex is replaced by two.
+ */
+export function cutCorner(q: Pt[], v: number, c: number): Pt[] {
+  const n = q.length;
+  const p = q[v];
+  const prev = q[(v + n - 1) % n];
+  const next = q[(v + 1) % n];
+  const a: Pt = [p[0] + (prev[0] - p[0]) * c, p[1] + (prev[1] - p[1]) * c];
+  const b: Pt = [p[0] + (next[0] - p[0]) * c, p[1] + (next[1] - p[1]) * c];
+  return [...q.slice(0, v), a, b, ...q.slice(v + 1)];
 }
 
 /**
@@ -538,14 +559,32 @@ export function prism(
     walls.push([a, b]);
     levels.push(wallLight(a[0], a[1], b[0], b[1]));
   }
-  // the front wall — the one lowest on screen — carries the street-level trim
+  if (opts.skipWalls) {
+    // a party wall: the partner's house stands against it, so there is no
+    // wall to see. Right of the plan's centre is screen side 1, left is 2.
+    const mid = foot.reduce((s, p) => s + p[0], 0) / foot.length;
+    for (let i = walls.length - 1; i >= 0; i--) {
+      const sideOf = (walls[i][0][0] + walls[i][1][0]) / 2 > mid ? 1 : 2;
+      if (opts.skipWalls & (1 << sideOf)) {
+        walls.splice(i, 1);
+        levels.splice(i, 1);
+      }
+    }
+  }
+  // the front wall carries the street-level trim: the wall on the street's
+  // side when the street is in view, else the one lowest on screen
   let front = -1;
-  let frontY = -Infinity;
-  for (let i = 0; i < walls.length; i++) {
-    const y = walls[i][0][1] + walls[i][1][1];
-    if (y > frontY) {
-      frontY = y;
-      front = i;
+  if ((opts.front === 1 || opts.front === 2) && walls.length) {
+    const xs = walls.map(([a, b]) => a[0] + b[0]);
+    front = xs.indexOf(opts.front === 1 ? Math.max(...xs) : Math.min(...xs));
+  } else {
+    let frontY = -Infinity;
+    for (let i = 0; i < walls.length; i++) {
+      const y = walls[i][0][1] + walls[i][1][1];
+      if (y > frontY) {
+        frontY = y;
+        front = i;
+      }
     }
   }
   const plan = opts.windows ? windowPlan(opts.windows, h) : null;

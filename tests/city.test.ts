@@ -157,6 +157,22 @@ describe('save round-trip', () => {
     expect(revived!.tiles.some((t) => t.commute === Infinity)).toBe(true);
   });
 
+  test('grew round-trips, and a save from before it loads with no building sites', () => {
+    const city = buildStarterTown(3);
+    const lot = city.tiles[idx(5, 5)];
+    lot.zone = Zone.Residential;
+    lot.stage = 1;
+    lot.grew = 2;
+    const revived = deserialize(serialize(city))!;
+    expect(revived.tiles[city.tiles.indexOf(lot)].grew).toBe(2);
+    const raw = JSON.parse(serialize(city));
+    for (const t of raw.tiles) delete t.grew;
+    const old = deserialize(JSON.stringify(raw))!;
+    expect(old.tiles.every((t) => t.grew === 24)).toBe(true);
+    // a blank tile carries the default, so a save does not spell it out
+    expect(serialize(city)).not.toContain('"grew":24');
+  });
+
   test('corrupt or foreign JSON yields null', () => {
     expect(deserialize('not json{')).toBeNull();
     expect(deserialize('{"version":99}')).toBeNull();

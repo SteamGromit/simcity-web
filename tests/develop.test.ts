@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
 import { CityState, Zone } from '../src/sim/types';
-import { developTile, demandReading } from '../src/sim/develop';
+import { developTile, demandReading, GREW_CAP, underConstruction } from '../src/sim/develop';
+import { ageBuildings } from '../src/sim/safety';
 import { makeCity, zone } from './helpers';
 
 const always = () => 0; // rand() < p always fires for any p > 0
@@ -182,5 +183,49 @@ describe('demandReading', () => {
       blocked: false,
       collapsing: false,
     });
+  });
+});
+
+describe('grew: months since the stage last rose', () => {
+  test('a fresh lot, a stage rise and a re-occupied lot all start a build', () => {
+    const city = setup(Zone.Residential);
+    const t = city.tiles[idx(5, 5)];
+    expect(t.grew).toBe(GREW_CAP); // a zoned, empty lot is not a building site
+    city.demand.r = 0.8;
+    developTile(city, 5, 5, always);
+    expect(t.stage).toBe(1);
+    expect(t.grew).toBe(0);
+    t.grew = 9;
+    t.landValue = 0.6;
+    developTile(city, 5, 5, always);
+    expect(t.stage).toBe(2);
+    expect(t.grew).toBe(0);
+    t.abandoned = true;
+    t.grew = 20;
+    developTile(city, 5, 5, always);
+    expect(t.abandoned).toBe(false);
+    expect(t.grew).toBe(0);
+  });
+
+  test('decay does not start a build, and the months count up to the cap', () => {
+    const city = setup(Zone.Commercial, 3);
+    const t = city.tiles[idx(5, 5)];
+    t.grew = 7;
+    city.demand.c = -0.5;
+    developTile(city, 5, 5, always);
+    expect(t.stage).toBe(2);
+    expect(t.grew).toBe(7);
+    for (let m = 0; m < 30; m++) ageBuildings(city);
+    expect(t.grew).toBe(GREW_CAP);
+  });
+
+  test('a building site is a lot that grew within the last few months', () => {
+    const t = { zone: Zone.Residential, stage: 3, grew: 4, abandoned: false } as Parameters<typeof underConstruction>[0];
+    expect(underConstruction(t)).toBe(true);
+    expect(underConstruction({ ...t, grew: 5 })).toBe(false);
+    expect(underConstruction({ ...t, stage: 2, grew: 2 })).toBe(true);
+    expect(underConstruction({ ...t, stage: 2, grew: 3 })).toBe(false);
+    expect(underConstruction({ ...t, stage: 0, grew: 0 })).toBe(false);
+    expect(underConstruction({ ...t, abandoned: true, grew: 0 })).toBe(false);
   });
 });

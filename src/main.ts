@@ -144,6 +144,7 @@ const renderer = new Renderer(canvas, city.seed);
   profile: () => ({ ...renderer.timings, sprites: spriteStats() }),
   /** The cars and people as they stand, for checking a scene from the console. */
   automata: () => renderer.automata,
+  signatures: () => renderer.signatureLots(),
   /** The live city, for stepping the automata by hand from the console. */
   city: () => city,
   /**

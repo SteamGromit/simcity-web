@@ -4,6 +4,88 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.72.0] — 2026-10-25 · Buildings that belong to their street
+
+Graphics drop 3 of the life-and-particularity spec. A lot used to be baked
+on its own, facing nowhere in particular; now it knows which side its
+street is on, who its neighbours are, how long it has stood, and whether it
+is the city's one of something.
+
+### Added
+- **Site** (`render/site.ts`, pure). For a single-tile growable lot: the
+  screen side of its street at the current quarter, its terrace partners
+  (the lot along the street on either side, same zone, same wealth or
+  industry tier, both inside the terrace band of stages 1–3 residential or
+  1–4 commercial, neither a building site) as a party-wall bitmask, and the
+  corner side when a second road touches the lot.
+- **Terraces.** Partners bake as one row: the primary mass runs to the lot
+  edge on the party side, that wall is left out, the cornice and parapet
+  continue, and a gabled roof runs through without a gable end until the
+  row ends. Every lot in a row takes the row's height (one height per zone
+  and tier), so the joins meet. A commercial corner lot is cut at 0.2 at
+  the street corner.
+- **Ground floors that face the street** (`render/frontage.ts`). Shopfronts
+  with a fascia in one of fourteen sign colours and a dash-lettering strip,
+  an awning on one shop in three (half of them striped) projecting over the
+  footway; at night the fascia glows, cool on one in three. Houses get a
+  path from the door to the kerb, a stoop and a front door in one of six
+  colours at stages 1–2, an entrance canopy from stage 3. Works get a
+  roller door, open on a dark interior one time in two, and a works
+  entrance. All of it sits on the street face at every quarter.
+- **Podium and tower** (`render/podium.ts`, pure). Half the stage 5–7
+  residential and commercial lots at the two upper wealth tiers stand as a
+  generated podium (full footprint, 0.2–0.3 of the height) with a tower
+  flush with the street on two sides and set back 0.1–0.22 on the other
+  two, in one of four plans: square, slab, L, chamfered. The channels pick
+  everything, so the skyline is the city's own.
+- **Building sites** (`render/construction.ts`; `Tile.grew` in the sim). A
+  lot counts the months since its stage last rose (saved; old saves load as
+  finished). A stage 1–2 lot is a timber frame with a green-mesh scaffold
+  on the street face for its first three months; stage 3 and up is a
+  concrete frame to a third of the final height, hoarding along the street,
+  a skip, and a tower crane from stage 5, for five months. People do not
+  use a building site's door.
+- **Signature lots** (`render/signature.ts`, `render/signatureart.ts`). At
+  most one of each in a city, picked by a hash of the seed and the tile and
+  re-picked each month: a church with a steeple and belfry, a mansion in
+  its grounds behind a hedge, a corner pub with a green fascia and a hanging
+  sign, a clock tower on a civic hall, a department store under a glass
+  canopy, a gasholder in its frame, a row of grain silos with a conveyor,
+  and a mill chimney over a sawtooth shed. A lot that stops qualifying
+  drops its landmark at once; the kind moves to its next-ranked lot at the
+  month.
+
+### Changed
+- **Sprite cache.** Eviction never drops a sprite the current frame has
+  used (`beginSpriteFrame` at the top of `Renderer.draw`), and the pixel
+  budget rises from 14 M to 20 M (about 80 MB). Baking lots per street side
+  and terrace run put a downtown screen's working set at 13.7 M px, right
+  on the old budget, and the cache was evicting what was on screen and
+  baking it again the next frame: 702 evictions in four seconds at the
+  suburb framing. The old rule that a thrashing cache bakes smaller now
+  counts frames whose own working set is over budget instead.
+- `spriteStats()` reports `evictions` and the last 64 baked keys, and
+  `__simcity.signatures()` lists the landmark lots.
+
+### Measured
+Same session, same demo (pop 71.6k), same protocol (fresh load, Pause,
+look, Normal, 1.5 s settle, 20 samples 100 ms apart), two visits to each
+framing, main `0e3c4ec` against this branch `231edca`, in ms:
+
+| framing | build | ground | shadows | scene | bakes in the 2 s | evictions |
+|---|---|---|---|---|---|---|
+| downtown (44,46,2) | v0.71.0 | 6.36 / 5.62 | 1.29 / 1.03 | 6.14 / 6.04 | 148 / 180 | not counted |
+| downtown (44,46,2) | v0.72.0 | 5.90 / 5.89 | 1.31 / 1.04 | 6.14 / 6.60 | 355 / 338 | 0 / 0 |
+| suburb (26,72,2) | v0.71.0 | 6.09 / 5.85 | 0.86 / 0.74 | 3.67 / 4.03 | 57 / 31 | not counted |
+| suburb (26,72,2) | v0.72.0 | 6.36 / 6.28 | 0.85 / 0.75 | 4.47 / 4.80 | 395 / 47 | 0 / 0 |
+
+The scene pass costs up to 0.6 ms more downtown and 0.8 ms more in the
+suburb, inside the 1.0 ms budget; before the cache change it read 7.8 and
+6.9. Per call on the demo: `siteOf` 0.42 µs, `isCorner` 0.20 µs,
+`hearthTip` 0.47 µs (0.23 before), `pickSignatures` 3.3 ms once a month.
+Bakes on a resting paused view: 0 over 20 frames. Sprites after the tour
+3,500–4,000 at 16–20 M px (v0.71.0: 2,800).
+
 ## [0.71.0] — 2026-10-25 · People on the footways
 
 Graphics drop 2 of the life-and-particularity spec. The people were two

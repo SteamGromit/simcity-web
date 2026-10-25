@@ -244,6 +244,16 @@ describe('successors', () => {
 });
 
 describe('doors', () => {
+  test('a building site has no door until it is finished', () => {
+    const city = makeCity();
+    road(city, 10, 10, 20, 10);
+    zone(city, 14, 11, Zone.Residential, 3);
+    city.tiles[idx(14, 11)].grew = 0;
+    expect(doorOf(city, idx(14, 11))).toBeNull();
+    city.tiles[idx(14, 11)].grew = 6;
+    expect(doorOf(city, idx(14, 11))).not.toBeNull();
+  });
+
   test('a lot beside a street has its door on the facing kerb; one two tiles away has none', () => {
     const city = makeCity();
     road(city, 10, 10, 30, 10);

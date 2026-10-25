@@ -74,6 +74,20 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    From the v0.70.0 review: a car between 0.82 and 0.90 of its approach
    tile when the signal goes red stops hard a few pixels into the box with
    its brake lights on (`mustWait` lets a car through only past 0.90).
+   From v0.72.0 (buildings): the spec's industrial chain-link yard fence
+   and yard clutter (pallets, drums, a container) are not drawn; a corner
+   shop's fascia stays on its street face rather than wrapping the cut
+   corner; generated podium towers take no crown; the pub's and store's
+   night glow is faint at the 0.5 cap the glow pass applies; landmarks are
+   one of each per 96×96 city, which reads sparse; a second ring of kinds
+   (a fire lookout, a water tower on legs, a cinema, a market hall) or one
+   per district would give more; `pickSignatures` scans every tile once a
+   month (3.3 ms on the 71k demo) and could be spread over frames; a
+   building site's frame is drawn to a third of the final height whatever
+   the stage, so a stage 3 house's frame is a few pixels.
+   Tests the v0.72.0 review asked for and that are not written: prism
+   `skipWalls` and `front`, `cutCorner`, `roofCap` `through`, and `hearthTip`
+   landing on a row's roof.
 
 8. **City styles** — one distinct look per style, beyond the palette shifts
    the three skins do today: Simpsons Springfield, present-day Hong Kong,
@@ -83,17 +97,25 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Done
 
+- **Buildings (graphics drop 3)** — shipped v0.72.0: street side, terrace
+  partners and corners per lot; terraces under one roof; shopfronts, signs,
+  awnings, doors, paths, stoops and roller doors on the street face; podium
+  and tower massing; building sites with a crane; one landmark of each of
+  eight kinds per city; the sprite cache spares the current frame's
+  sprites. Left for the follow-ups list: industrial yard fences and
+  clutter, the fascia wrapping both faces of a corner shop, crowns on the
+  generated towers.
 - **People and transit (graphics drop 2)** — shipped v0.71.0: footway
   graph with kerbs, corners and crossings at the ladders; box-model figures
   with a gait, umbrellas and masks; doors, crowds by hour, spawning where
   the player looks; transit vehicles as box models that dwell at stops with
-  queues that board and alight. Drop 3 (buildings) follows.
+  queues that board and alight. Drop 3 (buildings) shipped v0.72.0.
 - **Vehicles: realistic movement and 3D orientation** — shipped v0.70.0
   (box-model vehicles baked per heading and quarter; right-hand lanes and
   arcs through junctions; following, acceleration, two-phase signals and
   give-way Ts; destination trips by the hour; fire engines, police cars and
   garbage trucks). Drop 1 of the 2026-10-25 graphics life spec; drops 2
-  (people and transit) and 3 (buildings) follow.
+  and 3 shipped as v0.71.0 and v0.72.0.
 - **Region follow-ups** — closed with v0.69.0 (water capacity and water
   contracts; Visit a neighbour from the Neighbours panel). Gate, connection
   and lent-jobs freshness remains on-enter/on-save, see v0.68.0 notes.
