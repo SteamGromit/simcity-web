@@ -89,6 +89,14 @@ let currentSave: SaveMeta | null = null;
 let region: Region | null = null;
 let regionCol = 0;
 let regionRow = 0;
+/**
+ * True only while a region tile's city is the one being played. Opening a
+ * region leaves `city` as whatever was loaded before (at startup, a
+ * placeholder) and the tile pointer at (0,0); a save on the region map,
+ * on leaving the layer, or on `pagehide` must not write that over the
+ * first tile's real city.
+ */
+let regionCityOpen = false;
 
 /**
  * A city has to exist for the renderer to be built against, but nothing is
@@ -405,7 +413,7 @@ function syncNeighbors() {
  * out forever.
  */
 function saveRegionCity() {
-  if (!region) return;
+  if (!region || !regionCityOpen) return;
   recordCity(
     region,
     regionCol,
@@ -450,6 +458,7 @@ function enterCity(col: number, row: number, name: string) {
   currentSave = null; // a region's cities are not in the named-save list
   fileMenu.setCurrent(null);
   adoptCity(next);
+  regionCityOpen = true;
   saveRegionCity();
   regionMap.close();
   launch.close();
@@ -463,6 +472,7 @@ function enterCity(col: number, row: number, name: string) {
 function leaveToRegion() {
   if (!region) return;
   saveRegionCity();
+  regionCityOpen = false;
   setSpeed(0);
   neighborsPanel.close();
   regionBtn.classList.add('hidden');
@@ -476,6 +486,7 @@ function openRegion(slug: string) {
     return;
   }
   region = loaded;
+  regionCityOpen = false;
   setSpeed(0);
   launch.close();
   regionBtn.classList.add('hidden');
@@ -485,6 +496,7 @@ function openRegion(slug: string) {
 /** Put the region down: save what was being played and forget it. */
 function leaveRegionLayer() {
   if (region) saveRegionCity();
+  regionCityOpen = false;
   region = null;
   hud.setRegion(false);
   neighborsPanel.close();
