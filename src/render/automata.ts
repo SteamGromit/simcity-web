@@ -43,6 +43,18 @@ export const PED_DENSITY: Record<DayBand, [number, number]> = {
 const PED_CAP: Record<DayBand, number> = { morning: 1, midday: 0.85, evening: 1, night: 0.25 };
 /** Share of the people kept on a loop inside the parks. */
 export const PARK_SHARE = 0.15;
+/** Share of the people who step out of a door the player can see. */
+export const SPAWN_IN_VIEW = 0.75;
+/** Below this share of the crowd on screen, people off screen are recycled. */
+export const SEEN_SHARE = 0.5;
+
+export interface ViewClip {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
 /** Walking pace, tiles per second. */
 const PACE_MIN = 0.22;
 const PACE_MAX = 0.34;
@@ -415,6 +427,8 @@ export class Automata {
   private stageC = 0;
   private parks: number[] = [];
   private rain = false;
+  /** The tiles on screen, when the renderer says: most people step out where the player is looking. */
+  private clip: ViewClip | null = null;
   private junction = new Uint8Array(GRID * GRID);
   private arms = new Uint8Array(GRID * GRID);
   private trafficSum = 0;
@@ -453,9 +467,10 @@ export class Automata {
   }
 
   /** Night 0..1 (thins the traffic) and zoom (hides what cannot be seen) from the renderer. */
-  setView(night: number, zoom: number): void {
+  setView(night: number, zoom: number, clip: ViewClip | null = null): void {
     this.night = night;
     this.zoom = zoom;
+    this.clip = clip;
   }
 
   /** Test hook: put a car on the road with a route of your choosing. */
@@ -930,6 +945,21 @@ export class Automata {
     let walkers = 0;
     let parkers = 0;
     for (const p of this.peds) if (p.mode === 'park') parkers++; else walkers++;
+    // when the view has moved on, recycle people nobody can see so the new
+    // street fills in seconds rather than when the old crowd happens to go in
+    if (this.clip && walkers >= walkTarget) {
+      let seen = 0;
+      for (const p of this.peds) if (p.mode !== 'park' && this.onScreen(p.tile)) seen++;
+      if (seen < walkTarget * SEEN_SHARE) {
+        let drop = 4;
+        this.peds = this.peds.filter((p) => {
+          if (drop <= 0 || p.mode === 'park' || this.onScreen(p.tile)) return true;
+          drop--;
+          walkers--;
+          return false;
+        });
+      }
+    }
     for (let n = 0; n < 4 && walkers < walkTarget; n++) {
       if (!this.spawnWalker(city, band)) break;
       walkers++;
@@ -1012,6 +1042,26 @@ export class Automata {
     if (gone.length) this.peds = this.peds.filter((p) => !gone.includes(p));
   }
 
+  private onScreen(tile: number): boolean {
+    const c = this.clip!;
+    const x = tile % GRID;
+    const y = (tile / GRID) | 0;
+    return x >= c.x0 && x <= c.x1 && y >= c.y0 && y <= c.y1;
+  }
+
+  /** The lots inside the view, if that is a real subset of the city. */
+  private inView(lots: number[]): number[] | null {
+    const c = this.clip;
+    if (!c) return null;
+    const out: number[] = [];
+    for (const i of lots) {
+      const x = i % GRID;
+      const y = (i / GRID) | 0;
+      if (x >= c.x0 && x <= c.x1 && y >= c.y0 && y <= c.y1) out.push(i);
+    }
+    return out.length && out.length < lots.length ? out : null;
+  }
+
   /** A person at a lot's door, about to step out onto the kerb. */
   private spawnWalker(city: CityState, band: DayBand): boolean {
     const [r, c] = PED_DENSITY[band];
@@ -1020,6 +1070,7 @@ export class Automata {
     if (wR + wC <= 0) return false;
     let list = Math.random() * (wR + wC) < wR ? this.lotsR : this.lotsC;
     if (!list.length) list = list === this.lotsR ? this.lotsC : this.lotsR;
+    if (Math.random() < SPAWN_IN_VIEW) list = this.inView(list) ?? list;
     for (let tries = 0; tries < 3 && list.length; tries++) {
       const door = doorOf(city, pick(list));
       if (!door) continue;

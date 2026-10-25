@@ -408,6 +408,28 @@ describe('people', () => {
     expect(a.pedsNow().length).toBeLessThanOrEqual(MAX_PEDS);
   });
 
+  test('most people step out of doors the player can see', () => {
+    const city = street();
+    const a = new Automata();
+    a.setView(0, 2, { x0: 20, y0: 0, x1: 24, y1: 20 }); // five of the seventeen lots along each side
+    stepFor(a, city, 3);
+    const peds = a.pedsNow();
+    expect(peds.length).toBeGreaterThan(8);
+    const inside = peds.filter((p) => {
+      const x = p.leg!.on % GRID;
+      return x >= 20 && x <= 24;
+    }).length;
+    expect(inside / peds.length).toBeGreaterThan(0.5);
+    // the view moves: within a few seconds the crowd has followed it
+    a.setView(0, 2, { x0: 10, y0: 0, x1: 14, y1: 20 });
+    stepFor(a, city, 4);
+    const moved = a.pedsNow().filter((p) => {
+      const x = p.leg!.on % GRID;
+      return x >= 10 && x <= 14;
+    }).length;
+    expect(moved / a.pedsNow().length).toBeGreaterThan(0.4);
+  });
+
   test('the walkers are gone the step after their street is bulldozed', () => {
     const city = street();
     const a = new Automata();
