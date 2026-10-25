@@ -49,3 +49,13 @@ export function setDayNight(on: boolean): void {
 export function getDayNight(): boolean {
   return enabled;
 }
+
+/**
+ * Where the render clock stands in its day, 0..1: 0 at noon, 0.5 at
+ * midnight, 0.75 at dawn. Noon when the day-night cycle is off, so the
+ * automata's commuter waves hold at midday rather than at midnight.
+ */
+export function dayPhase(timeMs: number): number {
+  if (!enabled) return 0;
+  return ((timeMs % DAY_CYCLE_MS) + DAY_CYCLE_MS) % DAY_CYCLE_MS / DAY_CYCLE_MS;
+}

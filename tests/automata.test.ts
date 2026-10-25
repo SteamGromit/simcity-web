@@ -1,9 +1,30 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
 import { GRID, Zone } from '../src/sim/types';
-import { Automata, pickBody, pickKind, vehicleWeights } from '../src/render/automata';
+import {
+  Automata,
+  GAP,
+  junctionKind,
+  MAX_CARS,
+  pickBody,
+  pickKind,
+  routeTo,
+  signalPhase,
+  SIGNAL_PERIOD,
+  STOP_AT,
+  targetCars,
+  vehicleWeights,
+} from '../src/render/automata';
 import type { VehicleKind } from '../src/render/automata';
+import { clearSprites, setCanvasFactory } from '../src/render/spritecache';
 import { makeCity, road, zone } from './helpers';
+import { strictCtx, stubCanvasFactory } from './stubctx';
+
+beforeEach(() => {
+  setCanvasFactory(stubCanvasFactory().factory);
+  clearSprites();
+});
+afterEach(() => setCanvasFactory(null));
 
 describe('Automata', () => {
   test('cars only ever occupy road tiles, even after demolition', () => {
@@ -32,24 +53,16 @@ describe('Automata', () => {
     expect(automata.carCount()).toBeGreaterThan(0);
 
     const positions = () => {
-      const calls: [number, number][] = [];
-      const ctx = {
-        save() {},
-        restore() {},
-        rotate() {},
-        fillRect() {},
-        fillStyle: '',
-        translate(x: number, y: number) {
-          calls.push([x, y]);
-        },
-      } as unknown as CanvasRenderingContext2D;
+      const { ctx, trace } = strictCtx();
       for (let i = 0; i < GRID * GRID; i++) automata.drawTile(ctx, i);
-      return JSON.stringify(calls);
+      return trace.filter((t) => t.startsWith('drawImage(')).join('|');
     };
 
     automata.step(city, 2100, 1);
     const a = positions();
-    automata.step(city, 2200, 0); // paused: time passes, nothing moves
+    const n = automata.carCount();
+    automata.step(city, 2200, 0); // paused: time passes, nothing moves, nothing spawns
+    expect(automata.carCount()).toBe(n);
     expect(positions()).toBe(a);
     automata.step(city, 2300, 1); // running again
     expect(positions()).not.toBe(a);
@@ -145,5 +158,181 @@ describe('vehicle bodies', () => {
 
   test('the same roll always yields the same body', () => {
     expect(pickBody('van', 0.42)).toBe(pickBody('van', 0.42));
+  });
+});
+
+describe('routes', () => {
+  test('a straight road routes from end to end', () => {
+    const city = makeCity();
+    road(city, 10, 10, 30, 10);
+    const path = routeTo(city, idx(10, 10), idx(30, 10))!;
+    expect(path).not.toBeNull();
+    expect(path[0]).toBe(idx(10, 10));
+    expect(path[path.length - 1]).toBe(idx(30, 10));
+    expect(path).toHaveLength(21);
+  });
+
+  test('no road, no route', () => {
+    const city = makeCity();
+    road(city, 10, 10, 20, 10);
+    road(city, 30, 10, 40, 10);
+    expect(routeTo(city, idx(10, 10), idx(40, 10))).toBeNull();
+  });
+
+  test('a route never drives against a carriageway', () => {
+    const city = makeCity();
+    // a four-lane highway: rows 20..23, class 3; the north lanes run west
+    for (let y = 20; y <= 23; y++) {
+      for (let x = 10; x <= 40; x++) {
+        const t = city.tiles[idx(x, y)];
+        t.zone = Zone.Road;
+        t.road = 3;
+        t.median = false;
+      }
+    }
+    // from the west end of a westbound lane to the east end: must cross to an eastbound lane
+    const path = routeTo(city, idx(10, 20), idx(40, 20));
+    expect(path).not.toBeNull();
+    for (let k = 1; k < path!.length; k++) {
+      const a = path![k - 1];
+      const b = path![k];
+      const dx = (b % GRID) - (a % GRID);
+      const y = (a / GRID) | 0;
+      if (dx !== 0 && y <= 21) expect(dx, `westbound lane at step ${k}`).toBe(-1);
+      if (dx !== 0 && y >= 22) expect(dx, `eastbound lane at step ${k}`).toBe(1);
+    }
+  });
+});
+
+describe('driving', () => {
+  const straight = () => {
+    const city = makeCity();
+    road(city, 10, 10, 50, 10);
+    return city;
+  };
+  // wall time only ever moves forward, as it does for the renderer
+  let wall = 1000;
+  const stepFor = (a: Automata, city: ReturnType<typeof makeCity>, seconds: number) => {
+    const n = Math.round(seconds / 0.016);
+    for (let k = 1; k <= n; k++) {
+      wall += 16;
+      a.step(city, wall, 1);
+    }
+  };
+
+  test('a follower keeps its distance and never passes', () => {
+    const city = straight();
+    const a = new Automata();
+    a.step(city, wall, 1);
+    const path = routeTo(city, idx(10, 10), idx(50, 10))!;
+    const leader = a.plant(city, path, { kind: 'truck', style: 'semi', s: 0.5 });
+    const follower = a.plant(city, path, { kind: 'taxi', s: 0.0 });
+    leader.at = 6;
+    leader.tile = path[6];
+    let minGap = Infinity;
+    for (let k = 1; k <= 400; k++) {
+      wall += 16;
+      a.step(city, wall, 1);
+      const gap = leader.at - follower.at + leader.s - follower.s;
+      minGap = Math.min(minGap, gap);
+      expect(gap, `step ${k}`).toBeGreaterThan(0);
+    }
+    expect(minGap).toBeGreaterThanOrEqual(GAP - 0.02);
+    expect(follower.v).toBeGreaterThan(0);
+  });
+
+  test('a signalled crossroads holds a red arm at the line and releases it on green', () => {
+    const city = makeCity();
+    road(city, 10, 20, 30, 20);
+    road(city, 20, 10, 20, 30);
+    const j = idx(20, 20);
+    expect(junctionKind(city, j)).toBe(4);
+    const a = new Automata();
+    a.step(city, wall, 1);
+    // find a clock at which east-west is green, so a northbound car must wait
+    // the start of an east-west window, not somewhere inside one
+    let clock = 0;
+    while (signalPhase(j, clock) === 'ew') clock += 0.25;
+    while (signalPhase(j, clock) !== 'ew') clock += 0.25;
+    a.setClock(clock + 0.1);
+    const path = routeTo(city, idx(20, 28), idx(20, 12))!;
+    const car = a.plant(city, path, { s: 0.2 });
+    car.at = 7; // the tile just south of the junction
+    car.tile = path[7];
+    stepFor(a, city, 3);
+    expect(car.tile).toBe(path[7]);
+    expect(car.s).toBeLessThanOrEqual(STOP_AT + 0.02);
+    expect(car.v).toBeLessThan(0.05);
+    // the same car, now with north-south green
+    clock = 0;
+    while (signalPhase(j, clock) === 'ns') clock += 0.25;
+    while (signalPhase(j, clock) !== 'ns') clock += 0.25;
+    a.setClock(clock + 0.1);
+    stepFor(a, city, 2);
+    expect(car.at).toBeGreaterThan(7);
+  });
+
+  test('two stem cars crossing a double-width street do not wait on each other', () => {
+    // two parallel streets: every interior tile is a T, and a car crossing from
+    // one to the other is a stem car whose junction tile may hold the other
+    // car, itself a stem car waiting on the first
+    const city = makeCity();
+    road(city, 10, 5, 10, 15);
+    road(city, 11, 5, 11, 15);
+    expect(junctionKind(city, idx(10, 10))).toBe(3);
+    expect(junctionKind(city, idx(11, 10))).toBe(3);
+    const a = new Automata();
+    a.step(city, wall, 1);
+    const east = a.plant(city, [idx(10, 10), idx(11, 10), idx(11, 11)], { s: 0.6 });
+    const west = a.plant(city, [idx(11, 10), idx(10, 10), idx(10, 9)], { s: 0.6 });
+    stepFor(a, city, 2); // well under MAX_WAIT: the direction rule, not the timeout, clears them
+    expect(east.at).toBeGreaterThanOrEqual(1);
+    expect(west.at).toBeGreaterThanOrEqual(1);
+  });
+
+  test('a fire on the station\'s own kerb does not block the engine for a fire further on', () => {
+    const city = makeCity();
+    road(city, 10, 10, 30, 10);
+    const station = city.tiles[idx(12, 11)];
+    station.zone = Zone.FireStation;
+    station.powered = true;
+    city.tiles[idx(12, 9)].burning = 3; // shares the station's kerb tile (12,10)
+    city.tiles[idx(25, 9)].burning = 3;
+    const a = new Automata();
+    stepFor(a, city, 1);
+    const engines = a.carsNow().filter((c) => c.role === 'fire');
+    expect(engines).toHaveLength(1);
+    expect(engines[0].stops[0].fireTile).toBe(idx(25, 9));
+  });
+
+  test('a car with a route drives it to the end and leaves', () => {
+    const city = straight();
+    const a = new Automata();
+    a.step(city, wall, 1);
+    const path = routeTo(city, idx(10, 10), idx(20, 10))!;
+    a.plant(city, path, { s: 0.5 });
+    expect(a.carCount()).toBe(1);
+    stepFor(a, city, 12);
+    expect(a.carCount()).toBe(0);
+  });
+
+  test('a routed car is gone the step after its road is bulldozed', () => {
+    const city = straight();
+    const a = new Automata();
+    a.step(city, wall, 1);
+    const path = routeTo(city, idx(10, 10), idx(30, 10))!;
+    a.plant(city, path, { s: 0.5 });
+    city.tiles[idx(15, 10)].zone = Zone.None;
+    wall += 16;
+    a.step(city, wall, 1);
+    expect(a.carCount()).toBe(0);
+  });
+
+  test('the car count follows the traffic, the night and a pandemic', () => {
+    expect(targetCars(250, 0, false)).toBe(10);
+    expect(targetCars(1e6, 0, false)).toBe(MAX_CARS);
+    expect(targetCars(250, 1, false)).toBe(4);
+    expect(targetCars(250, 0, true)).toBe(Math.round(10 * 0.25));
+    expect(SIGNAL_PERIOD).toBeGreaterThan(0);
   });
 });

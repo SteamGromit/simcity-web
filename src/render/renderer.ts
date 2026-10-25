@@ -335,6 +335,7 @@ export class Renderer {
     this.frameNow = now;
     this.storm = city.disasters.hurricaneTicks > 0;
     this.wind = this.storm ? -5 + Math.sin(now / 120) * 3.5 : 0;
+    this.automata.setView(this.night, this.camera.zoom);
     this.automata.step(city, now, AUTOMATA_SCALE[this.simSpeed]);
     this.disasterFx.step(city, now, AUTOMATA_SCALE[this.simSpeed]);
     this.ensureDepth(city);
@@ -507,7 +508,7 @@ export class Renderer {
         drawCollapse(ctx, geom, Math.min(1, t.collapseFlash / 90));
         t.collapseFlash -= 1; // render-only decay
       }
-      this.automata.drawTile(ctx, i, this.night);
+      this.automata.drawTile(ctx, i);
     }
 
     mark('scene', t0);

@@ -4,6 +4,53 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.70.0] — 2026-10-25 · Cars that drive
+
+Graphics drop 1 of the life-and-particularity spec (backlog #7 and #9).
+The cars were flat rectangles that random-walked the roads at one speed
+and never stopped. Now they are small 3D bodies that drive somewhere.
+
+### Added
+- **Box-model vehicles** (`render/vehiclemodel.ts`). A vehicle is a few
+  boxes in its own frame (body, cabin, wheels, cargo, ladder, roof bar),
+  projected into the view at its heading and lit from the fixed sun like
+  the buildings, so a car shows its bonnet, flank and boot as it turns and
+  reads correctly at all four view quarters. Baked per sixteenth of a turn
+  and per quarter into the sprite cache; the fleet's plan dimensions are
+  unchanged.
+- **Lanes and arcs** (`render/lanegeom.ts`). Right-hand traffic: a two-way
+  street has two lanes 0.21 tile either side of the centre line; a
+  carriageway tile is one lane. Within a tile a car follows a line, a
+  quadratic arc through a turn (tight on the right, sweeping on the left)
+  or a loop at a dead end, parametrised by arc length.
+- **Following, acceleration, signals.** Speed is state: 2.2 tiles/s²
+  accelerating, 4.5 braking, free speed by road class (street 1.8, route
+  and boulevard 2.4, motorway 3.6 tiles/s, times the kind factor). A car
+  holds 0.22 tile behind the car ahead in its lane. A crossroads of plain
+  streets is a two-phase signal (9 s cycle, 0.45 s all-red between phases) with posts at
+  the kerbs; a T gives way from the stem. Brake lights, indicators before
+  a turn, and the night beams and tail lights.
+- **Trips.** Cars spawn on trafficked roads with a destination lot and
+  route to it (BFS honouring carriageway direction), then stop on the
+  destination's street tile and fade; by the render clock's hour they go residential to work in the
+  morning and back in the evening. Count follows the sim's traffic field:
+  one car per 25 units, at most 400, thinned at night and in a pandemic.
+- **Service vehicles.** A fire engine from the nearest powered fire
+  station parks at a fire with its beacons on until it is out (at most
+  four); a police car answers a crime flash for six seconds (three); a
+  garbage truck from each landfill, incinerator or recycling centre makes
+  a three-stop round every 25 s.
+
+### Changed
+- `MAX_CARS` 70 → 400; the old flat `drawVehicle` is gone. Signal posts
+  draw only above zoom 1.4.
+
+### Measured
+- Demo city (71.6k, 240–280 cars), Normal speed, 20-frame averages: the
+  scene pass costs 1.2 ms more at the overview framing and 0.4 ms more
+  downtown than main on the same city; the ground pass moved 0.7 ms between
+  runs, which is the protocol's noise.
+
 ## [0.69.0] — 2026-10-25 · Water has a capacity, so it trades
 
 Backlog #1, last of three parts. The third utility now runs short like the
