@@ -24,9 +24,10 @@ decides what happens next:
   buildings abandon (boarded-up grey shells). Fix the problem and they
   redevelop on their own.
 - **A living city** — zone at low, medium, or high density and watch shacks
-  become towers as land value, services, and schools allow; cars roam the
-  busy roads, citizens stroll outside their buildings, and day fades into
-  night with glowing windows and streetlights. Even a paused city keeps
+  become towers as land value, services, and schools allow; cars drive to
+  work in the morning and home at night, queue at the lights and pull in at
+  the kerb, citizens stroll outside their buildings, and day fades into
+  night with glowing windows, streetlights and headlamp beams. Even a paused city keeps
   moving: smoke drifts from industry stacks and the power plants, the
   nuclear towers vent steam, chimneys breathe on frosty homes, tower
   beacons blink after dark, flags ripple, and a few park fountains loop.
@@ -72,6 +73,14 @@ decides what happens next:
   built from leaf clusters, and streets carry asphalt grain, kerb faces,
   paving joints, worn crosswalks, lamp standards that come on at dusk,
   signals cycling at the junctions, and cars parked at the kerb.
+- **Cars that drive** — every vehicle is a small 3D body that faces the
+  way it is going: it keeps to the right-hand lane, steers through junctions
+  on an arc, accelerates and brakes, holds a gap behind the car ahead,
+  stops for the two-phase signals at a crossroads and gives way from the
+  stem of a T. Brake lights and indicators show it; at night, beams. Cars
+  have destinations (residential to work in the morning, home in the
+  evening) and park when they arrive. Fire engines run to fires, police
+  cars to crimes, and garbage trucks make their rounds.
 - **Context-aware traffic** — vehicles pick roles by location: trucks move
   goods on industrial roads, taxis and vans favor commercial routes, and
   buses cluster near transit stops. Each kind has distinct speeds and paint.

@@ -77,13 +77,14 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    choose wall materials, roof kits, road markings, vegetation and sky, not
    just remap hue and saturation.
 
-9. **Vehicles: realistic movement and 3D orientation** — cars that steer
-    through turns with real headings (sprite orientation per direction of
-    travel, not axis-aligned), lane-change easing, plausible acceleration.
-    (User-requested 2026-08-10.)
-
 ## Done
 
+- **Vehicles: realistic movement and 3D orientation** — shipped v0.70.0
+  (box-model vehicles baked per heading and quarter; right-hand lanes and
+  arcs through junctions; following, acceleration, two-phase signals and
+  give-way Ts; destination trips by the hour; fire engines, police cars and
+  garbage trucks). Drop 1 of the 2026-10-25 graphics life spec; drops 2
+  (people and transit) and 3 (buildings) follow.
 - **Region follow-ups** — closed with v0.69.0 (water capacity and water
   contracts; Visit a neighbour from the Neighbours panel). Gate, connection
   and lent-jobs freshness remains on-enter/on-save, see v0.68.0 notes.
