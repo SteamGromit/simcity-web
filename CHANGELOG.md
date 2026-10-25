@@ -4,6 +4,54 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.71.0] — 2026-10-25 · People on the footways
+
+Graphics drop 2 of the life-and-particularity spec. The people were two
+pixels wandering an annulus inside their lot; now they walk the kerbs.
+
+### Added
+- **Footways** (`render/footways.ts`, pure). Every frontage road tile has a
+  kerb line along each edge that does not face another road, 0.12 tile in
+  from the edge. A walker follows legs: along a kerb, round a convex corner,
+  across the inside of a bend, or over a junction arm at the crosswalk
+  ladder. Weights at a kerb's end: carry on 0.6, corner 0.25, cross 0.1.
+  A walker turns round only when there is nowhere else to go.
+- **Figures** (`render/figure.ts`). A person is three boxes (legs, torso,
+  head, 0.9 wide and 4.7 tall at zoom 1) drawn by the vehicle projector, so
+  they face the way they walk and take the sun; twelve shirt-and-trouser
+  palettes, four skin tones. A four-frame gait splits the legs every 0.07
+  tile walked; it is held still below zoom 1.5. Umbrellas in rain, masks in
+  a pandemic.
+- **Doors.** People step out of a lived-in residential or commercial lot's
+  door (the midpoint of its street edge), and go in by one when they have
+  walked far enough. A lot with no street beside it has no door, so nobody
+  appears inside a fenced block. Parks keep a few people on a loop of paths.
+- **Crowds by hour.** The target is the sum over developed R and C lots of
+  a density per stage (residential 0.4 morning and evening, 0.15 midday,
+  0.05 night; commercial 0.3, 0.6, 0.6, 0.1), capped at 220 by day and 55
+  at night, 0.15 of that in a pandemic. Three in four people step out of a
+  door the player can see, and when the view moves, people nobody can see
+  are recycled so the new street fills in seconds.
+- **Transit vehicles** are box models in the line's colour: the bus,
+  a streetcar with a pantograph, a monorail car at beam height, a train of
+  three cars 0.55 tile apart. They face along the path (which fixes the old
+  flipped-sprite return trip), bake per view quarter, and dwell 1.6 s at
+  each stop; a line's cycle grows to match.
+- **Queues.** Up to four people wait on the kerb in front of a bus or
+  streetcar stop, facing the road; when a vehicle dwells they board and up
+  to three alight and walk off. A stop no line serves loses its queue.
+
+### Changed
+- `MAX_PEDS` 60 → 220. The renderer passes the automata the ground under
+  the viewport and the transit clock. `drawLineVehicles` takes the view
+  quarter. The debug object exposes `automata()` and `city()`.
+
+### Measured
+- Demo city (71.6k, about 200 people and 200 cars), Normal speed, 20-frame
+  averages: the scene pass costs 0.18 ms more downtown and 0.15 ms more in
+  the suburb than v0.70.0 on the same city; the untouched passes moved by
+  0.3 to 0.6 ms between runs, which is the protocol's noise.
+
 ## [0.70.0] — 2026-10-25 · Cars that drive
 
 Graphics drop 1 of the life-and-particularity spec (backlog #7 and #9).
