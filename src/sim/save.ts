@@ -1,5 +1,6 @@
 import { defaultOrdinances, ensureCoreContent } from './content';
 import { idOfSlot, slotOf } from '../content/registry';
+import { GREW_CAP } from './develop';
 import { sizeOfSlot } from './footprint';
 import { blankTile } from './grid';
 import { emptyHistory, HISTORY_KEYS } from './history';
@@ -186,6 +187,8 @@ function reviveTile(raw: unknown, remap: Map<number, number> | null): Tile {
   t.crime = clamp(finite(r.crime, 0), 0, 1);
   t.accident = Math.min(ACCIDENT_MAX, Math.max(0, Math.floor(finite(r.accident, 0))));
   t.age = Math.max(0, Math.floor(finite(r.age, 0)));
+  // before v0.72 there was no record of when a lot grew: nothing is scaffolded on load
+  t.grew = clamp(Math.floor(finite(r.grew, GREW_CAP)), 0, GREW_CAP);
   t.burning = Math.min(FIRE_BURN_TICKS, Math.max(0, Math.floor(finite(r.burning, 0))));
   t.rubble = Math.min(RUBBLE_MONTHS, Math.max(0, Math.floor(finite(r.rubble, 0))));
   t.pollution = finite(r.pollution, 0);

@@ -11,6 +11,7 @@
  * programmes and the Repair choice, not destruction.
  */
 
+import { GREW_CAP } from './develop';
 import { modifier } from './content';
 import { COLLAPSE_AGE, CityState, GRID, RUBBLE_MONTHS, Zone } from './types';
 import { capacityFor } from './tiers';
@@ -39,7 +40,10 @@ export function collapseChance(city: CityState, i: number): number {
 /** Monthly: age every standing building by one month. */
 export function ageBuildings(city: CityState): void {
   for (const t of city.tiles) {
-    if (isBuilding(t.zone) && t.stage > 0 && !t.abandoned) t.age += 1;
+    if (isBuilding(t.zone) && t.stage > 0 && !t.abandoned) {
+      t.age += 1;
+      t.grew = Math.min(GREW_CAP, t.grew + 1);
+    }
   }
 }
 

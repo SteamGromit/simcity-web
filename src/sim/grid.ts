@@ -164,6 +164,7 @@ export function blankTile(): Tile {
     crimeFlash: 0,
     accident: 0,
     age: 0,
+    grew: 24,
     collapseFlash: 0,
     burning: 0,
     rubble: 0,
