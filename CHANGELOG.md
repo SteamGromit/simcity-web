@@ -14,8 +14,8 @@ region's cities share one piece of country.
   blobs outward from random points, so two neighbouring region tiles could
   not agree about the land between them. The land is now a pure function of
   a world coordinate: relief from low-frequency noise, a **river** that runs
-  edge to edge across the whole region (two maps in three get a tributary
-  that ends where it meets the main river), one guaranteed lake basin and
+  edge to edge across the whole region (three temperate regions in five get a
+  tributary that ends where it meets the main river), one guaranteed lake basin and
   one true snowcapped peak per city tile placed well inside it, noise lakes
   on flat ground, and forest that thickens beside water and thins above the
   tree line. A city on a region tile samples the field at its offset, so
@@ -32,7 +32,8 @@ region's cities share one piece of country.
 ### Changed
 - **Single-city maps changed character.** A new single city is a 1×1 world
   and rolls for a river like a region does, so most now have one, with
-  bridges to pay for; deserts get one in three. Water covers 4–10% of a
+  bridges to pay for; deserts roll one with probability 0.3 and never a
+  tributary. Water covers 4–10% of a
   temperate map (it was 1–3%) and forest 4–16%; deserts are sparser than
   before. The guard seeds in the terrain tests keep their floors.
 - `newCity(seed, biome, place?)` takes an optional placement

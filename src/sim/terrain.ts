@@ -28,6 +28,11 @@
  * Everything is per-sample, so a 96×96 city is nine thousand cheap
  * evaluations and the region map can draw the land at any resolution without
  * loading a city.
+ *
+ * Determinism: the field is deterministic within one JS engine. It uses
+ * Math.sin and Math.pow, which are not bit-identical across engines, so a
+ * threshold tile may differ between browsers; a city's tiles are fixed at
+ * founding and saved, so only the drawn map (not the game) could disagree.
  */
 
 import { fbm, fbmSigned, hash2 } from '../render/noise';
@@ -68,8 +73,16 @@ const RELIEF_SCALE = 28;
 const BANK_FLAT = 6;
 /** Peak radius; the bump is zero at this distance from the summit. */
 const PEAK_RADIUS = 12;
-/** Peak and basin candidates sit at these local offsets (quadrant centres). */
+/** Peak and basin candidates sit at these local offsets (quadrant centres),
+ * jittered by up to CANDIDATE_JITTER, so a centre is never nearer a border
+ * than QUADRANT[0] - CANDIDATE_JITTER = 18 tiles. */
 const QUADRANT = [24, GRID - 24];
+const CANDIDATE_JITTER = 6;
+/** Largest basin radius before its noisy rim (temperate). */
+const BASIN_MAX = 7.5;
+const RIM_WANDER = 0.35;
+/** Relief is flattened out to this far beyond the basin radius. */
+const BASIN_FLAT = 6;
 /** River half-width wanders between 1.0 and 2.0 tiles (narrower in desert). */
 const HALF_WIDTH = 1.5;
 const HALF_WIDTH_WANDER = 0.5;
@@ -190,7 +203,7 @@ function layoutOf(world: World): Layout {
       // Walk the tributary from its edge until it enters the main river and
       // stop there, so the band ends under the main's water: a confluence.
       const len = trib.s1;
-      let stop = fromStart ? len : 0;
+      let stop = -1;
       for (let k = 0; k <= len; k++) {
         const s = fromStart ? k : len - k;
         const c = centreOf(trib, s, world.seed);
@@ -201,9 +214,15 @@ function layoutOf(world: World): Layout {
           break;
         }
       }
-      if (fromStart) trib.s1 = stop + 2;
-      else trib.s0 = stop - 2;
-      bands.push(trib);
+      // A tributary that never meets the main river is not one; rather than
+      // run a second river edge to edge, leave it out. (A perpendicular
+      // centreline must cross the main's, so this is a guard, not a path
+      // the sweeps have seen taken.)
+      if (stop >= 0) {
+        if (fromStart) trib.s1 = stop + 2;
+        else trib.s0 = stop - 2;
+        bands.push(trib);
+      }
     }
   }
 
@@ -237,8 +256,8 @@ function featuresOf(world: World, col: number, row: number, layout: Layout): Fea
   // where the river is farthest; the basin takes the opposite quadrant.
   const cands: [number, number][] = [];
   for (let q = 0; q < 4; q++) {
-    const jx = hash2(col * 4 + q, row, seed + 21) * 12 - 6;
-    const jy = hash2(row * 4 + q, col, seed + 22) * 12 - 6;
+    const jx = (hash2(col * 4 + q, row, seed + 21) * 2 - 1) * CANDIDATE_JITTER;
+    const jy = (hash2(row * 4 + q, col, seed + 22) * 2 - 1) * CANDIDATE_JITTER;
     cands.push([ox + QUADRANT[q & 1] + jx, oy + QUADRANT[q >> 1] + jy]);
   }
   let peak = Math.floor(hash2(col, row, seed + 23) * 4);
@@ -258,7 +277,7 @@ function featuresOf(world: World, col: number, row: number, layout: Layout): Fea
   const basin = 3 - peak;
   const temperate = world.biome === 'temperate';
   const rb = temperate
-    ? 5.5 + 2 * hash2(col + 9, row, seed + 24)
+    ? BASIN_MAX - 2 + 2 * hash2(col + 9, row, seed + 24)
     : 3 + 1.5 * hash2(col + 9, row, seed + 24);
   const f: Features = {
     px: cands[peak][0],
@@ -290,14 +309,14 @@ export function terrainAt(world: World, wx: number, wy: number): Sample {
 
   // the guaranteed basin, with a noisy rim
   const bd = Math.hypot(wx - f.bx, wy - f.by);
-  const rim = f.rb * (1 + 0.35 * fbmSigned(wx / 6, wy / 6, seed + 11, 2));
+  const rim = f.rb * (1 + RIM_WANDER * fbmSigned(wx / 6, wy / 6, seed + 11, 2));
   const inBasin = bd < rim;
 
   // relief, flattened beside banks and around the basin
   const r = fbm(wx / RELIEF_SCALE, wy / RELIEF_SCALE, seed + 1, 4);
   let s = Math.pow(Math.max(0, (r - 0.42) / 0.58), 1.6) * 3.4;
   s *= smooth(0, BANK_FLAT, riverDist);
-  s *= smooth(f.rb + 1, f.rb + 6, bd);
+  s *= smooth(f.rb + 1, f.rb + BASIN_FLAT, bd);
   const relief = Math.min(3, Math.floor(s + 0.5));
 
   // the peak: a radial bump to the snowcap, kept off the river's banks
@@ -322,6 +341,20 @@ export function terrainAt(world: World, wx: number, wy: number): Sample {
 }
 
 /** Fill a city's tiles from the field. Touches `terrain` and `elevation` only. */
+/**
+ * The margins the per-tile terms keep from a border, for the test that pins
+ * them: the farthest reach of any per-tile influence must stay inside the
+ * nearest a candidate centre can sit to a border.
+ */
+export const TILE_MARGINS = {
+  centreMin: QUADRANT[0] - CANDIDATE_JITTER,
+  reach: Math.max(
+    PEAK_RADIUS + 2, // the peak bump and the noise-lake exclusion around it
+    BASIN_MAX * (1 + RIM_WANDER) + RIPARIAN, // the basin rim and its riparian bonus
+    BASIN_MAX + BASIN_FLAT, // relief flattening around the basin
+  ),
+};
+
 export function fillTerrain(tiles: Tile[], world: World, col: number, row: number): void {
   const ox = col * GRID;
   const oy = row * GRID;

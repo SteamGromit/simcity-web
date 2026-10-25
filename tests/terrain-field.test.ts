@@ -6,6 +6,7 @@ import {
   rolledBiome,
   singleWorld,
   terrainAt,
+  TILE_MARGINS,
   type World,
 } from '../src/sim/terrain';
 
@@ -72,6 +73,22 @@ describe('terrainAt', () => {
         for (let x = 0; x < GRID; x++) {
           const edge = Math.min(x, y, GRID - 1 - x, GRID - 1 - y);
           if (edge < 10) expect(at(t, x, y).elevation).toBeLessThanOrEqual(3);
+        }
+      }
+    }
+  });
+
+  test('per-tile terms cannot reach a border: the margins are pinned', () => {
+    expect(TILE_MARGINS.reach).toBeLessThan(TILE_MARGINS.centreMin);
+  });
+
+  test('every tile of a 3×3 world has a summit, over several seeds', () => {
+    for (const seed of [1, 2, 3, 5, 8, 13]) {
+      const w: World = { seed, cols: 3, rows: 3, biome: 'temperate' };
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 3; c++) {
+          const t = tileOf(w, c, r);
+          expect(Math.max(...t.map((k) => k.elevation)), `seed ${seed} tile ${c},${r}`).toBe(MAX_ELEV);
         }
       }
     }

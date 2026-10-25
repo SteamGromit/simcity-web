@@ -173,8 +173,8 @@ export and import as a single file, cities included.
 
 New maps come with a **river** (and often a tributary), lakes, forests,
 **rolling hills**, and a guaranteed snowcapped **mountain**; about one map in
-four rolls a **desert** — one
-oasis, no lakes, tinder-dry air — where the water utility is a matter of
+four rolls a **desert** — a
+few small oases, a river only now and then, tinder-dry air — where the water utility is a matter of
 survival. Before you build
 anything, the **terrain tools** (Water / Forest / Level Land / Raise /
 Lower) are free — sculpt the geography to taste; once the city is founded

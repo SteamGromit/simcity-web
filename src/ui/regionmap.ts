@@ -120,7 +120,7 @@ export function buildRegionMap(root: HTMLElement, actions: RegionMapActions) {
       return card;
     }
 
-    const links_ = joinedTo.length;
+    const crossings = joinedTo.length;
     scrim.innerHTML = `
       <span class="region-tile-name"></span>
       <span class="region-tile-meta"></span>
@@ -134,7 +134,7 @@ export function buildRegionMap(root: HTMLElement, actions: RegionMapActions) {
     (scrim.querySelector('.region-tile-meta') as HTMLElement).textContent =
       `pop ${t.population.toLocaleString()} · §${t.funds.toLocaleString()} · ${monthLabel(t.month)}`;
     (scrim.querySelector('.region-tile-links') as HTMLElement).textContent =
-      links_ === 0 ? 'no road to a neighbour' : links_ === 1 ? '1 border crossing' : `${links_} border crossings`;
+      crossings === 0 ? 'no road to a neighbour' : crossings === 1 ? '1 border crossing' : `${crossings} border crossings`;
 
     scrim.querySelector('.region-enter')!.addEventListener('click', () => {
       actions.enter(col, row, t.name);

@@ -2208,17 +2208,34 @@ body.in-menu #ui > *:not(.menu-screen) {
     font-size: 30px;
   }
 
+  /* On a phone the land is the point; the card keeps a name and a button. */
   .region-tile {
-    padding: 4px;
+    padding: 3px;
   }
 
   .region-tile-scrim {
-    padding: 6px 8px;
-    gap: 3px;
+    padding: 4px 6px;
+    gap: 2px;
+  }
+
+  .region-tile-meta,
+  .region-tile-links,
+  .region-tile-empty {
+    display: none;
   }
 
   .region-tile-name {
-    font-size: 13px;
+    font-size: 11px;
+  }
+
+  .region-tile-actions {
+    padding-top: 3px;
+    gap: 3px;
+  }
+
+  .region-tile .menu-btn {
+    padding: 4px 7px;
+    font-size: 10px;
   }
 
   #neighbors-panel {
