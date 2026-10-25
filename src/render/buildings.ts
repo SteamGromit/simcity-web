@@ -36,6 +36,10 @@ import { LAMP, hsl, materialOf, swatch } from './palette';
 import { LIGHT, wallLight, type Pt } from './sun';
 import { NO_SITE, type Site } from './site';
 import { podiumTower } from './podium';
+import { buildStateFor, paintConstruction, type BuildState } from './construction';
+import { GREW_CAP } from '../sim/develop';
+import { signatureHeight, type SignatureKind } from './signature';
+import { paintSignature } from './signatureart';
 import { DOOR_COLORS, frontWallFor, letteringDashes, SIGN_PALETTE, TERRACE_BUCKET, terracePlan, terraceRecipe, terraceStage } from './frontage';
 import {
   chimneyHeight,
@@ -639,6 +643,10 @@ interface LotKey {
   side: number;
   party: number;
   corner: number;
+  /** A building site instead of the building: 0 finished, 1 framed, 2 concrete frame. */
+  build: BuildState;
+  /** The city's one landmark of this kind stands here. */
+  sig?: SignatureKind;
 }
 
 /** Industrial growable stack placement — shared by the bake and stackTips. */
@@ -745,6 +753,17 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
     .sort((a, b) => centre(a.q)[1] - centre(b.q)[1] || a.sb.hf - b.sb.hf);
   void budget;
 
+  if (k.sig) {
+    paintSignature(ctx, { kind: k.sig, side, seed: bucket * 17 + stage, glow });
+    return;
+  }
+  if (k.build) {
+    // a building site: the frame of what is coming, not the building
+    if (glow) return;
+    const main = masses.find((m) => m.sb.hf === 1) ?? masses[masses.length - 1];
+    paintConstruction(ctx, { build: k.build, stage, side, size, seed: bucket * 13 + stage }, main.q, h);
+    return;
+  }
   const ink = glow ? 0 : getSkin().outline;
   let primary: { roof: Pt[]; walls: [Pt, Pt][] } | null = null;
   for (const { sb, q } of masses) {
@@ -890,13 +909,13 @@ function tierAccents(
 }
 
 function lotSprite(k: LotKey): Sprite {
-  const h = k.stage > 0 ? growableHeight(k.zone, k.stage, k.tier, k.bucket) : 0;
+  const h = k.sig ? signatureHeight(k.sig) : k.stage > 0 ? growableHeight(k.zone, k.stage, k.tier, k.bucket) : 0;
   const hw = (TILE_W * k.size) / 2;
   const hh = (TILE_H * k.size) / 2;
   const ay = h + hh + marginTop(h);
   const key = `L${k.zone}.${k.stage}.${k.tier}.${k.bucket}.${k.size}${k.abandoned ? 'a' : ''}${
     k.glow ? 'g' : ''
-  }${k.season ? '.' + k.season.slice(0, 2) : ''}.${k.side}${k.party}${k.corner}${getSkin().id}`;
+  }${k.season ? '.' + k.season.slice(0, 2) : ''}.${k.side}${k.party}${k.corner}${k.build ? 'b' + k.build : ''}${k.sig ? '.' + k.sig : ''}${getSkin().id}`;
   return sprite(
     key,
     {
@@ -1532,7 +1551,7 @@ export function hearthTip(zone: Zone, stage: Stage, tier: Tier, bucket: number, 
   const half = (bucket + 0.5) / VARIANTS;
   const chan = channels(half);
   const { arch, h, planOf } = lotMassing(
-    { zone, stage, tier, bucket, size: 1, abandoned: false, glow: false, side: site.side, party: site.party, corner: site.corner },
+    { zone, stage, tier, bucket, size: 1, abandoned: false, glow: false, side: site.side, party: site.party, corner: site.corner, build: 0 },
     chan,
   );
   if (!arch.props.includes('chimney')) return null;
@@ -1938,6 +1957,8 @@ export function drawBuilding(
   size = 1,
   season: Season = 'summer', // what anything baked with vegetation wears
   site: Site = NO_SITE, // the street's side, the terrace partners, the corner
+  grew = GREW_CAP, // months since the stage rose: a few means a building site
+  sig: SignatureKind | null = null, // the city's landmark of this kind, if this lot is it
 ) {
   const { cx, cy } = geom;
   const bucket = variantBucket(variant);
@@ -1996,6 +2017,8 @@ export function drawBuilding(
     zone, stage, tier, bucket, size, abandoned, glow: false,
     season: farm ? season : undefined,
     side: site.side, party: site.party, corner: site.corner,
+    build: abandoned || farm ? 0 : buildStateFor(stage, grew),
+    sig: sig ?? undefined,
   };
   blit(ctx, lotSprite(key), cx, cy);
   if (night > 0.06 && !abandoned && powered && !farm) {
@@ -2033,7 +2056,7 @@ export function standingSpriteFor(
   return lotSprite({
     zone, stage, tier, bucket, size: 1, abandoned, glow: false,
     season: farm ? season : undefined,
-    side: -1, party: 0, corner: -1,
+    side: -1, party: 0, corner: -1, build: 0,
   });
 }
 

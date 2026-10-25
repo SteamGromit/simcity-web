@@ -61,7 +61,8 @@ import { hash2 } from './noise';
 import { blit, sprite } from './spritecache';
 import { ShadowLayer } from './shadows';
 import { drawLotGround, roadSidesFor, roadStampOf } from './lots';
-import { NO_SITE, siteOf } from './site';
+import { isCorner, NO_SITE, siteOf } from './site';
+import { pickSignatures, signatureAllows, type SignatureKind } from './signature';
 import { ShorelineLot, drawReflection, shoreStampOf, shorelineLots } from './reflections';
 
 export interface ViewState {
@@ -202,6 +203,30 @@ export class Renderer {
     const rand = mulberry32(seed);
     for (let i = 0; i < this.variants.length; i++) this.variants[i] = rand();
     this.depthStamp = -1;
+    this.seed = seed;
+    this.sigMonth = -1;
+  }
+
+  /** The city's landmarks, re-picked each month and on reseed. */
+  private signatures = new Map<number, SignatureKind>();
+  private sigMonth = -1;
+  private seed = 0;
+  private ensureSignatures(city: CityState): void {
+    if (city.month === this.sigMonth) return;
+    this.sigMonth = city.month;
+    this.signatures = pickSignatures(city, this.seed, (i) => isCorner(city, i));
+  }
+
+  /** Debug: tile index → landmark kind, as last picked. */
+  signatureLots(): [number, SignatureKind][] {
+    return [...this.signatures.entries()];
+  }
+
+  /** The landmark this lot carries now, if it still qualifies. */
+  private sigOf(city: CityState, i: number): SignatureKind | null {
+    const kind = this.signatures.get(i);
+    if (!kind) return null;
+    return signatureAllows(kind, city.tiles[i], isCorner(city, i)) ? kind : null;
   }
 
   resize() {
@@ -368,6 +393,7 @@ export class Renderer {
     this.disasterFx.step(city, now, AUTOMATA_SCALE[this.simSpeed]);
     this.ensureDepth(city);
     this.ensureRoadSides(city);
+    this.ensureSignatures(city);
 
     const W = this.ctx.canvas.width;
     const H = this.ctx.canvas.height;
@@ -516,6 +542,8 @@ export class Renderer {
             size,
             this.season,
             site,
+            t.grew,
+            this.sigOf(city, i),
           );
           drawAmbient(
             ctx, drawGeom, t.zone, t.stage, t.tier, this.variants[i], size,

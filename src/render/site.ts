@@ -81,6 +81,11 @@ export function partners(city: CityState, i: number, j: number): boolean {
   return dx === 0 ? by === ay && Math.abs(bx - ax) === 1 : bx === ax && Math.abs(by - ay) === 1;
 }
 
+/** Whether lot `i` has frontage roads on two adjacent sides, at any quarter. */
+export function isCorner(city: CityState, i: number): boolean {
+  return siteOf(city, i, 0, 0).corner >= 0;
+}
+
 /** The site of lot `i` as seen at `quarter`; `roadSide` is the renderer's screen side for it. */
 export function siteOf(city: CityState, i: number, quarter: number, roadSide: number): Site {
   const gs = streetSide(city, i);
