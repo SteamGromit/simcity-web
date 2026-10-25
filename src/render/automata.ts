@@ -4,7 +4,8 @@ import { drivable, frontage } from '../sim/roads';
 import { CityState, GRID, Zone } from '../sim/types';
 import { dayBand, dayPhase, type DayBand } from './daynight';
 import { figureSprite, frameFor, PALETTES } from './figure';
-import { doorOf, FOOT_IN, footLeg, hasKerb, midpointOf, successors, type Leg, type Option, type Pt } from './footways';
+import { doorOf, FOOT_IN, footLeg, hasKerb, kerbPoint, midpointOf, successors, type Leg, type Option, type Pt } from './footways';
+import { servedNow } from './linevehicles';
 import { ELEV_PX, getViewAngle, isoToScreen, tileDepth } from './iso';
 import {
   EDGE_DIR,
@@ -41,12 +42,17 @@ export const PED_DENSITY: Record<DayBand, [number, number]> = {
 };
 /** The cap follows the hour too, or a big city's night is as busy as its noon. */
 const PED_CAP: Record<DayBand, number> = { morning: 1, midday: 0.85, evening: 1, night: 0.25 };
+/** Most people waiting at stops, city-wide, and at any one stop. */
+export const QUEUE_MAX = 40;
+export const QUEUE_AT_STOP = 4;
+/** Mean seconds between arrivals at a served stop. */
+const QUEUE_EVERY = 6;
 /** Share of the people kept on a loop inside the parks. */
 export const PARK_SHARE = 0.15;
 /** Share of the people who step out of a door the player can see. */
 export const SPAWN_IN_VIEW = 0.75;
 /** Below this share of the crowd on screen, people off screen are recycled. */
-export const SEEN_SHARE = 0.5;
+export const SEEN_SHARE = 0.6;
 
 export interface ViewClip {
   x0: number;
@@ -354,7 +360,7 @@ export function targetCars(trafficSum: number, night: number, pandemic: boolean)
   return Math.round(scaled);
 }
 
-export type PedMode = 'exit' | 'walk' | 'enter' | 'park';
+export type PedMode = 'exit' | 'walk' | 'enter' | 'park' | 'wait' | 'board';
 
 export interface Ped {
   mode: PedMode;
@@ -375,6 +381,8 @@ export interface Ped {
   vu: number;
   vv: number;
   ttl: number;
+  /** Waiting at, or boarding from, this stop tile. */
+  stop?: number;
 }
 
 /** Elevations of the last-stepped city, so actors ride their tile's height. */
@@ -429,6 +437,11 @@ export class Automata {
   private rain = false;
   /** The tiles on screen, when the renderer says: most people step out where the player is looking. */
   private clip: ViewClip | null = null;
+  /** The transit clock, seconds, as the line vehicles read it. */
+  private lineSec = 0;
+  /** Stop tiles with a kerb in front, where people may queue. */
+  private stopKerbs = new Map<number, { tile: number; edge: Edge; at: Pt }>();
+  private servedPrev = new Set<number>();
   private junction = new Uint8Array(GRID * GRID);
   private arms = new Uint8Array(GRID * GRID);
   private trafficSum = 0;
@@ -467,10 +480,11 @@ export class Automata {
   }
 
   /** Night 0..1 (thins the traffic) and zoom (hides what cannot be seen) from the renderer. */
-  setView(night: number, zoom: number, clip: ViewClip | null = null): void {
+  setView(night: number, zoom: number, clip: ViewClip | null = null, lineSec = 0): void {
     this.night = night;
     this.zoom = zoom;
     this.clip = clip;
+    this.lineSec = lineSec;
   }
 
   /** Test hook: put a car on the road with a route of your choosing. */
@@ -605,6 +619,16 @@ export class Automata {
       }
     }
     for (const home of this.nextRound.keys()) if (!this.disposals.includes(home)) this.nextRound.delete(home);
+    this.stopKerbs.clear();
+    for (const line of city.transitLines) {
+      if (line.mode === Zone.SubwayStation || line.path.length < 2) continue;
+      for (const [sx, sy] of line.stops) {
+        const stop = idx(sx, sy);
+        if (this.stopKerbs.has(stop)) continue;
+        const kerb = doorOf(city, stop);
+        if (kerb) this.stopKerbs.set(stop, kerb);
+      }
+    }
   }
 
   /** The road tile a vehicle stops on for lot `i`: a plain street if there is one, else any drivable neighbour. */
@@ -937,6 +961,10 @@ export class Automata {
       return leg.kind !== 'foot' || hasKerb(city, leg.ctx.tile, leg.ctx.edge);
     });
     if (dt <= 0) return; // paused: nobody spawns or moves
+    // a stop no line serves any more: its queue gives up
+    for (const p of this.peds) {
+      if (p.mode === 'wait' && !this.stopKerbs.has(p.stop!)) this.fadeOut(p);
+    }
 
     const band = dayBand(dayPhase(now));
     const target = targetPeds(this.stageR, this.stageC, band, this.pandemic);
@@ -944,16 +972,21 @@ export class Automata {
     const walkTarget = target - parkTarget;
     let walkers = 0;
     let parkers = 0;
-    for (const p of this.peds) if (p.mode === 'park') parkers++; else walkers++;
+    let waiters = 0;
+    for (const p of this.peds) {
+      if (p.mode === 'park') parkers++;
+      else if (p.mode === 'wait' || p.mode === 'board') waiters++;
+      else walkers++;
+    }
     // when the view has moved on, recycle people nobody can see so the new
     // street fills in seconds rather than when the old crowd happens to go in
     if (this.clip && walkers >= walkTarget) {
       let seen = 0;
-      for (const p of this.peds) if (p.mode !== 'park' && this.onScreen(p.tile)) seen++;
+      for (const p of this.peds) if (p.mode !== 'park' && p.mode !== 'wait' && this.onScreen(p.tile)) seen++;
       if (seen < walkTarget * SEEN_SHARE) {
         let drop = 4;
         this.peds = this.peds.filter((p) => {
-          if (drop <= 0 || p.mode === 'park' || this.onScreen(p.tile)) return true;
+          if (drop <= 0 || p.mode === 'park' || p.mode === 'wait' || p.mode === 'board' || this.onScreen(p.tile)) return true;
           drop--;
           walkers--;
           return false;
@@ -974,16 +1007,11 @@ export class Automata {
       for (let i = this.peds.length - 1; i >= 0 && over > 0; i--) {
         const p = this.peds[i];
         if (p.mode !== 'walk') continue;
-        const l = p.leg!;
-        const at: Pt = [l.p0[0] + (l.p1[0] - l.p0[0]) * p.s, l.p0[1] + (l.p1[1] - l.p0[1]) * p.s];
-        const dx = (l.p1[0] - l.p0[0]) * 0.1;
-        const dy = (l.p1[1] - l.p0[1]) * 0.1;
-        p.leg = { kind: 'door', on: l.on, p0: at, p1: [at[0] + dx, at[1] + dy], len: Math.hypot(dx, dy) || 0.05, ctx: l.ctx };
-        p.s = 0;
-        p.mode = 'enter';
+        this.fadeOut(p);
         over--;
       }
     }
+    this.stepQueues(city, dt, waiters);
     if (parkers > parkTarget) {
       let over = parkers - parkTarget;
       this.peds = this.peds.filter((p) => !(p.mode === 'park' && over-- > 0));
@@ -1012,10 +1040,15 @@ export class Automata {
         }
         continue;
       }
-      if (p.mode === 'enter') {
+      if (p.mode === 'enter' || p.mode === 'board') {
         p.alpha = Math.max(0, 1 - s);
         if (s >= 1) gone.push(p);
         else p.s = s;
+        continue;
+      }
+      if (p.mode === 'wait') {
+        p.dist -= step; // standing still: no gait
+        p.alpha = Math.min(1, p.alpha + dt / 0.4);
         continue;
       }
       if (leg.kind === 'foot') {
@@ -1114,6 +1147,73 @@ export class Automata {
     if (!door || door.tile !== tile || door.edge !== edge) return null;
     const p1: Pt = [m[0] + o[0] * (FOOT_IN + 0.05), m[1] + o[1] * (FOOT_IN + 0.05)];
     return { kind: 'door', on: tile, p0: m, p1, len: FOOT_IN + 0.05, ctx: leg.ctx };
+  }
+
+  /** Fade a walker out where they stand, over a tenth of their leg. */
+  private fadeOut(p: Ped): void {
+    const l = p.leg!;
+    const at: Pt = [l.p0[0] + (l.p1[0] - l.p0[0]) * p.s, l.p0[1] + (l.p1[1] - l.p0[1]) * p.s];
+    const dx = (l.p1[0] - l.p0[0]) * 0.1;
+    const dy = (l.p1[1] - l.p0[1]) * 0.1;
+    p.leg = { kind: 'door', on: l.on, p0: at, p1: [at[0] + dx, at[1] + dy], len: Math.hypot(dx, dy) || 0.05, ctx: l.ctx };
+    p.s = 0;
+    p.mode = 'enter';
+  }
+
+  /** A person appearing at a kerb point and setting off along it. */
+  private spawnAtKerb(kerb: { tile: number; edge: Edge; at: Pt }, from: Pt, mode: PedMode, stop?: number): Ped {
+    const o = EDGE_DIR[kerb.edge];
+    const len = Math.hypot(kerb.at[0] - from[0], kerb.at[1] - from[1]);
+    const leg: Leg = {
+      kind: 'door', on: kerb.tile, p0: from, p1: len > 1e-6 ? kerb.at : [kerb.at[0] - o[0] * 0.001, kerb.at[1] - o[1] * 0.001],
+      len: Math.max(len, 0.001), ctx: { tile: kerb.tile, edge: kerb.edge, dir: 1 },
+    };
+    const p: Ped = {
+      mode, palette: (Math.random() * PALETTES.length) | 0,
+      pace: PACE_MIN + Math.random() * (PACE_MAX - PACE_MIN), dist: 0, alpha: 0,
+      tile: kerb.tile, leg, s: 0, du: 0, dv: 0, vu: 0, vv: 0, ttl: 0, stop,
+    };
+    this.peds.push(p);
+    return p;
+  }
+
+  /** Queues at the stops: people arrive, board when a vehicle dwells, and others alight. */
+  private stepQueues(city: CityState, dt: number, waiting: number): void {
+    if (!this.stopKerbs.size) return;
+    const counts = new Map<number, number>();
+    for (const p of this.peds) if (p.mode === 'wait') counts.set(p.stop!, (counts.get(p.stop!) ?? 0) + 1);
+    for (const [stop, kerb] of this.stopKerbs) {
+      const n = counts.get(stop) ?? 0;
+      if (n >= QUEUE_AT_STOP || waiting >= QUEUE_MAX || Math.random() >= dt / QUEUE_EVERY) continue;
+      // stand in a row along the kerb, facing the road
+      const at = kerbPoint(kerb.tile, kerb.edge, 0.5 + (n - 1.5) * 0.12);
+      const p = this.spawnAtKerb({ ...kerb, at }, at, 'wait', stop);
+      p.alpha = 0;
+      waiting++;
+    }
+    const served = servedNow(city, this.lineSec);
+    for (const stop of served) {
+      if (this.servedPrev.has(stop)) continue;
+      const kerb = this.stopKerbs.get(stop);
+      if (!kerb) continue;
+      const o = EDGE_DIR[kerb.edge];
+      // the queue boards: a few steps toward the door, then gone
+      for (const p of this.peds) {
+        if (p.mode !== 'wait' || p.stop !== stop) continue;
+        const l = p.leg!;
+        p.leg = { kind: 'door', on: l.on, p0: l.p0, p1: [l.p0[0] - o[0] * 0.25, l.p0[1] - o[1] * 0.25], len: 0.25, ctx: l.ctx };
+        p.s = 0;
+        p.mode = 'board';
+      }
+      // and some alight and walk off
+      const off = (Math.random() * 4) | 0;
+      for (let k = 0; k < off; k++) {
+        const from: Pt = [kerb.at[0] - o[0] * 0.2, kerb.at[1] - o[1] * 0.2];
+        const p = this.spawnAtKerb(kerb, from, 'exit');
+        p.dist = 2; // free to go indoors soon
+      }
+    }
+    this.servedPrev = served;
   }
 
   /** Someone on a loop round a park, inside the lot's ring of paths. */
@@ -1249,7 +1349,7 @@ export class Automata {
         }
         const sp = isoToScreen(wx, wy);
         // the gait is invisible below this zoom: hold the pose and spare the bakes
-        const frame = this.zoom >= 1.5 && (p.mode === 'walk' || p.mode === 'park') ? frameFor(p.dist) : 0;
+        const frame = this.zoom >= 1.5 && (p.mode === 'walk' || p.mode === 'park' || p.mode === 'board') ? frameFor(p.dist) : 0;
         blit(ctx, figureSprite(p.palette, frame, heading, quarter, costume), sp.sx, sp.sy - elev, p.alpha);
       }
     }

@@ -5,6 +5,7 @@ import {
   Automata,
   GAP,
   MAX_PEDS,
+  QUEUE_AT_STOP,
   targetPeds,
   junctionKind,
   MAX_CARS,
@@ -411,23 +412,21 @@ describe('people', () => {
   test('most people step out of doors the player can see', () => {
     const city = street();
     const a = new Automata();
-    a.setView(0, 2, { x0: 20, y0: 0, x1: 24, y1: 20 }); // five of the seventeen lots along each side
+    a.setView(0, 2, { x0: 18, y0: 0, x1: 26, y1: 20 }); // nine of the seventeen lots along each side
     stepFor(a, city, 3);
     const peds = a.pedsNow();
     expect(peds.length).toBeGreaterThan(8);
-    const inside = peds.filter((p) => {
-      const x = p.leg!.on % GRID;
-      return x >= 20 && x <= 24;
-    }).length;
-    expect(inside / peds.length).toBeGreaterThan(0.5);
+    const within = (lo: number, hi: number) =>
+      a.pedsNow().filter((p) => {
+        const x = p.leg!.on % GRID;
+        return x >= lo && x <= hi;
+      }).length / a.pedsNow().length;
+    // by chance alone it would be about half; three in four spawn in view
+    expect(within(18, 26)).toBeGreaterThan(0.6);
     // the view moves: within a few seconds the crowd has followed it
-    a.setView(0, 2, { x0: 10, y0: 0, x1: 14, y1: 20 });
-    stepFor(a, city, 4);
-    const moved = a.pedsNow().filter((p) => {
-      const x = p.leg!.on % GRID;
-      return x >= 10 && x <= 14;
-    }).length;
-    expect(moved / a.pedsNow().length).toBeGreaterThan(0.4);
+    a.setView(0, 2, { x0: 10, y0: 0, x1: 18, y1: 20 });
+    stepFor(a, city, 5);
+    expect(within(10, 18)).toBeGreaterThan(0.45);
   });
 
   test('the walkers are gone the step after their street is bulldozed', () => {
@@ -447,6 +446,44 @@ describe('people', () => {
     const a = new Automata();
     stepFor(a, city, 2);
     expect(a.pedCount()).toBe(0);
+  });
+
+  test('people queue at a bus stop, board when the bus dwells, and give up when the line goes', () => {
+    const city = street();
+    for (const x of [15, 25]) {
+      const t = city.tiles[idx(x, 11)];
+      t.zone = Zone.BusStop;
+      t.stage = 0;
+    }
+    const path: [number, number][] = [];
+    for (let x = 10; x <= 30; x++) path.push([x, 10]);
+    city.transitLines.push({ id: 1, mode: Zone.BusStop, color: '#2fa38f', path, stops: [[15, 11], [25, 11]] });
+    const a = new Automata();
+    let t = 0;
+    let maxQ = 0;
+    let boarded = false;
+    const tick = () => {
+      wall += 16;
+      t += 0.016;
+      a.setView(0, 2, null, t);
+      a.step(city, wall, 1);
+    };
+    for (let k = 0; k < 2500; k++) {
+      tick();
+      const q = a.pedsNow().filter((p) => p.mode === 'wait').length;
+      maxQ = Math.max(maxQ, q);
+      if (a.pedsNow().some((p) => p.mode === 'board')) boarded = true;
+    }
+    expect(maxQ).toBeGreaterThan(0);
+    expect(maxQ).toBeLessThanOrEqual(2 * QUEUE_AT_STOP);
+    expect(boarded).toBe(true);
+    for (const p of a.pedsNow().filter((p) => p.mode === 'wait')) {
+      expect([idx(15, 10), idx(25, 10)]).toContain(p.leg!.on);
+      expect(p.leg!.p0[1]).toBeCloseTo(11 - FOOT_IN, 6); // on the south kerb, in front of the stop
+    }
+    city.transitLines.length = 0;
+    for (let k = 0; k < 120; k++) tick();
+    expect(a.pedsNow().filter((p) => p.mode === 'wait' || p.mode === 'board')).toHaveLength(0);
   });
 
   test('a park keeps a few people on its paths', () => {

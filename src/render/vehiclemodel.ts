@@ -18,7 +18,9 @@ export type BodyStyle =
   | 'pickup' | 'panelVan' | 'minivan'
   | 'boxTruck' | 'flatbed' | 'semi'
   | 'bus' | 'taxi'
-  | 'fireEngine' | 'police' | 'garbage';
+  | 'fireEngine' | 'police' | 'garbage'
+  // transit, drawn by `linevehicles.ts` in the line's colour
+  | 'streetcar' | 'monorail' | 'railcar';
 
 export type Paint =
   | 'body' | 'glass' | 'dark' | 'cargo' | 'white' | 'red' | 'ladder'
@@ -69,6 +71,9 @@ export const BODIES: Record<BodyStyle, Body> = {
   flatbed: { len: 14, wid: 5.2, cabin: [0.7, 0.98] },
   semi: { len: 21, wid: 5.4, cabin: [0.78, 1], boxFrom: 0.02, boxHeight: 1.4 },
   bus: { len: 17, wid: 5.4, cabin: [0.04, 0.96] },
+  streetcar: { len: 15, wid: 4.4, cabin: [0.05, 0.95] },
+  monorail: { len: 14, wid: 4.8, cabin: [0.08, 0.92] },
+  railcar: { len: 13, wid: 5, cabin: [0.05, 0.95] },
   fireEngine: { len: 14, wid: 5.2, cabin: [0.7, 0.98], boxFrom: 0.02, boxHeight: 1.3 },
   police: { len: 9.2, wid: 4.3, cabin: [0.3, 0.66] },
   garbage: { len: 13, wid: 5.2, cabin: [0.72, 0.98], boxFrom: 0.02, boxHeight: 1.2 },
@@ -162,6 +167,26 @@ export const MODELS: Record<BodyStyle, Box[]> = {
   flatbed: flatbed(BODIES.flatbed),
   semi: truck(BODIES.semi, 3.6, 5.0, 'cargo'),
   bus: bus(BODIES.bus),
+  streetcar: [
+    box(0, 0, 0.6, 15, 4.4, 2.0, 'body'),
+    box(0, 0, 2.6, 14, 4.2, 1.1, 'glass'),
+    box(0, 0, 3.7, 14.4, 4.0, 0.4, 'white'),
+    box(0, 0, 4.1, 0.3, 0.3, 1.6, 'dark'),
+    box(0, 0, 5.6, 0.3, 3.0, 0.2, 'dark'),
+  ],
+  monorail: [
+    box(0, 0, 0, 14, 4.8, 2.6, 'white'),
+    box(0, 0, 0.9, 13.6, 4.9, 0.5, 'body'),
+    box(0, 0, 2.6, 12.5, 4.2, 1.2, 'glass'),
+    box(0, 0, 3.8, 12, 3.8, 0.4, 'white'),
+  ],
+  railcar: [
+    box(-4, 0, 0, 2.4, 4.2, 0.7, 'dark'),
+    box(4, 0, 0, 2.4, 4.2, 0.7, 'dark'),
+    box(0, 0, 0.7, 13, 5, 2.2, 'body'),
+    box(0, 0, 2.9, 12.4, 4.8, 1.1, 'glass'),
+    box(0, 0, 4.0, 12.6, 4.6, 0.4, 'dark'),
+  ],
   fireEngine: [
     ...truck(BODIES.fireEngine, 3.4, 4.0, 'body'),
     box(-2.4, 0, 4.6, 8.2, 1.2, 0.6, 'ladder'),
