@@ -132,11 +132,47 @@ describe('eviction', () => {
     expect(painted).toBe(0);
   });
 
-  test('sustained thrashing steps the bake scale down instead of re-baking forever', () => {
+  test('a working set over budget for many frames steps the bake scale down; one frame does not', () => {
+    setSpriteScale(2);
+    const big = { w: 1200, h: 1200, ax: 0, ay: 0 }; // 5.76 M px at scale 2
+    const frameOver = () => {
+      beginSpriteFrame();
+      for (let k = 0; k < 5; k++) sprite(`t${k}`, big, () => {}); // 28.8 M, over on its own
+    };
+    frameOver();
+    beginSpriteFrame();
+    expect(getSpriteScale()).toBe(2); // one bad frame is not a trend
+    for (let f = 0; f < 100; f++) frameOver();
+    expect(getSpriteScale()).toBeLessThan(2);
+  });
+
+  test('a cache that fits again forgets its overrun streak, and clearing resets it', () => {
     setSpriteScale(2);
     const big = { w: 1200, h: 1200, ax: 0, ay: 0 };
-    for (let k = 0; k < 500; k++) sprite(`t${k}`, big, () => {});
-    expect(getSpriteScale()).toBeLessThan(2);
+    for (let f = 0; f < 60; f++) {
+      beginSpriteFrame();
+      for (let k = 0; k < 5; k++) sprite(`t${k}`, big, () => {});
+    }
+    for (let f = 0; f < 60; f++) {
+      beginSpriteFrame();
+      sprite('small', { w: 10, h: 10, ax: 0, ay: 0 }, () => {}); // old frames' sprites go; fits
+    }
+    for (let f = 0; f < 60; f++) {
+      beginSpriteFrame();
+      for (let k = 0; k < 5; k++) sprite(`u${k}`, big, () => {});
+    }
+    expect(getSpriteScale()).toBe(2); // 60 + 60 never made 90 in a row
+    clearSprites();
+    expect(spriteStats().evictions).toBe(0);
+  });
+
+  test('over budget with nothing evictable, a bake does not re-sort the cache', () => {
+    const big = { w: 2000, h: 2000, ax: 0, ay: 0 };
+    beginSpriteFrame();
+    for (let k = 0; k < 6; k++) sprite(`w${k}`, big, () => {}); // 24 M, all this frame
+    const t0 = performance.now();
+    for (let k = 0; k < 2000; k++) sprite(`x${k}`, { w: 4, h: 4, ax: 0, ay: 0 }, () => {});
+    expect(performance.now() - t0).toBeLessThan(50);
   });
 });
 

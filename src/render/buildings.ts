@@ -629,7 +629,7 @@ function marginTop(h: number): number {
   return h > 62 ? 56 : 30;
 }
 
-interface LotKey {
+export interface LotKey {
   zone: Zone;
   stage: Stage;
   tier: Tier;
@@ -676,11 +676,30 @@ export function industryStacks(
  * plan that runs to the party walls; everything else comes from the table.
  * `hearthTip` replays this to find the chimney, so it must stay in step.
  */
-function lotMassing(k: LotKey, chan: () => number) {
-  const { zone, stage, tier, bucket, party, side } = k;
+/** Whether this key bakes as a member of a terrace row. */
+function isTerraceKey(k: LotKey): boolean {
+  return (k.zone === Zone.Residential || k.zone === Zone.Commercial) && k.party !== 0 && !k.abandoned;
+}
+
+/**
+ * The height a key bakes at: a landmark's own, a row's shared height for a
+ * terrace member (whatever its stage inside the band), the table's otherwise.
+ * `lotSprite` sizes the bake box from this and `lotMassing` paints to it, so
+ * the two cannot drift apart.
+ */
+export function lotHeight(k: LotKey): number {
+  if (k.sig) return signatureHeight(k.sig);
+  if (k.stage <= 0) return 0;
+  return isTerraceKey(k)
+    ? growableHeight(k.zone, terraceStage(k.zone), k.tier, TERRACE_BUCKET)
+    : growableHeight(k.zone, k.stage, k.tier, k.bucket);
+}
+
+export function lotMassing(k: LotKey, chan: () => number) {
+  const { zone, stage, tier, party, side } = k;
   const rc = zone === Zone.Residential || zone === Zone.Commercial;
   const pick = chan(); // always drawn, so the stream keeps its order
-  const terrace = rc && party !== 0 && !k.abandoned;
+  const terrace = isTerraceKey(k);
   let arch: Archetype = terrace ? terraceRecipe(zone, tier) : pickArchetype(zone, tier, stage, pick);
   const wealth = normalizeTier(zone, tier);
   if (!terrace && rc && stage >= 5 && (wealth === 2 || wealth === 3) && chan() < 0.5) {
@@ -689,9 +708,7 @@ function lotMassing(k: LotKey, chan: () => number) {
     const gen = podiumTower(chan, side);
     arch = { ...arch, boxes: gen.boxes, roof: 'flat', props: arch.props };
   }
-  const h = terrace
-    ? growableHeight(zone, terraceStage(zone), tier, TERRACE_BUCKET)
-    : growableHeight(zone, stage, tier, bucket);
+  const h = lotHeight(k);
   const budget = footprintBudget(terrace ? terraceStage(zone) : stage);
   const planOf = (sb: SubBox): Pt[] => {
     if (terrace && sb.hf === 1) {
@@ -814,7 +831,7 @@ function paintLot(ctx: CanvasRenderingContext2D, k: LotKey): void {
   if (!primary || glow) return;
 
   let top = primary.roof;
-  if (h > 62 && arch.roof !== 'gabled' && arch.roof !== 'sawtooth') {
+  if (h > 62 && !terrace && arch.roof !== 'gabled' && arch.roof !== 'sawtooth') {
     top = towerCrown(ctx, primary.roof, mat, body, bucket * 11 + stage);
   } else {
     // a row shares one roofing, so the seed is the row's, not the lot's
@@ -909,7 +926,7 @@ function tierAccents(
 }
 
 function lotSprite(k: LotKey): Sprite {
-  const h = k.sig ? signatureHeight(k.sig) : k.stage > 0 ? growableHeight(k.zone, k.stage, k.tier, k.bucket) : 0;
+  const h = lotHeight(k);
   const hw = (TILE_W * k.size) / 2;
   const hh = (TILE_H * k.size) / 2;
   const ay = h + hh + marginTop(h);
@@ -2029,7 +2046,7 @@ export function drawBuilding(
     ctx.restore();
   }
   if (!powered && !abandoned) {
-    drawNoPowerBolt(ctx, cx, cy - growableHeight(zone, stage, tier, bucket) - 14);
+    drawNoPowerBolt(ctx, cx, cy - lotHeight(key) - 14);
   }
 }
 
@@ -2046,6 +2063,9 @@ export function standingSpriteFor(
   powered: boolean,
   abandoned: boolean,
   season: Season,
+  site: Site = NO_SITE,
+  grew = GREW_CAP,
+  sig: SignatureKind | null = null,
 ): Sprite | null {
   const civic = CIVIC[zone];
   if (civic) return civicSprite(zone, civic, powered, 1);
@@ -2056,7 +2076,9 @@ export function standingSpriteFor(
   return lotSprite({
     zone, stage, tier, bucket, size: 1, abandoned, glow: false,
     season: farm ? season : undefined,
-    side: -1, party: 0, corner: -1, build: 0,
+    side: site.side, party: site.party, corner: site.corner,
+    build: abandoned || farm ? 0 : buildStateFor(stage, grew),
+    sig: sig ?? undefined,
   });
 }
 

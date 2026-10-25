@@ -69,11 +69,14 @@ export const PIXEL_BUDGET = 20_000_000;
  * softer and the frame rate stays.
  */
 let evictions = 0;
-/** Bakes that landed while the frame's own working set was over budget. */
+/** Frames in a row that ended with their own working set over budget. */
 let overruns = 0;
+/** The frame in which an eviction pass found nothing it could drop. */
+let stuckFrame = -1;
 /** The last few baked keys, a ring, so a profile can say what is churning. */
 const recent: string[] = new Array(64).fill('');
-const THRASH_LIMIT = 400;
+/** Over-budget frames in a row before the bake resolution steps down. */
+const THRASH_FRAMES = 90;
 /**
  * The frame being drawn. An entry touched this frame is part of the working
  * set and is never evicted: throwing it out would only have it baked again a
@@ -84,6 +87,13 @@ const THRASH_LIMIT = 400;
 let frame = 0;
 /** Call once at the top of each frame. */
 export function beginSpriteFrame(): void {
+  // the frame just drawn: did its working set alone exceed the budget?
+  overruns = pixels > PIXEL_BUDGET ? overruns + 1 : 0;
+  if (overruns > THRASH_FRAMES && spriteScale > 1) {
+    // the working set doesn't fit at this resolution: bake smaller and start over
+    overruns = 0;
+    setSpriteScale(Math.max(1, spriteScale - 0.5));
+  }
   frame++;
 }
 
@@ -155,21 +165,20 @@ export function sprite(
 /** Drop the least-recently-used sprites until the cache fits its budget. */
 function evict(): void {
   if (pixels <= PIXEL_BUDGET) return;
+  // once a pass has found only this frame's own sprites there is nothing to
+  // gain from sorting the cache again until the next frame
+  if (stuckFrame === frame) return;
   const order = [...cache.entries()].sort((a, b) => a[1].used - b[1].used);
+  let dropped = 0;
   for (const [key, entry] of order) {
     if (pixels <= PIXEL_BUDGET * 0.8) break;
     if (entry.frame === frame) continue; // on screen now: evicting it is a re-bake next frame
     cache.delete(key);
     pixels -= entry.pixels;
     evictions++;
+    dropped++;
   }
-  // still over after sparing this frame's sprites: the working set itself
-  // doesn't fit. Once that has gone on for a while, bake smaller and start over.
-  if (pixels > PIXEL_BUDGET) overruns++;
-  if (overruns > THRASH_LIMIT && spriteScale > 1) {
-    overruns = 0;
-    setSpriteScale(Math.max(1, spriteScale - 0.5));
-  }
+  if (dropped === 0) stuckFrame = frame;
 }
 
 /**
@@ -199,6 +208,8 @@ export function clearSprites(): void {
   cache.clear();
   pixels = 0;
   evictions = 0;
+  overruns = 0;
+  stuckFrame = -1;
 }
 
 export function spriteStats(): {
@@ -209,5 +220,8 @@ export function spriteStats(): {
   scale: number;
   recent: string[];
 } {
-  return { count: cache.size, pixels, bakes, evictions, scale: spriteScale, recent: recent.filter((k) => k !== '') };
+  // oldest first: the ring's write cursor is bakes % length
+  const cursor = bakes % recent.length;
+  const ordered = [...recent.slice(cursor + 1), ...recent.slice(0, cursor + 1)];
+  return { count: cache.size, pixels, bakes, evictions, scale: spriteScale, recent: ordered.filter((k) => k !== '') };
 }

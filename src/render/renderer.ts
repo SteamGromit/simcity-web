@@ -457,8 +457,12 @@ export class Renderer {
         const y = (i / GRID) | 0;
         if (!this.visible(x, y)) continue;
         const t = city.tiles[i];
+        const shoreSite = t.stage > 0 && this.isGrowable(t.zone)
+          ? siteOf(city, i, this.quarter, this.roadSide[i])
+          : NO_SITE;
         const s = standingSpriteFor(
           t.zone, t.stage, t.tier, this.variants[i], t.powered, t.abandoned, this.season,
+          shoreSite, t.grew, this.sigOf(city, i),
         );
         if (!s) continue;
         drawReflection(
