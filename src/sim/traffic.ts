@@ -15,6 +15,14 @@ function climbable(city: CityState, a: number, b: number): boolean {
 }
 
 const ACCESS_RADIUS = 2;
+/** Road cost of the drive from a border gate to the work beyond it: a
+ * residence beside a joined border reads this plus its road steps to the
+ * gate, so the next town's jobs are near but never free. */
+export const BORDER_TRIP = 12;
+/** A developed residence tile puts one car on the road and holds 30–70
+ * workers at the stages most of a city sits at, so the neighbour's workers
+ * who come in through a gate are counted in cars on the same scale. */
+export const WORKERS_PER_CAR = 50;
 /** Commute-walk step cap — scales with the map so long routes aren't cut. */
 const MAX_WALK = GRID;
 
@@ -119,7 +127,7 @@ class Heap {
 /** Congestion-aware Dijkstra over road tiles, seeded at roads adjacent to
  * any developed tile of `zones`. With empty roads every tile costs 1, so
  * values equal plain BFS distances. */
-function roadDistanceTo(city: CityState, zones: Zone[]): Float64Array {
+function roadDistanceTo(city: CityState, zones: Zone[], gateSeeds: number[] = []): Float64Array {
   const snow = city.weather.kind === 'snow' ? 0.5 : 0; // unplowed tiles drag
   const dist = new Float64Array(GRID * GRID).fill(Infinity);
   const heap = new Heap(dist);
@@ -138,6 +146,13 @@ function roadDistanceTo(city: CityState, zones: Zone[]): Float64Array {
       dist[i] = 0;
       heap.push(i);
     }
+  }
+  // A gate is where the border is crossed: what lies beyond it starts
+  // BORDER_TRIP away. A crash on the crossing closes it like any road tile.
+  for (const g of gateSeeds) {
+    if (!usable(city.tiles[g]) || dist[g] <= BORDER_TRIP) continue;
+    dist[g] = BORDER_TRIP;
+    heap.push(g);
   }
   const settled = new Uint8Array(GRID * GRID);
   while (heap.size > 0) {
@@ -167,8 +182,14 @@ function roadDistanceTo(city: CityState, zones: Zone[]): Float64Array {
  * home→job path of every developed residence.
  */
 export function updateTraffic(city: CityState): void {
-  const jobDist = roadDistanceTo(city, [Zone.Commercial, Zone.Industrial]);
-  const workerDist = roadDistanceTo(city, [Zone.Residential]);
+  const gates = city.neighbors.gates;
+  const jobGates = gates.filter((g) => g.jobs > 0).map((g) => g.tile);
+  const workerGates = gates.filter((g) => g.workers > 0).map((g) => g.tile);
+  const jobGateSet: ReadonlySet<number> = new Set(jobGates);
+  const jobDist = roadDistanceTo(city, [Zone.Commercial, Zone.Industrial], jobGates);
+  const workerDist = roadDistanceTo(city, [Zone.Residential], workerGates);
+  const localJobDist =
+    jobGates.length > 0 ? roadDistanceTo(city, [Zone.Commercial, Zone.Industrial]) : jobDist;
   const accessIdx = new Int32Array(city.tiles.length).fill(-1);
 
   for (let i = 0; i < city.tiles.length; i++) {
@@ -197,34 +218,63 @@ export function updateTraffic(city: CityState): void {
     const t = city.tiles[i];
     if (t.zone !== Zone.Residential || t.stage === 0 || t.abandoned) continue;
     if (!Number.isFinite(t.commute) || accessIdx[i] === -1) continue;
-    let cur = accessIdx[i];
-    const path: number[] = [];
-    for (let step = 0; step < MAX_WALK; step++) {
-      path.push(cur);
-      if (jobDist[cur] === 0) break;
-      const cx = cur % GRID;
-      const cy = (cur / GRID) | 0;
-      let next = -1;
-      let best = jobDist[cur];
-      for (const [nx, ny] of neighbors4(cx, cy)) {
-        const ni = idx(nx, ny);
-        if (usable(city.tiles[ni]) && jobDist[ni] < best && climbable(city, ni, cur)) {
-          best = jobDist[ni];
-          next = ni;
-        }
-      }
-      if (next === -1) break;
-      cur = next;
-    }
-    const arrival = city.tiles[path[path.length - 1]];
-    const rides = t.busCov > 0 && arrival.busCov > 0;
-    // the worse-served trip end bounds the ride; fare-free transit
-    // halves whatever mode carries it
-    let share = 1;
-    if (rides) {
-      share = Math.max(t.transitShare, arrival.transitShare);
-      share *= modifier(city, 'transit.share');
-    }
+    const path = descend(city, accessIdx[i], jobDist, jobGateSet);
+    const share = carShare(city, t, city.tiles[path[path.length - 1]]);
     for (const p of path) city.tiles[p].traffic += share;
   }
+
+  // The neighbour's workers come in through the gates and drive to local
+  // work: the same walk, from the gate, down the field that knows only this
+  // city's jobs (a gate must not be its own destination).
+  for (const g of gates) {
+    if (g.workers <= 0 || !usable(city.tiles[g.tile])) continue;
+    if (!Number.isFinite(localJobDist[g.tile])) continue;
+    const path = descend(city, g.tile, localJobDist, NO_STOPS);
+    const cars = Math.round(g.workers / WORKERS_PER_CAR);
+    const share = carShare(city, city.tiles[g.tile], city.tiles[path[path.length - 1]]);
+    for (const p of path) city.tiles[p].traffic += cars * share;
+  }
+}
+
+const NO_STOPS: ReadonlySet<number> = new Set();
+
+/** Walk from a road tile down `field` until it reads 0 or reaches a stop;
+ * the tiles visited, in order, starting with `from`. */
+function descend(
+  city: CityState,
+  from: number,
+  field: Float64Array,
+  stops: ReadonlySet<number>,
+): number[] {
+  let cur = from;
+  const path: number[] = [];
+  for (let step = 0; step < MAX_WALK; step++) {
+    path.push(cur);
+    if (field[cur] === 0 || stops.has(cur)) break;
+    const cx = cur % GRID;
+    const cy = (cur / GRID) | 0;
+    let next = -1;
+    let best = field[cur];
+    for (const [nx, ny] of neighbors4(cx, cy)) {
+      const ni = idx(nx, ny);
+      if (usable(city.tiles[ni]) && field[ni] < best && climbable(city, ni, cur)) {
+        best = field[ni];
+        next = ni;
+      }
+    }
+    if (next === -1) break;
+    cur = next;
+  }
+  return path;
+}
+
+/** Cars one trip puts on the road: 1, or the worse-served end's transit
+ * share when both ends have bus coverage (fare-free transit halves it). */
+function carShare(
+  city: CityState,
+  from: { busCov: number; transitShare: number },
+  to: { busCov: number; transitShare: number },
+): number {
+  if (!(from.busCov > 0 && to.busCov > 0)) return 1;
+  return Math.max(from.transitShare, to.transitShare) * modifier(city, 'transit.share');
 }

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
-import { Zone } from '../src/sim/types';
-import { roadAccess, updateTraffic } from '../src/sim/traffic';
+import { GRID, Zone } from '../src/sim/types';
+import { BORDER_TRIP, roadAccess, updateTraffic, WORKERS_PER_CAR } from '../src/sim/traffic';
 import { makeCity, road, zone } from './helpers';
 
 describe('roadAccess', () => {
@@ -102,5 +102,69 @@ describe('updateTraffic', () => {
     zone(city, 10, 7, Zone.Industrial, 0); // zoned but never built
     updateTraffic(city);
     expect(city.tiles[idx(5, 5)].commute).toBe(Infinity);
+  });
+});
+
+describe('border gates', () => {
+  const gate = idx(GRID - 1, 40);
+  /** A road from (80,40) to the east edge with a residence beside its far end. */
+  function edgeTown() {
+    const city = makeCity();
+    road(city, 80, 40, GRID - 1, 40);
+    zone(city, 80, 41, Zone.Residential, 2);
+    return city;
+  }
+
+  test('a residence whose only work is next door gets a finite commute through the gate', () => {
+    const city = edgeTown();
+    city.neighbors.gates = [{ tile: gate, jobs: 300, workers: 0 }];
+    updateTraffic(city);
+    // 15 road steps from (80,40) to (95,40), then the drive into the next town
+    expect(city.tiles[idx(80, 41)].commute).toBe(15 + BORDER_TRIP);
+    for (let x = 80; x < GRID; x++) expect(city.tiles[idx(x, 40)].traffic).toBe(1);
+  });
+
+  test('the same layout with no gate reads Infinity and loads nothing', () => {
+    const city = edgeTown();
+    updateTraffic(city);
+    expect(city.tiles[idx(80, 41)].commute).toBe(Infinity);
+    expect(city.tiles[idx(90, 40)].traffic).toBe(0);
+  });
+
+  test('a gate with no jobs is not a destination', () => {
+    const city = edgeTown();
+    zone(city, 80, 39, Zone.Commercial, 2); // local work at the near end
+    city.neighbors.gates = [{ tile: gate, jobs: 0, workers: 0 }];
+    updateTraffic(city);
+    expect(city.tiles[idx(80, 41)].commute).toBe(0);
+    expect(city.tiles[idx(90, 40)].traffic).toBe(0);
+  });
+
+  test('inbound workers load the road from the gate to local jobs', () => {
+    const city = edgeTown();
+    zone(city, 80, 39, Zone.Commercial, 2);
+    city.tiles[idx(80, 41)].zone = Zone.None; // no residence: only inbound trips
+    city.neighbors.gates = [{ tile: gate, jobs: 0, workers: 250 }];
+    updateTraffic(city);
+    expect(city.tiles[idx(90, 40)].traffic).toBe(Math.round(250 / WORKERS_PER_CAR));
+    expect(city.tiles[idx(80, 40)].traffic).toBe(Math.round(250 / WORKERS_PER_CAR));
+  });
+
+  test('a crash at the crossing closes the gate', () => {
+    const city = edgeTown();
+    city.neighbors.gates = [{ tile: gate, jobs: 300, workers: 250 }];
+    city.tiles[gate].accident = 3;
+    updateTraffic(city);
+    expect(city.tiles[idx(80, 41)].commute).toBe(Infinity);
+    expect(city.tiles[idx(90, 40)].traffic).toBe(0);
+  });
+
+  test('a corner gate at position 0 is safe', () => {
+    const city = makeCity();
+    road(city, 0, 0, 0, 10);
+    zone(city, 1, 5, Zone.Commercial, 2);
+    city.neighbors.gates = [{ tile: idx(0, 0), jobs: 0, workers: 100 }];
+    expect(() => updateTraffic(city)).not.toThrow();
+    expect(city.tiles[idx(0, 3)].traffic).toBe(2);
   });
 });
