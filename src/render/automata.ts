@@ -3,6 +3,9 @@ import { idx, inBounds, neighbors4 } from '../sim/grid';
 import { drivable } from '../sim/roads';
 import { CityState, GRID, Zone } from '../sim/types';
 import { ELEV_PX, TILE_H, TILE_W, isoToScreen, tileDepth } from './iso';
+import { BODIES, shade, type BodyStyle } from './vehiclemodel';
+
+export type { BodyStyle } from './vehiclemodel';
 
 const HW = TILE_W / 2;
 const HH = TILE_H / 2;
@@ -397,19 +400,6 @@ export class Automata {
   }
 }
 
-/** Mix a hex body colour toward black or white; |t| in 0..1. */
-function shade(hex: string, t: number): string {
-  const m = /^#([0-9a-f]{6})$/i.exec(hex);
-  if (!m) return hex;
-  const n = parseInt(m[1], 16);
-  const to = t < 0 ? 0 : 255;
-  const k = Math.min(1, Math.abs(t));
-  const mix = (c: number) => Math.round(c + (to - c) * k);
-  const r = mix((n >> 16) & 255);
-  const g = mix((n >> 8) & 255);
-  const b = mix(n & 255);
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
-}
 
 /**
  * Body styles within a kind. A street of identical sedans is as much a tell
@@ -418,38 +408,6 @@ function shade(hex: string, t: number): string {
  * articulated rig. Proportions follow real ones: a full-size pickup is about
  * 6m long to a hatchback's 4m, a semi with its trailer about 20m.
  */
-export type BodyStyle =
-  | 'hatch' | 'saloon' | 'estate' | 'suv' | 'coupe'
-  | 'pickup' | 'panelVan' | 'minivan'
-  | 'boxTruck' | 'flatbed' | 'semi'
-  | 'bus' | 'taxi';
-
-interface Body {
-  len: number;
-  wid: number;
-  /** Where the cabin starts and ends along the body, 0..1 from the back. */
-  cabin: [number, number];
-  /** A separate, taller box behind the cabin (a van or truck body). */
-  boxFrom?: number;
-  boxHeight?: number;
-}
-
-const BODIES: Record<BodyStyle, Body> = {
-  hatch: { len: 7.6, wid: 4.2, cabin: [0.28, 0.72] },
-  saloon: { len: 9.2, wid: 4.3, cabin: [0.3, 0.66] },
-  estate: { len: 9.8, wid: 4.3, cabin: [0.28, 0.78] },
-  suv: { len: 9.6, wid: 4.8, cabin: [0.26, 0.78] },
-  coupe: { len: 8.8, wid: 4.1, cabin: [0.34, 0.66] },
-  taxi: { len: 9.2, wid: 4.3, cabin: [0.3, 0.66] },
-  pickup: { len: 11.4, wid: 4.9, cabin: [0.5, 0.82] },
-  panelVan: { len: 11, wid: 4.9, cabin: [0.62, 0.92], boxFrom: 0.05, boxHeight: 1 },
-  minivan: { len: 10.4, wid: 4.8, cabin: [0.24, 0.84] },
-  boxTruck: { len: 14, wid: 5.2, cabin: [0.7, 0.98], boxFrom: 0.02, boxHeight: 1.3 },
-  flatbed: { len: 14, wid: 5.2, cabin: [0.7, 0.98] },
-  semi: { len: 21, wid: 5.4, cabin: [0.78, 1], boxFrom: 0.02, boxHeight: 1.4 },
-  bus: { len: 17, wid: 5.4, cabin: [0.04, 0.96] },
-};
-
 /** Which bodies each simulated kind can turn up as. */
 const STYLES: Record<VehicleKind, BodyStyle[]> = {
   car: ['hatch', 'saloon', 'estate', 'suv', 'coupe', 'hatch', 'saloon'],
