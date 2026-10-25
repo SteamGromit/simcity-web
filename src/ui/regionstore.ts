@@ -246,6 +246,7 @@ export function createRegionStore(storage: Storage) {
         t.savedAt = 0;
         t.sparePower = 0;
         t.spareGarbage = 0;
+        t.spareWater = 0;
         t.edges = { n: [], e: [], s: [], w: [] };
       }
       // contracts with a city that no longer exists cannot survive it

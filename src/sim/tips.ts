@@ -152,7 +152,8 @@ export function adviseTips(city: CityState): Tip[] {
   if (hasPlant && unpoweredZones > 0) add('unpowered-zones');
   if (roadlessZones > 0) add('no-road-access');
   if (uncoveredBuildings > 0) add('no-fire-coverage');
-  if (dryBuildings > 0) add('no-water');
+  // at capacity the shortage is the pumps, not the pipes: one tip, not two
+  if (dryBuildings > 0 && city.dryouts === 0) add('no-water');
   if (unhealthyTowers > 0) add('no-health');
   // the two failures need different fixes, so never blur them into one tip
   if (heapsWithoutPickup > 0) add('no-garbage-pickup');

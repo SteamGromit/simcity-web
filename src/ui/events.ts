@@ -11,6 +11,7 @@ export interface EventSnapshot {
   pandemic: boolean;
   burning: number;
   brownouts: number;
+  dryouts: number;
   noticeCount: number;
 }
 
@@ -27,6 +28,7 @@ export function freshSnapshot(city: CityState): EventSnapshot {
     pandemic: city.disasters.pandemicMonths > 0,
     burning: burningCount(city),
     brownouts: city.brownouts,
+    dryouts: city.dryouts,
     noticeCount: city.notices.length,
   };
 }
@@ -47,6 +49,8 @@ export function detectEvents(
   if (next.pandemic && !prev.pandemic) events.push('pandemic');
   if (next.burning > prev.burning) events.push('fire-start');
   if (next.brownouts > 0 && prev.brownouts === 0) events.push('brownout');
+  // the pumps hitting capacity sounds like the grid doing the same
+  if (next.dryouts > 0 && prev.dryouts === 0) events.push('brownout');
   if (next.noticeCount > prev.noticeCount) {
     const fresh = city.notices.slice(prev.noticeCount);
     if (fresh.some((n) => LOSS_RE.test(n))) events.push('building-lost');

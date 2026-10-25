@@ -6,16 +6,7 @@ bump package.json version, and touch README/spec per CLAUDE.md.
 
 ## Backlog (in order)
 
-1. **Region follow-ups** — terrain now lines up across a border and the
-   region map draws the land (v0.67.0). Two things the layer implies are
-   still not there. *Commuters stop at the map edge*: a border crossing feeds
-   demand, not the road network, so nobody actually drives to the job next
-   door. *Water is not tradable*: `updateWater` is an unbounded flood fill
-   from any working pump, so one pump waters a whole city and there is
-   nothing to sell — water deals need a water capacity model first. Also: a
-   city can only be entered from the region screen.
-
-2. **Modding: the parts the editor doesn't cover yet** — freehand/pixel
+1. **Modding: the parts the editor doesn't cover yet** — freehand/pixel
    drawing of buildings (today's look is composed from a mass, roof and
    props, not drawn), authoring multi-tile buildings (the *engine* now
    supports any footprint up to 6×6 — the building editor just can't set
@@ -25,7 +16,7 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    hardcoded), and sharing beyond copy-paste JSON (URL-encoded or
    hosted). Low priority — the editor is usable without them.
 
-3. **Rewards follow-ups** — the catalogue is in but a few things it
+2. **Rewards follow-ups** — the catalogue is in but a few things it
    suggests are not: rewards ignore road access entirely (a stadium in
    the wilderness works as well as one downtown), the sport ladder has no
    sense of events or crowds over time, nothing yet consumes the
@@ -33,7 +24,7 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    razed and rebuilt at full price. Also: rewards are never destroyed by
    fire, collapse or disaster, which is generous.
 
-4. **Road ladder follow-ups** — carriageways, lane discipline and the
+3. **Road ladder follow-ups** — carriageways, lane discipline and the
    frontage rule landed in v0.60.0; what is missing now is the *interchange*.
    There are no on/off ramps and no grade separation, so a street meets a
    motorway at grade and the painter simply leaves the mouth open. A motorway
@@ -43,7 +34,7 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    reads as a junction where it bends (`corridorAt` finds no longer axis
    there), so a motorway curve is a plain sheet of asphalt.
 
-5. **Touch follow-ups** — the map is playable by finger now, but not
+4. **Touch follow-ups** — the map is playable by finger now, but not
    everything is: rotating the view (Q/E) has no gesture, so a two-finger
    twist is the obvious gap; the transit wizard still finishes on a
    double-click, which touch reports unreliably; Query needs the tool armed
@@ -52,13 +43,13 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    Worth a pass on hit-target sizes in the drawer too — the tool rows are
    sized for a cursor, not a thumb.
 
-6. **Events** - add other events like floods, meteor showers, blizzards.
+5. **Events** - add other events like floods, meteor showers, blizzards.
 
-7. **Streets** - Some real cities make extensive use of bikes for commuting.
+6. **Streets** - Some real cities make extensive use of bikes for commuting.
    Devise a way to incorporate biking as a major means of transportation. 
    Also, allow mayor to designate that some roads/areas be free of motor vehicles
 
-8. **Graphics follow-ups** — the pipeline is in but a few things it makes
+7. **Graphics follow-ups** — the pipeline is in but a few things it makes
    possible are not: shadows fall on the ground only and never onto another
    building's wall; the realism spec's roof list still lacks satellite
    dishes, solar arrays, gutters, industrial pipe runs and spandrel panels
@@ -80,19 +71,25 @@ bump package.json version, and touch README/spec per CLAUDE.md.
    individual painters: overlays and data views, the transit line bands and
    line vehicles, disaster effects, and the halo/cursor layer.
 
-9. **City styles** — one distinct look per style, beyond the palette shifts
+8. **City styles** — one distinct look per style, beyond the palette shifts
    the three skins do today: Simpsons Springfield, present-day Hong Kong,
    and so on. The material system is the hook — a style should be able to
    choose wall materials, roof kits, road markings, vegetation and sky, not
    just remap hue and saturation.
 
-10. **Vehicles: realistic movement and 3D orientation** — cars that steer
+9. **Vehicles: realistic movement and 3D orientation** — cars that steer
     through turns with real headings (sprite orientation per direction of
     travel, not axis-aligned), lane-change easing, plausible acceleration.
     (User-requested 2026-08-10.)
 
 ## Done
 
+- **Region follow-ups** — closed with v0.69.0 (water capacity and water
+  contracts; Visit a neighbour from the Neighbours panel). Gate, connection
+  and lent-jobs freshness remains on-enter/on-save, see v0.68.0 notes.
+- **Border commuting** — shipped v0.68.0 (gates at matching border road
+  positions seed the commute fields at a fixed drive beyond the edge;
+  residents commute through them and the neighbour's workers drive in).
 - **Region terrain** — shipped v0.67.0 (terrain is a sampled field with
   rivers, tributaries, a guaranteed basin and peak per tile, and land that
   continues across a border; the region map draws the land; regions come in

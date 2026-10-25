@@ -205,9 +205,11 @@ describe('cities within a region', () => {
     openDeal(r, 'power', regionIndex(r, 0, 0), regionIndex(r, 1, 0), 100);
     store.saveCity(r, 0, 0, makeCity());
 
+    a.spareWater = 120;
     store.removeCity(r, 0, 0);
     expect(a.founded).toBe(false);
     expect(a.edges.e).toEqual([]);
+    expect([a.sparePower, a.spareGarbage, a.spareWater]).toEqual([0, 0, 0]);
     expect(r.deals).toEqual([]);
     expect(store.loadCity(r.slug, 0, 0)).toBeNull();
   });

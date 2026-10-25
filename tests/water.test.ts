@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { idx } from '../src/sim/grid';
-import { Terrain, Zone } from '../src/sim/types';
+import { GRID, Terrain, Zone } from '../src/sim/types';
 import { updatePower } from '../src/sim/power';
 import { updateWater, WATER_PER_PUMP, waterSupply } from '../src/sim/water';
 import { developTile } from '../src/sim/develop';
@@ -168,6 +168,17 @@ describe('water has a capacity', () => {
     expect(city.dryouts).toBe(30);
     expect(city.tiles[idx(20, 21)].watered).toBe(true); // nearest first
     expect(city.tiles[last(WATER_PER_PUMP + 30)].watered).toBe(false);
+    // in a solid block, hop distance is Manhattan distance from the pump:
+    // no dry tile may be nearer than a wet one
+    const dist = (i: number) => Math.abs((i % GRID) - 20) + Math.abs(Math.floor(i / GRID) - 20);
+    let farWet = 0;
+    let nearDry = Infinity;
+    city.tiles.forEach((t, i) => {
+      if (t.zone !== Zone.Residential) return;
+      if (t.watered) farWet = Math.max(farWet, dist(i));
+      else nearDry = Math.min(nearDry, dist(i));
+    });
+    expect(farWet).toBeLessThanOrEqual(nearDry);
   });
 
   test('a second pump doubles the pool', () => {

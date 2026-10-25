@@ -64,6 +64,18 @@ describe('detectEvents', () => {
     expect(r.events).not.toContain('brownout');
   });
 
+  it('the pumps hitting capacity sounds the same cue, once', () => {
+    const city = makeCity();
+    let snap = freshSnapshot(city);
+    city.dryouts = 5;
+    let r = detectEvents(snap, city);
+    expect(r.events).toContain('brownout');
+    snap = r.next;
+    city.dryouts = 9;
+    r = detectEvents(snap, city);
+    expect(r.events).not.toContain('brownout');
+  });
+
   it('hurricane and pandemic map to their cues', () => {
     const city = makeCity();
     const snap = freshSnapshot(city);
