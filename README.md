@@ -89,6 +89,18 @@ decides what happens next:
   thickest on shopping streets at lunch and in the suburbs at dusk, and
   thin at night. Up to four wait at a bus or streetcar stop and board when
   the vehicle dwells. Umbrellas come out in the rain.
+- **Buildings that belong to their street** — a lot knows which side its
+  street is on and who its neighbours are. Rows of houses and shops of a
+  kind join as terraces under one roof with party walls and matching
+  heights; shopfronts, signs, awnings and front doors face the road at
+  every camera quarter; houses get a path and a stoop, works a roller door;
+  corner shops are cut at the corner. Half the tall lots stand as a tower
+  on a podium with a plan of its own. A lot that has just grown is a
+  building site for a few months: a timber frame and scaffold, or a
+  concrete frame with hoarding, a skip and a crane. And each city has at
+  most one of each landmark, picked from its seed: a church, a mansion, a
+  corner pub, a clock tower, a department store, a gasholder, grain silos
+  and a mill chimney.
 - **Transit that stops** — buses, streetcars, monorails and three-car
   trains are drawn in their line's colour, face along the route, and dwell
   at each stop.
