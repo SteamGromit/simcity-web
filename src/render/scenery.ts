@@ -57,9 +57,22 @@ const SEASON_CANOPY: Record<Season, CanopyPalette> = {
 const CONIFER_SHIFT = { h: -14, s: 6, l: -8 };
 const TRUNK = hsl(24, 26, 30);
 
-function canopyFor(kind: TreeKind, season: Season, tone: number): CanopyPalette {
-  const base = SEASON_CANOPY[season];
+/** Evergreens do not turn: a conifer wears summer's green through autumn
+ * and a duller, darker version of it through winter. */
+const WINTER_CONIFER: CanopyPalette = (() => {
+  const dull = (c: Hsl): Hsl => ({ h: c.h, s: c.s - 14, l: c.l - 4 });
+  const s = SEASON_CANOPY.summer;
+  return { light: dull(s.light), mid: dull(s.mid), dark: dull(s.dark) };
+})();
+
+export function canopyFor(kind: TreeKind, season: Season, tone: number): CanopyPalette {
   const conifer = CONIFERS.has(kind);
+  const base =
+    conifer && season === 'autumn'
+      ? SEASON_CANOPY.summer
+      : conifer && season === 'winter'
+        ? WINTER_CONIFER
+        : SEASON_CANOPY[season];
   // a maple goes red in autumn; a birch is a paler, yellower green
   const hueShift = kind === 'maple' && season === 'autumn' ? -22 : kind === 'birch' ? 8 : 0;
   const lightShift = kind === 'birch' ? 5 : 0;

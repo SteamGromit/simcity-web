@@ -856,7 +856,7 @@ export class Renderer {
             'broadleaf',
             14,
             i % 6,
-            'summer',
+            this.season,
             this.storm ? this.wind : 0,
           );
         }
@@ -925,7 +925,7 @@ export class Renderer {
     }
     const wind = this.storm ? this.wind * (0.7 + this.variants[i] * 0.6) : 0;
     const desert = city.biome === 'desert';
-    if (!desert) drawUndergrowth(this.ctx, geom.cx, geom.cy + 4, i, seasonOf(city.month));
+    if (!desert) drawUndergrowth(this.ctx, geom.cx, geom.cy + 4, i, this.season);
     const n = 4 + (hash2(x, y, 3) > 0.55 ? 1 : 0);
     for (let k = 0; k < n; k++) {
       const u = hash2(x * 7 + k, y * 3, 11) * 1.7 - 0.85;
@@ -940,7 +940,7 @@ export class Renderer {
         kindPick,
         14 + hash2(x, y + k, 41) * 12,
         (i + k) % 6,
-        seasonOf(city.month),
+        this.season,
         wind,
       );
     }

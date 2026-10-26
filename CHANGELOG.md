@@ -4,6 +4,22 @@ All notable changes to SimCity Web. Format follows
 [Keep a Changelog](https://keepachangelog.com); versions are sequential
 feature drops rather than semver promises.
 
+## [0.72.1] — 2026-10-26 · The seasons switch reaches the woods
+
+### Fixed
+
+- **Config → Seasonal colors now governs every tree.** The forest, its
+  undergrowth and the trees on road medians took the calendar season
+  straight from the clock (the medians a fixed summer), so the switch moved
+  only the grass and the trees on lots: in October a wood stayed orange with
+  the box off, and a median tree stayed green with it on. The renderer now
+  derives one toggled season a frame and every tree painter takes it; a test
+  holds the renderer to a single reading of the calendar.
+- **Conifers are evergreen.** Pines, spruces and cypresses took the autumn
+  palette with the rest and turned rust; they now keep summer's green
+  through autumn and wear a duller, darker green in winter, so a mixed wood
+  in October reads as orange crowns against dark spires.
+
 ## [0.72.0] — 2026-10-25 · Buildings that belong to their street
 
 Graphics drop 3 of the life-and-particularity spec. A lot used to be baked

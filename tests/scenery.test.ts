@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-import { drawHedge, drawTree, drawUndergrowth, speciesOf, treeSprite } from '../src/render/scenery';
+import { canopyFor, drawHedge, drawTree, drawUndergrowth, speciesOf, treeSprite } from '../src/render/scenery';
 import { clearSprites, setCanvasFactory, spriteStats } from '../src/render/spritecache';
 import { strictCtx, stubCanvasFactory } from './stubctx';
 
@@ -42,5 +42,17 @@ describe('trees', () => {
     drawUndergrowth(ctx, 0, 0, 1, 'summer');
     drawUndergrowth(ctx, 0, 0, 2, 'summer');
     expect(spriteStats().bakes - before).toBe(2);
+  });
+});
+
+describe('evergreens', () => {
+  test('a pine keeps its green through autumn and winter while an oak turns', () => {
+    const hue = (k: 'pine' | 'oak', s: 'summer' | 'autumn' | 'winter') => canopyFor(k, s, 0.5).mid.h;
+    expect(hue('oak', 'autumn')).toBeLessThan(45);
+    expect(hue('pine', 'autumn')).toBeGreaterThan(85);
+    expect(hue('pine', 'winter')).toBeGreaterThan(85);
+    expect(Math.abs(hue('pine', 'autumn') - hue('pine', 'summer'))).toBeLessThan(1);
+    // winter pines are the dull green of a cold wood, not autumn's or summer's
+    expect(canopyFor('pine', 'winter', 0.5).mid.s).toBeLessThan(canopyFor('pine', 'summer', 0.5).mid.s);
   });
 });
